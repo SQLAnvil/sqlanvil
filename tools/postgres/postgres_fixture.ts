@@ -5,22 +5,15 @@ import { sleepUntil } from "sa/common/promises";
 import { IHookHandler } from "sa/testing";
 
 const USE_CLOUD_BUILD_NETWORK = !!process.env.USE_CLOUD_BUILD_NETWORK;
-const DOCKER_CONTAINER_NAME = "postgres-df-integration-testing";
+const DOCKER_CONTAINER_NAME = "postgres-sa-integration-testing";
+const POSTGRES_IMAGE = "postgres:15-alpine";
 const POSTGRES_SERVE_PORT = 5432;
 
 export class PostgresFixture {
   public static readonly host = USE_CLOUD_BUILD_NETWORK ? DOCKER_CONTAINER_NAME : "localhost";
 
-  private static imageLoaded = false;
-
   constructor(port: number, setUp: IHookHandler, tearDown: IHookHandler) {
     setUp("starting postgres", async () => {
-      if (!PostgresFixture.imageLoaded) {
-        // Load the postgres image into the local Docker daemon.
-        execSync("tools/postgres/postgres_image.executable");
-        PostgresFixture.imageLoaded = true;
-      }
-      // Run the postgres Docker image.
       execSync(
         [
           "docker run",
@@ -30,7 +23,7 @@ export class PostgresFixture {
           "-d",
           `-p ${port}:${POSTGRES_SERVE_PORT}`,
           USE_CLOUD_BUILD_NETWORK ? "--network cloudbuild" : "",
-          "bazel/tools/postgres:postgres_image"
+          POSTGRES_IMAGE
         ].join(" ")
       );
 
