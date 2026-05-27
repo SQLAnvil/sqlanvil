@@ -11,7 +11,7 @@
 # downloads Bazel 5.4 + all toolchains/rules from cold. Subsequent runs
 # reuse the named volumes for the Bazel cache.
 
-set -euo pipefail
+set -eo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IMAGE="sqlanvil-dev"
