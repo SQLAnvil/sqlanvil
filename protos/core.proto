@@ -1,16 +1,16 @@
 syntax = "proto3";
 
-package dataform;
+package sqlanvil;
 
 import "configs.proto";
 import "extension.proto";
 import "google/protobuf/struct.proto";
 
-option java_package = "com.dataform.protos";
+option java_package = "com.sqlanvil.protos";
 option java_outer_classname = "CoreMeta";
 option java_multiple_files = true;
 
-option go_package = "github.com/dataform-co/dataform/protos/dataform";
+option go_package = "github.com/ihistand/sqlanvil/protos/sqlanvil";
 
 message ProjectConfig {
   string warehouse = 1;
@@ -411,7 +411,7 @@ message CompiledGraph {
 
   GraphErrors graph_errors = 7;
 
-  string dataform_core_version = 10;
+  string sqlanvil_core_version = 10;
 
   repeated Target targets = 11;
 

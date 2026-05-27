@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package dataform;
+package sqlanvil;
 
 import "core.proto";
 

@@ -1,12 +1,12 @@
 syntax = "proto3";
 
-package dataform;
+package sqlanvil;
 
-option java_package = "com.dataform.protos";
+option java_package = "com.sqlanvil.protos";
 option java_outer_classname = "ExtensionMeta";
 option java_multiple_files = true;
 
-option go_package = "github.com/dataform-co/dataform/protos/dataform";
+option go_package = "github.com/ihistand/sqlanvil/protos/sqlanvil";
 
 // Execution mode of compilation extension.
 enum ExtensionCompilationMode {

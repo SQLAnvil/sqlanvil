@@ -1,12 +1,12 @@
 syntax = "proto3";
 
-package dataform;
+package sqlanvil;
 
-option java_package = "com.dataform.protos";
+option java_package = "com.sqlanvil.protos";
 option java_outer_classname = "ConfigsMeta";
 option java_multiple_files = true;
 
-option go_package = "github.com/dataform-co/dataform/protos/dataform";
+option go_package = "github.com/ihistand/sqlanvil/protos/sqlanvil";
 
 import "google/protobuf/struct.proto";
 import "extension.proto";
@@ -14,8 +14,8 @@ import "extension.proto";
 // Workflow Settings defines the contents of the `workflow_settings.yaml`
 // configuration file.
 message WorkflowSettings {
-  // The desired dataform core version to compile against.
-  string dataform_core_version = 1;
+  // The desired sqlanvil core version to compile against.
+  string sqlanvil_core_version = 1;
 
   // Required. The default Google Cloud project (database).
   string default_project = 2;

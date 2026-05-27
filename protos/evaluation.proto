@@ -1,8 +1,8 @@
 syntax="proto3";
 
-package dataform;
+package sqlanvil;
 
-option go_package = "github.com/dataform-co/dataform/protos/dataform";
+option go_package = "github.com/ihistand/sqlanvil/protos/sqlanvil";
 
 message QueryEvaluationError {
   string message = 1;

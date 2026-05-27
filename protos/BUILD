@@ -4,7 +4,7 @@ load("//tools:ts_proto_library.bzl", "ts_proto_library")
 package(default_visibility = ["//visibility:public"])
 
 proto_library(
-    name = "dataform_proto",
+    name = "sqlanvil_proto",
     srcs = [
         "configs.proto",
         "core.proto",
@@ -24,6 +24,6 @@ proto_library(
 ts_proto_library(
     name = "ts",
     deps = [
-        ":dataform_proto",
+        ":sqlanvil_proto",
     ],
 )
