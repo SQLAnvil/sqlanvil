@@ -1,12 +1,10 @@
 import * as pg from "pg";
 
-import { Credentials } from "sa/api/commands/credentials";
-import { IDbAdapter, IDbClient } from "sa/api/dbadapters/index";
-import { SSHTunnelProxy } from "sa/api/ssh_tunnel_proxy";
-import { parseRedshiftEvalError } from "sa/api/utils/error_parsing";
-import { convertFieldType, PgPoolExecutor } from "sa/api/utils/postgres";
+import { Credentials } from "sa/cli/api/commands/credentials";
+import { IDbAdapter, IDbClient } from "sa/cli/api/dbadapters/index";
+import { collectEvaluationQueries, QueryOrAction } from "sa/cli/api/dbadapters/execution_sql";
+import { convertFieldType, PgPoolExecutor } from "sa/cli/api/utils/postgres";
 import { ErrorWithCause } from "sa/common/errors/errors";
-import { collectEvaluationQueries, QueryOrAction } from "sa/core/adapters";
 import { sqlanvil } from "sa/protos/ts";
 
 interface IPostgresAdapterOptions {

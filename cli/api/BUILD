@@ -11,6 +11,11 @@ ts_library(
         exclude = [
             "utils/**/*.*",
             "**/*_test.ts",
+            # Postgres adapter — relocated from api/ in Phase 2.
+            # Excluded until Phase 3 (interface alignment + proto IJDBC →
+            # PostgresConnection rewrite) makes it compile against the
+            # current IDbAdapter contract.
+            "dbadapters/postgres.ts",
         ],
     ),
     deps = [

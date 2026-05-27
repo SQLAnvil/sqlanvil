@@ -1,7 +1,7 @@
 import * as pg from "pg";
 import QueryStream from "pg-query-stream";
 
-import { LimitedResultSet } from "sa/api/utils/results";
+import { LimitedResultSet } from "sa/cli/api/utils/results";
 import { sqlanvil } from "sa/protos/ts";
 
 const maybeInitializePg = (() => {
