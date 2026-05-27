@@ -1,7 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load("//tools:ts_library.bzl", "ts_library")
-load("@df//testing:index.bzl", "ts_test_suite")
+load("@sa//testing:index.bzl", "ts_test_suite")
 
 ts_library(
     name = "protos",
@@ -30,7 +30,7 @@ ts_test_suite(
     deps = [
         ":protos",
         "//protos:ts",
-        "@df//testing",
+        "@sa//testing",
         "@npm//@types/chai",
         "@npm//@types/node",
         "@npm//chai",

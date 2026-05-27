@@ -1,5 +1,5 @@
-load("@df//tools:ts_library.bzl", "ts_library")
-load("@df//testing:index.bzl", "ts_test_suite")
+load("@sa//tools:ts_library.bzl", "ts_library")
+load("@sa//testing:index.bzl", "ts_test_suite")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -27,7 +27,7 @@ ts_test_suite(
     ],
     deps = [
         ":promises",
-        "@df//testing",
+        "@sa//testing",
         "@npm//@types/chai",
         "@npm//@types/node",
         "@npm//chai",

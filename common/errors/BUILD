@@ -1,4 +1,4 @@
-load("@df//testing:index.bzl", "ts_test_suite")
+load("@sa//testing:index.bzl", "ts_test_suite")
 load("//tools:ts_library.bzl", "ts_library")
 
 package(default_visibility = ["//visibility:public"])
@@ -26,7 +26,7 @@ ts_test_suite(
     ],
     deps = [
         ":errors",
-        "@df//testing",
+        "@sa//testing",
         "@npm//@types/chai",
         "@npm//@types/node",
         "@npm//chai",
