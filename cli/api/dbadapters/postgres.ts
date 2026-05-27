@@ -1,105 +1,110 @@
 import * as pg from "pg";
 
-import { Credentials } from "sa/cli/api/commands/credentials";
-import { IDbAdapter, IDbClient } from "sa/cli/api/dbadapters/index";
 import { collectEvaluationQueries, QueryOrAction } from "sa/cli/api/dbadapters/execution_sql";
+import {
+  IDbAdapter,
+  IDbClient,
+  IExecutionResult,
+  IExecutionResultRaw,
+  OnCancel
+} from "sa/cli/api/dbadapters/index";
+import { parsePostgresEvalError } from "sa/cli/api/utils/error_parsing";
 import { convertFieldType, PgPoolExecutor } from "sa/cli/api/utils/postgres";
 import { ErrorWithCause } from "sa/common/errors/errors";
 import { sqlanvil } from "sa/protos/ts";
 
-interface IPostgresAdapterOptions {
-  sshTunnel?: SSHTunnelProxy;
-}
+const INTERNAL_SCHEMAS = new Set(["information_schema", "pg_catalog", "pg_internal", "pg_toast"]);
 
 export class PostgresDbAdapter implements IDbAdapter {
   public static async create(
-    credentials: Credentials,
+    credentials: sqlanvil.IPostgresConnection,
     options?: { concurrencyLimit?: number; disableSslForTestsOnly?: boolean }
-  ) {
-    const jdbcCredentials = credentials as sqlanvil.IJDBC;
-    const baseClientConfig: Partial<pg.ClientConfig> = {
-      user: jdbcCredentials.username,
-      password: jdbcCredentials.password,
-      database: jdbcCredentials.databaseName,
-      ssl: options?.disableSslForTestsOnly
-        ? false
-        : {
-            rejectUnauthorized: false,
-            ca: jdbcCredentials.ssl?.serverCertificate,
-            cert: jdbcCredentials.ssl?.clientCertificate,
-            key: jdbcCredentials.ssl?.clientPrivateKey
+  ): Promise<PostgresDbAdapter> {
+    const sslMode = (credentials.sslMode || "").toLowerCase();
+    const sslEnabled = !options?.disableSslForTestsOnly && sslMode !== "disable";
+    const clientConfig: pg.ClientConfig = {
+      host: credentials.host,
+      port: credentials.port,
+      database: credentials.database,
+      user: credentials.user,
+      password: credentials.password,
+      ssl: sslEnabled
+        ? {
+            // Supabase and most managed Postgres providers serve certs signed
+            // by their own CA. Skipping verification is the documented path
+            // for `sslmode=require`. Stricter `verify-ca` / `verify-full`
+            // requires a CA bundle that we don't ship today.
+            rejectUnauthorized: sslMode === "verify-ca" || sslMode === "verify-full"
           }
+        : false
     };
-    if (jdbcCredentials.sshTunnel) {
-      const sshTunnel = await SSHTunnelProxy.create(jdbcCredentials.sshTunnel, {
-        host: jdbcCredentials.host,
-        port: jdbcCredentials.port
-      });
-      const queryExecutor = new PgPoolExecutor(
-        {
-          ...baseClientConfig,
-          host: "127.0.0.1",
-          port: sshTunnel.localPort
-        },
-        options
-      );
-      return new PostgresDbAdapter(queryExecutor, { sshTunnel });
-    } else {
-      const clientConfig: pg.ClientConfig = {
-        ...baseClientConfig,
-        host: jdbcCredentials.host,
-        port: jdbcCredentials.port
-      };
-      const queryExecutor = new PgPoolExecutor(clientConfig, options);
-      return new PostgresDbAdapter(queryExecutor, {});
-    }
+    const queryExecutor = new PgPoolExecutor(clientConfig, options);
+    return new PostgresDbAdapter(queryExecutor);
   }
 
-  private constructor(
-    private readonly queryExecutor: PgPoolExecutor,
-    private readonly options: IPostgresAdapterOptions
-  ) {}
+  private constructor(private readonly queryExecutor: PgPoolExecutor) {}
 
   public async execute(
     statement: string,
     options: {
       params?: any[];
-      onCancel?: (handleCancel: () => void) => void;
+      onCancel?: OnCancel;
       rowLimit?: number;
       byteLimit?: number;
       includeQueryInError?: boolean;
     } = { rowLimit: 1000, byteLimit: 1024 * 1024 }
-  ) {
-    return await this.withClientLock(executor => executor.execute(statement, options));
+  ): Promise<IExecutionResult> {
+    return await this.withClientLock(client => client.execute(statement, options));
   }
 
-  public async withClientLock<T>(callback: (client: IDbClient) => Promise<T>) {
+  public async executeRaw(
+    statement: string,
+    options: {
+      params?: any[];
+      rowLimit?: number;
+    } = { rowLimit: 1000 }
+  ): Promise<IExecutionResultRaw> {
+    const result = await this.execute(statement, options);
+    return { ...result, schema: [] };
+  }
+
+  public async withClientLock<T>(callback: (client: IDbClient) => Promise<T>): Promise<T> {
     return await this.queryExecutor.withClientLock(client =>
       callback({
         execute: async (
-          statement: string,
-          options: {
+          stmt: string,
+          opts: {
             params?: any[];
+            onCancel?: OnCancel;
             rowLimit?: number;
             byteLimit?: number;
             includeQueryInError?: boolean;
           } = { rowLimit: 1000, byteLimit: 1024 * 1024 }
-        ) => {
+        ): Promise<IExecutionResult> => {
           try {
-            const rows = await client.execute(statement, options);
+            const rows = await client.execute(stmt, opts);
             return { rows, metadata: {} };
           } catch (e) {
-            if (options.includeQueryInError) {
-              throw new Error(`Error encountered while running "${statement}": ${e.message}`);
+            if (opts.includeQueryInError) {
+              throw new Error(`Error encountered while running "${stmt}": ${e.message}`);
             }
             throw new ErrorWithCause(`Error executing postgres query: ${e.message}`, e);
           }
+        },
+        executeRaw: async (
+          stmt: string,
+          opts: { params?: { [name: string]: any }; rowLimit?: number } = { rowLimit: 1000 }
+        ): Promise<IExecutionResultRaw> => {
+          // Convert named param object to positional array — pg uses $1, $2 etc.
+          const positional = opts.params ? Object.values(opts.params) : undefined;
+          const rows = await client.execute(stmt, { params: positional, rowLimit: opts.rowLimit });
+          return { rows, schema: [], metadata: {} };
         }
       })
     );
   }
 
-  public async evaluate(queryOrAction: QueryOrAction) {
+  public async evaluate(queryOrAction: QueryOrAction): Promise<sqlanvil.IQueryEvaluation[]> {
     const validationQueries = collectEvaluationQueries(queryOrAction, false, (query: string) =>
       !!query ? `explain ${query}` : ""
     ).map((validationQuery, index) => ({ index, validationQuery }));
@@ -115,7 +120,7 @@ export class PostgresDbAdapter implements IDbAdapter {
       } catch (e) {
         evaluationResponse = {
           status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE,
-          error: parseRedshiftEvalError(validationQuery.query, e)
+          error: parsePostgresEvalError(validationQuery.query, e)
         };
       }
       queryEvaluations.push(
@@ -129,33 +134,45 @@ export class PostgresDbAdapter implements IDbAdapter {
     return queryEvaluations;
   }
 
-  public async tables(): Promise<sqlanvil.ITarget[]> {
+  public async tables(
+    _database: string,
+    schema?: string
+  ): Promise<sqlanvil.ITableMetadata[]> {
+    const params: any[] = [];
+    let schemaClause = "";
+    if (schema) {
+      schemaClause = "and table_schema = $1";
+      params.push(schema);
+    }
     const queryResult = await this.execute(
       `select table_name, table_schema
-     from information_schema.tables
-     where table_schema != 'information_schema'
-       and table_schema != 'pg_catalog'
-       and table_schema != 'pg_internal'`,
-      { rowLimit: 10000, includeQueryInError: true }
+       from information_schema.tables
+       where table_schema not in ('information_schema', 'pg_catalog', 'pg_internal', 'pg_toast')
+       ${schemaClause}`,
+      { params, rowLimit: 10000, includeQueryInError: true }
     );
-    const { rows } = queryResult;
-    return rows.map(row => ({
-      schema: row.table_schema,
-      name: row.table_name
+    const targets = queryResult.rows.map(row => ({
+      schema: row.table_schema as string,
+      name: row.table_name as string
     }));
+    // Hydrate full metadata for each target — IDbAdapter.tables returns
+    // ITableMetadata[], not ITarget[].
+    return await Promise.all(targets.map(target => this.table(target)));
   }
 
   public async search(
     searchText: string,
     options: { limit: number } = { limit: 1000 }
   ): Promise<sqlanvil.ITableMetadata[]> {
-    // TODO: It would be nice to extend this to search through table/column descriptions. However, this involves
-    // a somewhat crazy 5-way join.
     const results = await this.execute(
       `select tables.table_schema as table_schema, tables.table_name as table_name
        from information_schema.tables as tables
-       left join information_schema.columns columns on tables.table_schema = columns.table_schema and tables.table_name = columns.table_name
-       where tables.table_schema ilike $1 or tables.table_name ilike $1 or columns.column_name ilike $1
+       left join information_schema.columns columns
+         on tables.table_schema = columns.table_schema
+         and tables.table_name = columns.table_name
+       where tables.table_schema ilike $1
+          or tables.table_name ilike $1
+          or columns.column_name ilike $1
        group by 1, 2`,
       {
         params: [`%${searchText}%`],
@@ -186,13 +203,13 @@ export class PostgresDbAdapter implements IDbAdapter {
         { params, includeQueryInError: true }
       ),
       this.execute(
-        `
-      select objsubid as column_number, description from pg_description
-      where objoid = (
-        select oid from pg_class where relname = $2 and relnamespace = (
-          select oid from pg_namespace where nspname = $1
-        )
-      )`,
+        `select objsubid as column_number, description
+         from pg_description
+         where objoid = (
+           select oid from pg_class where relname = $2 and relnamespace = (
+             select oid from pg_namespace where nspname = $1
+           )
+         )`,
         { params, includeQueryInError: true }
       )
     ]);
@@ -220,38 +237,42 @@ export class PostgresDbAdapter implements IDbAdapter {
     });
   }
 
-  public async preview(target: sqlanvil.ITarget, limitRows: number = 10): Promise<any[]> {
-    const { rows } = await this.execute(
-      `SELECT * FROM "${target.schema}"."${target.name}" LIMIT ${limitRows}`
+  public async deleteTable(target: sqlanvil.ITarget): Promise<void> {
+    const metadata = await this.table(target);
+    if (!metadata) {
+      return;
+    }
+    const kind = metadata.type === sqlanvil.TableMetadata.Type.VIEW ? "view" : "table";
+    await this.execute(
+      `drop ${kind} if exists "${target.schema}"."${target.name}" cascade`,
+      { includeQueryInError: true }
     );
-    return rows;
   }
 
-  public async schemas(): Promise<string[]> {
-    const schemas = await this.execute(`select nspname from pg_namespace`, {
+  public async schemas(_database: string): Promise<string[]> {
+    const result = await this.execute(`select nspname from pg_namespace`, {
       includeQueryInError: true
     });
-    return schemas.rows.map(row => row.nspname);
+    return result.rows
+      .map(row => row.nspname as string)
+      .filter(name => !INTERNAL_SCHEMAS.has(name) && !name.startsWith("pg_"));
   }
 
-  public async createSchema(_: string, schema: string): Promise<void> {
-    await this.execute(`create schema if not exists "${schema}"`, { includeQueryInError: true });
-  }
-
-  public async close() {
-    await this.queryExecutor.close();
-    if (this.options.sshTunnel) {
-      await this.options.sshTunnel.close();
-    }
+  public async createSchema(_database: string, schema: string): Promise<void> {
+    await this.execute(`create schema if not exists "${schema}"`, {
+      includeQueryInError: true
+    });
   }
 
   public async setMetadata(action: sqlanvil.IExecutionAction): Promise<void> {
     const { target, actionDescriptor, tableType } = action;
-
     const actualMetadata = await this.table(target);
+    if (!actualMetadata) {
+      return;
+    }
 
-    const queries: Array<Promise<any>> = [];
-    if (actionDescriptor.description) {
+    const queries: Array<Promise<unknown>> = [];
+    if (actionDescriptor?.description) {
       queries.push(
         this.execute(
           `comment on ${tableType === "view" ? "view" : "table"} "${target.schema}"."${
@@ -260,7 +281,7 @@ export class PostgresDbAdapter implements IDbAdapter {
         )
       );
     }
-    if (actionDescriptor.columns?.length > 0) {
+    if (actionDescriptor?.columns?.length > 0) {
       actionDescriptor.columns
         .filter(
           column =>
@@ -277,7 +298,10 @@ export class PostgresDbAdapter implements IDbAdapter {
           );
         });
     }
-
     await Promise.all(queries);
+  }
+
+  public async close(): Promise<void> {
+    await this.queryExecutor.close();
   }
 }

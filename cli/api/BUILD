@@ -11,11 +11,6 @@ ts_library(
         exclude = [
             "utils/**/*.*",
             "**/*_test.ts",
-            # Postgres adapter — relocated from api/ in Phase 2.
-            # Excluded until Phase 3 (interface alignment + proto IJDBC →
-            # PostgresConnection rewrite) makes it compile against the
-            # current IDbAdapter contract.
-            "dbadapters/postgres.ts",
         ],
     ),
     deps = [
@@ -38,6 +33,7 @@ ts_library(
         "@npm//@types/js-yaml",
         "@npm//@types/long",
         "@npm//@types/node",
+        "@npm//@types/pg",
         "@npm//@types/semver",
         "@npm//@types/tmp",
         "@npm//deepmerge",
@@ -46,6 +42,7 @@ ts_library(
         "@npm//google-sql-syntax-ts",
         "@npm//js-beautify",
         "@npm//js-yaml",
+        "@npm//pg",
         "@npm//promise-pool-executor",
         "@npm//protobufjs",
         "@npm//semver",

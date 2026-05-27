@@ -4,6 +4,20 @@ interface IBigqueryEvaluationError {
   message?: string;
 }
 
+interface IPostgresEvaluationError {
+  message?: string;
+}
+
+// Postgres-specific error parser. `pg` raises errors with `.message` plus
+// optional `.position` (byte offset into the query). We don't try to map
+// byte offset back to (line, column) — not all callers can supply the
+// original query — so we just preserve the message.
+export function parsePostgresEvalError(_query: string, error: IPostgresEvaluationError) {
+  return sqlanvil.QueryEvaluationError.create({
+    message: error?.message ? String(error.message) : String(error)
+  });
+}
+
 export function parseBigqueryEvalError(error: IBigqueryEvaluationError) {
   // expected error format:
   // e.message = Syntax error: Unexpected identifier "asda" at [2:1]
