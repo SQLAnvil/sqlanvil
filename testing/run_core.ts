@@ -7,14 +7,6 @@ import { decode64, encode64 } from "sa/common/protos";
 import { compile } from "sa/core/compilers";
 import { sqlanvil } from "sa/protos/ts";
 
-export const VALID_DATAFORM_JSON = `
-{
-  "defaultDatabase": "defaultProject",
-  "defaultSchema": "defaultDataset",
-  "defaultLocation": "US"
-}
-`;
-
 export const VALID_WORKFLOW_SETTINGS_YAML = `
 defaultProject: defaultProject
 defaultDataset: defaultDataset
@@ -110,7 +102,6 @@ export function runMainInVm(
   const encodedCoreExecutionResponse = nodeVm.run(
     `
       global.workflowSettingsYaml = (function() { try { return require("./workflow_settings.yaml"); } catch(e) { console.error("YAML require failed run_core:", e); } })();
-      global.dataformJson = (function() { try { return require("./dataform.json"); } catch(e) {} })();
       return require("@sqlanvil/core").main("${encodedCoreExecutionRequest}")
     `,
     vmIndexFileName

@@ -6,8 +6,6 @@ ts_test_suite(
     data = [
         "//tests/api/projects/common_v2:files",
         "//tests/api/projects/common_v2:node_modules",
-        "//tests/api/projects/invalid_dataform_json:files",
-        "//tests/api/projects/invalid_dataform_json:node_modules",
         "//tests/api/projects/never_finishes_compiling:files",
         "//tests/api/projects/never_finishes_compiling:node_modules",
     ],

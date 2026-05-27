@@ -44,13 +44,11 @@ suite("compile command", ({ afterEach }) => {
 }`
     );
     fs.writeFileSync(
-      path.join(projectDir, "dataform.json"),
-      `{
-  "defaultDatabase": "tada-analytics",
-  "defaultSchema": "df_integration_test",
-  "assertionSchema": "df_integration_test_assertions",
-  "defaultLocation": "${DEFAULT_LOCATION}"
-}
+      path.join(projectDir, "workflow_settings.yaml"),
+      `defaultProject: tada-analytics
+defaultDataset: df_integration_test
+defaultAssertionDataset: df_integration_test_assertions
+defaultLocation: "${DEFAULT_LOCATION}"
 `
     );
 

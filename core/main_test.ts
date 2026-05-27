@@ -11,7 +11,6 @@ import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
-  VALID_DATAFORM_JSON,
   VALID_WORKFLOW_SETTINGS_YAML,
   WorkflowSettingsTemplates
 } from "sa/testing/run_core";
@@ -542,41 +541,11 @@ quotes
       );
     });
 
-    // dataform.json for workflow settings is deprecated, but still currently supported.
-    test(`a valid dataform.json is present`, () => {
-      const projectDir = tmpDirFixture.createNewTmpDir();
-      fs.writeFileSync(path.join(projectDir, "dataform.json"), VALID_DATAFORM_JSON);
-
-      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
-
-      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-      expect(asPlainObject(result.compile.compiledGraph.projectConfig)).deep.equals(
-        asPlainObject({
-          defaultDatabase: "defaultProject",
-          defaultLocation: "US",
-          defaultSchema: "defaultDataset"
-        })
-      );
-    });
-
     test(`fails when no workflow settings file is present`, () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
         "Failed to resolve workflow_settings.yaml"
-      );
-    });
-
-    test(`fails when both workflow settings and dataform.json files are present`, () => {
-      const projectDir = tmpDirFixture.createNewTmpDir();
-      fs.writeFileSync(path.join(projectDir, "dataform.json"), VALID_DATAFORM_JSON);
-      fs.writeFileSync(
-        path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
-      );
-
-      expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        "dataform.json has been deprecated and cannot be defined alongside workflow_settings.yaml"
       );
     });
 
@@ -603,15 +572,6 @@ someKey: and an extra: colon
       );
     });
 
-    test(`fails when dataform.json is an invalid json file`, () => {
-      const projectDir = tmpDirFixture.createNewTmpDir();
-      fs.writeFileSync(path.join(projectDir, "dataform.json"), '{keyWithNoQuotes: "validValue"}');
-
-      expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        "Expected property name or '}' in JSON at position 1 (line 1 column 2)"
-      );
-    });
-
     test(`fails when a valid workflow_settings.yaml contains unknown fields`, () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
@@ -630,18 +590,6 @@ someKey: and an extra: colon
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
         "Expected a top-level object, but found an array"
-      );
-    });
-
-    test(`fails when a valid dataform.json contains unknown fields`, () => {
-      const projectDir = tmpDirFixture.createNewTmpDir();
-      fs.writeFileSync(
-        path.join(projectDir, "dataform.json"),
-        `{"notAProjectConfigField": "value"}`
-      );
-
-      expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        `Dataform json error: Unexpected property "notAProjectConfigField", or property value type of "string" is incorrect.`
       );
     });
 
@@ -793,18 +741,6 @@ defaultLocation: US`
 vars:
   intValue: 1
   strValue: "str"`
-        );
-
-        expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-          "Custom variables defined in workflow settings can only be strings."
-        );
-      });
-
-      test(`variables in dataform.json must be strings`, () => {
-        const projectDir = tmpDirFixture.createNewTmpDir();
-        fs.writeFileSync(
-          path.join(projectDir, "dataform.json"),
-          `{"vars": { "intVar": 1, "strVar": "str" } }`
         );
 
         expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(

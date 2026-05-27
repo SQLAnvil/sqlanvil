@@ -12,14 +12,6 @@ const nativeRequire = typeof __webpack_require__ === "function" ? __non_webpack_
 export function readWorkflowSettings(failIfMissing: boolean = true): sqlanvil.ProjectConfig {
   const globalAny = global as any;
   const workflowSettingsYaml = globalAny.workflowSettingsYaml || maybeRequire("workflow_settings.yaml");
-  // `dataform.json` is deprecated; new versions of Dataform Core prefer `workflow_settings.yaml`.
-  const dataformJson = globalAny.dataformJson || maybeRequire("dataform.json");
-
-  if (workflowSettingsYaml && dataformJson) {
-    throw Error(
-      "dataform.json has been deprecated and cannot be defined alongside workflow_settings.yaml"
-    );
-  }
 
   if (workflowSettingsYaml) {
     const workflowSettingsAsJson = workflowSettingsYaml.asJson;
@@ -27,20 +19,6 @@ export function readWorkflowSettings(failIfMissing: boolean = true): sqlanvil.Pr
       throw Error("workflow_settings.yaml is invalid");
     }
     return workflowSettingsAsProjectConfig(verifyWorkflowSettingsAsJson(workflowSettingsAsJson));
-  }
-
-  if (dataformJson) {
-    // Dataform JSON used the compiled graph's config proto, rather than workflow settings.
-    try {
-      return sqlanvil.ProjectConfig.create(
-        verifyObjectMatchesProto(sqlanvil.ProjectConfig, dataformJson)
-      );
-    } catch (e) {
-      if (e instanceof ReferenceError) {
-        throw ReferenceError(`Dataform json error: ${e.message}`);
-      }
-      throw e;
-    }
   }
 
   if (failIfMissing) {

@@ -1,0 +1,5 @@
+warehouse: bigquery
+defaultProject: tada-analytics
+defaultDataset: df_integration_test
+defaultAssertionDataset: df_integration_test_assertions
+defaultLocation: US

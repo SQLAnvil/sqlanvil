@@ -80,7 +80,6 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
   return userCodeVm.run(
     `
       global.workflowSettingsYaml = (function() { try { return require("./workflow_settings.yaml"); } catch(e) { console.error("YAML require failed:", e); } })();
-      global.dataformJson = (function() { try { return require("./dataform.json"); } catch(e) {} })();
       return require("@sqlanvil/core").main("${createCoreExecutionRequest(compileConfig)}")
     `,
     vmIndexFileName

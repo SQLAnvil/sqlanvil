@@ -701,17 +701,6 @@ suite("examples", () => {
     }
   });
 
-  test("invalid dataform json throws error", async () => {
-    try {
-      await compile({
-        projectDir: path.resolve("tests/api/projects/invalid_dataform_json")
-      });
-      fail("Should have failed.");
-    } catch (e) {
-      // OK
-    }
-  });
-
   test("version is correctly set", async () => {
     const graph = await compile({
       projectDir: "tests/api/projects/common_v2",

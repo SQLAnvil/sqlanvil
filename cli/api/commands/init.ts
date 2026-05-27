@@ -23,16 +23,10 @@ export async function init(
   const workflowSettingsYamlPath = path.join(projectDir, "workflow_settings.yaml");
   const packageJsonPath = path.join(projectDir, "package.json");
   const gitignorePath = path.join(projectDir, ".gitignore");
-  // dataform.json is Deprecated.
-  const dataformJsonPath = path.join(projectDir, "dataform.json");
 
-  if (
-    fs.existsSync(workflowSettingsYamlPath) ||
-    fs.existsSync(packageJsonPath) ||
-    fs.existsSync(dataformJsonPath)
-  ) {
+  if (fs.existsSync(workflowSettingsYamlPath) || fs.existsSync(packageJsonPath)) {
     throw new Error(
-      "Cannot init dataform project, this already appears to be an NPM or Dataform directory."
+      "Cannot init sqlanvil project, this already appears to be an NPM or sqlanvil directory."
     );
   }
 
@@ -49,7 +43,7 @@ export async function init(
     sqlanvilCoreVersion: version,
     defaultProject: projectConfig.defaultDatabase,
     defaultLocation: projectConfig.defaultLocation,
-    defaultDataset: projectConfig.defaultSchema || "dataform",
+    defaultDataset: projectConfig.defaultSchema || "sqlanvil",
     defaultAssertionDataset: projectConfig.assertionSchema || "sqlanvil_assertions",
     defaultIcebergConfig: projectConfig.defaultIcebergConfig,
   };
