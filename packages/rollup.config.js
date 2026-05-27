@@ -23,7 +23,7 @@ const knownNodeBuiltins = [
   "net"
 ].map(moduleName => convertToRegex(moduleName));
 
-const importsToBundle = ["df", /df\/.*$/, /^bazel\-.*$/];
+const importsToBundle = ["sa", /sa\/.*$/, /^bazel\-.*$/];
 
 const checkImports = imports => {
   const allowedImports = [...imports].map(pattern => convertToRegex(pattern));

@@ -18,7 +18,7 @@ module.exports = (env, argv) => {
     resolve: {
       extensions: [".ts", ".js", ".json"],
       alias: {
-        df: path.resolve(process.env.RUNFILES, "df")
+        sa: path.resolve(process.env.RUNFILES, "sa")
       }
     },
     plugins: [

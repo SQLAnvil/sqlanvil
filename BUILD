@@ -64,5 +64,5 @@ load("//tools:ts_library.bzl", "ts_library")
 ts_library(
     name = "modules-fix",
     srcs = [],
-    module_name = "df",
+    module_name = "sa",
 )
