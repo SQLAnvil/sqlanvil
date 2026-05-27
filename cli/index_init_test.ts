@@ -4,7 +4,7 @@ import * as fs from "fs-extra";
 import { load as loadYaml } from "js-yaml";
 import * as path from "path";
 
-import { cliEntryPointPath } from "df/cli/index_test_base";
+import { cliEntryPointPath } from "sa/cli/index_test_base";
 import {
   ICEBERG_BUCKET_NAME_HINT,
   ICEBERG_BUCKET_NAME_PROMPT_QUESTION,
@@ -17,11 +17,11 @@ import {
   ICEBERG_TABLE_FOLDER_ROOT_PROMPT_QUESTION,
   ICEBERG_TABLE_FOLDER_ROOT_SUBPATH_HINT,
   ICEBERG_TABLE_FOLDER_SUBPATH_PROMPT_QUESTION
-} from "df/cli/util";
-import { version } from "df/core/version";
-import { dataform } from "df/protos/ts";
-import { getProcessResult, nodePath, suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+} from "sa/cli/util";
+import { version } from "sa/core/version";
+import { sqlanvil } from "sa/protos/ts";
+import { getProcessResult, nodePath, suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 
 suite("init command", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);
@@ -34,16 +34,16 @@ suite("init command", ({ afterEach }) => {
         cliEntryPointPath,
         "init",
         projectDir,
-        "--default-database=dataform-database",
+        "--default-database=sqlanvil-database",
         "--default-location=us-central1"
       ])
     );
 
     expect(fs.readFileSync(path.join(projectDir, "workflow_settings.yaml"), "utf8")).to
-      .equal(`dataformCoreVersion: ${version}
-defaultProject: dataform-database
+      .equal(`sqlanvilCoreVersion: ${version}
+defaultProject: sqlanvil-database
 defaultLocation: us-central1
-defaultDataset: dataform
+defaultDataset: sqlanvil
 defaultAssertionDataset: dataform_assertions
 `);
   });
@@ -63,7 +63,7 @@ defaultAssertionDataset: dataform_assertions
           cliEntryPointPath,
           "init",
           projectDir,
-          "dataform-iceberg-test",
+          "sqlanvil-iceberg-test",
           "us-central1",
           "--iceberg"
         ], {
@@ -79,7 +79,7 @@ defaultAssertionDataset: dataform_assertions
       const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
       assert.isTrue(fs.existsSync(workflowSettingsPath));
 
-      const workflowSettings = dataform.WorkflowSettings.create(
+      const workflowSettings = sqlanvil.WorkflowSettings.create(
         loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
       );
 
@@ -105,7 +105,7 @@ defaultAssertionDataset: dataform_assertions
           cliEntryPointPath,
           "init",
           projectDir,
-          "dataform-iceberg-partial",
+          "sqlanvil-iceberg-partial",
           "us-east1",
           "--iceberg"
         ], {
@@ -126,7 +126,7 @@ defaultAssertionDataset: dataform_assertions
       const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
       assert.isTrue(fs.existsSync(workflowSettingsPath));
 
-      const workflowSettings = dataform.WorkflowSettings.create(
+      const workflowSettings = sqlanvil.WorkflowSettings.create(
         loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
       );
 
@@ -151,7 +151,7 @@ defaultAssertionDataset: dataform_assertions
           cliEntryPointPath,
           "init",
           projectDir,
-          "dataform-iceberg-partial",
+          "sqlanvil-iceberg-partial",
           "us-east1",
           "--iceberg"
         ], {
@@ -172,7 +172,7 @@ defaultAssertionDataset: dataform_assertions
       const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
       assert.isTrue(fs.existsSync(workflowSettingsPath));
 
-      const workflowSettings = dataform.WorkflowSettings.create(
+      const workflowSettings = sqlanvil.WorkflowSettings.create(
         loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
       );
 
@@ -197,7 +197,7 @@ defaultAssertionDataset: dataform_assertions
           cliEntryPointPath,
           "init",
           projectDir,
-          "dataform-iceberg-partial",
+          "sqlanvil-iceberg-partial",
           "us-east1",
           "--iceberg"
         ], {
@@ -218,7 +218,7 @@ defaultAssertionDataset: dataform_assertions
       const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
       assert.isTrue(fs.existsSync(workflowSettingsPath));
 
-      const workflowSettings = dataform.WorkflowSettings.create(
+      const workflowSettings = sqlanvil.WorkflowSettings.create(
         loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
       );
 
@@ -243,7 +243,7 @@ defaultAssertionDataset: dataform_assertions
           cliEntryPointPath,
           "init",
           projectDir,
-          "dataform-iceberg-partial",
+          "sqlanvil-iceberg-partial",
           "us-east1",
           "--iceberg"
         ], {
@@ -264,7 +264,7 @@ defaultAssertionDataset: dataform_assertions
       const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
       assert.isTrue(fs.existsSync(workflowSettingsPath));
 
-      const workflowSettings = dataform.WorkflowSettings.create(
+      const workflowSettings = sqlanvil.WorkflowSettings.create(
         loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
       );
 

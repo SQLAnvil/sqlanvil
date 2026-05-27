@@ -1,5 +1,5 @@
-import * as utils from "df/core/utils";
-import { dataform } from "df/protos/ts";
+import * as utils from "sa/core/utils";
+import { sqlanvil } from "sa/protos/ts";
 
 /**
  * @deprecated
@@ -70,10 +70,10 @@ export const IRecordDescriptorProperties = () =>
  */
 export class ColumnDescriptors {
   public static mapConfigProtoToCompilationProto(
-    columns: dataform.ActionConfig.ColumnDescriptor[]
-  ): dataform.IColumnDescriptor[] {
+    columns: sqlanvil.ActionConfig.ColumnDescriptor[]
+  ): sqlanvil.IColumnDescriptor[] {
     return columns.map(column => {
-      return dataform.ColumnDescriptor.create({
+      return sqlanvil.ColumnDescriptor.create({
         path: column.path,
         description: column.description,
         tags: column.tags,
@@ -84,7 +84,7 @@ export class ColumnDescriptors {
 
   public static mapLegacyObjectToConfigProto(
     columns: IColumnsDescriptor
-  ): dataform.ActionConfig.ColumnDescriptor[] {
+  ): sqlanvil.ActionConfig.ColumnDescriptor[] {
     return Object.keys(columns)
       .map(column => ColumnDescriptors.mapColumnDescriptionToProto([column], columns[column]))
       .flat();
@@ -93,18 +93,18 @@ export class ColumnDescriptors {
   public static mapColumnDescriptionToProto(
     currentPath: string[],
     description: string | IRecordDescriptor
-  ): dataform.ActionConfig.ColumnDescriptor[] {
+  ): sqlanvil.ActionConfig.ColumnDescriptor[] {
     if (typeof description === "string") {
       return [
-        dataform.ColumnDescriptor.create({
+        sqlanvil.ColumnDescriptor.create({
           description,
           path: currentPath
         })
       ];
     }
-    const columnDescriptor: dataform.ActionConfig.ColumnDescriptor[] = !!description
+    const columnDescriptor: sqlanvil.ActionConfig.ColumnDescriptor[] = !!description
       ? [
-          dataform.ActionConfig.ColumnDescriptor.create({
+          sqlanvil.ActionConfig.ColumnDescriptor.create({
             path: currentPath,
             description: description.description,
             tags: typeof description.tags === "string" ? [description.tags] : description.tags,
@@ -136,7 +136,7 @@ export class LegacyColumnDescriptors {
   public static mapToColumnProtoArray(
     columns: IColumnsDescriptor,
     reportError: (e: Error) => void
-  ): dataform.IColumnDescriptor[] {
+  ): sqlanvil.IColumnDescriptor[] {
     return Object.keys(columns)
       .map(column =>
         LegacyColumnDescriptors.mapColumnDescriptionToProto([column], columns[column], reportError)
@@ -148,10 +148,10 @@ export class LegacyColumnDescriptors {
     currentPath: string[],
     description: string | IRecordDescriptor,
     reportError: (e: Error) => void
-  ): dataform.IColumnDescriptor[] {
+  ): sqlanvil.IColumnDescriptor[] {
     if (typeof description === "string") {
       return [
-        dataform.ColumnDescriptor.create({
+        sqlanvil.ColumnDescriptor.create({
           description,
           path: currentPath
         })
@@ -163,9 +163,9 @@ export class LegacyColumnDescriptors {
       IRecordDescriptorProperties(),
       `${currentPath.join(".")} column descriptor`
     );
-    const columnDescriptor: dataform.IColumnDescriptor[] = !!description
+    const columnDescriptor: sqlanvil.IColumnDescriptor[] = !!description
       ? [
-          dataform.ColumnDescriptor.create({
+          sqlanvil.ColumnDescriptor.create({
             path: currentPath,
             description: description.description,
             displayName: description.displayName,

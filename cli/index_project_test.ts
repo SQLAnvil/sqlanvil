@@ -4,17 +4,17 @@ import * as fs from "fs-extra";
 import { dump as dumpYaml, load as loadYaml } from "js-yaml";
 import * as path from "path";
 
-import { cliEntryPointPath, DEFAULT_DATABASE, DEFAULT_LOCATION } from "df/cli/index_test_base";
-import { version } from "df/core/version";
-import { dataform } from "df/protos/ts";
-import { corePackageTarPath, getProcessResult, nodePath, npmPath, suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+import { cliEntryPointPath, DEFAULT_DATABASE, DEFAULT_LOCATION } from "sa/cli/index_test_base";
+import { version } from "sa/core/version";
+import { sqlanvil } from "sa/protos/ts";
+import { corePackageTarPath, getProcessResult, nodePath, npmPath, suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 
 suite("project ops", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);
 
   suite("install command", () => {
-    test("install throws an error when dataformCoreVersion in workflow_settings.yaml", async () => {
+    test("install throws an error when sqlanvilCoreVersion in workflow_settings.yaml", async () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
 
       await getProcessResult(
@@ -22,7 +22,7 @@ suite("project ops", ({ afterEach }) => {
           cliEntryPointPath,
           "init",
           projectDir,
-          "--default-database=dataform-database",
+          "--default-database=sqlanvil-database",
           "--default-location=us-central1"
         ])
       );
@@ -50,10 +50,10 @@ suite("project ops", ({ afterEach }) => {
       );
 
       // Install packages manually to get around bazel read-only sandbox issues.
-      const workflowSettings = dataform.WorkflowSettings.create(
+      const workflowSettings = sqlanvil.WorkflowSettings.create(
         loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
       );
-      delete workflowSettings.dataformCoreVersion;
+      delete workflowSettings.sqlanvilCoreVersion;
       fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
       fs.writeFileSync(
         packageJsonPath,

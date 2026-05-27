@@ -1,24 +1,24 @@
-import { targetStringifier } from "df/core/targets";
-import { dataform } from "df/protos/ts";
+import { targetStringifier } from "sa/core/targets";
+import { sqlanvil } from "sa/protos/ts";
 
 type CoreProtoActionTypes =
-  | dataform.ITable
-  | dataform.IOperation
-  | dataform.IAssertion
-  | dataform.IDeclaration
-  | dataform.IDataPreparation;
+  | sqlanvil.ITable
+  | sqlanvil.IOperation
+  | sqlanvil.IAssertion
+  | sqlanvil.IDeclaration
+  | sqlanvil.IDataPreparation;
 
-function combineAllActions(graph: dataform.ICompiledGraph) {
+function combineAllActions(graph: sqlanvil.ICompiledGraph) {
   return ([] as CoreProtoActionTypes[]).concat(
-    graph.tables || ([] as dataform.ITable[]),
-    graph.operations || ([] as dataform.IOperation[]),
-    graph.assertions || ([] as dataform.IAssertion[]),
-    graph.declarations || ([] as dataform.IDeclaration[]),
-    graph.dataPreparations || ([] as dataform.IDataPreparation[])
+    graph.tables || ([] as sqlanvil.ITable[]),
+    graph.operations || ([] as sqlanvil.IOperation[]),
+    graph.assertions || ([] as sqlanvil.IAssertion[]),
+    graph.declarations || ([] as sqlanvil.IDeclaration[]),
+    graph.dataPreparations || ([] as sqlanvil.IDataPreparation[])
   );
 }
 
-export function actionsByTarget(compiledGraph: dataform.ICompiledGraph) {
+export function actionsByTarget(compiledGraph: sqlanvil.ICompiledGraph) {
   const actionsMap = new Map<string, CoreProtoActionTypes>();
   combineAllActions(compiledGraph)
     // Required for backwards compatibility with old versions of @sqlanvil/core.
@@ -28,7 +28,7 @@ export function actionsByTarget(compiledGraph: dataform.ICompiledGraph) {
     });
 }
 
-export function actionsByCanonicalTarget(compiledGraph: dataform.ICompiledGraph) {
+export function actionsByCanonicalTarget(compiledGraph: sqlanvil.ICompiledGraph) {
   const actionsMap = new Map<string, CoreProtoActionTypes>();
   combineAllActions(compiledGraph)
     // Required for backwards compatibility with old versions of @sqlanvil/core.

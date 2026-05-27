@@ -1,10 +1,10 @@
-import { compile as compiler } from "df/core/compilers";
-import { IDataformExtension } from "df/core/extension";
-import { IJitCompiler, jitCompiler } from "df/core/jit_compiler";
-import { main } from "df/core/main";
-import { Session } from "df/core/session";
-import { version } from "df/core/version";
-import { dataform } from "df/protos/ts";
+import { compile as compiler } from "sa/core/compilers";
+import { IDataformExtension } from "sa/core/extension";
+import { IJitCompiler, jitCompiler } from "sa/core/jit_compiler";
+import { main } from "sa/core/main";
+import { Session } from "sa/core/session";
+import { version } from "sa/core/version";
+import { sqlanvil } from "sa/protos/ts";
 
 // Create static session object.
 // This hack just enforces the singleton session object to
@@ -17,7 +17,7 @@ function globalSession() {
 }
 const session = globalSession();
 
-const supportedFeatures = [dataform.SupportedFeatures.ARRAY_BUFFER_IPC];
+const supportedFeatures = [sqlanvil.SupportedFeatures.ARRAY_BUFFER_IPC];
 
 // Older versions of the CLI are not compatible with Core version ^3.0.0, and throw when this method
 // is not available. Instead this more interpretable error message is thrown.

@@ -1,8 +1,8 @@
 import { expect } from "chai";
 import { basename } from "path";
 
-import { JSONObjectStringifier } from "df/common/strings/stringifier";
-import { suite, test } from "df/testing";
+import { JSONObjectStringifier } from "sa/common/strings/stringifier";
+import { suite, test } from "sa/testing";
 
 interface IKey {
   a: string;

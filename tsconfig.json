@@ -2,7 +2,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "df/*": [
+      "sa/*": [
         "*",
         "bazel-bin/*",
         "bazel-genfiles/*"

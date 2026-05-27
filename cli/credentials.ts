@@ -1,10 +1,10 @@
 import * as fs from "fs";
 
-import { question, selectionQuestion } from "df/cli/console";
-import { actuallyResolve } from "df/cli/util";
-import { dataform } from "df/protos/ts";
+import { question, selectionQuestion } from "sa/cli/console";
+import { actuallyResolve } from "sa/cli/util";
+import { sqlanvil } from "sa/protos/ts";
 
-export function getBigQueryCredentials(): dataform.IBigQuery {
+export function getBigQueryCredentials(): sqlanvil.IBigQuery {
   const locationIndex = selectionQuestion("Enter the location of your datasets:", [
     "US (default)",
     "EU",
@@ -27,7 +27,7 @@ export function getBigQueryCredentials(): dataform.IBigQuery {
   }
   const cloudCredentialsPath = actuallyResolve(
     question(
-      "Please follow the instructions at https://docs.dataform.co/dataform-cli#create-a-credentials-file/\n" +
+      "Please follow the instructions at https://docs.sqlanvil.co/dataform-cli#create-a-credentials-file/\n" +
         "to create and download a private key from the Google Cloud Console in JSON format.\n" +
         "(You can delete this file after credential initialization is complete.)\n\n" +
         "Enter the path to your Google Cloud private key file:"

@@ -2,7 +2,7 @@ import { ChildProcess, spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 
-import { IHookHandler } from "df/testing";
+import { IHookHandler } from "sa/testing";
 
 export class ChildProcessForBazelTestEnvironment {
   private childProcess: ChildProcess;

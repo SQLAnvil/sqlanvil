@@ -3,9 +3,9 @@ import * as fs from "fs-extra";
 import * as path from "path";
 import { CompilerFunction, NodeVM } from "vm2";
 
-import { decode64, encode64 } from "df/common/protos";
-import { compile } from "df/core/compilers";
-import { dataform } from "df/protos/ts";
+import { decode64, encode64 } from "sa/common/protos";
+import { compile } from "sa/core/compilers";
+import { sqlanvil } from "sa/protos/ts";
 
 export const VALID_DATAFORM_JSON = `
 {
@@ -22,27 +22,27 @@ defaultLocation: US
 `;
 
 export class WorkflowSettingsTemplates {
-  public static bigquery = dataform.WorkflowSettings.create({
+  public static bigquery = sqlanvil.WorkflowSettings.create({
     defaultDataset: "defaultDataset",
     defaultLocation: "US"
   });
 
-  public static bigqueryWithDefaultProject = dataform.WorkflowSettings.create({
+  public static bigqueryWithDefaultProject = sqlanvil.WorkflowSettings.create({
     ...WorkflowSettingsTemplates.bigquery,
     defaultProject: "defaultProject"
   });
 
-  public static bigqueryWithDatasetSuffix = dataform.WorkflowSettings.create({
+  public static bigqueryWithDatasetSuffix = sqlanvil.WorkflowSettings.create({
     ...WorkflowSettingsTemplates.bigquery,
     datasetSuffix: "suffix"
   });
 
-  public static bigqueryWithDefaultProjectAndDataset = dataform.WorkflowSettings.create({
+  public static bigqueryWithDefaultProjectAndDataset = sqlanvil.WorkflowSettings.create({
     ...WorkflowSettingsTemplates.bigqueryWithDefaultProject,
     projectSuffix: "suffix"
   });
 
-  public static bigqueryWithNamePrefix = dataform.WorkflowSettings.create({
+  public static bigqueryWithNamePrefix = sqlanvil.WorkflowSettings.create({
     ...WorkflowSettingsTemplates.bigquery,
     namePrefix: "prefix"
   });
@@ -52,10 +52,10 @@ const SOURCE_EXTENSIONS = ["js", "sql", "sqlx", "yaml", "ipynb"];
 
 export function coreExecutionRequestFromPath(
   projectDir: string,
-  projectConfigOverride?: dataform.ProjectConfig
-): dataform.CoreExecutionRequest {
+  projectConfigOverride?: sqlanvil.ProjectConfig
+): sqlanvil.CoreExecutionRequest {
   const resolvedProjectDir = fs.realpathSync(path.resolve(projectDir));
-  return dataform.CoreExecutionRequest.create({
+  return sqlanvil.CoreExecutionRequest.create({
     compile: {
       compileConfig: {
         projectDir: resolvedProjectDir,
@@ -68,8 +68,8 @@ export function coreExecutionRequestFromPath(
 
 // A VM is needed when running main because Node functions like `require` are overridden.
 export function runMainInVm(
-  coreExecutionRequest: dataform.CoreExecutionRequest
-): dataform.CoreExecutionResponse {
+  coreExecutionRequest: sqlanvil.CoreExecutionRequest
+): sqlanvil.CoreExecutionResponse {
   const projectDir = coreExecutionRequest.compile.compileConfig.projectDir;
 
   // Copy over the build Dataform Core that is set up as a node_modules directory.
@@ -94,18 +94,18 @@ export function runMainInVm(
     compiler: (code, filePath) => {
       const compiledCode = compiler(code, filePath);
       return `
-        var __old_file = global.__dataform_current_file;
-        global.__dataform_current_file = ${JSON.stringify(filePath)};
+        var __old_file = global.__sqlanvil_current_file;
+        global.__sqlanvil_current_file = ${JSON.stringify(filePath)};
         try {
           ${compiledCode}
         } finally {
-          global.__dataform_current_file = __old_file;
+          global.__sqlanvil_current_file = __old_file;
         }
       `;
     }
   });
 
-  const encodedCoreExecutionRequest = encode64(dataform.CoreExecutionRequest, coreExecutionRequest);
+  const encodedCoreExecutionRequest = encode64(sqlanvil.CoreExecutionRequest, coreExecutionRequest);
   const vmIndexFileName = path.resolve(path.join(projectDir, "index.js"));
   const encodedCoreExecutionResponse = nodeVm.run(
     `
@@ -115,7 +115,7 @@ export function runMainInVm(
     `,
     vmIndexFileName
   );
-  return decode64(dataform.CoreExecutionResponse, encodedCoreExecutionResponse);
+  return decode64(sqlanvil.CoreExecutionResponse, encodedCoreExecutionResponse);
 }
 
 function walkDirectoryForFilenames(projectDir: string, relativePath: string = ""): string[] {

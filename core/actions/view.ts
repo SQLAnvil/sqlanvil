@@ -1,17 +1,17 @@
-import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "df/common/protos";
+import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
 import {
   ActionBuilder,
   ILegacyBigQueryOptions,
   LegacyConfigConverter,
   TableType
-} from "df/core/actions";
-import { Assertion } from "df/core/actions/assertion";
-import { IncrementalTable } from "df/core/actions/incremental_table";
-import { Table } from "df/core/actions/table";
-import { ColumnDescriptors } from "df/core/column_descriptors";
-import { Contextable, ITableContext, JitContextable, Resolvable } from "df/core/contextables";
-import * as Path from "df/core/path";
-import { Session } from "df/core/session";
+} from "sa/core/actions";
+import { Assertion } from "sa/core/actions/assertion";
+import { IncrementalTable } from "sa/core/actions/incremental_table";
+import { Table } from "sa/core/actions/table";
+import { ColumnDescriptors } from "sa/core/column_descriptors";
+import { Contextable, ITableContext, JitContextable, Resolvable } from "sa/core/contextables";
+import * as Path from "sa/core/path";
+import { Session } from "sa/core/session";
 import {
   actionConfigToCompiledGraphTarget,
   checkAssertionsForDependency,
@@ -25,8 +25,8 @@ import {
   toResolvable,
   validateNoMixedCompilationMode,
   validateQueryString,
-} from "df/core/utils";
-import { dataform } from "df/protos/ts";
+} from "sa/core/utils";
+import { sqlanvil } from "sa/protos/ts";
 
 /**
  * @hidden
@@ -41,7 +41,7 @@ export interface ILegacyViewBigqueryConfig {
   additionalOptions: { [key: string]: string };
 }
 
-export type JitViewResult = string | dataform.IJitTableResult;
+export type JitViewResult = string | sqlanvil.IJitTableResult;
 
 /**
  * Views are virtualised tables. They are useful for creating a new structured table without having
@@ -49,7 +49,7 @@ export type JitViewResult = string | dataform.IJitTableResult;
  * processing and storage.
  *
  * You can create views in the following ways. Available config options are defined in
- * [ViewConfig](configs#dataform-ActionConfig-ViewConfig), and are shared across all the
+ * [ViewConfig](configs#sqlanvil-ActionConfig-ViewConfig), and are shared across all the
  * following ways of creating tables.
  *
  * **Using a SQLX file:**
@@ -86,7 +86,7 @@ export type JitViewResult = string | dataform.IJitTableResult;
  * Note: When using the Javascript API, methods in this class can be accessed by the returned value.
  * This is where `query` comes from.
  */
-export class View extends ActionBuilder<dataform.Table> {
+export class View extends ActionBuilder<sqlanvil.Table> {
   /** @hidden Hold a reference to the Session instance. */
   public session: Session;
 
@@ -106,9 +106,9 @@ export class View extends ActionBuilder<dataform.Table> {
   /**
    * @hidden Stores the generated proto for the compiled graph.
    */
-  private proto = dataform.Table.create({
+  private proto = sqlanvil.Table.create({
     type: "view",
-    enumType: dataform.TableType.VIEW,
+    enumType: sqlanvil.TableType.VIEW,
     disabled: false,
     tags: []
   });
@@ -158,7 +158,7 @@ export class View extends ActionBuilder<dataform.Table> {
     if (config.dependencyTargets) {
       this.dependencies(
         config.dependencyTargets.map(dependencyTarget =>
-          configTargetToCompiledGraphTarget(dataform.ActionConfig.Target.create(dependencyTarget))
+          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
         )
       );
     }
@@ -183,7 +183,7 @@ export class View extends ActionBuilder<dataform.Table> {
     if (config.columns?.length) {
       this.columns(
         config.columns.map(columnDescriptor =>
-          dataform.ActionConfig.ColumnDescriptor.create(columnDescriptor)
+          sqlanvil.ActionConfig.ColumnDescriptor.create(columnDescriptor)
         )
       );
     }
@@ -194,7 +194,7 @@ export class View extends ActionBuilder<dataform.Table> {
       this.schema(config.dataset);
     }
     if (config.assertions) {
-      this.assertions(dataform.ActionConfig.TableAssertionsConfig.create(config.assertions));
+      this.assertions(sqlanvil.ActionConfig.TableAssertionsConfig.create(config.assertions));
     }
     if (config.materialized) {
       this.materialized(config.materialized);
@@ -313,7 +313,7 @@ export class View extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [ViewConfig.disabled](configs#dataform-ActionConfig-ViewConfig).
+   * [ViewConfig.disabled](configs#sqlanvil-ActionConfig-ViewConfig).
    *
    * If called with `true`, this action is not executed. The action can still be depended upon.
    * Useful for temporarily turning off broken actions.
@@ -327,7 +327,7 @@ export class View extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [ViewConfig.materialized](configs#dataform-ActionConfig-ViewConfig).
+   * [ViewConfig.materialized](configs#sqlanvil-ActionConfig-ViewConfig).
    *
    * Applies the materialized view optimization, see
    * https://cloud.google.com/bigquery/docs/materialized-views-intro.
@@ -338,12 +338,12 @@ export class View extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of options available directly on
-   * [ViewConfig](configs#dataform-ActionConfig-ViewConfig).
+   * [ViewConfig](configs#sqlanvil-ActionConfig-ViewConfig).
    *
    * Sets bigquery options for the action.
    */
-  public bigquery(bigquery: dataform.IBigQueryOptions) {
-    this.proto.bigquery = dataform.BigQueryOptions.create(bigquery);
+  public bigquery(bigquery: sqlanvil.IBigQueryOptions) {
+    this.proto.bigquery = sqlanvil.BigQueryOptions.create(bigquery);
     if (!!bigquery.labels) {
       if (!this.proto.actionDescriptor) {
         this.proto.actionDescriptor = {};
@@ -355,7 +355,7 @@ export class View extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [ViewConfig.dependencies](configs#dataform-ActionConfig-ViewConfig).
+   * [ViewConfig.dependencies](configs#sqlanvil-ActionConfig-ViewConfig).
    *
    * Sets dependencies of the view.
    */
@@ -372,7 +372,7 @@ export class View extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [ViewConfig.hermetic](configs#dataform-ActionConfig-ViewConfig).
+   * [ViewConfig.hermetic](configs#sqlanvil-ActionConfig-ViewConfig).
    *
    * If true, this indicates that the action only depends on data from explicitly-declared
    * dependencies. Otherwise if false, it indicates that the  action depends on data from a source
@@ -380,13 +380,13 @@ export class View extends ActionBuilder<dataform.Table> {
    */
   public hermetic(hermetic: boolean) {
     this.proto.hermeticity = hermetic
-      ? dataform.ActionHermeticity.HERMETIC
-      : dataform.ActionHermeticity.NON_HERMETIC;
+      ? sqlanvil.ActionHermeticity.HERMETIC
+      : sqlanvil.ActionHermeticity.NON_HERMETIC;
   }
 
   /**
    * @deprecated Deprecated in favor of
-   * [ViewConfig.tags](configs#dataform-ActionConfig-ViewConfig).
+   * [ViewConfig.tags](configs#sqlanvil-ActionConfig-ViewConfig).
    *
    * Sets a list of user-defined tags applied to this action.
    */
@@ -402,7 +402,7 @@ export class View extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [ViewConfig.description](configs#dataform-ActionConfig-ViewConfig).
+   * [ViewConfig.description](configs#sqlanvil-ActionConfig-ViewConfig).
    *
    * Sets the description of this view.
    */
@@ -416,11 +416,11 @@ export class View extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [ViewConfig.columns](configs#dataform-ActionConfig-ViewConfig).
+   * [ViewConfig.columns](configs#sqlanvil-ActionConfig-ViewConfig).
    *
    * Sets the column descriptors of columns in this view.
    */
-  public columns(columns: dataform.ActionConfig.ColumnDescriptor[]) {
+  public columns(columns: sqlanvil.ActionConfig.ColumnDescriptor[]) {
     if (!this.proto.actionDescriptor) {
       this.proto.actionDescriptor = {};
     }
@@ -432,14 +432,14 @@ export class View extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [ViewConfig.project](configs#dataform-ActionConfig-ViewConfig).
+   * [ViewConfig.project](configs#sqlanvil-ActionConfig-ViewConfig).
    *
    * Sets the
    * Sets the database (Google Cloud project ID) in which to create the output of this action.
    */
   public database(database: string) {
     this.proto.target = this.applySessionToTarget(
-      dataform.Target.create({ ...this.proto.target, database }),
+      sqlanvil.Target.create({ ...this.proto.target, database }),
       this.session.projectConfig,
       this.proto.fileName,
       { validateTarget: true }
@@ -449,13 +449,13 @@ export class View extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [ViewConfig.dataset](configs#dataform-ActionConfig-ViewConfig).
+   * [ViewConfig.dataset](configs#sqlanvil-ActionConfig-ViewConfig).
    *
    * Sets the schema (BigQuery dataset) in which to create the output of this action.
    */
   public schema(schema: string) {
     this.proto.target = this.applySessionToTarget(
-      dataform.Target.create({ ...this.proto.target, schema }),
+      sqlanvil.Target.create({ ...this.proto.target, schema }),
       this.session.projectConfig,
       this.proto.fileName,
       { validateTarget: true }
@@ -465,7 +465,7 @@ export class View extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [ViewConfig.assertions](configs#dataform-ActionConfig-ViewConfig).
+   * [ViewConfig.assertions](configs#sqlanvil-ActionConfig-ViewConfig).
    *
    * Sets in-line assertions for this view.
    *
@@ -473,7 +473,7 @@ export class View extends ActionBuilder<dataform.Table> {
    * Usage of it via the JS API is deprecated, but the way it applies in-line assertions is still
    * needed -->
    */
-  public assertions(tableAssertionsConfig: dataform.ActionConfig.TableAssertionsConfig): View {
+  public assertions(tableAssertionsConfig: sqlanvil.ActionConfig.TableAssertionsConfig): View {
     const inlineAssertions = this.generateInlineAssertions(tableAssertionsConfig, this.proto);
     this.uniqueKeyAssertions = inlineAssertions.uniqueKeyAssertions;
     this.rowConditionsAssertion = inlineAssertions.rowConditionsAssertion;
@@ -482,7 +482,7 @@ export class View extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [ViewConfig.dependOnDependencyAssertions](configs#dataform-ActionConfig-ViewConfig).
+   * [ViewConfig.dependOnDependencyAssertions](configs#sqlanvil-ActionConfig-ViewConfig).
    *
    * When called with `true`, assertions dependent upon any dependency will be add as dedpendency
    * to this action.
@@ -496,7 +496,7 @@ export class View extends ActionBuilder<dataform.Table> {
     if (!this.proto.actionDescriptor) {
       this.proto.actionDescriptor = {};
     }
-    this.proto.actionDescriptor.compilationMode = dataform.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
+    this.proto.actionDescriptor.compilationMode = sqlanvil.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
     this.contextableJitCode = jitCode;
     return this;
   }
@@ -508,7 +508,7 @@ export class View extends ActionBuilder<dataform.Table> {
 
   /** @hidden */
   public getTarget() {
-    return dataform.Target.create(this.proto.target);
+    return sqlanvil.Target.create(this.proto.target);
   }
 
   /** @hidden */
@@ -520,7 +520,7 @@ export class View extends ActionBuilder<dataform.Table> {
     }
 
     return verifyObjectMatchesProto(
-      dataform.Table,
+      sqlanvil.Table,
       this.proto,
       VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
     );
@@ -549,7 +549,7 @@ export class View extends ActionBuilder<dataform.Table> {
 
     this.proto.query = context.apply(this.contextableQuery);
 
-    if (this.proto.enumType === dataform.TableType.INCREMENTAL) {
+    if (this.proto.enumType === sqlanvil.TableType.INCREMENTAL) {
       this.proto.incrementalQuery = incrementalContext.apply(this.contextableQuery);
 
       this.proto.incrementalPreOps = this.contextifyOps(this.contextablePreOps, incrementalContext);
@@ -595,8 +595,8 @@ export class View extends ActionBuilder<dataform.Table> {
   private verifyConfig(
     // `any` is used here to facilitate the type merging of the legacy table config, which is very
     // different to the new structure.
-    unverifiedConfig: dataform.ActionConfig.ViewConfig | ILegacyBigQueryOptions | any
-  ): dataform.ActionConfig.ViewConfig {
+    unverifiedConfig: sqlanvil.ActionConfig.ViewConfig | ILegacyBigQueryOptions | any
+  ): sqlanvil.ActionConfig.ViewConfig {
     // The "type" field only exists on legacy view configs. Here we convert them to the new format.
     if (unverifiedConfig.type) {
       delete unverifiedConfig.type;
@@ -655,7 +655,7 @@ export class View extends ActionBuilder<dataform.Table> {
     }
 
     const config = verifyObjectMatchesProto(
-      dataform.ActionConfig.ViewConfig,
+      sqlanvil.ActionConfig.ViewConfig,
       unverifiedConfig,
       VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
     );
@@ -664,7 +664,7 @@ export class View extends ActionBuilder<dataform.Table> {
       this.session.compileError(
         `partitionBy/clusterBy can be applied only to materialized views`,
         config.filename,
-        dataform.Target.create({
+        sqlanvil.Target.create({
           database: config.project,
           schema: config.dataset,
           name: config.name
@@ -745,7 +745,7 @@ export class ViewContext implements ITableContext {
     return "";
   }
 
-  public bigquery(bigquery: dataform.IBigQueryOptions) {
+  public bigquery(bigquery: sqlanvil.IBigQueryOptions) {
     this.view.bigquery(bigquery);
     return "";
   }

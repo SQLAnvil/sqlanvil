@@ -1,15 +1,15 @@
 import { expect } from "chai";
 import Long from "long";
 
-import { jitCompile } from "df/core/jit_compiler";
-import { dataform } from "df/protos/ts";
-import { suite, test } from "df/testing";
+import { jitCompile } from "sa/core/jit_compiler";
+import { sqlanvil } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
 
 suite("jit_compiler", () => {
   const rpcCallback: (method: string, request: Uint8Array, callback: (error: Error | null, response: Uint8Array) => void) => void =
     (method, request, callback) => { callback(null, new Uint8Array()); };
 
-  const target = dataform.Target.create({
+  const target = sqlanvil.Target.create({
     database: "db",
     schema: "schema",
     name: "name"
@@ -17,77 +17,77 @@ suite("jit_compiler", () => {
 
   suite("jitCompileOperation", () => {
     test("compiles operation returning string", async () => {
-      const request = dataform.JitCompilationRequest.create({
+      const request = sqlanvil.JitCompilationRequest.create({
         jitCode: `async (ctx) => "SELECT 1"`,
         target,
         jitData: {},
-        compilationTargetType: dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
+        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.operation.queries).to.deep.equal(["SELECT 1"]);
     });
 
     test("compiles operation returning array", async () => {
-      const request = dataform.JitCompilationRequest.create({
+      const request = sqlanvil.JitCompilationRequest.create({
         jitCode: `async (ctx) => ["SELECT 1", "SELECT 2"]`,
         target,
         jitData: {},
-        compilationTargetType: dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
+        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.operation.queries).to.deep.equal(["SELECT 1", "SELECT 2"]);
     });
 
     test("compiles operation returning object", async () => {
-      const request = dataform.JitCompilationRequest.create({
+      const request = sqlanvil.JitCompilationRequest.create({
         jitCode: `async (ctx) => ({ queries: ["SELECT 1"] })`,
         target,
         jitData: {},
-        compilationTargetType: dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
+        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.operation.queries).to.deep.equal(["SELECT 1"]);
     });
 
     test("compiles operation using context", async () => {
-      const request = dataform.JitCompilationRequest.create({
+      const request = sqlanvil.JitCompilationRequest.create({
         jitCode: `async (ctx) => ({ queries: [\`SELECT "\${ctx.name()}"\`] })`,
         target,
         jitData: {},
-        compilationTargetType: dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
+        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.operation.queries).to.deep.equal(['SELECT "name"']);
     });
 
     test("compiles operation with arrow function returning promise", async () => {
-      const request = dataform.JitCompilationRequest.create({
+      const request = sqlanvil.JitCompilationRequest.create({
         jitCode: `(ctx) => Promise.resolve("SELECT 1")`,
         target,
         jitData: {},
-        compilationTargetType: dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
+        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.operation.queries).to.deep.equal(["SELECT 1"]);
     });
 
     test("compiles operation with async function", async () => {
-      const request = dataform.JitCompilationRequest.create({
+      const request = sqlanvil.JitCompilationRequest.create({
         jitCode: `async function(ctx) { return "SELECT 1"; }`,
         target,
         jitData: {},
-        compilationTargetType: dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
+        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.operation.queries).to.deep.equal(["SELECT 1"]);
     });
 
     test("compiles operation with regular function returning promise", async () => {
-      const request = dataform.JitCompilationRequest.create({
+      const request = sqlanvil.JitCompilationRequest.create({
         jitCode: `function(ctx) { return Promise.resolve("SELECT 1"); }`,
         target,
         jitData: {},
-        compilationTargetType: dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
+        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.operation.queries).to.deep.equal(["SELECT 1"]);
@@ -96,22 +96,22 @@ suite("jit_compiler", () => {
 
   suite("jitCompileTable", () => {
     test("compiles table returning string", async () => {
-      const request = dataform.JitCompilationRequest.create({
+      const request = sqlanvil.JitCompilationRequest.create({
         jitCode: `async (ctx) => "SELECT 1"`,
         target,
         jitData: {},
-        compilationTargetType: dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_TABLE,
+        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_TABLE,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.table.query).to.equal("SELECT 1");
     });
 
     test("compiles table returning object", async () => {
-      const request = dataform.JitCompilationRequest.create({
+      const request = sqlanvil.JitCompilationRequest.create({
         jitCode: `async (ctx) => ({ query: "SELECT 1", preOps: ["PRE"], postOps: ["POST"] })`,
         target,
         jitData: {},
-        compilationTargetType: dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_TABLE,
+        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_TABLE,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.table.query).to.equal("SELECT 1");
@@ -122,7 +122,7 @@ suite("jit_compiler", () => {
 
   suite("jitCompileIncrementalTable", () => {
     test("compiles incremental table", async () => {
-      const request = dataform.JitCompilationRequest.create({
+      const request = sqlanvil.JitCompilationRequest.create({
         jitCode: `async (ctx) => {
           if (ctx.incremental()) {
             return { query: "SELECT INC" };
@@ -131,7 +131,7 @@ suite("jit_compiler", () => {
         }`,
         target,
         jitData: {},
-        compilationTargetType: dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_INCREMENTAL_TABLE,
+        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_INCREMENTAL_TABLE,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.incrementalTable.incremental?.query).to.equal("SELECT INC");
@@ -141,16 +141,16 @@ suite("jit_compiler", () => {
 
   suite("jitCompileContext", () => {
     test("can reference self and other tables", async () => {
-      const request = dataform.JitCompilationRequest.create({
+      const request = sqlanvil.JitCompilationRequest.create({
         jitCode: `async (jctx) => \`$\{jctx.self()\}\n$\{jctx.ref('other')\}\``,
         target,
         jitData: {},
-        dependencies: [dataform.Target.create({
+        dependencies: [sqlanvil.Target.create({
           database: "db",
           schema: "schema",
           name: "other",
         })],
-        compilationTargetType: dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_TABLE,
+        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_TABLE,
 
       });
       const result = await jitCompile(request, rpcCallback);
@@ -158,11 +158,11 @@ suite("jit_compiler", () => {
     });
 
   test("can reference execution info data", async () => {
-      const request = dataform.JitCompilationRequest.create({
+      const request = sqlanvil.JitCompilationRequest.create({
         jitCode: `async (jctx) => \`$\{jctx.executionData.executionStartTime.seconds\}\n$\{jctx.executionData.executionId\}\``,
         target,
         jitData: {},
-        compilationTargetType: dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_TABLE,
+        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_TABLE,
         executionData: {
           executionId: "test-id",
           executionStartTime: {seconds: Long.fromNumber(1774974514), nanos: 481},

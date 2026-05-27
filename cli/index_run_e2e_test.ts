@@ -10,11 +10,11 @@ import {
   DEFAULT_DATABASE,
   DEFAULT_LOCATION,
   DEFAULT_RESERVATION
-} from "df/cli/index_test_base";
-import { version } from "df/core/version";
-import { dataform } from "df/protos/ts";
-import { corePackageTarPath, getProcessResult, nodePath, npmPath, suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+} from "sa/cli/index_test_base";
+import { version } from "sa/core/version";
+import { sqlanvil } from "sa/protos/ts";
+import { corePackageTarPath, getProcessResult, nodePath, npmPath, suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 
 suite("run e2e", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);
@@ -31,10 +31,10 @@ suite("run e2e", ({ afterEach }) => {
     );
 
     // Install packages manually to get around bazel read-only sandbox issues.
-    const workflowSettings = dataform.WorkflowSettings.create(
+    const workflowSettings = sqlanvil.WorkflowSettings.create(
       loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
     );
-    delete workflowSettings.dataformCoreVersion;
+    delete workflowSettings.sqlanvilCoreVersion;
     fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
     fs.writeFileSync(
       packageJsonPath,
@@ -62,7 +62,7 @@ suite("run e2e", ({ afterEach }) => {
       filePath,
       `
 config { type: "table", tags: ["someTag"] }
-select 1 as \${dataform.projectConfig.vars.testVar2}
+select 1 as \${sqlanvil.projectConfig.vars.testVar2}
 `
     );
 
@@ -104,8 +104,8 @@ select 1 as \${dataform.projectConfig.vars.testVar2}
       ],
       projectConfig: {
         warehouse: "bigquery",
-        defaultSchema: "dataform",
-        assertionSchema: "dataform_assertions",
+        defaultSchema: "sqlanvil",
+        assertionSchema: "sqlanvil_assertions",
         defaultDatabase: DEFAULT_DATABASE,
         defaultLocation: DEFAULT_LOCATION,
         vars: {
@@ -116,7 +116,7 @@ select 1 as \${dataform.projectConfig.vars.testVar2}
       },
       graphErrors: {},
       jitData: {},
-      dataformCoreVersion: version,
+      sqlanvilCoreVersion: version,
       targets: [
         {
           database: DEFAULT_DATABASE,
@@ -164,7 +164,7 @@ select 1 as \${dataform.projectConfig.vars.testVar2}
             {
               statement:
                 // tslint:disable-next-line:tsr-detect-sql-literal-injection
-                `create or replace table \`${DEFAULT_DATABASE}.dataform.example\` as \n\nselect 1 as testValue2`,
+                `create or replace table \`${DEFAULT_DATABASE}.sqlanvil.example\` as \n\nselect 1 as testValue2`,
               type: "statement"
             }
           ],
@@ -172,10 +172,10 @@ select 1 as \${dataform.projectConfig.vars.testVar2}
         }
       ],
       projectConfig: {
-        assertionSchema: "dataform_assertions",
+        assertionSchema: "sqlanvil_assertions",
         defaultDatabase: DEFAULT_DATABASE,
         defaultLocation: "europe",
-        defaultSchema: "dataform",
+        defaultSchema: "sqlanvil",
         warehouse: "bigquery",
         vars: {
           testVar1: "testValue1",
@@ -203,10 +203,10 @@ select 1 as \${dataform.projectConfig.vars.testVar2}
       );
 
       const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
-      const workflowSettings = dataform.WorkflowSettings.create(
+      const workflowSettings = sqlanvil.WorkflowSettings.create(
         loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
       );
-      delete workflowSettings.dataformCoreVersion;
+      delete workflowSettings.sqlanvilCoreVersion;
       fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
 
       fs.writeFileSync(
@@ -256,10 +256,10 @@ SELECT 1 as id
 
     async function setUpWorkflowSettings(disableAssertions: boolean): Promise<void> {
       const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
-      const workflowSettings = dataform.WorkflowSettings.create(
+      const workflowSettings = sqlanvil.WorkflowSettings.create(
         loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
       );
-      delete workflowSettings.dataformCoreVersion;
+      delete workflowSettings.sqlanvilCoreVersion;
       workflowSettings.disableAssertions = disableAssertions;
       fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
     }
@@ -281,7 +281,7 @@ SELECT 1 as id
             {
               statement:
                 // tslint:disable-next-line:tsr-detect-sql-literal-injection
-                `create or replace table \`${DEFAULT_DATABASE}.dataform.example_table\` as \n\nSELECT 1 as id`,
+                `create or replace table \`${DEFAULT_DATABASE}.sqlanvil.example_table\` as \n\nSELECT 1 as id`,
               type: "statement"
             }
           ],
@@ -293,16 +293,16 @@ SELECT 1 as id
           target: {
             database: DEFAULT_DATABASE,
             name: "test_assertion",
-            schema: "dataform_assertions"
+            schema: "sqlanvil_assertions"
           },
           type: "assertion",
         }
       ],
       projectConfig: {
-        assertionSchema: "dataform_assertions",
+        assertionSchema: "sqlanvil_assertions",
         defaultDatabase: DEFAULT_DATABASE,
         defaultLocation: DEFAULT_LOCATION,
-        defaultSchema: "dataform",
+        defaultSchema: "sqlanvil",
         disableAssertions: true,
         warehouse: "bigquery"
       },
@@ -402,11 +402,11 @@ SELECT 1 as id
         execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION])
       );
 
-      // Remove dataformCoreVersion so we can use the local package.
-      const workflowSettings = dataform.WorkflowSettings.create(
+      // Remove sqlanvilCoreVersion so we can use the local package.
+      const workflowSettings = sqlanvil.WorkflowSettings.create(
         loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
       );
-      delete workflowSettings.dataformCoreVersion;
+      delete workflowSettings.sqlanvilCoreVersion;
       fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
 
       fs.writeFileSync(
@@ -454,8 +454,8 @@ SELECT 1 as id
       const compiledGraph = JSON.parse(compileResult.stdout);
       expect(compiledGraph.projectConfig).deep.equals({
         warehouse: "bigquery",
-        defaultSchema: "dataform",
-        assertionSchema: "dataform_assertions",
+        defaultSchema: "sqlanvil",
+        assertionSchema: "sqlanvil_assertions",
         defaultDatabase: DEFAULT_DATABASE,
         defaultLocation: DEFAULT_LOCATION,
         defaultReservation: DEFAULT_RESERVATION
@@ -481,8 +481,8 @@ SELECT 1 as id
       const executionGraph = JSON.parse(runResult.stdout);
       expect(executionGraph.projectConfig).deep.equals({
         warehouse: "bigquery",
-        defaultSchema: "dataform",
-        assertionSchema: "dataform_assertions",
+        defaultSchema: "sqlanvil",
+        assertionSchema: "sqlanvil_assertions",
         defaultDatabase: DEFAULT_DATABASE,
         defaultLocation: DEFAULT_LOCATION,
         defaultReservation: DEFAULT_RESERVATION
@@ -502,10 +502,10 @@ SELECT 1 as id
     );
 
     // Install packages manually to get around bazel read-only sandbox issues.
-    const workflowSettings = dataform.WorkflowSettings.create(
+    const workflowSettings = sqlanvil.WorkflowSettings.create(
       loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
     );
-    delete workflowSettings.dataformCoreVersion;
+    delete workflowSettings.sqlanvilCoreVersion;
     fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
     fs.writeFileSync(
       packageJsonPath,
@@ -579,10 +579,10 @@ select 1
     );
 
     // Install packages manually to get around bazel read-only sandbox issues.
-    const workflowSettings = dataform.WorkflowSettings.create(
+    const workflowSettings = sqlanvil.WorkflowSettings.create(
       loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
     );
-    delete workflowSettings.dataformCoreVersion;
+    delete workflowSettings.sqlanvilCoreVersion;
     fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
     fs.writeFileSync(
       packageJsonPath,
@@ -660,10 +660,10 @@ select 2
         execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION])
       );
 
-      const workflowSettings = dataform.WorkflowSettings.create(
+      const workflowSettings = sqlanvil.WorkflowSettings.create(
         loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
       );
-      delete workflowSettings.dataformCoreVersion;
+      delete workflowSettings.sqlanvilCoreVersion;
       workflowSettings.defaultDataset = uniqueDataset;
       fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
 
@@ -693,7 +693,7 @@ select 2
 config { 
   type: "operations"
 }
-CREATE OR REPLACE TABLE \`\${dataform.projectConfig.defaultDatabase}.\${dataform.projectConfig.defaultSchema}.example_incremental\` AS SELECT 1 AS id, 'old' AS field1
+CREATE OR REPLACE TABLE \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.projectConfig.defaultSchema}.example_incremental\` AS SELECT 1 AS id, 'old' AS field1
 `
       );
 
@@ -716,7 +716,7 @@ SELECT 1 as id, 'new' as field1, 'new2' as field2
 config { 
   type: "operations"
 }
-DROP SCHEMA IF EXISTS \`\${dataform.projectConfig.defaultDatabase}.\${dataform.projectConfig.defaultSchema}\` CASCADE
+DROP SCHEMA IF EXISTS \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.projectConfig.defaultSchema}\` CASCADE
 `
       );
     });
@@ -759,7 +759,7 @@ DROP SCHEMA IF EXISTS \`\${dataform.projectConfig.defaultDatabase}.\${dataform.p
           projectConfig: {
             warehouse: "bigquery",
             defaultSchema: uniqueDataset,
-            assertionSchema: "dataform_assertions",
+            assertionSchema: "sqlanvil_assertions",
             defaultDatabase: DEFAULT_DATABASE,
             defaultLocation: DEFAULT_LOCATION
           },

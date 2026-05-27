@@ -1,12 +1,12 @@
-import { dataform } from "df/protos/ts";
+import { sqlanvil } from "sa/protos/ts";
 
 export class CompilationSql {
   constructor(
-    private readonly project: dataform.IProjectConfig,
-    private readonly dataformCoreVersion: string
+    private readonly project: sqlanvil.IProjectConfig,
+    private readonly sqlanvilCoreVersion: string
   ) {}
 
-  public resolveTarget(target: dataform.ITarget) {
+  public resolveTarget(target: sqlanvil.ITarget) {
     const database = target.database || this.project.defaultDatabase;
     if (!database) {
       return `\`${target.schema || this.project.defaultSchema}.${target.name}\``;

@@ -4,30 +4,30 @@ import * as fs from "fs-extra";
 import { dump as dumpYaml, load as loadYaml } from "js-yaml";
 import * as path from "path";
 
-import { cliEntryPointPath, DEFAULT_DATABASE, DEFAULT_LOCATION } from "df/cli/index_test_base";
-import { version } from "df/core/version";
-import { dataform } from "df/protos/ts";
-import { corePackageTarPath, getProcessResult, nodePath, npmPath, suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+import { cliEntryPointPath, DEFAULT_DATABASE, DEFAULT_LOCATION } from "sa/cli/index_test_base";
+import { version } from "sa/core/version";
+import { sqlanvil } from "sa/protos/ts";
+import { corePackageTarPath, getProcessResult, nodePath, npmPath, suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 
 suite("compile command", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);
 
   test(
-    "compile throws an error when dataformCoreVersion not in workflow_settings.yaml and no " +
+    "compile throws an error when sqlanvilCoreVersion not in workflow_settings.yaml and no " +
       "package.json exists",
     async () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(dataform.WorkflowSettings.create({ defaultProject: "dataform" }))
+        dumpYaml(sqlanvil.WorkflowSettings.create({ defaultProject: "dataform" }))
       );
 
       expect(
         (await getProcessResult(execFile(nodePath, [cliEntryPointPath, "compile", projectDir])))
           .stderr
       ).contains(
-        "dataformCoreVersion must be specified either in workflow_settings.yaml or via a " +
+        "sqlanvilCoreVersion must be specified either in workflow_settings.yaml or via a " +
           "package.json"
       );
     }
@@ -59,21 +59,21 @@ suite("compile command", ({ afterEach }) => {
         .stderr
     ).contains(
       "Could not find a recent installed version of @sqlanvil/core in the project. Check that " +
-        "either `dataformCoreVersion` is specified in `workflow_settings.yaml`, or " +
+        "either `sqlanvilCoreVersion` is specified in `workflow_settings.yaml`, or " +
         "`@sqlanvil/core` is specified in `package.json`. If using `package.json`, then run " +
         "`dataform install`."
     );
   });
 
   ["package.json", "package-lock.json", "node_modules"].forEach(npmFile => {
-    test(`compile throws an error when dataformCoreVersion in workflow_settings.yaml and ${npmFile} is present`, async () => {
+    test(`compile throws an error when sqlanvilCoreVersion in workflow_settings.yaml and ${npmFile} is present`, async () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
         dumpYaml(
-          dataform.WorkflowSettings.create({
+          sqlanvil.WorkflowSettings.create({
             defaultProject: "dataform",
-            dataformCoreVersion: "3.0.0"
+            sqlanvilCoreVersion: "3.0.0"
           })
         )
       );
@@ -105,10 +105,10 @@ suite("disable-assertions flag (compilation)", ({ afterEach, beforeEach }) => {
     );
 
     const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
-    const workflowSettings = dataform.WorkflowSettings.create(
+    const workflowSettings = sqlanvil.WorkflowSettings.create(
       loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
     );
-    delete workflowSettings.dataformCoreVersion;
+    delete workflowSettings.sqlanvilCoreVersion;
     fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
 
     fs.writeFileSync(
@@ -158,7 +158,7 @@ SELECT 1 as id
 
   async function setUpWorkflowSettings(disableAssertions: boolean): Promise<void> {
     const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
-    const workflowSettings = dataform.WorkflowSettings.create(
+    const workflowSettings = sqlanvil.WorkflowSettings.create(
       loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
     );
     workflowSettings.disableAssertions = disableAssertions;
@@ -176,7 +176,7 @@ SELECT 1 as id
         canonicalTarget: {
           database: DEFAULT_DATABASE,
           name: "dataform_example_table_assertions_uniqueKey_0",
-          schema: "dataform_assertions"
+          schema: "sqlanvil_assertions"
         },
         dependencyTargets: [
           {
@@ -194,18 +194,18 @@ SELECT 1 as id
         },
         query:
           // tslint:disable-next-line:tsr-detect-sql-literal-injection
-          `\nSELECT\n  *\nFROM (\n  SELECT\n    id,\n    COUNT(1) AS index_row_count\n  FROM \`${DEFAULT_DATABASE}.dataform.example_table\`\n  GROUP BY id\n  ) AS data\nWHERE index_row_count > 1\n`,
+          `\nSELECT\n  *\nFROM (\n  SELECT\n    id,\n    COUNT(1) AS index_row_count\n  FROM \`${DEFAULT_DATABASE}.sqlanvil.example_table\`\n  GROUP BY id\n  ) AS data\nWHERE index_row_count > 1\n`,
         target: {
           database: DEFAULT_DATABASE,
           name: "dataform_example_table_assertions_uniqueKey_0",
-          schema: "dataform_assertions"
+          schema: "sqlanvil_assertions"
         }
       },
       {
         canonicalTarget: {
           database: DEFAULT_DATABASE,
           name: "test_assertion",
-          schema: "dataform_assertions"
+          schema: "sqlanvil_assertions"
         },
         disabled: true,
         fileName: "definitions/test_assertion.sqlx",
@@ -213,18 +213,18 @@ SELECT 1 as id
         target: {
           database: DEFAULT_DATABASE,
           name: "test_assertion",
-          schema: "dataform_assertions"
+          schema: "sqlanvil_assertions"
         }
       }
     ],
-    dataformCoreVersion: version,
+    sqlanvilCoreVersion: version,
     graphErrors: {},
     jitData: {},
     projectConfig: {
-      assertionSchema: "dataform_assertions",
+      assertionSchema: "sqlanvil_assertions",
       defaultDatabase: DEFAULT_DATABASE,
       defaultLocation: DEFAULT_LOCATION,
-      defaultSchema: "dataform",
+      defaultSchema: "sqlanvil",
       disableAssertions: true,
       warehouse: "bigquery"
     },
@@ -252,7 +252,7 @@ SELECT 1 as id
       {
         database: DEFAULT_DATABASE,
         name: "dataform_example_table_assertions_uniqueKey_0",
-        schema: "dataform_assertions"
+        schema: "sqlanvil_assertions"
       },
       {
         database: DEFAULT_DATABASE,
@@ -262,7 +262,7 @@ SELECT 1 as id
       {
         database: DEFAULT_DATABASE,
         name: "test_assertion",
-        schema: "dataform_assertions"
+        schema: "sqlanvil_assertions"
       }
     ]
   };
@@ -309,7 +309,7 @@ suite("extension config", ({ afterEach }) => {
         defaultProject: DEFAULT_DATABASE,
         defaultLocation: DEFAULT_LOCATION,
         defaultDataset: "dataform",
-        defaultAssertionDataset: "dataform_assertions",
+        defaultAssertionDataset: "sqlanvil_assertions",
         extension: {
           name: "test-extension",
           compilationMode: "PROLOGUE",

@@ -11,8 +11,8 @@ import {
   validateStorageUriFormat,
 } from './utils';
 
-import {dataform} from "df/protos/ts";
-import {suite, test} from 'df/testing';
+import {sqlanvil} from "sa/protos/ts";
+import {suite, test} from 'sa/testing';
 
 /**
  * Executes a function and returns the Error if one is thrown, otherwise returns undefined.
@@ -66,12 +66,12 @@ suite('Dataform Utility Validations', () => {
 
     test('does not throw for a valid dot-separated connection format', () => {
       assertNoThrow(() => validateConnectionFormat('my-project.us-central1.my-connection'));
-      assertNoThrow(() => validateConnectionFormat('gcp-proj-123.europe-west4.dataform-conn_id'));
+      assertNoThrow(() => validateConnectionFormat('gcp-proj-123.europe-west4.sqlanvil-conn_id'));
     });
 
     test('does not throw for a valid resource-formatted connection format', () => {
       assertNoThrow(() => validateConnectionFormat('projects/my-project/locations/us-central1/connections/my-connection'));
-      assertNoThrow(() => validateConnectionFormat('projects/gcp-proj-123/locations/europe-west4/connections/dataform-conn_id'));
+      assertNoThrow(() => validateConnectionFormat('projects/gcp-proj-123/locations/europe-west4/connections/sqlanvil-conn_id'));
     });
 
     test('throws for an empty connection string', () => {
@@ -170,12 +170,12 @@ suite('Dataform Utility Validations', () => {
       expect(getEffectiveTableFolderRoot('ws-root', '')).to.equal('ws-root');
     });
 
-    test('returns "_dataform" when both config and default are undefined', () => {
-      expect(getEffectiveTableFolderRoot(undefined, undefined)).to.equal('_dataform');
+    test('returns "_sqlanvil" when both config and default are undefined', () => {
+      expect(getEffectiveTableFolderRoot(undefined, undefined)).to.equal('_sqlanvil');
     });
 
-     test('returns "_dataform" when both config and default are empty strings', () => {
-      expect(getEffectiveTableFolderRoot('', '')).to.equal('_dataform');
+     test('returns "_sqlanvil" when both config and default are empty strings', () => {
+      expect(getEffectiveTableFolderRoot('', '')).to.equal('_sqlanvil');
     });
   });
 
@@ -228,20 +228,20 @@ suite('Dataform Utility Validations', () => {
 
   suite('getFileFormatValueForIcebergTable', () => {
     test('returns PARQUET when configFileFormat is undefined', () => {
-      expect(getFileFormatValueForIcebergTable(undefined)).to.equal(dataform.FileFormat.PARQUET);
+      expect(getFileFormatValueForIcebergTable(undefined)).to.equal(sqlanvil.FileFormat.PARQUET);
     });
 
     test('returns PARQUET when configFileFormat is "PARQUET"', () => {
-      expect(getFileFormatValueForIcebergTable('PARQUET')).to.equal(dataform.FileFormat.PARQUET);
+      expect(getFileFormatValueForIcebergTable('PARQUET')).to.equal(sqlanvil.FileFormat.PARQUET);
     });
 
     test('returns PARQUET when fileFormat is an empty string', () => {
-      expect(getFileFormatValueForIcebergTable('')).to.equal(dataform.FileFormat.PARQUET);
+      expect(getFileFormatValueForIcebergTable('')).to.equal(sqlanvil.FileFormat.PARQUET);
     });
 
     test('is case insensitive ', () => {
-      expect(getFileFormatValueForIcebergTable('parquet')).to.equal(dataform.FileFormat.PARQUET);
-      expect(getFileFormatValueForIcebergTable('pArQuEt')).to.equal(dataform.FileFormat.PARQUET);
+      expect(getFileFormatValueForIcebergTable('parquet')).to.equal(sqlanvil.FileFormat.PARQUET);
+      expect(getFileFormatValueForIcebergTable('pArQuEt')).to.equal(sqlanvil.FileFormat.PARQUET);
     });
 
     test('throws an error for an unsupported file format string', () => {
@@ -254,15 +254,15 @@ suite('Dataform Utility Validations', () => {
 
   suite('getStorageUriForIcebergTable', () => {
     const testBucket = 'my-iceberg-bucket';
-    const testRoot = '_dataform';
+    const testRoot = '_sqlanvil';
     const testSubpath = 'data/v1';
 
     test('constructs the URI with a provided tableFolderRoot', () => {
-      expect(getStorageUriForIcebergTable(testBucket, testRoot, testSubpath)).to.equal('gs://my-iceberg-bucket/_dataform/data/v1');
+      expect(getStorageUriForIcebergTable(testBucket, testRoot, testSubpath)).to.equal('gs://my-iceberg-bucket/_sqlanvil/data/v1');
     });
 
     test('handles empty bucket name, resulting in an invalid but formed URI', () => {
-      expect(getStorageUriForIcebergTable('', testRoot, testSubpath)).to.equal('gs:///_dataform/data/v1');
+      expect(getStorageUriForIcebergTable('', testRoot, testSubpath)).to.equal('gs:///_sqlanvil/data/v1');
     });
 
     test('handles empty tableFolderRoot, resulting in an invalid but formed URI', () => {
@@ -270,7 +270,7 @@ suite('Dataform Utility Validations', () => {
     });
 
     test('handles empty tableFolderSubpath', () => {
-      expect(getStorageUriForIcebergTable(testBucket, testRoot, '')).to.equal('gs://my-iceberg-bucket/_dataform/');
+      expect(getStorageUriForIcebergTable(testBucket, testRoot, '')).to.equal('gs://my-iceberg-bucket/_sqlanvil/');
     });
   });
 

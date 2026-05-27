@@ -4,29 +4,29 @@ import * as fs from "fs-extra";
 import { dump as dumpYaml } from "js-yaml";
 import * as path from "path";
 
-import { version } from "df/core/version";
-import { dataform, google } from "df/protos/ts";
-import { asPlainObject, suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+import { version } from "sa/core/version";
+import { sqlanvil, google } from "sa/protos/ts";
+import { asPlainObject, suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
   VALID_DATAFORM_JSON,
   VALID_WORKFLOW_SETTINGS_YAML,
   WorkflowSettingsTemplates
-} from "df/testing/run_core";
+} from "sa/testing/run_core";
 
 const EMPTY_NOTEBOOK_CONTENTS = '{ "cells": [] }';
 
 interface IVerifiableAction {
   type?: string | null,
-  target?: dataform.ITarget | null;
-  canonicalTarget?: dataform.ITarget | null;
-  dependencyTargets?: dataform.ITarget[] | null
+  target?: sqlanvil.ITarget | null;
+  canonicalTarget?: sqlanvil.ITarget | null;
+  dependencyTargets?: sqlanvil.ITarget[] | null
 }
 
-function toVerifiableAction(graph: dataform.ICompiledGraph, actionType: string): IVerifiableAction {
-  let action: dataform.IAssertion | dataform.ITable
+function toVerifiableAction(graph: sqlanvil.ICompiledGraph, actionType: string): IVerifiableAction {
+  let action: sqlanvil.IAssertion | sqlanvil.ITable
   switch (actionType) {
     case "assertion":
       action = graph.assertions[0];
@@ -62,7 +62,7 @@ suite("@sqlanvil/core", ({ afterEach }) => {
           const projectDir = tmpDirFixture.createNewTmpDir();
           fs.writeFileSync(
             path.join(projectDir, "workflow_settings.yaml"),
-            dumpYaml(dataform.WorkflowSettings.create(testConfig))
+            dumpYaml(sqlanvil.WorkflowSettings.create(testConfig))
           );
           fs.mkdirSync(path.join(projectDir, "definitions"));
           fs.writeFileSync(path.join(projectDir, "definitions/e.sqlx"), `config {type: "view"}`);
@@ -209,7 +209,7 @@ publish("b", {"schema": "foo"}).dependencies("a")`
             const projectDir = tmpDirFixture.createNewTmpDir();
             fs.writeFileSync(
               path.join(projectDir, "workflow_settings.yaml"),
-              dumpYaml(dataform.WorkflowSettings.create(testConfig))
+              dumpYaml(sqlanvil.WorkflowSettings.create(testConfig))
             );
             fs.mkdirSync(path.join(projectDir, "definitions"));
             fs.writeFileSync(
@@ -235,7 +235,7 @@ publish("b", {"schema": "foo"}).dependencies("a")`
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          dumpYaml(dataform.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
+          dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
@@ -301,7 +301,7 @@ publish("name")`
       const result = runMainInVm(
         coreExecutionRequestFromPath(
           projectDir,
-          dataform.ProjectConfig.create({
+          sqlanvil.ProjectConfig.create({
             defaultSchema: "otherDataset"
           })
         )
@@ -396,7 +396,7 @@ publish("b", "SELECT 1;");`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(dataform.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
+        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -446,7 +446,7 @@ SELECT 1`);
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(dataform.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
+        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       const fileContents = `select
@@ -465,7 +465,7 @@ from \`location\``;
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(dataform.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
+        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       const sqlContents = `select
@@ -490,7 +490,7 @@ from \`location\``;
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(dataform.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
+        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       const sqlContents = `select
@@ -650,7 +650,7 @@ someKey: and an extra: colon
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
         `
-dataformCoreVersion: ${version}
+sqlanvilCoreVersion: ${version}
 defaultProject: project`
       );
 
@@ -682,11 +682,11 @@ vars:
         `
 config {
   type: "table",
-  database: dataform.projectConfig.vars.projectVar,
+  database: sqlanvil.projectConfig.vars.projectVar,
 }
-select 1 AS \${dataform.projectConfig.vars.selectVar}`
+select 1 AS \${sqlanvil.projectConfig.vars.selectVar}`
       );
-      const coreExecutionRequest = dataform.CoreExecutionRequest.create({
+      const coreExecutionRequest = sqlanvil.CoreExecutionRequest.create({
         compile: {
           compileConfig: {
             projectDir,
@@ -706,7 +706,7 @@ select 1 AS \${dataform.projectConfig.vars.selectVar}`
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
       expect(asPlainObject(result.compile.compiledGraph)).deep.equals(
         asPlainObject({
-          dataformCoreVersion: version,
+          sqlanvilCoreVersion: version,
           graphErrors: {},
           jitData: {},
           projectConfig: {
@@ -746,14 +746,14 @@ select 1 AS \${dataform.projectConfig.vars.selectVar}`
       );
     });
 
-    suite("dataform core version", () => {
+    suite("sqlanvil core version", () => {
       test(`main fails when the workflow settings version is not the installed current version`, () => {
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
           `
-dataformCoreVersion: 1.0.0
-defaultProject: dataform`
+sqlanvilCoreVersion: 1.0.0
+defaultProject: sqlanvil`
         );
 
         expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
@@ -766,7 +766,7 @@ defaultProject: dataform`
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
           `
-dataformCoreVersion: ${version}
+sqlanvilCoreVersion: ${version}
 defaultProject: project
 defaultLocation: US`
         );
@@ -830,16 +830,16 @@ vars:
           `
 config {
   type: "table",
-  database: dataform.projectConfig.vars.databaseVar,
+  database: sqlanvil.projectConfig.vars.databaseVar,
   schema: "tableSchema",
-  description: dataform.projectConfig.vars.descriptionVar,
+  description: sqlanvil.projectConfig.vars.descriptionVar,
   assertions: {
-    nonNull: [dataform.projectConfig.vars.columnVar],
+    nonNull: [sqlanvil.projectConfig.vars.columnVar],
   }
 }
-select 1 AS \${dataform.projectConfig.vars.columnVar}`
+select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`
         );
-        const coreExecutionRequest = dataform.CoreExecutionRequest.create({
+        const coreExecutionRequest = sqlanvil.CoreExecutionRequest.create({
           compile: {
             compileConfig: {
               projectDir,
@@ -883,7 +883,7 @@ select 1 AS \${dataform.projectConfig.vars.columnVar}`
                 }
               }
             ],
-            dataformCoreVersion: version,
+            sqlanvilCoreVersion: version,
             graphErrors: {},
             jitData: {},
             projectConfig: {
@@ -1153,7 +1153,7 @@ actions:
               const projectDir = tmpDirFixture.createNewTmpDir();
               fs.writeFileSync(
                 path.join(projectDir, "workflow_settings.yaml"),
-                dumpYaml(dataform.WorkflowSettings.create(projectConfig))
+                dumpYaml(sqlanvil.WorkflowSettings.create(projectConfig))
               );
               fs.mkdirSync(path.join(projectDir, "definitions"));
               fs.writeFileSync(
@@ -1339,7 +1339,7 @@ publish("name", {
             const projectDir = tmpDirFixture.createNewTmpDir();
             fs.writeFileSync(
               path.join(projectDir, "workflow_settings.yaml"),
-              dumpYaml(dataform.WorkflowSettings.create(projectConfig))
+              dumpYaml(sqlanvil.WorkflowSettings.create(projectConfig))
             );
             fs.mkdirSync(path.join(projectDir, "definitions"));
             fs.writeFileSync(
@@ -1448,7 +1448,7 @@ operate("name", {
             const projectDir = tmpDirFixture.createNewTmpDir();
             fs.writeFileSync(
               path.join(projectDir, "workflow_settings.yaml"),
-              dumpYaml(dataform.WorkflowSettings.create(projectConfig))
+              dumpYaml(sqlanvil.WorkflowSettings.create(projectConfig))
             );
             fs.mkdirSync(path.join(projectDir, "definitions"));
             fs.writeFileSync(
@@ -1558,7 +1558,7 @@ assert("name", {
 
         const coreRequest = coreExecutionRequestFromPath(
           projectDir,
-          dataform.ProjectConfig.create({
+          sqlanvil.ProjectConfig.create({
             disableAssertions: true
           })
         );
@@ -1606,7 +1606,7 @@ assert("name", {
         fs.writeFileSync(
           path.join(projectDir, "definitions/jit.js"),
           `
-dataform.jitData("key", {
+sqlanvil.jitData("key", {
   "number": 123,
   "string": "value",
   "boolean": true,
@@ -1674,8 +1674,8 @@ dataform.jitData("key", {
         fs.writeFileSync(
           path.join(projectDir, "definitions/jit.js"),
           `
-dataform.jitData("key", 1);
-dataform.jitData("key", 2);
+sqlanvil.jitData("key", 1);
+sqlanvil.jitData("key", 2);
 `
         );
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -1695,7 +1695,7 @@ dataform.jitData("key", 2);
         fs.writeFileSync(
           path.join(projectDir, "definitions/jit.js"),
           `
-dataform.jitData("key", {test: () => {}});
+sqlanvil.jitData("key", {test: () => {}});
 `
         );
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -1869,7 +1869,7 @@ publish("name", {
             fs.writeFileSync(
               path.join(projectDir, "workflow_settings.yaml"),
               dumpYaml(
-                dataform.WorkflowSettings.create(
+                sqlanvil.WorkflowSettings.create(
                   WorkflowSettingsTemplates.bigqueryWithDefaultProjectAndDataset
                 )
               )
@@ -1902,7 +1902,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(dataform.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
+        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(path.join(projectDir, "definitions/e.sqlx"), `config {type: "view"}`);
@@ -1926,7 +1926,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const request = coreExecutionRequestFromPath(projectDir);
       request.compile.compileConfig.extension = {
         name: "some-extension",
-        compilationMode: dataform.ExtensionCompilationMode.COMPILATION_MODE_UNSPECIFIED,
+        compilationMode: sqlanvil.ExtensionCompilationMode.COMPILATION_MODE_UNSPECIFIED,
       };
 
       const result = runMainInVm(request);
@@ -1940,7 +1940,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const request = coreExecutionRequestFromPath(projectDir);
       request.compile.compileConfig.extension = {
         name: "@sqlanvil/sample-extension",
-        compilationMode: dataform.ExtensionCompilationMode.PROLOGUE,
+        compilationMode: sqlanvil.ExtensionCompilationMode.PROLOGUE,
       };
 
       const result = runMainInVm(request);
@@ -1954,7 +1954,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const request = coreExecutionRequestFromPath(projectDir);
       request.compile.compileConfig.extension = {
         name: "@sqlanvil/sample-extension",
-        compilationMode: dataform.ExtensionCompilationMode.APPLICATION_CODE,
+        compilationMode: sqlanvil.ExtensionCompilationMode.APPLICATION_CODE,
       };
 
       const result = runMainInVm(request);
@@ -1972,7 +1972,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const request = coreExecutionRequestFromPath(projectDir);
       request.compile.compileConfig.extension = {
         name: "@sqlanvil/sample-extension",
-        compilationMode: dataform.ExtensionCompilationMode.APPLICATION_CODE
+        compilationMode: sqlanvil.ExtensionCompilationMode.APPLICATION_CODE
       };
 
       const result = runMainInVm(request);
@@ -1992,7 +1992,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const request = coreExecutionRequestFromPath(projectDir);
       request.compile.compileConfig.extension = {
         name: "@sqlanvil/sample-extension",
-        compilationMode: dataform.ExtensionCompilationMode.PROLOGUE,
+        compilationMode: sqlanvil.ExtensionCompilationMode.PROLOGUE,
       };
 
       const result = runMainInVm(request);
@@ -2006,7 +2006,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const request = coreExecutionRequestFromPath(projectDir);
       request.compile.compileConfig.extension = {
         name: "does-not-exist",
-        compilationMode: dataform.ExtensionCompilationMode.PROLOGUE,
+        compilationMode: sqlanvil.ExtensionCompilationMode.PROLOGUE,
       };
 
       const result = runMainInVm(request);
@@ -2018,10 +2018,10 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
 
     test("catches exceptions thrown from extension", () => {
       const projectDir = setUpProjectWithExtension();
-      const request = coreExecutionRequestFromPath(projectDir, dataform.ProjectConfig.create({vars: {"throw-error": "true"}}));
+      const request = coreExecutionRequestFromPath(projectDir, sqlanvil.ProjectConfig.create({vars: {"throw-error": "true"}}));
       request.compile.compileConfig.extension = {
         name: "@sqlanvil/sample-extension",
-        compilationMode: dataform.ExtensionCompilationMode.PROLOGUE,
+        compilationMode: sqlanvil.ExtensionCompilationMode.PROLOGUE,
       };
 
       const result = runMainInVm(request);
@@ -2033,10 +2033,10 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
 
     test("persists extension compilation errors", () => {
       const projectDir = setUpProjectWithExtension();
-      const request = coreExecutionRequestFromPath(projectDir, dataform.ProjectConfig.create({vars: {"store-compile-error": "true"}}));
+      const request = coreExecutionRequestFromPath(projectDir, sqlanvil.ProjectConfig.create({vars: {"store-compile-error": "true"}}));
       request.compile.compileConfig.extension = {
         name: "@sqlanvil/sample-extension",
-        compilationMode: dataform.ExtensionCompilationMode.PROLOGUE,
+        compilationMode: sqlanvil.ExtensionCompilationMode.PROLOGUE,
       };
 
       const result = runMainInVm(request);

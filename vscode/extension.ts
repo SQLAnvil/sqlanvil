@@ -37,7 +37,7 @@ export async function activate(context: vscode.ExtensionContext) {
     clientOptions
   );
 
-  const compile = vscode.commands.registerCommand("dataform.compile", () => {
+  const compile = vscode.commands.registerCommand("sqlanvil.compile", () => {
     const _ = client.sendRequest("compile");
   });
 

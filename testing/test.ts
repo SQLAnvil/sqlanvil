@@ -1,4 +1,4 @@
-import { IRunContext, IRunResult, Runner, Suite } from "df/testing";
+import { IRunContext, IRunResult, Runner, Suite } from "sa/testing";
 
 interface ITestOptions {
   name: string;

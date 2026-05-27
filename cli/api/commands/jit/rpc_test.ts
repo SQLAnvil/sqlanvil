@@ -2,10 +2,10 @@ import { expect } from "chai";
 import Long from "long";
 import { anything, capture, instance, mock, verify, when } from "ts-mockito";
 
-import { handleDbRequest } from "df/cli/api/commands/jit/rpc";
-import { IDbAdapter, IDbClient } from "df/cli/api/dbadapters";
-import { dataform } from "df/protos/ts";
-import { suite, test } from "df/testing";
+import { handleDbRequest } from "sa/cli/api/commands/jit/rpc";
+import { IDbAdapter, IDbClient } from "sa/cli/api/dbadapters";
+import { sqlanvil } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
 
 suite("jit_rpc", () => {
   test("Execute RPC maps to client.execute with all options", async () => {
@@ -13,7 +13,7 @@ suite("jit_rpc", () => {
     const mockClient = mock<IDbClient>();
 
     const statement = "SELECT * FROM table";
-    const executeRequest = dataform.ExecuteRequest.create({
+    const executeRequest = sqlanvil.ExecuteRequest.create({
       statement,
       rowLimit: Long.fromNumber(100),
       byteLimit: Long.fromNumber(1024),
@@ -25,7 +25,7 @@ suite("jit_rpc", () => {
         dryRun: true
       }
     });
-    const encodedRequest = dataform.ExecuteRequest.encode(executeRequest).finish();
+    const encodedRequest = sqlanvil.ExecuteRequest.encode(executeRequest).finish();
 
     // Real raw BigQuery f/v format
     const rawRows = [
@@ -40,10 +40,10 @@ suite("jit_rpc", () => {
     ];
 
     const schema = [
-      { name: "num", primitive: dataform.Field.Primitive.INTEGER },
-      { name: "str", primitive: dataform.Field.Primitive.STRING },
-      { name: "bool", primitive: dataform.Field.Primitive.BOOLEAN },
-      { name: "n", primitive: dataform.Field.Primitive.STRING }
+      { name: "num", primitive: sqlanvil.Field.Primitive.INTEGER },
+      { name: "str", primitive: sqlanvil.Field.Primitive.STRING },
+      { name: "bool", primitive: sqlanvil.Field.Primitive.BOOLEAN },
+      { name: "n", primitive: sqlanvil.Field.Primitive.STRING }
     ];
     when(mockClient.executeRaw(statement, anything())).thenResolve({
       rows: rawRows,
@@ -52,7 +52,7 @@ suite("jit_rpc", () => {
     });
 
     const response = await handleDbRequest(instance(mockAdapter), instance(mockClient), "Execute", encodedRequest);
-    const decoded = dataform.ExecuteResponse.decode(response);
+    const decoded = sqlanvil.ExecuteResponse.decode(response);
 
     expect(decoded.rows.length).equals(1);
     const row = decoded.rows[0];
@@ -81,14 +81,14 @@ suite("jit_rpc", () => {
     const mockClient = mock<IDbClient>();
 
     const target = { database: "db", schema: "sch", name: "tab" };
-    const request = dataform.DeleteTableRequest.create({ target });
-    const encodedRequest = dataform.DeleteTableRequest.encode(request).finish();
+    const request = sqlanvil.DeleteTableRequest.create({ target });
+    const encodedRequest = sqlanvil.DeleteTableRequest.encode(request).finish();
 
     const response = await handleDbRequest(instance(mockAdapter), instance(mockClient), "DeleteTable", encodedRequest);
 
     verify(mockAdapter.deleteTable(anything())).once();
     const capturedTarget = capture(mockAdapter.deleteTable).last()[0];
-    expect(dataform.Target.create(capturedTarget)).deep.equals(dataform.Target.create(target));
+    expect(sqlanvil.Target.create(capturedTarget)).deep.equals(sqlanvil.Target.create(target));
     expect(response.length).equals(0);
   });
 
@@ -97,7 +97,7 @@ suite("jit_rpc", () => {
     const mockClient = mock<IDbClient>();
 
     const statement = "SELECT null as n";
-    const encodedRequest = dataform.ExecuteRequest.encode(dataform.ExecuteRequest.create({ statement })).finish();
+    const encodedRequest = sqlanvil.ExecuteRequest.encode(sqlanvil.ExecuteRequest.create({ statement })).finish();
 
     // Test with a null value
     when(mockClient.executeRaw(statement, anything())).thenResolve({
@@ -106,12 +106,12 @@ suite("jit_rpc", () => {
           f: [{ v: null }]
         }
       ],
-      schema: [{ name: "n", primitive: dataform.Field.Primitive.STRING }],
+      schema: [{ name: "n", primitive: sqlanvil.Field.Primitive.STRING }],
       metadata: {}
     });
 
     const response = await handleDbRequest(instance(mockAdapter), instance(mockClient), "Execute", encodedRequest);
-    const decoded = dataform.ExecuteResponse.decode(response);
+    const decoded = sqlanvil.ExecuteResponse.decode(response);
 
     expect(decoded.rows.length).equals(1);
     const fListNull = decoded.rows[0].fields.f.listValue.values;
@@ -129,7 +129,7 @@ suite("jit_rpc", () => {
     });
 
     const responseEmpty = await handleDbRequest(instance(mockAdapter), instance(mockClient), "Execute", encodedRequest);
-    const decodedEmpty = dataform.ExecuteResponse.decode(responseEmpty);
+    const decodedEmpty = sqlanvil.ExecuteResponse.decode(responseEmpty);
     expect(decodedEmpty.rows.length).equals(0);
 
     verify(mockClient.executeRaw(statement, anything())).twice();
@@ -142,15 +142,15 @@ suite("jit_rpc", () => {
     const mockAdapter = mock<IDbAdapter>();
     const mockClient = mock<IDbClient>();
 
-    const request = dataform.ListTablesRequest.create({ database: "db", schema: "sch" });
-    const encodedRequest = dataform.ListTablesRequest.encode(request).finish();
+    const request = sqlanvil.ListTablesRequest.create({ database: "db", schema: "sch" });
+    const encodedRequest = sqlanvil.ListTablesRequest.encode(request).finish();
 
     const target1 = { database: "db", schema: "sch", name: "table1" };
-    const metadata1 = { target: target1, type: dataform.TableMetadata.Type.TABLE } as any;
+    const metadata1 = { target: target1, type: sqlanvil.TableMetadata.Type.TABLE } as any;
     when(mockAdapter.tables("db", "sch")).thenResolve([metadata1]);
 
     const response = await handleDbRequest(instance(mockAdapter), instance(mockClient), "ListTables", encodedRequest);
-    const decoded = dataform.ListTablesResponse.decode(response);
+    const decoded = sqlanvil.ListTablesResponse.decode(response);
 
     expect(decoded.tables.length).equals(1);
     expect(decoded.tables[0].target.name).equals("table1");
@@ -164,8 +164,8 @@ suite("jit_rpc", () => {
     const mockClient = mock<IDbClient>();
 
     // Request without database
-    const request = dataform.ListTablesRequest.create({ schema: "sch" });
-    const encodedRequest = dataform.ListTablesRequest.encode(request).finish();
+    const request = sqlanvil.ListTablesRequest.create({ schema: "sch" });
+    const encodedRequest = sqlanvil.ListTablesRequest.encode(request).finish();
 
     try {
       await handleDbRequest(instance(mockAdapter), instance(mockClient), "ListTables", encodedRequest);
@@ -182,18 +182,18 @@ suite("jit_rpc", () => {
     const mockClient = mock<IDbClient>();
 
     const target = { database: "db", schema: "sch", name: "tab" };
-    const request = dataform.GetTableRequest.create({ target });
-    const encodedRequest = dataform.GetTableRequest.encode(request).finish();
+    const request = sqlanvil.GetTableRequest.create({ target });
+    const encodedRequest = sqlanvil.GetTableRequest.encode(request).finish();
 
     when(mockAdapter.table(anything())).thenResolve({ target } as any);
 
     const response = await handleDbRequest(instance(mockAdapter), instance(mockClient), "GetTable", encodedRequest);
-    const decoded = dataform.TableMetadata.decode(response);
+    const decoded = sqlanvil.TableMetadata.decode(response);
 
     expect(decoded.target.name).equals("tab");
     verify(mockAdapter.table(anything())).once();
     const capturedTarget = capture(mockAdapter.table).last()[0];
-    expect(dataform.Target.create(capturedTarget)).deep.equals(dataform.Target.create(target));
+    expect(sqlanvil.Target.create(capturedTarget)).deep.equals(sqlanvil.Target.create(target));
   });
 
   test("GetTable RPC throws error when table not found", async () => {
@@ -201,8 +201,8 @@ suite("jit_rpc", () => {
     const mockClient = mock<IDbClient>();
 
     const target = { database: "db", schema: "sch", name: "missing" };
-    const request = dataform.GetTableRequest.create({ target });
-    const encodedRequest = dataform.GetTableRequest.encode(request).finish();
+    const request = sqlanvil.GetTableRequest.create({ target });
+    const encodedRequest = sqlanvil.GetTableRequest.encode(request).finish();
 
     // Adapter returns null for missing table
     when(mockAdapter.table(anything())).thenResolve(null);
@@ -222,10 +222,10 @@ suite("jit_rpc", () => {
     const mockAdapter = mock<IDbAdapter>();
     const mockClient = mock<IDbClient>();
 
-    const request = dataform.DeleteTableRequest.create({
+    const request = sqlanvil.DeleteTableRequest.create({
       target: { database: "db", schema: "sch", name: "tab" }
     });
-    const encodedRequest = dataform.DeleteTableRequest.encode(request).finish();
+    const encodedRequest = sqlanvil.DeleteTableRequest.encode(request).finish();
 
     // Call with dryRun = true
     await handleDbRequest(instance(mockAdapter), instance(mockClient), "DeleteTable", encodedRequest, { dryRun: true });
@@ -239,7 +239,7 @@ suite("jit_rpc", () => {
     const mockClient = mock<IDbClient>();
 
     const statement = "SELECT 1";
-    const encodedRequest = dataform.ExecuteRequest.encode(dataform.ExecuteRequest.create({ statement })).finish();
+    const encodedRequest = sqlanvil.ExecuteRequest.encode(sqlanvil.ExecuteRequest.create({ statement })).finish();
 
     when(mockClient.executeRaw(anything(), anything())).thenResolve({ rows: [], metadata: {} });
 
@@ -268,7 +268,7 @@ suite("jit_rpc", () => {
     const mockAdapter = mock<IDbAdapter>();
     const mockClient = mock<IDbClient>();
     const statement = "SELECT 1";
-    const executeRequest = dataform.ExecuteRequest.create({
+    const executeRequest = sqlanvil.ExecuteRequest.create({
       statement,
       bigQueryOptions: {
         location: "EU",
@@ -277,7 +277,7 @@ suite("jit_rpc", () => {
         dryRun: true
       }
     });
-    const encodedRequest = dataform.ExecuteRequest.encode(executeRequest).finish();
+    const encodedRequest = sqlanvil.ExecuteRequest.encode(executeRequest).finish();
 
     const globalOptions = {
       labels: { global_label: "global_val" },
@@ -313,7 +313,7 @@ suite("jit_rpc", () => {
     const mockAdapter = mock<IDbAdapter>();
     const mockClient = mock<IDbClient>();
     const statement = "SELECT 1";
-    const encodedRequest = dataform.ExecuteRequest.encode({
+    const encodedRequest = sqlanvil.ExecuteRequest.encode({
       statement,
       bigQueryOptions: { labels: { request_label: "request_val" } }
     }).finish();
@@ -338,7 +338,7 @@ suite("jit_rpc", () => {
     const mockAdapter = mock<IDbAdapter>();
     const mockClient = mock<IDbClient>();
     const statement = "SELECT 1";
-    const encodedRequest = dataform.ExecuteRequest.encode({
+    const encodedRequest = sqlanvil.ExecuteRequest.encode({
       statement,
       bigQueryOptions: { labels: { request_label: "request_val" } }
     }).finish();
@@ -360,7 +360,7 @@ suite("jit_rpc", () => {
     const mockAdapter = mock<IDbAdapter>();
     const mockClient = mock<IDbClient>();
     const statement = "SELECT 1";
-    const encodedRequest = dataform.ExecuteRequest.encode({
+    const encodedRequest = sqlanvil.ExecuteRequest.encode({
       statement,
       bigQueryOptions: { labels: { request_label: "request_val" } }
     }).finish();
@@ -383,7 +383,7 @@ suite("jit_rpc", () => {
     const mockClient = mock<IDbClient>();
     const statement = "SELECT 1";
     // Request has no labels
-    const encodedRequest = dataform.ExecuteRequest.encode({
+    const encodedRequest = sqlanvil.ExecuteRequest.encode({
       statement,
       bigQueryOptions: { location: "US" }
     }).finish();
@@ -405,7 +405,7 @@ suite("jit_rpc", () => {
     const mockClient = mock<IDbClient>();
     const statement = "SELECT 1";
     // Request has empty labels
-    const encodedRequest = dataform.ExecuteRequest.encode({
+    const encodedRequest = sqlanvil.ExecuteRequest.encode({
       statement,
       bigQueryOptions: { labels: {} }
     }).finish();
@@ -427,7 +427,7 @@ suite("jit_rpc", () => {
     const mockClient = mock<IDbClient>();
 
     const statement = "SELECT * FROM table";
-    const encodedRequest = dataform.ExecuteRequest.encode(dataform.ExecuteRequest.create({ statement })).finish();
+    const encodedRequest = sqlanvil.ExecuteRequest.encode(sqlanvil.ExecuteRequest.create({ statement })).finish();
 
     // Real raw BigQuery f/v format
     const rawRows = [
@@ -440,12 +440,12 @@ suite("jit_rpc", () => {
 
     when(mockClient.executeRaw(statement, anything())).thenResolve({
       rows: rawRows,
-      schema: [{ name: "id", primitive: dataform.Field.Primitive.STRING }],
+      schema: [{ name: "id", primitive: sqlanvil.Field.Primitive.STRING }],
       metadata: { bigquery: { jobId: "job1" } }
     });
 
     const response = await handleDbRequest(instance(mockAdapter), instance(mockClient), "Execute", encodedRequest);
-    const decoded = dataform.ExecuteResponse.decode(response);
+    const decoded = sqlanvil.ExecuteResponse.decode(response);
 
     expect(decoded.rows.length).equals(1);
     const row = decoded.rows[0];
@@ -461,7 +461,7 @@ suite("jit_rpc", () => {
     const mockClient = mock<IDbClient>();
 
     const statement = "SELECT complex_struct FROM table";
-    const encodedRequest = dataform.ExecuteRequest.encode(dataform.ExecuteRequest.create({ statement })).finish();
+    const encodedRequest = sqlanvil.ExecuteRequest.encode(sqlanvil.ExecuteRequest.create({ statement })).finish();
 
     // Real raw BigQuery complex nested f/v format
     const rawRows = [
@@ -481,12 +481,12 @@ suite("jit_rpc", () => {
 
     when(mockClient.executeRaw(statement, anything())).thenResolve({
       rows: rawRows,
-      schema: [{ name: "complex_struct", primitive: dataform.Field.Primitive.STRING }],
+      schema: [{ name: "complex_struct", primitive: sqlanvil.Field.Primitive.STRING }],
       metadata: { bigquery: { jobId: "job1" } }
     });
 
     const response = await handleDbRequest(instance(mockAdapter), instance(mockClient), "Execute", encodedRequest);
-    const decoded = dataform.ExecuteResponse.decode(response);
+    const decoded = sqlanvil.ExecuteResponse.decode(response);
 
     expect(decoded.rows.length).equals(1);
     const row = decoded.rows[0];

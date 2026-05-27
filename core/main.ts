@@ -3,38 +3,38 @@ import {
   encode64,
   verifyObjectMatchesProto,
   VerifyProtoErrorBehaviour
-} from "df/common/protos";
-import { Assertion } from "df/core/actions/assertion";
-import { DataPreparation } from "df/core/actions/data_preparation";
-import { Declaration } from "df/core/actions/declaration";
-import { IncrementalTable } from "df/core/actions/incremental_table";
-import { Notebook } from "df/core/actions/notebook";
-import { Operation } from "df/core/actions/operation";
-import { Table } from "df/core/actions/table";
-import { View } from "df/core/actions/view";
-import { IDataformExtension } from "df/core/extension";
-import * as Path from "df/core/path";
-import { Session } from "df/core/session";
-import { nativeRequire } from "df/core/utils";
-import { readWorkflowSettings } from "df/core/workflow_settings";
-import { dataform } from "df/protos/ts";
+} from "sa/common/protos";
+import { Assertion } from "sa/core/actions/assertion";
+import { DataPreparation } from "sa/core/actions/data_preparation";
+import { Declaration } from "sa/core/actions/declaration";
+import { IncrementalTable } from "sa/core/actions/incremental_table";
+import { Notebook } from "sa/core/actions/notebook";
+import { Operation } from "sa/core/actions/operation";
+import { Table } from "sa/core/actions/table";
+import { View } from "sa/core/actions/view";
+import { IDataformExtension } from "sa/core/extension";
+import * as Path from "sa/core/path";
+import { Session } from "sa/core/session";
+import { nativeRequire } from "sa/core/utils";
+import { readWorkflowSettings } from "sa/core/workflow_settings";
+import { sqlanvil } from "sa/protos/ts";
 
 /**
  * This is the main entry point into the user space code that should be invoked by the compilation wrapper sandbox.
  *
- * @param coreExecutionRequest an encoded @see {@link dataform.CoreExecutionRequest} proto.
- * @returns an encoded @see {@link dataform.CoreExecutionResponse} proto.
+ * @param coreExecutionRequest an encoded @see {@link sqlanvil.CoreExecutionRequest} proto.
+ * @returns an encoded @see {@link sqlanvil.CoreExecutionResponse} proto.
  */
 export function main(coreExecutionRequest: Uint8Array | string): Uint8Array | string {
   const globalAny = global as any;
 
-  let request: dataform.CoreExecutionRequest;
+  let request: sqlanvil.CoreExecutionRequest;
   if (typeof coreExecutionRequest === "string") {
     // Older versions of the Dataform CLI send a base64 encoded string.
     // See https://github.com/dataform-co/dataform/pull/1570.
-    request = decode64(dataform.CoreExecutionRequest, coreExecutionRequest);
+    request = decode64(sqlanvil.CoreExecutionRequest, coreExecutionRequest);
   } else {
-    request = dataform.CoreExecutionRequest.decode(coreExecutionRequest);
+    request = sqlanvil.CoreExecutionRequest.decode(coreExecutionRequest);
   }
   const compileRequest = request.compile;
 
@@ -45,7 +45,7 @@ export function main(coreExecutionRequest: Uint8Array | string): Uint8Array | st
 
   // Merge in project config overrides.
   const projectConfigOverride = compileRequest.compileConfig.projectConfigOverride ?? {};
-  projectConfig = dataform.ProjectConfig.create({
+  projectConfig = sqlanvil.ProjectConfig.create({
     ...projectConfig,
     ...projectConfigOverride,
     vars: { ...projectConfig.vars, ...projectConfigOverride.vars }
@@ -56,23 +56,23 @@ export function main(coreExecutionRequest: Uint8Array | string): Uint8Array | st
   session.init(compileRequest.compileConfig.projectDir, projectConfig, projectConfig);
 
   // Allow "includes" files to use the current session object.
-  globalAny.dataform = session;
+  globalAny.sqlanvil = session;
 
   prologueCompile(compileRequest, session);
 
   mainCompile(compileRequest, session);
 
-  const coreExecutionResponse = dataform.CoreExecutionResponse.create({
+  const coreExecutionResponse = sqlanvil.CoreExecutionResponse.create({
     compile: { compiledGraph: session.compile() }
   });
 
   if (typeof coreExecutionRequest === "string") {
     // Older versions of the Dataform CLI expect a base64 encoded string to be returned.
     // See https://github.com/dataform-co/dataform/pull/1570.
-    return encode64(dataform.CoreExecutionResponse, coreExecutionResponse);
+    return encode64(sqlanvil.CoreExecutionResponse, coreExecutionResponse);
   }
 
-  return dataform.CoreExecutionResponse.encode(coreExecutionResponse).finish();
+  return sqlanvil.CoreExecutionResponse.encode(coreExecutionResponse).finish();
 }
 
 function loadActionConfigs(session: Session, filePaths: string[]) {
@@ -87,13 +87,13 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
     .forEach(actionConfigsPath => {
       const actionConfigs = loadActionConfigsFile(session, actionConfigsPath);
       actionConfigs.actions.forEach(nonProtoActionConfig => {
-        const actionConfig = dataform.ActionConfig.create(nonProtoActionConfig);
+        const actionConfig = sqlanvil.ActionConfig.create(nonProtoActionConfig);
 
         if (actionConfig.table) {
           session.actions.push(
             new Table(
               session,
-              dataform.ActionConfig.TableConfig.create(actionConfig.table),
+              sqlanvil.ActionConfig.TableConfig.create(actionConfig.table),
               actionConfigsPath
             )
           );
@@ -101,7 +101,7 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
           session.actions.push(
             new View(
               session,
-              dataform.ActionConfig.ViewConfig.create(actionConfig.view),
+              sqlanvil.ActionConfig.ViewConfig.create(actionConfig.view),
               actionConfigsPath
             )
           );
@@ -109,7 +109,7 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
           session.actions.push(
             new IncrementalTable(
               session,
-              dataform.ActionConfig.IncrementalTableConfig.create(actionConfig.incrementalTable),
+              sqlanvil.ActionConfig.IncrementalTableConfig.create(actionConfig.incrementalTable),
               actionConfigsPath
             )
           );
@@ -117,7 +117,7 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
           session.actions.push(
             new Assertion(
               session,
-              dataform.ActionConfig.AssertionConfig.create(actionConfig.assertion),
+              sqlanvil.ActionConfig.AssertionConfig.create(actionConfig.assertion),
               actionConfigsPath
             )
           );
@@ -125,7 +125,7 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
           session.actions.push(
             new Operation(
               session,
-              dataform.ActionConfig.OperationConfig.create(actionConfig.operation),
+              sqlanvil.ActionConfig.OperationConfig.create(actionConfig.operation),
               actionConfigsPath
             )
           );
@@ -133,14 +133,14 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
           session.actions.push(
             new Declaration(
               session,
-              dataform.ActionConfig.DeclarationConfig.create(actionConfig.declaration)
+              sqlanvil.ActionConfig.DeclarationConfig.create(actionConfig.declaration)
             )
           );
         } else if (actionConfig.notebook) {
           session.actions.push(
             new Notebook(
               session,
-              dataform.ActionConfig.NotebookConfig.create(actionConfig.notebook),
+              sqlanvil.ActionConfig.NotebookConfig.create(actionConfig.notebook),
               actionConfigsPath
             )
           );
@@ -148,7 +148,7 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
           session.actions.push(
             new DataPreparation(
               session,
-              dataform.ActionConfig.DataPreparationConfig.create(actionConfig.dataPreparation),
+              sqlanvil.ActionConfig.DataPreparationConfig.create(actionConfig.dataPreparation),
               actionConfigsPath
             )
           );
@@ -162,7 +162,7 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
 function loadActionConfigsFile(
   session: Session,
   actionConfigsPath: string
-): dataform.ActionConfigs {
+): sqlanvil.ActionConfigs {
   let actionConfigsAsJson = {};
   try {
     // tslint:disable-next-line: tsr-detect-non-literal-require
@@ -171,29 +171,29 @@ function loadActionConfigsFile(
     session.compileError(e, actionConfigsPath);
   }
   verifyObjectMatchesProto(
-    dataform.ActionConfigs,
+    sqlanvil.ActionConfigs,
     actionConfigsAsJson,
     VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
   );
-  return dataform.ActionConfigs.fromObject(actionConfigsAsJson);
+  return sqlanvil.ActionConfigs.fromObject(actionConfigsAsJson);
 }
 
-function prologueCompile(compileRequest: dataform.ICompileExecutionRequest, session: Session) {
-  if (compileRequest?.compileConfig?.extension?.compilationMode === dataform.ExtensionCompilationMode.PROLOGUE) {
+function prologueCompile(compileRequest: sqlanvil.ICompileExecutionRequest, session: Session) {
+  if (compileRequest?.compileConfig?.extension?.compilationMode === sqlanvil.ExtensionCompilationMode.PROLOGUE) {
     extensionCompile(compileRequest, session);
   }
 }
 
-function mainCompile(compileRequest: dataform.ICompileExecutionRequest, session: Session) {
-  if (compileRequest?.compileConfig?.extension?.compilationMode === dataform.ExtensionCompilationMode.APPLICATION_CODE) {
+function mainCompile(compileRequest: sqlanvil.ICompileExecutionRequest, session: Session) {
+  if (compileRequest?.compileConfig?.extension?.compilationMode === sqlanvil.ExtensionCompilationMode.APPLICATION_CODE) {
     extensionCompile(compileRequest, session);
     return;
   }
 
-  dataformCompile(compileRequest, session);
+  sqlanvilCompile(compileRequest, session);
 }
 
-function extensionCompile(compileRequest: dataform.ICompileExecutionRequest, session: Session) {
+function extensionCompile(compileRequest: sqlanvil.ICompileExecutionRequest, session: Session) {
   try {
     const module = nativeRequire(compileRequest?.compileConfig?.extension.name);
     const extension: () => IDataformExtension = module.extension;
@@ -203,7 +203,7 @@ function extensionCompile(compileRequest: dataform.ICompileExecutionRequest, ses
   }
 }
 
-function dataformCompile(compileRequest: dataform.ICompileExecutionRequest, session: Session) {
+function sqlanvilCompile(compileRequest: sqlanvil.ICompileExecutionRequest, session: Session) {
   const globalAny = global as any;
 
   // Require "includes/*.js" files, attaching them (by file basename) to the `global` object.

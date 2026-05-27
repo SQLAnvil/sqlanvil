@@ -1,10 +1,10 @@
 import { dump as dumpYaml } from "js-yaml";
 
-import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "df/common/protos";
-import { ActionBuilder } from "df/core/actions";
-import { Contextable, ITableContext, Resolvable } from "df/core/contextables";
-import * as Path from "df/core/path";
-import { Session } from "df/core/session";
+import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
+import { ActionBuilder } from "sa/core/actions";
+import { Contextable, ITableContext, Resolvable } from "sa/core/contextables";
+import * as Path from "sa/core/path";
+import { Session } from "sa/core/session";
 import {
   actionConfigToCompiledGraphTarget,
   checkAssertionsForDependency,
@@ -14,23 +14,23 @@ import {
   resolveActionsConfigFilename,
   toResolvable,
   validateQueryString
-} from "df/core/utils";
-import { dataform } from "df/protos/ts";
+} from "sa/core/utils";
+import { sqlanvil } from "sa/protos/ts";
 
 /**
  * @hidden
  */
-export class DataPreparation extends ActionBuilder<dataform.DataPreparation> {
+export class DataPreparation extends ActionBuilder<sqlanvil.DataPreparation> {
   public session: Session;
 
   // We delay contextification until the final compile step, so hold these here for now.
   public contextableQuery: Contextable<ITableContext, string>;
 
-  private proto = dataform.DataPreparation.create();
+  private proto = sqlanvil.DataPreparation.create();
 
   constructor(
     session?: Session,
-    config?: dataform.ActionConfig.DataPreparationConfig,
+    config?: sqlanvil.ActionConfig.DataPreparationConfig,
     configPath?: string
   ) {
     super(session);
@@ -114,7 +114,7 @@ export class DataPreparation extends ActionBuilder<dataform.DataPreparation> {
    */
   public getTarget() {
     // Return only the first target for now.
-    return dataform.Target.create(this.proto.target);
+    return sqlanvil.Target.create(this.proto.target);
   }
 
   public compile() {
@@ -125,7 +125,7 @@ export class DataPreparation extends ActionBuilder<dataform.DataPreparation> {
     }
 
     return verifyObjectMatchesProto(
-      dataform.DataPreparation,
+      sqlanvil.DataPreparation,
       this.proto,
       VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
     );
@@ -133,7 +133,7 @@ export class DataPreparation extends ActionBuilder<dataform.DataPreparation> {
 
   public database(database: string) {
     this.proto.target = this.applySessionToTarget(
-      dataform.Target.create({ ...this.proto.target, database }),
+      sqlanvil.Target.create({ ...this.proto.target, database }),
       this.session.projectConfig,
       this.proto.fileName,
       { validateTarget: true }
@@ -143,7 +143,7 @@ export class DataPreparation extends ActionBuilder<dataform.DataPreparation> {
 
   public schema(schema: string) {
     this.proto.target = this.applySessionToTarget(
-      dataform.Target.create({ ...this.proto.target, schema }),
+      sqlanvil.Target.create({ ...this.proto.target, schema }),
       this.session.projectConfig,
       this.proto.fileName,
       { validateTarget: true }
@@ -156,9 +156,9 @@ export class DataPreparation extends ActionBuilder<dataform.DataPreparation> {
       [key: string]: any;
     },
     session?: Session,
-    config?: dataform.ActionConfig.DataPreparationConfig
+    config?: sqlanvil.ActionConfig.DataPreparationConfig
   ) {
-    const defaultTarget = dataform.Target.create({ name: config.name });
+    const defaultTarget = sqlanvil.Target.create({ name: config.name });
     this.proto.target = this.finalizeTarget(
       this.applySessionToTarget(defaultTarget, session.projectConfig, config.filename, {
         validateTarget: true
@@ -175,12 +175,12 @@ export class DataPreparation extends ActionBuilder<dataform.DataPreparation> {
   }
 
   private configureYamlWithTargets(
-    targets: dataform.Target[],
+    targets: sqlanvil.Target[],
     dataPreparationAsJson: {
       [key: string]: any;
     },
     session?: Session,
-    config?: dataform.ActionConfig.DataPreparationConfig
+    config?: sqlanvil.ActionConfig.DataPreparationConfig
   ) {
     const resolvedTargets = targets.map(target =>
       this.applySessionToTarget(target, session.projectConfig, config.filename, {
@@ -245,13 +245,13 @@ export class DataPreparation extends ActionBuilder<dataform.DataPreparation> {
   }
 
   private applySessionToTableReference(tableReference: { [key: string]: string }): object {
-    const target: dataform.ITarget = {
+    const target: sqlanvil.ITarget = {
       database: tableReference.project,
       schema: tableReference.dataset,
       name: tableReference.table
     };
     const resolvedTarget = this.applySessionToTarget(
-      dataform.Target.create(target),
+      sqlanvil.Target.create(target),
       this.session.projectConfig
     );
     // Convert resolved target into a Data Preparation Table Reference
@@ -275,19 +275,19 @@ export class DataPreparation extends ActionBuilder<dataform.DataPreparation> {
     return resolvedTableReference;
   }
 
-  private getTargets(definition: { [key: string]: any }): dataform.Target[] {
-    const targets: dataform.Target[] = [];
+  private getTargets(definition: { [key: string]: any }): sqlanvil.Target[] {
+    const targets: sqlanvil.Target[] = [];
 
     if (definition && definition.nodes) {
       (definition.nodes as Array<{ [key: string]: any }>).forEach(node => {
         const table = node.destination?.table;
         if (table) {
-          const compiledGraphTarget: dataform.ITarget = {
+          const compiledGraphTarget: sqlanvil.ITarget = {
             database: table.project,
             schema: table.dataset,
             name: table.table
           };
-          targets.push(dataform.Target.create(compiledGraphTarget));
+          targets.push(sqlanvil.Target.create(compiledGraphTarget));
         }
       });
     }
@@ -296,7 +296,7 @@ export class DataPreparation extends ActionBuilder<dataform.DataPreparation> {
   }
   private configureYaml(
     session?: Session,
-    config?: dataform.ActionConfig.DataPreparationConfig,
+    config?: sqlanvil.ActionConfig.DataPreparationConfig,
     configPath?: string
   ) {
     config.filename = resolveActionsConfigFilename(config.filename, configPath);
@@ -322,7 +322,7 @@ export class DataPreparation extends ActionBuilder<dataform.DataPreparation> {
     if (config.dependencyTargets) {
       this.dependencies(
         config.dependencyTargets.map(dependencyTarget =>
-          configTargetToCompiledGraphTarget(dataform.ActionConfig.Target.create(dependencyTarget))
+          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
         )
       );
     }
@@ -332,14 +332,14 @@ export class DataPreparation extends ActionBuilder<dataform.DataPreparation> {
     }
   }
 
-  private configureSqlx(session?: Session, config?: dataform.ActionConfig.DataPreparationConfig) {
-    const targets: dataform.Target[] = [];
+  private configureSqlx(session?: Session, config?: sqlanvil.ActionConfig.DataPreparationConfig) {
+    const targets: sqlanvil.Target[] = [];
 
     // Add destination as target
     targets.push(actionConfigToCompiledGraphTarget(config));
     // Add Error Table if specified as a secondary target
     if (config.errorTable != null) {
-      const errorTableConfig = dataform.ActionConfig.DataPreparationConfig.ErrorTableConfig.create(
+      const errorTableConfig = sqlanvil.ActionConfig.DataPreparationConfig.ErrorTableConfig.create(
         config.errorTable
       );
       const errorTableTarget = actionConfigToCompiledGraphTarget(errorTableConfig);
@@ -378,7 +378,7 @@ export class DataPreparation extends ActionBuilder<dataform.DataPreparation> {
     if (config.dependencyTargets) {
       this.dependencies(
         config.dependencyTargets.map(dependencyTarget =>
-          configTargetToCompiledGraphTarget(dataform.ActionConfig.Target.create(dependencyTarget))
+          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
         )
       );
     }
@@ -399,26 +399,26 @@ export class DataPreparation extends ActionBuilder<dataform.DataPreparation> {
     loadMode?: string | number,
     incrementalColumn?: string,
     uniqueKey?: string[]
-  ): dataform.LoadConfiguration {
+  ): sqlanvil.LoadConfiguration {
     if (!loadMode) {
-      return dataform.LoadConfiguration.create({ replace: {} });
+      return sqlanvil.LoadConfiguration.create({ replace: {} });
     }
 
     switch (loadMode.toString().toUpperCase()) {
       case "REPLACE_TABLE":
-        return dataform.LoadConfiguration.create({ replace: {} });
+        return sqlanvil.LoadConfiguration.create({ replace: {} });
       case "APPEND":
-        return dataform.LoadConfiguration.create({ append: {} });
+        return sqlanvil.LoadConfiguration.create({ append: {} });
       case "MAXIMUM":
-        return dataform.LoadConfiguration.create({
+        return sqlanvil.LoadConfiguration.create({
           maximum: { columnName: this.validateLoadModeColumnName(incrementalColumn) }
         });
       case "UNIQUE":
-        return dataform.LoadConfiguration.create({
+        return sqlanvil.LoadConfiguration.create({
           unique: { columnName: this.validateLoadModeColumnName(incrementalColumn) }
         });
       case "MERGE":
-        return dataform.LoadConfiguration.create({
+        return sqlanvil.LoadConfiguration.create({
           merge: { uniqueKey: this.validateUniqueKey(uniqueKey) }
         });
       default:
@@ -446,7 +446,7 @@ export class DataPreparationContext implements ITableContext {
 
   constructor(private dataPreparation: DataPreparation, private isIncremental = false) {}
 
-  public config(config: dataform.ActionConfig.DataPreparationConfig) {
+  public config(config: sqlanvil.ActionConfig.DataPreparationConfig) {
     this.dataPreparation.config(config);
     return "";
   }

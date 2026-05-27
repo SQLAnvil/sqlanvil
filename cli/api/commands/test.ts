@@ -1,17 +1,17 @@
-import * as dbadapters from "df/cli/api/dbadapters";
-import { dataform } from "df/protos/ts";
+import * as dbadapters from "sa/cli/api/dbadapters";
+import { sqlanvil } from "sa/protos/ts";
 
 export async function test(
   dbadapter: dbadapters.IDbAdapter,
-  tests: dataform.ITest[]
-): Promise<dataform.ITestResult[]> {
+  tests: sqlanvil.ITest[]
+): Promise<sqlanvil.ITestResult[]> {
   return await Promise.all(tests.map(testCase => runTest(dbadapter, testCase)));
 }
 
 async function runTest(
   dbadapter: dbadapters.IDbAdapter,
-  testCase: dataform.ITest
-): Promise<dataform.ITestResult> {
+  testCase: sqlanvil.ITest
+): Promise<sqlanvil.ITestResult> {
   // TODO: Test results are currently limited to 1MB.
   // We should paginate test results to remove this limit.
   let actualResults;

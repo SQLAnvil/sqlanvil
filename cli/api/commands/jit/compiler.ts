@@ -1,12 +1,12 @@
 import { ChildProcess } from "child_process";
 import * as path from "path";
 
-import { BaseWorker } from "df/cli/api/commands/base_worker";
-import { handleDbRequest } from "df/cli/api/commands/jit/rpc";
-import { IDbAdapter, IDbClient } from "df/cli/api/dbadapters";
-import { IBigQueryExecutionOptions } from "df/cli/api/dbadapters/bigquery";
-import { DEFAULT_COMPILATION_TIMEOUT_MILLIS } from "df/cli/api/utils/constants";
-import { dataform } from "df/protos/ts";
+import { BaseWorker } from "sa/cli/api/commands/base_worker";
+import { handleDbRequest } from "sa/cli/api/commands/jit/rpc";
+import { IDbAdapter, IDbClient } from "sa/cli/api/dbadapters";
+import { IBigQueryExecutionOptions } from "sa/cli/api/dbadapters/bigquery";
+import { DEFAULT_COMPILATION_TIMEOUT_MILLIS } from "sa/cli/api/utils/constants";
+import { sqlanvil } from "sa/protos/ts";
 
 export interface IJitWorkerMessage {
   type: "rpc_request" | "jit_response" | "jit_error";
@@ -18,17 +18,17 @@ export interface IJitWorkerMessage {
 }
 
 export class JitCompileChildProcess extends BaseWorker<
-  dataform.IJitCompilationResponse,
+  sqlanvil.IJitCompilationResponse,
   IJitWorkerMessage
 > {
   public static async compile(
-    request: dataform.IJitCompilationRequest,
+    request: sqlanvil.IJitCompilationRequest,
     projectDir: string,
     dbadapter: IDbAdapter,
     dbclient: IDbClient,
     timeoutMillis: number = DEFAULT_COMPILATION_TIMEOUT_MILLIS,
     options?: IBigQueryExecutionOptions
-  ): Promise<dataform.IJitCompilationResponse> {
+  ): Promise<sqlanvil.IJitCompilationResponse> {
     return await new JitCompileChildProcess().run(
       request,
       projectDir,
@@ -44,13 +44,13 @@ export class JitCompileChildProcess extends BaseWorker<
   }
 
   private async run(
-    request: dataform.IJitCompilationRequest,
+    request: sqlanvil.IJitCompilationRequest,
     projectDir: string,
     dbadapter: IDbAdapter,
     dbclient: IDbClient,
     timeoutMillis: number,
     options?: IBigQueryExecutionOptions
-  ): Promise<dataform.IJitCompilationResponse> {
+  ): Promise<sqlanvil.IJitCompilationResponse> {
     return await this.runWorker(
       timeoutMillis,
       child => {
@@ -64,7 +64,7 @@ export class JitCompileChildProcess extends BaseWorker<
         if (message.type === "rpc_request") {
           await this.handleRpcRequest(message, child, dbadapter, dbclient, options);
         } else if (message.type === "jit_response") {
-          resolve(dataform.JitCompilationResponse.fromObject(message.response));
+          resolve(sqlanvil.JitCompilationResponse.fromObject(message.response));
         } else if (message.type === "jit_error") {
           reject(new Error(message.error));
         }

@@ -1,9 +1,9 @@
 import { expect } from "chai";
 import * as fs from "fs-extra";
 
-import { ExecutionSql } from "df/cli/api/dbadapters/execution_sql";
-import { dataform } from "df/protos/ts";
-import { suite, test } from "df/testing";
+import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
+import { sqlanvil } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
 
 suite("ExecutionSql with 'onSchemaChange'", () => {
   const executionSql = new ExecutionSql(
@@ -15,9 +15,9 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
     () => "test_uuid"
   );
 
-  const baseTable: dataform.ITable = {
+  const baseTable: sqlanvil.ITable = {
     type: "incremental",
-    enumType: dataform.TableType.INCREMENTAL,
+    enumType: sqlanvil.TableType.INCREMENTAL,
     target: {
       database: "project-id",
       schema: "dataset-id",
@@ -27,16 +27,16 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
     incrementalQuery: "select 1 as id, 'a' as field1, 'new' as field2"
   };
 
-  const tableMetadata: dataform.ITableMetadata = {
-    type: dataform.TableMetadata.Type.TABLE,
+  const tableMetadata: sqlanvil.ITableMetadata = {
+    type: sqlanvil.TableMetadata.Type.TABLE,
     fields: [
       {
         name: "id",
-        primitive: dataform.Field.Primitive.INTEGER
+        primitive: sqlanvil.Field.Primitive.INTEGER
       },
       {
         name: "field1",
-        primitive: dataform.Field.Primitive.STRING
+        primitive: sqlanvil.Field.Primitive.STRING
       }
     ]
   };
@@ -44,7 +44,7 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
   test("generates procedure for FAIL strategy", () => {
     const table = {
       ...baseTable,
-      onSchemaChange: dataform.OnSchemaChange.FAIL
+      onSchemaChange: sqlanvil.OnSchemaChange.FAIL
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
     const procedureSql = tasks.build().map(t => t.statement).join("\n;\n");
@@ -55,7 +55,7 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
   test("generates procedure for EXTEND strategy", () => {
     const table = {
       ...baseTable,
-      onSchemaChange: dataform.OnSchemaChange.EXTEND
+      onSchemaChange: sqlanvil.OnSchemaChange.EXTEND
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
     const procedureSql = tasks.build().map(t => t.statement).join("\n;\n");
@@ -66,7 +66,7 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
   test("generates procedure for SYNCHRONIZE strategy", () => {
     const table = {
       ...baseTable,
-      onSchemaChange: dataform.OnSchemaChange.SYNCHRONIZE,
+      onSchemaChange: sqlanvil.OnSchemaChange.SYNCHRONIZE,
       uniqueKey: ["id"]
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
@@ -78,7 +78,7 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
   test("generates simple merge for IGNORE strategy", () => {
     const table = {
       ...baseTable,
-      onSchemaChange: dataform.OnSchemaChange.IGNORE,
+      onSchemaChange: sqlanvil.OnSchemaChange.IGNORE,
       uniqueKey: ["id"]
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);

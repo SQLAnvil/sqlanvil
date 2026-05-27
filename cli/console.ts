@@ -1,10 +1,10 @@
 import * as readlineSync from "readline-sync";
 
-import { IInitResult } from "df/cli/api/commands/init";
-import { prettyJsonStringify } from "df/cli/api/utils";
-import { formatBytesInHumanReadableFormat, formatExecutionSuffix } from "df/cli/util";
-import { setOrValidateTableEnumType, tableTypeEnumToString } from "df/core/utils";
-import { dataform } from "df/protos/ts";
+import { IInitResult } from "sa/cli/api/commands/init";
+import { prettyJsonStringify } from "sa/cli/api/utils";
+import { formatBytesInHumanReadableFormat, formatExecutionSuffix } from "sa/cli/util";
+import { setOrValidateTableEnumType, tableTypeEnumToString } from "sa/core/utils";
+import { sqlanvil } from "sa/protos/ts";
 
 // Support disabling colors in CLI output by using informal standard from https://no-color.org/
 // NO_COLOR=1, NO_COLOR=true, NO_COLOR=yes
@@ -187,7 +187,7 @@ export enum compiledGraphOutputType {
   Summary = "summary"
 }
 
-export function printCompiledGraph(graph: dataform.ICompiledGraph, outputType: compiledGraphOutputType, quietCompilation: boolean) {
+export function printCompiledGraph(graph: sqlanvil.ICompiledGraph, outputType: compiledGraphOutputType, quietCompilation: boolean) {
   
   const interactive = isInteractive();
   
@@ -237,7 +237,7 @@ export function printCompiledGraph(graph: dataform.ICompiledGraph, outputType: c
   }
 }
 
-function formatStackTraceForQuietCompilation(compileError: dataform.ICompilationError): string {
+function formatStackTraceForQuietCompilation(compileError: sqlanvil.ICompilationError): string {
   // Show only first 3 or available lines for cleaner error output
   // which contains the information on the file where the error occurred and the sufficient metadata for the user to fix the error. For e.g.
   // (line: 1) Unexpected identifier <file_path>: <line_number>
@@ -253,7 +253,7 @@ function formatStackTraceForQuietCompilation(compileError: dataform.ICompilation
   return "";
 }
 
-export function printCompiledGraphErrors(graphErrors: dataform.IGraphErrors, quietCompilation: boolean) {
+export function printCompiledGraphErrors(graphErrors: sqlanvil.IGraphErrors, quietCompilation: boolean) {
   if (graphErrors.compilationErrors && graphErrors.compilationErrors.length > 0) {
     printError("Compilation errors:", 1);
     graphErrors.compilationErrors.forEach(compileError => {
@@ -267,7 +267,7 @@ export function printCompiledGraphErrors(graphErrors: dataform.IGraphErrors, qui
   }
 }
 
-export function printTestResult(testResult: dataform.ITestResult) {
+export function printTestResult(testResult: sqlanvil.ITestResult) {
   writeStdOut(
     `${testResult.name}: ${testResult.successful ? successOutput("passed") : errorOutput("failed")}`
   );
@@ -276,14 +276,14 @@ export function printTestResult(testResult: dataform.ITestResult) {
   }
 }
 
-export function printExecutionGraph(executionGraph: dataform.ExecutionGraph, asJson: boolean) {
+export function printExecutionGraph(executionGraph: sqlanvil.ExecutionGraph, asJson: boolean) {
   if (asJson) {
     writeStdOut(prettyJsonStringify(executionGraph.toJSON()));
   } else {
     const actionsByType = {
-      table: [] as dataform.IExecutionAction[],
-      assertion: [] as dataform.IExecutionAction[],
-      operation: [] as dataform.IExecutionAction[]
+      table: [] as sqlanvil.IExecutionAction[],
+      assertion: [] as sqlanvil.IExecutionAction[],
+      operation: [] as sqlanvil.IExecutionAction[]
     };
     executionGraph.actions.forEach(action => {
       if (
@@ -321,8 +321,8 @@ export function printExecutionGraph(executionGraph: dataform.ExecutionGraph, asJ
 }
 
 export function printExecutedAction(
-  executedAction: dataform.IActionResult,
-  executionAction: dataform.IExecutionAction,
+  executedAction: sqlanvil.IActionResult,
+  executionAction: sqlanvil.IExecutionAction,
   dryRun?: boolean
 ) {
   const jobIds = executedAction.tasks
@@ -338,7 +338,7 @@ export function printExecutedAction(
   const executionSuffix = formatExecutionSuffix(jobIds, bytesBilled);
 
   switch (executedAction.status) {
-    case dataform.ActionResult.ExecutionStatus.SUCCESSFUL: {
+    case sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL: {
       switch (executionAction.type) {
         case "table": {
           writeStdOut(
@@ -374,7 +374,7 @@ export function printExecutedAction(
         }
       }
     }
-    case dataform.ActionResult.ExecutionStatus.FAILED: {
+    case sqlanvil.ActionResult.ExecutionStatus.FAILED: {
       switch (executionAction.type) {
         case "table": {
           writeStdErr(
@@ -408,7 +408,7 @@ export function printExecutedAction(
       printExecutedActionErrors(executedAction, executionAction);
       return;
     }
-    case dataform.ActionResult.ExecutionStatus.SKIPPED: {
+    case sqlanvil.ActionResult.ExecutionStatus.SKIPPED: {
       switch (executionAction.type) {
         case "table": {
           writeStdOut(
@@ -441,7 +441,7 @@ export function printExecutedAction(
       }
       return;
     }
-    case dataform.ActionResult.ExecutionStatus.DISABLED: {
+    case sqlanvil.ActionResult.ExecutionStatus.DISABLED: {
       switch (executionAction.type) {
         case "table": {
           writeStdOut(
@@ -507,27 +507,27 @@ export function printFormatFilesResult(
   }
 }
 
-function datasetString(target: dataform.ITarget, datasetType: string, disabled: boolean) {
+function datasetString(target: sqlanvil.ITarget, datasetType: string, disabled: boolean) {
   return `${targetString(target)} [${datasetType}]${disabled ? " [disabled]" : ""}`;
 }
 
-function assertionString(target: dataform.ITarget, disabled: boolean) {
+function assertionString(target: sqlanvil.ITarget, disabled: boolean) {
   return `${targetString(target)}${disabled ? " [disabled]" : ""}`;
 }
 
-function operationString(target: dataform.ITarget, disabled: boolean) {
+function operationString(target: sqlanvil.ITarget, disabled: boolean) {
   return `${targetString(target)}${disabled ? " [disabled]" : ""}`;
 }
 
-function plainTargetString(target: dataform.ITarget) {
+function plainTargetString(target: sqlanvil.ITarget) {
   return `${target.schema}.${target.name}`;
 }
 
-function targetString(target: dataform.ITarget) {
+function targetString(target: sqlanvil.ITarget) {
   return calloutOutput(`${target.schema}.${target.name}`);
 }
 
-export function dotRepresentation(graph: dataform.ICompiledGraph, interactive: boolean): string {
+export function dotRepresentation(graph: sqlanvil.ICompiledGraph, interactive: boolean): string {
   const nodes: string[] = [];
   const edges: string[] = [];
 
@@ -561,11 +561,11 @@ export function dotRepresentation(graph: dataform.ICompiledGraph, interactive: b
 }
 
 function printExecutedActionErrors(
-  executedAction: dataform.IActionResult,
-  executionAction: dataform.IExecutionAction
+  executedAction: sqlanvil.IActionResult,
+  executionAction: sqlanvil.IExecutionAction
 ) {
   const failingTasks = executedAction.tasks.filter(
-    task => task.status === dataform.TaskResult.ExecutionStatus.FAILED
+    task => task.status === sqlanvil.TaskResult.ExecutionStatus.FAILED
   );
   failingTasks.forEach((task, i) => {
     executionAction.tasks[i].statement.split("\n").forEach(line => {

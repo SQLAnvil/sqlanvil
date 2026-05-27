@@ -1,7 +1,7 @@
 import { expect } from "chai";
 
-import { SyntaxTreeNode, SyntaxTreeNodeType } from "df/sqlx/lexer";
-import { suite, test } from "df/testing";
+import { SyntaxTreeNode, SyntaxTreeNodeType } from "sa/sqlx/lexer";
+import { suite, test } from "sa/testing";
 
 suite("@sqlanvil/sqlx", () => {
   suite("syntax tree construction", () => {

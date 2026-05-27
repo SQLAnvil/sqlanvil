@@ -1,30 +1,30 @@
 import { default as TarjanGraphConstructor, Graph as TarjanGraph } from "tarjan-graph";
 
-import { encode64, unknownToValue, verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "df/common/protos";
-import { Action, ActionProto, ILegacyTableConfig, TableType } from "df/core/actions";
-import { AContextable, Assertion, AssertionContext } from "df/core/actions/assertion";
+import { encode64, unknownToValue, verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
+import { Action, ActionProto, ILegacyTableConfig, TableType } from "sa/core/actions";
+import { AContextable, Assertion, AssertionContext } from "sa/core/actions/assertion";
 import {
   DataPreparation,
   DataPreparationContext,
-} from "df/core/actions/data_preparation";
-import { Declaration } from "df/core/actions/declaration";
-import { IncrementalTable } from "df/core/actions/incremental_table";
-import { Notebook } from "df/core/actions/notebook";
-import { Operation, OperationContext } from "df/core/actions/operation";
-import { Table, TableContext } from "df/core/actions/table";
-import { Test } from "df/core/actions/test";
-import { View } from "df/core/actions/view";
-import { CompilationSql } from "df/core/compilation_sql";
-import { Contextable, IActionContext, ITableContext, Resolvable } from "df/core/contextables";
-import { targetAsReadableString, targetStringifier } from "df/core/targets";
-import * as utils from "df/core/utils";
-import { ResolvableMap, toResolvable } from "df/core/utils";
-import { version as dataformCoreVersion } from "df/core/version";
-import { dataform, google } from "df/protos/ts";
+} from "sa/core/actions/data_preparation";
+import { Declaration } from "sa/core/actions/declaration";
+import { IncrementalTable } from "sa/core/actions/incremental_table";
+import { Notebook } from "sa/core/actions/notebook";
+import { Operation, OperationContext } from "sa/core/actions/operation";
+import { Table, TableContext } from "sa/core/actions/table";
+import { Test } from "sa/core/actions/test";
+import { View } from "sa/core/actions/view";
+import { CompilationSql } from "sa/core/compilation_sql";
+import { Contextable, IActionContext, ITableContext, Resolvable } from "sa/core/contextables";
+import { targetAsReadableString, targetStringifier } from "sa/core/targets";
+import * as utils from "sa/core/utils";
+import { ResolvableMap, toResolvable } from "sa/core/utils";
+import { version as sqlanvilCoreVersion } from "sa/core/version";
+import { sqlanvil, google } from "sa/protos/ts";
 
 const DEFAULT_CONFIG = {
-  defaultSchema: "dataform",
-  assertionSchema: "dataform_assertions"
+  defaultSchema: "sqlanvil",
+  assertionSchema: "sqlanvil_assertions"
 };
 
 /**
@@ -36,17 +36,17 @@ export class Session {
 
   /**
    * Stores the Dataform project configuration of the current Dataform project. Can be accessed via
-   * the `dataform` global variable.
+   * the `sqlanvil` global variable.
    *
    * Example:
    *
    * ```js
-   * dataform.projectConfig.vars.myVariableName === "myVariableValue"
+   * sqlanvil.projectConfig.vars.myVariableName === "myVariableValue"
    * ```
    */
-  public projectConfig: dataform.ProjectConfig;
+  public projectConfig: sqlanvil.ProjectConfig;
   // The canonical project config contains the project config before schema and database overrides.
-  public canonicalProjectConfig: dataform.ProjectConfig;
+  public canonicalProjectConfig: sqlanvil.ProjectConfig;
 
   public actions: Action[];
   public indexedActions: ResolvableMap<Action>;
@@ -58,28 +58,28 @@ export class Session {
   // upon a certain action in our actions list. We use this later to resolve dependencies.
   public actionAssertionMap = new ResolvableMap<Action>();
 
-  public graphErrors: dataform.IGraphErrors;
+  public graphErrors: sqlanvil.IGraphErrors;
 
   // jit_context.data, avilable at jit stage.
   public jitContextData: google.protobuf.Struct | undefined;
 
   constructor(
     rootDir?: string,
-    projectConfig?: dataform.ProjectConfig,
-    originalProjectConfig?: dataform.ProjectConfig
+    projectConfig?: sqlanvil.ProjectConfig,
+    originalProjectConfig?: sqlanvil.ProjectConfig
   ) {
     this.init(rootDir, projectConfig, originalProjectConfig);
   }
 
   public init(
     rootDir: string,
-    projectConfig?: dataform.ProjectConfig,
-    originalProjectConfig?: dataform.ProjectConfig
+    projectConfig?: sqlanvil.ProjectConfig,
+    originalProjectConfig?: sqlanvil.ProjectConfig
   ) {
     this.rootDir = rootDir;
-    this.projectConfig = dataform.ProjectConfig.create(projectConfig || DEFAULT_CONFIG);
+    this.projectConfig = sqlanvil.ProjectConfig.create(projectConfig || DEFAULT_CONFIG);
     this.canonicalProjectConfig = getCanonicalProjectConfig(
-      dataform.ProjectConfig.create(originalProjectConfig || projectConfig || DEFAULT_CONFIG)
+      sqlanvil.ProjectConfig.create(originalProjectConfig || projectConfig || DEFAULT_CONFIG)
     );
     this.actions = [];
     this.tests = [];
@@ -88,7 +88,7 @@ export class Session {
   }
 
   public compilationSql(): CompilationSql {
-    return new CompilationSql(this.projectConfig, dataformCoreVersion);
+    return new CompilationSql(this.projectConfig, sqlanvilCoreVersion);
   }
 
   public sqlxAction(actionOptions: {
@@ -264,7 +264,7 @@ export class Session {
     name: string,
     queryOrConfig?:
       | Contextable<IActionContext, string | string[]>
-      | dataform.ActionConfig.OperationConfig
+      | sqlanvil.ActionConfig.OperationConfig
   ): Operation {
     const filename = utils.getCallerFile(this.rootDir);
     let operation: Operation;
@@ -293,9 +293,9 @@ export class Session {
     name: string,
     queryOrConfig?:
       | Contextable<ITableContext, string>
-      | dataform.ActionConfig.TableConfig
-      | dataform.ActionConfig.ViewConfig
-      | dataform.ActionConfig.IncrementalTableConfig
+      | sqlanvil.ActionConfig.TableConfig
+      | sqlanvil.ActionConfig.ViewConfig
+      | sqlanvil.ActionConfig.IncrementalTableConfig
       | ILegacyTableConfig
       // `any` is used here to facilitate the type merging of legacy table configs, which are very
       // different to the new structures.
@@ -342,7 +342,7 @@ export class Session {
    */
   public assert(
     name: string,
-    queryOrConfig?: AContextable<string> | dataform.ActionConfig.AssertionConfig
+    queryOrConfig?: AContextable<string> | sqlanvil.ActionConfig.AssertionConfig
     // // `any` is used here to facilitate the type merging of legacy declaration configs options,
     // // without breaking typescript consumers of Dataform.
     // | any
@@ -370,7 +370,7 @@ export class Session {
    */
   public declare(
     config:
-      | dataform.ActionConfig.DeclarationConfig
+      | sqlanvil.ActionConfig.DeclarationConfig
       // `any` is used here to facilitate the type merging of legacy declaration configs options,
       // without breaking typescript consumers of Dataform.
       | any
@@ -407,7 +407,7 @@ export class Session {
    *
    * @see [Notebook](Notebook) for examples on how to use.
    */
-  public notebook(config: dataform.ActionConfig.NotebookConfig): Notebook {
+  public notebook(config: sqlanvil.ActionConfig.NotebookConfig): Notebook {
     const configFileName = utils.getCallerFile(this.rootDir);
     const notebook = new Notebook(this, config, configFileName);
     this.actions.push(notebook);
@@ -423,10 +423,10 @@ export class Session {
     this.jitContextData.fields[key] = unknownToValue(data);
 
   }
-  public compileError(err: Error | string, path?: string, actionTarget?: dataform.ITarget) {
+  public compileError(err: Error | string, path?: string, actionTarget?: sqlanvil.ITarget) {
     const fileName = path || utils.getCallerFile(this.rootDir) || __filename;
 
-    const compileError = dataform.CompilationError.create({
+    const compileError = sqlanvil.CompilationError.create({
       fileName,
       actionName: !!actionTarget ? targetAsReadableString(actionTarget) : undefined,
       actionTarget
@@ -440,7 +440,7 @@ export class Session {
     this.graphErrors.compilationErrors.push(compileError);
   }
 
-  public compile(): dataform.CompiledGraph {
+  public compile(): sqlanvil.CompiledGraph {
     this.actions.push(...this.tests);
     this.indexedActions = new ResolvableMap(
       this.actions.map(action => ({ actionTarget: action.getTarget(), value: action }))
@@ -454,7 +454,7 @@ export class Session {
       throw new Error("Custom variables defined in workflow settings can only be strings.");
     }
 
-    const compiledGraph = dataform.CompiledGraph.create({
+    const compiledGraph = sqlanvil.CompiledGraph.create({
       projectConfig: this.projectConfig,
       tables: this.compileGraphChunk(
         this.actions.filter(
@@ -479,7 +479,7 @@ export class Session {
         this.actions.filter(action => action instanceof DataPreparation)
       ),
       graphErrors: this.graphErrors,
-      dataformCoreVersion,
+      sqlanvilCoreVersion,
       targets: this.actions.map(action => action.getTarget()),
       jitData: this.jitContextData,
     });
@@ -526,7 +526,7 @@ export class Session {
       )
     );
     verifyObjectMatchesProto(
-      dataform.CompiledGraph,
+      sqlanvil.CompiledGraph,
       compiledGraph,
       VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
     );
@@ -534,7 +534,7 @@ export class Session {
   }
 
   public compileToBase64() {
-    return encode64(dataform.CompiledGraph, this.compile());
+    return encode64(sqlanvil.CompiledGraph, this.compile());
   }
 
   public finalizeDatabase(database: string): string {
@@ -578,8 +578,8 @@ export class Session {
 
   private fullyQualifyDependencies(actions: ActionProto[]) {
     actions.forEach(action => {
-      const fullyQualifiedDependencies: { [name: string]: dataform.ITarget } = {};
-      if (action instanceof dataform.Declaration || !action.dependencyTargets) {
+      const fullyQualifiedDependencies: { [name: string]: sqlanvil.ITarget } = {};
+      if (action instanceof sqlanvil.Declaration || !action.dependencyTargets) {
         // Declarations cannot have dependencies.
         return;
       }
@@ -624,14 +624,14 @@ export class Session {
     });
   }
 
-  private alterActionName(actions: ActionProto[], declarationTargets: dataform.ITarget[]) {
+  private alterActionName(actions: ActionProto[], declarationTargets: sqlanvil.ITarget[]) {
     const { tablePrefix, schemaSuffix, databaseSuffix } = this.projectConfig;
 
     if (!tablePrefix && !schemaSuffix && !databaseSuffix) {
       return;
     }
 
-    const newTargetByOriginalTarget = new Map<string, dataform.ITarget>();
+    const newTargetByOriginalTarget = new Map<string, sqlanvil.ITarget>();
     declarationTargets.forEach(declarationTarget =>
       newTargetByOriginalTarget.set(
         targetStringifier.stringify(declarationTarget),
@@ -652,7 +652,7 @@ export class Session {
     });
 
     // Fix up dependencies in case those dependencies' names have changed.
-    const getUpdatedTarget = (originalTarget: dataform.ITarget) => {
+    const getUpdatedTarget = (originalTarget: sqlanvil.ITarget) => {
       // It's possible that we don't have a new Target for a dependency that failed to compile,
       // so fall back to the original Target.
       if (!newTargetByOriginalTarget.has(targetStringifier.stringify(originalTarget))) {
@@ -661,18 +661,18 @@ export class Session {
       return newTargetByOriginalTarget.get(targetStringifier.stringify(originalTarget));
     };
     actions.forEach(action => {
-      if (!(action instanceof dataform.Declaration)) {
+      if (!(action instanceof sqlanvil.Declaration)) {
         // Declarations cannot have dependencies.
         action.dependencyTargets = (action.dependencyTargets || []).map(getUpdatedTarget);
       }
 
-      if (action instanceof dataform.Assertion && !!action.parentAction) {
+      if (action instanceof sqlanvil.Assertion && !!action.parentAction) {
         action.parentAction = getUpdatedTarget(action.parentAction);
       }
     });
   }
 
-  private checkTestNameUniqueness(tests: dataform.ITest[]) {
+  private checkTestNameUniqueness(tests: sqlanvil.ITest[]) {
     const allNames: string[] = [];
     tests.forEach(testProto => {
       if (allNames.includes(testProto.name)) {
@@ -694,7 +694,7 @@ export class Session {
     const tarjanGraph: TarjanGraph = new (TarjanGraphConstructor as any)();
     actions.forEach(action => {
       // Declarations cannot have dependencies.
-      const cleanedDependencies = (action instanceof dataform.Declaration ||
+      const cleanedDependencies = (action instanceof sqlanvil.Declaration ||
         !action.dependencyTargets
         ? []
         : action.dependencyTargets
@@ -740,8 +740,8 @@ export class Session {
       });
   }
 
-  private removeNonUniqueActionsFromCompiledGraph(compiledGraph: dataform.CompiledGraph) {
-    function getNonUniqueTargets(targets: dataform.ITarget[]): Set<string> {
+  private removeNonUniqueActionsFromCompiledGraph(compiledGraph: sqlanvil.CompiledGraph) {
+    function getNonUniqueTargets(targets: sqlanvil.ITarget[]): Set<string> {
       const allTargets = new Set<string>();
       const nonUniqueTargets = new Set<string>();
 
@@ -816,8 +816,8 @@ function definesDataset(type: string) {
   return type === "view" || type === "table" || type === "incremental";
 }
 
-function getCanonicalProjectConfig(originalProjectConfig: dataform.ProjectConfig) {
-  return dataform.ProjectConfig.create({
+function getCanonicalProjectConfig(originalProjectConfig: sqlanvil.ProjectConfig) {
+  return sqlanvil.ProjectConfig.create({
     warehouse: originalProjectConfig.warehouse,
     defaultSchema: originalProjectConfig.defaultSchema,
     defaultDatabase: originalProjectConfig.defaultDatabase,

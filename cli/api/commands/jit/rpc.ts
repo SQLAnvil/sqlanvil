@@ -1,9 +1,9 @@
 import Long from "long";
 
-import { IDbAdapter, IDbClient } from "df/cli/api/dbadapters";
-import { IBigQueryExecutionOptions } from "df/cli/api/dbadapters/bigquery";
-import { Structs } from "df/common/protos/structs";
-import { dataform, google } from "df/protos/ts";
+import { IDbAdapter, IDbClient } from "sa/cli/api/dbadapters";
+import { IBigQueryExecutionOptions } from "sa/cli/api/dbadapters/bigquery";
+import { Structs } from "sa/common/protos/structs";
+import { sqlanvil, google } from "sa/protos/ts";
 
 export async function handleDbRequest(
   dbadapter: IDbAdapter,
@@ -31,8 +31,8 @@ async function handleExecute(
   request: Uint8Array,
   options?: IBigQueryExecutionOptions
 ): Promise<Uint8Array> {
-  const executeRequest = dataform.ExecuteRequest.decode(request);
-  const executeRequestObj = dataform.ExecuteRequest.toObject(executeRequest, {
+  const executeRequest = sqlanvil.ExecuteRequest.decode(request);
+  const executeRequestObj = sqlanvil.ExecuteRequest.toObject(executeRequest, {
     defaults: false
   });
   const requestOptions = executeRequestObj.bigQueryOptions;
@@ -51,31 +51,31 @@ async function handleExecute(
     }
   });
 
-  return dataform.ExecuteResponse.encode({
+  return sqlanvil.ExecuteResponse.encode({
     rows: (results.rows || []).map(row => Structs.fromObject(row)),
     schemaFields: results.schema || []
   } as any).finish();
 }
 
 async function handleListTables(dbadapter: IDbAdapter, request: Uint8Array): Promise<Uint8Array> {
-  const listTablesRequest = dataform.ListTablesRequest.decode(request);
+  const listTablesRequest = sqlanvil.ListTablesRequest.decode(request);
   if (!listTablesRequest.database) {
     throw new Error("ListTablesRequest.database must be supplied");
   }
   const tablesMetadata = await dbadapter.tables(listTablesRequest.database, listTablesRequest.schema);
-  const listTablesResponse = dataform.ListTablesResponse.create({
+  const listTablesResponse = sqlanvil.ListTablesResponse.create({
     tables: tablesMetadata
   });
-  return dataform.ListTablesResponse.encode(listTablesResponse).finish();
+  return sqlanvil.ListTablesResponse.encode(listTablesResponse).finish();
 }
 
 async function handleGetTable(dbadapter: IDbAdapter, request: Uint8Array): Promise<Uint8Array> {
-  const getTableRequest = dataform.GetTableRequest.decode(request);
+  const getTableRequest = sqlanvil.GetTableRequest.decode(request);
   const tableMetadata = await dbadapter.table(getTableRequest.target);
   if (!tableMetadata) {
     throw new Error(`Table not found: ${JSON.stringify(getTableRequest.target)}`);
   }
-  return dataform.TableMetadata.encode(tableMetadata).finish();
+  return sqlanvil.TableMetadata.encode(tableMetadata).finish();
 }
 
 async function handleDeleteTable(
@@ -83,7 +83,7 @@ async function handleDeleteTable(
   request: Uint8Array,
   dryRun?: boolean
 ): Promise<Uint8Array> {
-  const deleteTableRequest = dataform.DeleteTableRequest.decode(request);
+  const deleteTableRequest = sqlanvil.DeleteTableRequest.decode(request);
   if (dryRun) {
     return new Uint8Array();
   }

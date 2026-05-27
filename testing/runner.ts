@@ -3,7 +3,7 @@ import * as Diff from "diff";
 import DeterministicStringify from "json-stable-stringify";
 import { promisify } from "util";
 
-import { Hook, Suite } from "df/testing";
+import { Hook, Suite } from "sa/testing";
 
 export interface IRunResult {
   path: string[];

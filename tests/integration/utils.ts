@@ -1,9 +1,9 @@
 import { expect } from "chai";
 
-import * as dfapi from "df/cli/api";
-import * as dbadapters from "df/cli/api/dbadapters";
-import { ExecutionSql } from "df/cli/api/dbadapters/execution_sql";
-import { dataform } from "df/protos/ts";
+import * as dfapi from "sa/cli/api";
+import * as dbadapters from "sa/cli/api/dbadapters";
+import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
+import { sqlanvil } from "sa/protos/ts";
 
 export function keyBy<V>(values: V[], keyFn: (value: V) => string): { [key: string]: V } {
   return values.reduce((map, value) => {
@@ -13,7 +13,7 @@ export function keyBy<V>(values: V[], keyFn: (value: V) => string): { [key: stri
 }
 
 export async function dropAllTables(
-  tables: dataform.ITableMetadata[],
+  tables: sqlanvil.ITableMetadata[],
   executionSql: ExecutionSql,
   dbadapter: dbadapters.IDbAdapter
 ) {
@@ -23,7 +23,7 @@ export async function dropAllTables(
 }
 
 export async function getTableRows(
-  target: dataform.ITarget,
+  target: sqlanvil.ITarget,
   executionSql: ExecutionSql,
   dbadapter: dbadapters.IDbAdapter
 ) {
@@ -33,7 +33,7 @@ export async function getTableRows(
 export async function compile(
   projectDir: string,
   schemaSuffixOverride: string,
-  projectConfigOverrides?: dataform.IProjectConfig
+  projectConfigOverrides?: sqlanvil.IProjectConfig
 ) {
   const compiledGraph = await dfapi.compile({
     projectDir,

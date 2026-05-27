@@ -1,4 +1,4 @@
-import { dataform } from "df/protos/ts";
+import { sqlanvil } from "sa/protos/ts";
 
 export function concatenateQueries(statements: string[], modifier?: (mod: string) => string) {
   return statements
@@ -45,7 +45,7 @@ export class Task {
   public static assertion(statement: string) {
     return new Task().type("assertion").statement(statement);
   }
-  private proto: dataform.IExecutionTask = dataform.ExecutionTask.create();
+  private proto: sqlanvil.IExecutionTask = sqlanvil.ExecutionTask.create();
 
   public type(v: string) {
     this.proto.type = v;
@@ -62,6 +62,6 @@ export class Task {
   }
 
   public build() {
-    return dataform.ExecutionTask.create(this.proto);
+    return sqlanvil.ExecutionTask.create(this.proto);
   }
 }

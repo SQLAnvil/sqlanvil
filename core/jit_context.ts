@@ -1,23 +1,23 @@
-import { Structs } from "df/common/protos/structs";
-import { IActionContext, ITableContext, JitContext, Resolvable } from "df/core/contextables";
-import { ambiguousActionNameMsg, resolvableAsTarget, ResolvableMap, stringifyResolvable, toResolvable } from "df/core/utils";
-import { dataform, google } from "df/protos/ts";
+import { Structs } from "sa/common/protos/structs";
+import { IActionContext, ITableContext, JitContext, Resolvable } from "sa/core/contextables";
+import { ambiguousActionNameMsg, resolvableAsTarget, ResolvableMap, stringifyResolvable, toResolvable } from "sa/core/utils";
+import { sqlanvil, google } from "sa/protos/ts";
 
-function canonicalTargetValue(target: dataform.ITarget): string {
+function canonicalTargetValue(target: sqlanvil.ITarget): string {
     return `${target.database}.${target.schema}.${target.name}`;
 }
 
 /** Generate SQL action JiT context. */
 export class SqlActionJitContext implements JitContext<IActionContext> {
     public readonly data: { [k: string]: any } | undefined;
-    public readonly executionData: dataform.IRunningExecutionData;
+    public readonly executionData: sqlanvil.IRunningExecutionData;
 
-    private readonly target: dataform.ITarget;
+    private readonly target: sqlanvil.ITarget;
     private readonly resolvableMap: ResolvableMap<string>;
 
     constructor(
-        public readonly adapter: dataform.DbAdapter,
-        public readonly request: dataform.IJitCompilationRequest,
+        public readonly adapter: sqlanvil.DbAdapter,
+        public readonly request: sqlanvil.IJitCompilationRequest,
     ) {
         this.target = request.target;
         const dependencies = request.dependencies;
@@ -77,8 +77,8 @@ export class SqlActionJitContext implements JitContext<IActionContext> {
 /** JiT context for table and view actions. */
 export class TableJitContext extends SqlActionJitContext implements JitContext<ITableContext> {
     constructor(
-        adapter: dataform.DbAdapter,
-        request: dataform.IJitCompilationRequest,
+        adapter: sqlanvil.DbAdapter,
+        request: sqlanvil.IJitCompilationRequest,
     ) {
         super(adapter, request);
     }
@@ -94,8 +94,8 @@ export class TableJitContext extends SqlActionJitContext implements JitContext<I
 
 /** JiT context for incremental table actions. */
 export class IncrementalTableJitContext extends TableJitContext {
-    constructor(adapter: dataform.DbAdapter,
-        request: dataform.IJitCompilationRequest,
+    constructor(adapter: sqlanvil.DbAdapter,
+        request: sqlanvil.IJitCompilationRequest,
         private readonly isIncrementalContext: boolean,
     ) {
         super(adapter, request);

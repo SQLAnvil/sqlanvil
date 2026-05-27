@@ -2,9 +2,9 @@ import { expect } from "chai";
 import { execFile } from "child_process";
 import * as fs from "fs-extra";
 
-import { verifyObjectMatchesProto } from "df/common/protos";
-import { dataform } from "df/protos/ts";
-import { getProcessResult, nodePath, suite, test } from "df/testing";
+import { verifyObjectMatchesProto } from "sa/common/protos";
+import { sqlanvil } from "sa/protos/ts";
+import { getProcessResult, nodePath, suite, test } from "sa/testing";
 
 suite("examples", { parallel: true }, () => {
   const cliEntryPointPath = "examples/node_modules/@sqlanvil/cli/bundle.js";
@@ -22,7 +22,7 @@ suite("examples", { parallel: true }, () => {
         "examples/node_modules/@sqlanvil/core",
         `${projectDir}/node_modules/@sqlanvil/core`
       );
-      // A blank `package.json` makes no `dataformCoreVersion` in `workflow_settings.yaml` be OK.
+      // A blank `package.json` makes no `sqlanvilCoreVersion` in `workflow_settings.yaml` be OK.
       // tslint:disable-next-line: tsr-detect-non-literal-fs-filename
       fs.writeFileSync(`${projectDir}/package.json`, "");
 
@@ -32,7 +32,7 @@ suite("examples", { parallel: true }, () => {
 
       expect(processResult.exitCode).equals(0);
       const compiledGraph = verifyObjectMatchesProto(
-        dataform.CompiledGraph,
+        sqlanvil.CompiledGraph,
         JSON.parse(processResult.stdout)
       );
       expect(compiledGraph.graphErrors).deep.equals({});

@@ -1,8 +1,8 @@
-import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "df/common/protos";
-import { ActionBuilder } from "df/core/actions";
-import { IActionContext, Resolvable } from "df/core/contextables";
-import * as Path from "df/core/path";
-import { Session } from "df/core/session";
+import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
+import { ActionBuilder } from "sa/core/actions";
+import { IActionContext, Resolvable } from "sa/core/contextables";
+import * as Path from "sa/core/path";
+import { Session } from "sa/core/session";
 import {
   actionConfigToCompiledGraphTarget,
   configTargetToCompiledGraphTarget,
@@ -12,8 +12,8 @@ import {
   resolveActionsConfigFilename,
   toResolvable,
   validateQueryString
-} from "df/core/utils";
-import { dataform } from "df/protos/ts";
+} from "sa/core/utils";
+import { sqlanvil } from "sa/protos/ts";
 
 /**
  * @hidden
@@ -21,7 +21,7 @@ import { dataform } from "df/protos/ts";
  * This maintains backwards compatability with older versions.
  * Consider breaking backwards compatability of these in v4.
  */
-interface ILegacyAssertionConfig extends dataform.ActionConfig.AssertionConfig {
+interface ILegacyAssertionConfig extends sqlanvil.ActionConfig.AssertionConfig {
   dependencies: Resolvable[];
   database: string;
   schema: string;
@@ -37,7 +37,7 @@ export type AContextable<T> = T | ((ctx: AssertionContext) => T);
  * specified in the query. If the query returns any rows, the assertion fails.
  *
  * You can create assertions in the following ways. Available config options are defined in
- * [AssertionConfig](configs#dataform-ActionConfig-AssertionConfig), and are shared across all the
+ * [AssertionConfig](configs#sqlanvil-ActionConfig-AssertionConfig), and are shared across all the
  * following ways of creating assertions.
  *
  * **Using a SQLX file:**
@@ -52,7 +52,7 @@ export type AContextable<T> = T | ((ctx: AssertionContext) => T);
  *
  * **Using built-in assertions in the config block of a table:**
  *
- * See [TableConfig.assertions](configs#dataform-ActionConfig-TableConfig)
+ * See [TableConfig.assertions](configs#sqlanvil-ActionConfig-TableConfig)
  *
  * **Using action configs files:**
  *
@@ -78,14 +78,14 @@ export type AContextable<T> = T | ((ctx: AssertionContext) => T);
  * Note: When using the Javascript API, methods in this class can be accessed by the returned value.
  * This is where `query` comes from.
  */
-export class Assertion extends ActionBuilder<dataform.Assertion> {
+export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
   /** @hidden Hold a reference to the Session instance. */
   public session: Session;
 
   /**
    * @hidden Stores the generated proto for the compiled graph.
    */
-  private proto = dataform.Assertion.create();
+  private proto = sqlanvil.Assertion.create();
 
   /** @hidden We delay contextification until the final compile step, so hold these here for now. */
   private contextableQuery: AContextable<string>;
@@ -124,7 +124,7 @@ export class Assertion extends ActionBuilder<dataform.Assertion> {
     if (config.dependencyTargets) {
       this.dependencies(
         config.dependencyTargets.map(dependencyTarget =>
-          configTargetToCompiledGraphTarget(dataform.ActionConfig.Target.create(dependencyTarget))
+          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
         )
       );
     }
@@ -168,7 +168,7 @@ export class Assertion extends ActionBuilder<dataform.Assertion> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [AssertionConfig.dependencies](configs#dataform-ActionConfig-AssertionConfig).
+   * [AssertionConfig.dependencies](configs#sqlanvil-ActionConfig-AssertionConfig).
    *
    * Sets dependencies of the assertion.
    */
@@ -184,7 +184,7 @@ export class Assertion extends ActionBuilder<dataform.Assertion> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [AssertionConfig.hermetic](configs#dataform-ActionConfig-AssertionConfig).
+   * [AssertionConfig.hermetic](configs#sqlanvil-ActionConfig-AssertionConfig).
    *
    * If true, this indicates that the action only depends on data from explicitly-declared
    * dependencies. Otherwise if false, it indicates that the  action depends on data from a source
@@ -192,13 +192,13 @@ export class Assertion extends ActionBuilder<dataform.Assertion> {
    */
   public hermetic(hermetic: boolean) {
     this.proto.hermeticity = hermetic
-      ? dataform.ActionHermeticity.HERMETIC
-      : dataform.ActionHermeticity.NON_HERMETIC;
+      ? sqlanvil.ActionHermeticity.HERMETIC
+      : sqlanvil.ActionHermeticity.NON_HERMETIC;
   }
 
   /**
    * @deprecated Deprecated in favor of
-   * [AssertionConfig.disabled](configs#dataform-ActionConfig-AssertionConfig).
+   * [AssertionConfig.disabled](configs#sqlanvil-ActionConfig-AssertionConfig).
    *
    * If called with `true`, this action is not executed. The action can still be depended upon.
    * Useful for temporarily turning off broken actions.
@@ -210,7 +210,7 @@ export class Assertion extends ActionBuilder<dataform.Assertion> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [AssertionConfig.tags](configs#dataform-ActionConfig-AssertionConfig).
+   * [AssertionConfig.tags](configs#sqlanvil-ActionConfig-AssertionConfig).
    *
    * Sets a list of user-defined tags applied to this action.
    */
@@ -226,7 +226,7 @@ export class Assertion extends ActionBuilder<dataform.Assertion> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [AssertionConfig.description](configs#dataform-ActionConfig-AssertionConfig).
+   * [AssertionConfig.description](configs#sqlanvil-ActionConfig-AssertionConfig).
    *
    * Sets the description of this assertion.
    */
@@ -237,14 +237,14 @@ export class Assertion extends ActionBuilder<dataform.Assertion> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [AssertionConfig.project](configs#dataform-ActionConfig-AssertionConfig).
+   * [AssertionConfig.project](configs#sqlanvil-ActionConfig-AssertionConfig).
    *
    * Sets the database (Google Cloud project ID) in which to create the corresponding view for this
    * assertion.
    */
   public database(database: string) {
     this.proto.target = this.applySessionToTarget(
-      dataform.Target.create({ ...this.proto.target, database }),
+      sqlanvil.Target.create({ ...this.proto.target, database }),
       this.session.projectConfig,
       this.proto.fileName,
       { validateTarget: true, useDefaultAssertionDataset: true }
@@ -254,14 +254,14 @@ export class Assertion extends ActionBuilder<dataform.Assertion> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [AssertionConfig.dataset](configs#dataform-ActionConfig-AssertionConfig).
+   * [AssertionConfig.dataset](configs#sqlanvil-ActionConfig-AssertionConfig).
    *
    * Sets the schema (BigQuery dataset) in which to create the corresponding view for this
    * assertion.
    */
   public schema(schema: string) {
     this.proto.target = this.applySessionToTarget(
-      dataform.Target.create({ ...this.proto.target, schema }),
+      sqlanvil.Target.create({ ...this.proto.target, schema }),
       this.session.projectConfig,
       this.proto.fileName,
       { validateTarget: true, useDefaultAssertionDataset: true }
@@ -276,16 +276,16 @@ export class Assertion extends ActionBuilder<dataform.Assertion> {
 
   /** @hidden */
   public getTarget() {
-    return dataform.Target.create(this.proto.target);
+    return sqlanvil.Target.create(this.proto.target);
   }
 
   /** @hidden */
   public getParentAction() {
-    return dataform.Target.create(this.proto.parentAction);
+    return sqlanvil.Target.create(this.proto.parentAction);
   }
 
   /** @hidden */
-  public setParentAction(target: dataform.Target) {
+  public setParentAction(target: sqlanvil.Target) {
     this.proto.parentAction = target;
   }
 
@@ -297,7 +297,7 @@ export class Assertion extends ActionBuilder<dataform.Assertion> {
     validateQueryString(this.session, this.proto.query, this.proto.fileName);
 
     return verifyObjectMatchesProto(
-      dataform.Assertion,
+      sqlanvil.Assertion,
       this.proto,
       VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
     );
@@ -310,7 +310,7 @@ export class Assertion extends ActionBuilder<dataform.Assertion> {
    */
   private verifyConfig(
     unverifiedConfig: ILegacyAssertionConfig
-  ): dataform.ActionConfig.AssertionConfig {
+  ): sqlanvil.ActionConfig.AssertionConfig {
     if (unverifiedConfig.dependencies) {
       unverifiedConfig.dependencyTargets = unverifiedConfig.dependencies.map(
         (dependency: string | object) => resolvableAsActionConfigTarget(dependency)
@@ -335,7 +335,7 @@ export class Assertion extends ActionBuilder<dataform.Assertion> {
     }
 
     return verifyObjectMatchesProto(
-      dataform.ActionConfig.AssertionConfig,
+      sqlanvil.ActionConfig.AssertionConfig,
       unverifiedConfig,
       VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
     );

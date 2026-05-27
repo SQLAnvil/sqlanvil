@@ -1,15 +1,15 @@
 import { YAMLException } from "js-yaml";
 
-import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "df/common/protos";
-import { INVALID_YAML_ERROR_STRING } from "df/core/compilers";
-import { version } from "df/core/version";
-import { dataform } from "df/protos/ts";
+import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
+import { INVALID_YAML_ERROR_STRING } from "sa/core/compilers";
+import { version } from "sa/core/version";
+import { sqlanvil } from "sa/protos/ts";
 
 declare var __webpack_require__: any;
 declare var __non_webpack_require__: any;
 const nativeRequire = typeof __webpack_require__ === "function" ? __non_webpack_require__ : require;
 
-export function readWorkflowSettings(failIfMissing: boolean = true): dataform.ProjectConfig {
+export function readWorkflowSettings(failIfMissing: boolean = true): sqlanvil.ProjectConfig {
   const globalAny = global as any;
   const workflowSettingsYaml = globalAny.workflowSettingsYaml || maybeRequire("workflow_settings.yaml");
   // `dataform.json` is deprecated; new versions of Dataform Core prefer `workflow_settings.yaml`.
@@ -32,8 +32,8 @@ export function readWorkflowSettings(failIfMissing: boolean = true): dataform.Pr
   if (dataformJson) {
     // Dataform JSON used the compiled graph's config proto, rather than workflow settings.
     try {
-      return dataform.ProjectConfig.create(
-        verifyObjectMatchesProto(dataform.ProjectConfig, dataformJson)
+      return sqlanvil.ProjectConfig.create(
+        verifyObjectMatchesProto(sqlanvil.ProjectConfig, dataformJson)
       );
     } catch (e) {
       if (e instanceof ReferenceError) {
@@ -46,15 +46,15 @@ export function readWorkflowSettings(failIfMissing: boolean = true): dataform.Pr
   if (failIfMissing) {
     throw Error("Failed to resolve workflow_settings.yaml");
   }
-  return dataform.ProjectConfig.create();
+  return sqlanvil.ProjectConfig.create();
 }
 
-function verifyWorkflowSettingsAsJson(workflowSettingsAsJson: object): dataform.WorkflowSettings {
-  let workflowSettings = dataform.WorkflowSettings.create();
+function verifyWorkflowSettingsAsJson(workflowSettingsAsJson: object): sqlanvil.WorkflowSettings {
+  let workflowSettings = sqlanvil.WorkflowSettings.create();
   try {
-    workflowSettings = dataform.WorkflowSettings.create(
+    workflowSettings = sqlanvil.WorkflowSettings.create(
       verifyObjectMatchesProto(
-        dataform.WorkflowSettings,
+        sqlanvil.WorkflowSettings,
         workflowSettingsAsJson as {
           [key: string]: any;
         },
@@ -69,9 +69,9 @@ function verifyWorkflowSettingsAsJson(workflowSettingsAsJson: object): dataform.
   }
 
   // The caller of Dataform Core should ensure that the correct version is installed.
-  if (!!workflowSettings.dataformCoreVersion && workflowSettings.dataformCoreVersion !== version) {
+  if (!!workflowSettings.sqlanvilCoreVersion && workflowSettings.sqlanvilCoreVersion !== version) {
     throw Error(
-      `Version mismatch: workflow settings specifies version ${workflowSettings.dataformCoreVersion}` +
+      `Version mismatch: workflow settings specifies version ${workflowSettings.sqlanvilCoreVersion}` +
         `, but ${version} was found`
     );
   }
@@ -96,9 +96,9 @@ function maybeRequire(file: string): any {
 }
 
 export function workflowSettingsAsProjectConfig(
-  workflowSettings: dataform.WorkflowSettings
-): dataform.ProjectConfig {
-  const projectConfig = dataform.ProjectConfig.create();
+  workflowSettings: sqlanvil.WorkflowSettings
+): sqlanvil.ProjectConfig {
+  const projectConfig = sqlanvil.ProjectConfig.create();
   if (workflowSettings.defaultProject) {
     projectConfig.defaultDatabase = workflowSettings.defaultProject;
   }

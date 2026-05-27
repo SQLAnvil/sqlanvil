@@ -1,4 +1,4 @@
-import { dataform } from "df/protos/ts";
+import { sqlanvil } from "sa/protos/ts";
 
 interface IBigqueryEvaluationError {
   message?: string;
@@ -7,7 +7,7 @@ interface IBigqueryEvaluationError {
 export function parseBigqueryEvalError(error: IBigqueryEvaluationError) {
   // expected error format:
   // e.message = Syntax error: Unexpected identifier "asda" at [2:1]
-  const evalError = dataform.QueryEvaluationError.create({
+  const evalError = sqlanvil.QueryEvaluationError.create({
     message: String(error)
   });
   try {

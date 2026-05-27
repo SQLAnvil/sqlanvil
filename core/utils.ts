@@ -1,15 +1,15 @@
-import { Action, ActionProto } from "df/core/actions";
-import { Assertion } from "df/core/actions/assertion";
-import { DataPreparation } from "df/core/actions/data_preparation";
-import { IncrementalTable } from "df/core/actions/incremental_table";
-import { Notebook } from "df/core/actions/notebook";
-import { Operation } from "df/core/actions/operation";
-import { Table } from "df/core/actions/table";
-import { View } from "df/core/actions/view";
-import { Contextable, Resolvable } from "df/core/contextables";
-import * as Path from "df/core/path";
-import { Session } from "df/core/session";
-import { dataform } from "df/protos/ts";
+import { Action, ActionProto } from "sa/core/actions";
+import { Assertion } from "sa/core/actions/assertion";
+import { DataPreparation } from "sa/core/actions/data_preparation";
+import { IncrementalTable } from "sa/core/actions/incremental_table";
+import { Notebook } from "sa/core/actions/notebook";
+import { Operation } from "sa/core/actions/operation";
+import { Table } from "sa/core/actions/table";
+import { View } from "sa/core/actions/view";
+import { Contextable, Resolvable } from "sa/core/contextables";
+import * as Path from "sa/core/path";
+import { Session } from "sa/core/session";
+import { sqlanvil } from "sa/protos/ts";
 
 declare var __webpack_require__: any;
 declare var __non_webpack_require__: any;
@@ -75,8 +75,8 @@ export function getCallerFile(rootDir: string) {
     break;
   }
   if (!lastfile) {
-    if ((global as any).__dataform_current_file) {
-      lastfile = (global as any).__dataform_current_file;
+    if ((global as any).__sqlanvil_current_file) {
+      lastfile = (global as any).__sqlanvil_current_file;
     } else {
       // This is likely caused by Session.compileError() being called inside Session.compile().
       // If so, explicitly pass the filename to Session.compileError().
@@ -101,7 +101,7 @@ function getCurrentStack(): NodeJS.CallSite[] {
   }
 }
 
-export function graphHasErrors(graph: dataform.ICompiledGraph) {
+export function graphHasErrors(graph: sqlanvil.ICompiledGraph) {
   return graph.graphErrors?.compilationErrors.length > 0;
 }
 
@@ -133,28 +133,28 @@ function isResolvableArray(parts: any[]): parts is [string, string?, string?] {
 }
 
 export function resolvableAsTarget(
-  resolvable: Resolvable | dataform.ActionConfig.Target
-): dataform.Target {
+  resolvable: Resolvable | sqlanvil.ActionConfig.Target
+): sqlanvil.Target {
   if (typeof resolvable === "string") {
-    return dataform.Target.create({
+    return sqlanvil.Target.create({
       name: resolvable
     });
   }
-  const actionConfigTarget = (resolvable as dataform.ActionConfig.ITarget);
-  if (actionConfigTarget instanceof dataform.ActionConfig.Target || actionConfigTarget.dataset !== undefined || actionConfigTarget.project !== undefined) {
-    return dataform.Target.create({
+  const actionConfigTarget = (resolvable as sqlanvil.ActionConfig.ITarget);
+  if (actionConfigTarget instanceof sqlanvil.ActionConfig.Target || actionConfigTarget.dataset !== undefined || actionConfigTarget.project !== undefined) {
+    return sqlanvil.Target.create({
       name: actionConfigTarget.name,
       schema: actionConfigTarget.dataset,
       database: actionConfigTarget.project,
       includeDependentAssertions: actionConfigTarget.includeDependentAssertions,
     });
   }
-  return dataform.Target.create(resolvable);
+  return sqlanvil.Target.create(resolvable);
 }
 
 export function resolvableAsActionConfigTarget(
   resolvable: string | object
-): dataform.ActionConfig.ITarget {
+): sqlanvil.ActionConfig.ITarget {
   if (typeof resolvable === "string") {
     const parts = resolvable.split(".").reverse();
     if (!isResolvableArray(parts)) {
@@ -169,7 +169,7 @@ export function resolvableAsActionConfigTarget(
     };
   }
 
-  return resolvable as dataform.ActionConfig.ITarget;
+  return resolvable as sqlanvil.ActionConfig.ITarget;
 }
 
 export function stringifyResolvable(res: Resolvable) {
@@ -192,12 +192,12 @@ export function ambiguousActionNameMsg(act: Resolvable, allActs: Action[] | stri
  * @deprecated use ActionBuilder.applySessionToTarget() instead.
  */
 export function target(
-  config: dataform.IProjectConfig,
+  config: sqlanvil.IProjectConfig,
   name: string,
   schema?: string,
   database?: string
-): dataform.ITarget {
-  return dataform.Target.create({
+): sqlanvil.ITarget {
+  return sqlanvil.Target.create({
     name,
     schema: schema || config.defaultSchema || undefined,
     database: database || config.defaultDatabase || undefined
@@ -331,15 +331,15 @@ export function validateStorageUriFormat(
  */
 export function getFileFormatValueForIcebergTable(
   configFileFormat?: string,
-): dataform.FileFormat {
+): sqlanvil.FileFormat {
   if (!configFileFormat) {
     // Default to PARQUET if fileFormat is undefined.
-    return dataform.FileFormat.PARQUET;
+    return sqlanvil.FileFormat.PARQUET;
   }
 
   switch (configFileFormat.toUpperCase()) {
     case "PARQUET":
-      return dataform.FileFormat.PARQUET;
+      return sqlanvil.FileFormat.PARQUET;
 
     default:
       throw new Error(
@@ -411,7 +411,7 @@ export function getEffectiveBucketName(
  * Iceberg table. If the tableFolderRoot is provided in the config block, that
  * value will be used. Otherwise, defaultTableFolderRoot defined in
  * workflow_settings.yaml will be used. If none of those two values are
- * defined, "_dataform" will be used.
+ * defined, "_sqlanvil" will be used.
  * @param defaultTableFolderRoot defined in workflow_settings.yaml
  * @param configTableFolderRoot defined in the config block
  * @returns tableFolderRoot used to construct storageUri for Iceberg tables
@@ -425,7 +425,7 @@ export function getEffectiveTableFolderRoot(
   } else if (defaultTableFolderRoot) {
     return defaultTableFolderRoot;
   } else {
-    return "_dataform";
+    return "_sqlanvil";
   }
 }
 
@@ -458,30 +458,30 @@ export function getEffectiveTableFolderSubpath(
 export function tableTypeStringToEnum(type: string, throwIfUnknown: boolean) {
   switch (type) {
     case "table":
-      return dataform.TableType.TABLE;
+      return sqlanvil.TableType.TABLE;
     case "incremental":
-      return dataform.TableType.INCREMENTAL;
+      return sqlanvil.TableType.INCREMENTAL;
     case "view":
-      return dataform.TableType.VIEW;
+      return sqlanvil.TableType.VIEW;
     default: {
       if (throwIfUnknown) {
         throw new Error(`Unexpected table type: ${type}`);
       }
-      return dataform.TableType.UNKNOWN_TYPE;
+      return sqlanvil.TableType.UNKNOWN_TYPE;
     }
   }
 }
 
-export function tableTypeEnumToString(enumType: dataform.TableType) {
-  return dataform.TableType[enumType].toLowerCase();
+export function tableTypeEnumToString(enumType: sqlanvil.TableType) {
+  return sqlanvil.TableType[enumType].toLowerCase();
 }
 
-export function setOrValidateTableEnumType(table: dataform.ITable) {
-  let enumTypeFromStr: dataform.TableType | null = null;
+export function setOrValidateTableEnumType(table: sqlanvil.ITable) {
+  let enumTypeFromStr: sqlanvil.TableType | null = null;
   if (table.type !== "" && table.type !== undefined) {
     enumTypeFromStr = tableTypeStringToEnum(table.type, true);
   }
-  if (table.enumType === dataform.TableType.UNKNOWN_TYPE || table.enumType === undefined) {
+  if (table.enumType === sqlanvil.TableType.UNKNOWN_TYPE || table.enumType === undefined) {
     table.enumType = enumTypeFromStr!;
   } else if (enumTypeFromStr !== null && table.enumType !== enumTypeFromStr) {
     throw new Error(
@@ -501,8 +501,8 @@ export function extractActionDetailsFromFileName(
 }
 
 // Converts the config proto's target proto to the compiled graph proto's representation.
-export function configTargetToCompiledGraphTarget(configTarget: dataform.ActionConfig.Target) {
-  const compiledGraphTarget: dataform.ITarget = { name: configTarget.name };
+export function configTargetToCompiledGraphTarget(configTarget: sqlanvil.ActionConfig.Target) {
+  const compiledGraphTarget: sqlanvil.ITarget = { name: configTarget.name };
   if (configTarget.project) {
     compiledGraphTarget.database = configTarget.project;
   }
@@ -512,25 +512,25 @@ export function configTargetToCompiledGraphTarget(configTarget: dataform.ActionC
   if (configTarget.hasOwnProperty("includeDependentAssertions")) {
     compiledGraphTarget.includeDependentAssertions = configTarget.includeDependentAssertions;
   }
-  return dataform.Target.create(compiledGraphTarget);
+  return sqlanvil.Target.create(compiledGraphTarget);
 }
 
 // Converts a config proto's action config proto to the compiled graph proto's representation.
 // Action config protos roughly contain target protos fields.
 export function actionConfigToCompiledGraphTarget(
   actionConfig:
-    | dataform.ActionConfig.TableConfig
-    | dataform.ActionConfig.ViewConfig
-    | dataform.ActionConfig.IncrementalTableConfig
-    | dataform.ActionConfig.OperationConfig
-    | dataform.ActionConfig.AssertionConfig
-    | dataform.ActionConfig.DeclarationConfig
-    | dataform.ActionConfig.NotebookConfig
-    | dataform.ActionConfig.DataPreparationConfig
-    | dataform.ActionConfig.DataPreparationConfig.ErrorTableConfig
-    | dataform.ActionConfig.Target
-): dataform.Target {
-  const compiledGraphTarget = dataform.Target.create({ name: actionConfig.name });
+    | sqlanvil.ActionConfig.TableConfig
+    | sqlanvil.ActionConfig.ViewConfig
+    | sqlanvil.ActionConfig.IncrementalTableConfig
+    | sqlanvil.ActionConfig.OperationConfig
+    | sqlanvil.ActionConfig.AssertionConfig
+    | sqlanvil.ActionConfig.DeclarationConfig
+    | sqlanvil.ActionConfig.NotebookConfig
+    | sqlanvil.ActionConfig.DataPreparationConfig
+    | sqlanvil.ActionConfig.DataPreparationConfig.ErrorTableConfig
+    | sqlanvil.ActionConfig.Target
+): sqlanvil.Target {
+  const compiledGraphTarget = sqlanvil.Target.create({ name: actionConfig.name });
   if ("project" in actionConfig && actionConfig.project !== undefined) {
     compiledGraphTarget.database = actionConfig.project;
   }
@@ -552,7 +552,7 @@ export function resolveActionsConfigFilename(configFilename: string, configPath:
 export function checkAssertionsForDependency(
   action: actionsWithDependencies,
   resolvable: Resolvable
-): dataform.Target {
+): sqlanvil.Target {
   const dependencyTarget = resolvableAsTarget(resolvable);
   if (
     !dependencyTarget.hasOwnProperty("includeDependentAssertions") &&
@@ -594,7 +594,7 @@ export class ResolvableMap<T> {
   private byDatabaseAndName: Map<string, Map<string, T[]>> = new Map();
   private byDatabaseSchemaAndName: Map<string, Map<string, Map<string, T[]>>> = new Map();
 
-  public constructor(values?: Array<{ actionTarget: dataform.ITarget, value: T }>) {
+  public constructor(values?: Array<{ actionTarget: sqlanvil.ITarget, value: T }>) {
     if (values) {
       for (const { actionTarget, value } of values) {
         this.set(actionTarget, value);
@@ -602,7 +602,7 @@ export class ResolvableMap<T> {
     }
   }
 
-  public set(actionTarget: dataform.ITarget, value: T) {
+  public set(actionTarget: sqlanvil.ITarget, value: T) {
     this.setByNameLevel(this.byName, actionTarget.name, value);
 
     if (!!actionTarget.schema) {
@@ -626,7 +626,7 @@ export class ResolvableMap<T> {
     }
   }
 
-  public find(actionTarget: dataform.ITarget): T[] {
+  public find(actionTarget: sqlanvil.ITarget): T[] {
     if (!!actionTarget.database) {
       if (!!actionTarget.schema) {
         return (
@@ -653,7 +653,7 @@ export class ResolvableMap<T> {
 
   private setBySchemaLevel(
     targetMap: Map<string, Map<string, T[]>>,
-    actionTarget: dataform.ITarget,
+    actionTarget: sqlanvil.ITarget,
     value: T
   ) {
     if (!targetMap.has(actionTarget.schema)) {

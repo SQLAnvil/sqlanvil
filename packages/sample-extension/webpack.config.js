@@ -5,7 +5,7 @@ module.exports = (env, argv) => {
   const config = {
     mode: argv.mode || "development",
     target: 'node',
-    entry: [path.resolve(process.env.RUNFILES, "df/packages/sample-extension/index")],
+    entry: [path.resolve(process.env.RUNFILES, "sa/packages/sample-extension/index")],
     output: {
       libraryTarget: "commonjs-module",
     },

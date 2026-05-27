@@ -1,12 +1,12 @@
 import * as fs from "fs";
 
-import * as dbadapters from "df/cli/api/dbadapters";
-import { verifyObjectMatchesProto } from "df/common/protos";
-import { dataform } from "df/protos/ts";
+import * as dbadapters from "sa/cli/api/dbadapters";
+import { verifyObjectMatchesProto } from "sa/common/protos";
+import { sqlanvil } from "sa/protos/ts";
 
 export const CREDENTIALS_FILENAME = ".df-credentials.json";
 
-export function read(credentialsPath: string): dataform.IBigQuery {
+export function read(credentialsPath: string): sqlanvil.IBigQuery {
   if (!fs.existsSync(credentialsPath)) {
     throw new Error(`Missing credentials JSON file; not found at path '${credentialsPath}'.`);
   }
@@ -16,7 +16,7 @@ export function read(credentialsPath: string): dataform.IBigQuery {
   } catch (e) {
     throw new Error(`Error reading credentials file: ${e.message}`);
   }
-  const credentials = verifyObjectMatchesProto(dataform.BigQuery, credentialsAsJson);
+  const credentials = verifyObjectMatchesProto(sqlanvil.BigQuery, credentialsAsJson);
   if (!Object.keys(credentials).find(key => key === "projectId")?.length) {
     throw new Error(`Error reading credentials file: the projectId field is required`);
   }

@@ -1,10 +1,10 @@
-import { IDbAdapter } from "df/cli/api/dbadapters";
-import { dataform } from "df/protos/ts";
+import { IDbAdapter } from "sa/cli/api/dbadapters";
+import { sqlanvil } from "sa/protos/ts";
 
 export async function state(
   dbadapter: IDbAdapter,
-  targets: dataform.ITarget[]
-): Promise<dataform.IWarehouseState> {
+  targets: sqlanvil.ITarget[]
+): Promise<sqlanvil.IWarehouseState> {
   const allTables = await Promise.all(targets.map(async target => dbadapter.table(target)));
 
   // Filter out datasets that don't exist.

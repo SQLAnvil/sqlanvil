@@ -4,11 +4,11 @@ import * as path from "path";
 import * as tmp from "tmp";
 import { promisify } from "util";
 
-import { MISSING_CORE_VERSION_ERROR } from "df/cli/api/commands/install";
-import { readConfigFromWorkflowSettings } from "df/cli/api/utils";
-import { coerceAsError } from "df/common/errors/errors";
-import { decode64 } from "df/common/protos";
-import { dataform } from "df/protos/ts";
+import { MISSING_CORE_VERSION_ERROR } from "sa/cli/api/commands/install";
+import { readConfigFromWorkflowSettings } from "sa/cli/api/utils";
+import { coerceAsError } from "sa/common/errors/errors";
+import { decode64 } from "sa/common/protos";
+import { sqlanvil } from "sa/protos/ts";
 
 export class CompilationTimeoutError extends Error {}
 
@@ -17,9 +17,9 @@ function print(text: string) {
 }
 
 export async function compile(
-  compileConfig: dataform.ICompileConfig = {}
-): Promise<dataform.CompiledGraph> {
-  let compiledGraph = dataform.CompiledGraph.create();
+  compileConfig: sqlanvil.ICompileConfig = {}
+): Promise<sqlanvil.CompiledGraph> {
+  let compiledGraph = sqlanvil.CompiledGraph.create();
 
   const resolvedProjectPath = path.resolve(compileConfig.projectDir);
   const packageJsonPath = path.join(resolvedProjectPath, "package.json");
@@ -29,7 +29,7 @@ export async function compile(
   const temporaryProjectPath = tmp.dirSync().name;
 
   const workflowSettings = readConfigFromWorkflowSettings(resolvedProjectPath);
-  const workflowSettingsDataformCoreVersion = workflowSettings?.dataformCoreVersion;
+  const workflowSettingsDataformCoreVersion = workflowSettings?.sqlanvilCoreVersion;
   const workflowSettingsExtension = workflowSettings?.extension ?? undefined;
 
   compileConfig.extension = workflowSettingsExtension;
@@ -88,8 +88,8 @@ export async function compile(
 
   const result = await CompileChildProcess.forkProcess().compile(compileConfig);
 
-  const decodedResult = decode64(dataform.CoreExecutionResponse, result);
-  compiledGraph = dataform.CompiledGraph.create(decodedResult.compile.compiledGraph);
+  const decodedResult = decode64(sqlanvil.CoreExecutionResponse, result);
+  compiledGraph = sqlanvil.CompiledGraph.create(decodedResult.compile.compiledGraph);
 
   if (workflowSettingsDataformCoreVersion) {
     fs.rmSync(temporaryProjectPath, { recursive: true });
@@ -121,7 +121,7 @@ export class CompileChildProcess {
     this.childProcess = childProcess;
   }
 
-  public async compile(compileConfig: dataform.ICompileConfig) {
+  public async compile(compileConfig: sqlanvil.ICompileConfig) {
     const compileInChildProcess = new Promise<string>(async (resolve, reject) => {
       this.childProcess.on("error", (e: Error) => reject(coerceAsError(e)));
 

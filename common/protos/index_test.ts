@@ -1,20 +1,20 @@
 import { expect } from "chai";
 import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "./index";
 
-import { dataform } from "df/protos/ts";
-import { suite, test } from "df/testing";
+import { sqlanvil } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
 
 suite("verifyObjectMatchesProto", () => {
   test("throws error when top-level object is an array", () => {
     expect(() => {
-      verifyObjectMatchesProto(dataform.Target, [] as any);
+      verifyObjectMatchesProto(sqlanvil.Target, [] as any);
     }).to.throw(ReferenceError, "Expected a top-level object, but found an array");
   });
 
   test("throws error when null value provided for array field and SHOW_DOCS_LINK", () => {
     expect(() => {
       verifyObjectMatchesProto(
-        dataform.Table,
+        sqlanvil.Table,
         { dependencyTargets: null } as any,
         VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
       );
@@ -24,7 +24,7 @@ suite("verifyObjectMatchesProto", () => {
   test("throws error on type mismatch with SUGGEST_REPORTING_TO_DATAFORM_TEAM", () => {
     expect(() => {
       verifyObjectMatchesProto(
-        dataform.Table,
+        sqlanvil.Table,
         { actionDescriptor: 123 } as any,
         VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
       );
@@ -36,7 +36,7 @@ suite("verifyObjectMatchesProto", () => {
 
   test("throws error on default type mismatch", () => {
     expect(() => {
-      verifyObjectMatchesProto(dataform.Table, { actionDescriptor: 123 } as any);
+      verifyObjectMatchesProto(sqlanvil.Table, { actionDescriptor: 123 } as any);
     }).to.throw(
       ReferenceError,
       /Unexpected property "actionDescriptor", or property value type of "number" is incorrect/

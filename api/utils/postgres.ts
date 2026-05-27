@@ -1,8 +1,8 @@
 import * as pg from "pg";
 import QueryStream from "pg-query-stream";
 
-import { LimitedResultSet } from "df/api/utils/results";
-import { dataform } from "df/protos/ts";
+import { LimitedResultSet } from "sa/api/utils/results";
+import { sqlanvil } from "sa/protos/ts";
 
 const maybeInitializePg = (() => {
   let initialized = false;
@@ -144,7 +144,7 @@ export function convertFieldType(type: string) {
     case "FLOAT8":
     case "DOUBLE PRECISION":
     case "REAL":
-      return dataform.Field.Primitive.FLOAT;
+      return sqlanvil.Field.Primitive.FLOAT;
     case "INTEGER":
     case "INT":
     case "INT2":
@@ -152,13 +152,13 @@ export function convertFieldType(type: string) {
     case "INT8":
     case "BIGINT":
     case "SMALLINT":
-      return dataform.Field.Primitive.INTEGER;
+      return sqlanvil.Field.Primitive.INTEGER;
     case "DECIMAL":
     case "NUMERIC":
-      return dataform.Field.Primitive.NUMERIC;
+      return sqlanvil.Field.Primitive.NUMERIC;
     case "BOOLEAN":
     case "BOOL":
-      return dataform.Field.Primitive.BOOLEAN;
+      return sqlanvil.Field.Primitive.BOOLEAN;
     case "STRING":
     case "VARCHAR":
     case "CHAR":
@@ -168,15 +168,15 @@ export function convertFieldType(type: string) {
     case "TEXT":
     case "NCHAR":
     case "BPCHAR":
-      return dataform.Field.Primitive.STRING;
+      return sqlanvil.Field.Primitive.STRING;
     case "DATE":
-      return dataform.Field.Primitive.DATE;
+      return sqlanvil.Field.Primitive.DATE;
     case "TIMESTAMP":
     case "TIMESTAMPZ":
     case "TIMESTAMP WITHOUT TIME ZONE":
     case "TIMESTAMP WITH TIME ZONE":
-      return dataform.Field.Primitive.TIMESTAMP;
+      return sqlanvil.Field.Primitive.TIMESTAMP;
     default:
-      return dataform.Field.Primitive.UNKNOWN;
+      return sqlanvil.Field.Primitive.UNKNOWN;
   }
 }

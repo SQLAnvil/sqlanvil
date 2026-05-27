@@ -1,10 +1,10 @@
-import { dataform } from "df/protos/ts";
+import { sqlanvil } from "sa/protos/ts";
 
 /**
  * A resolvable is a reference to an action, and it can be either the string representation of the
  * action's target, or the target of the action.
  */
-export type Resolvable = string | dataform.ITarget;
+export type Resolvable = string | sqlanvil.ITarget;
 
 /**
  * Contextable arguments can either pass a plain value for their generic type `T` or can pass a
@@ -89,13 +89,13 @@ export interface ITableContext extends IActionContext {
 /** JiT context, accessible at JiT compilation stage. */
 export type JitContext<T> = T & {
   /** Direct access to adapter. */
-  adapter: dataform.DbAdapter,
+  adapter: sqlanvil.DbAdapter,
   /** JiT data object. */
   data?: { [k: string]: any },
   /** Original JiT compilation request. */
-  request: dataform.IJitCompilationRequest,
+  request: sqlanvil.IJitCompilationRequest,
   /** Current execution information for introspection. */
-  executionData: dataform.IRunningExecutionData,
+  executionData: sqlanvil.IRunningExecutionData,
 };
 
 /** 

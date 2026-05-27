@@ -1,10 +1,10 @@
 import * as $protobuf from "protobufjs";
 
-import { JitOperationResult } from "df/core/actions/operation";
-import { JitTableResult } from "df/core/actions/table";
-import { IActionContext, ITableContext, JitContext } from "df/core/contextables";
-import { IncrementalTableJitContext, SqlActionJitContext, TableJitContext } from "df/core/jit_context";
-import { dataform } from "df/protos/ts";
+import { JitOperationResult } from "sa/core/actions/operation";
+import { JitTableResult } from "sa/core/actions/table";
+import { IActionContext, ITableContext, JitContext } from "sa/core/contextables";
+import { IncrementalTableJitContext, SqlActionJitContext, TableJitContext } from "sa/core/jit_context";
+import { sqlanvil } from "sa/protos/ts";
 
 function makeMainBody<Context, T>(code: string): (jctx: JitContext<Context>) => Promise<T> {
   return (
@@ -17,21 +17,21 @@ function makeMainBody<Context, T>(code: string): (jctx: JitContext<Context>) => 
     });
 }
 
-function makeJitTableResult(result: JitTableResult): dataform.IJitTableResult {
-  let jitResult: dataform.IJitTableResult = {};
+function makeJitTableResult(result: JitTableResult): sqlanvil.IJitTableResult {
+  let jitResult: sqlanvil.IJitTableResult = {};
   if (typeof result === "string") {
     jitResult.query = result;
   } else {
     jitResult = result;
   }
 
-  return dataform.JitTableResult.create(jitResult);
+  return sqlanvil.JitTableResult.create(jitResult);
 }
 
 function jitCompileOperation(
-  request: dataform.IJitCompilationRequest,
-  adapter: dataform.DbAdapter,
-): Promise<dataform.IJitOperationResult> {
+  request: sqlanvil.IJitCompilationRequest,
+  adapter: sqlanvil.DbAdapter,
+): Promise<sqlanvil.IJitOperationResult> {
   const mainBody = makeMainBody<IActionContext, JitOperationResult>(request.jitCode);
 
   const jctx: JitContext<IActionContext> = new SqlActionJitContext(
@@ -47,14 +47,14 @@ function jitCompileOperation(
       queries = mainResult.queries;
     }
 
-    return dataform.JitOperationResult.create({ queries });
+    return sqlanvil.JitOperationResult.create({ queries });
   });
 }
 
 function jitCompileTable(
-  request: dataform.IJitCompilationRequest,
-  adapter: dataform.DbAdapter,
-): Promise<dataform.IJitTableResult> {
+  request: sqlanvil.IJitCompilationRequest,
+  adapter: sqlanvil.DbAdapter,
+): Promise<sqlanvil.IJitTableResult> {
   const mainBody = makeMainBody<ITableContext, JitTableResult>(request.jitCode);
 
   const jctx: JitContext<ITableContext> = new TableJitContext(
@@ -64,9 +64,9 @@ function jitCompileTable(
 }
 
 function jitCompileIncrementalTable(
-  request: dataform.IJitCompilationRequest,
-  adapter: dataform.DbAdapter,
-): Promise<dataform.IJitIncrementalTableResult> {
+  request: sqlanvil.IJitCompilationRequest,
+  adapter: sqlanvil.DbAdapter,
+): Promise<sqlanvil.IJitIncrementalTableResult> {
   const mainBody = makeMainBody<ITableContext, JitTableResult>(request.jitCode);
 
   const incrementalJctx = new IncrementalTableJitContext(
@@ -80,7 +80,7 @@ function jitCompileIncrementalTable(
     mainBody(incrementalJctx),
     mainBody(regularJctx),
   ]).then(([incrementalResult, regularResult]) => {
-    return dataform.JitIncrementalTableResult.create({
+    return sqlanvil.JitIncrementalTableResult.create({
       incremental: makeJitTableResult(incrementalResult),
       regular: makeJitTableResult(regularResult),
     });
@@ -94,22 +94,22 @@ export interface IJitCompiler {
 /** RPC callback, implementing DbAdapter. */
 export type RpcCallback = (method: string, request: Uint8Array, callback: (error: Error | null, response: Uint8Array) => void) => void;
 
-export function jitCompile(request: dataform.IJitCompilationRequest, rpcCallback: RpcCallback): Promise<dataform.IJitCompilationResponse> {
+export function jitCompile(request: sqlanvil.IJitCompilationRequest, rpcCallback: RpcCallback): Promise<sqlanvil.IJitCompilationResponse> {
   const rpcImpl: $protobuf.RPCImpl = (method, internalRequest, callback) => {
     rpcCallback(method.name, internalRequest, callback);
   };
-  const dbAdapter = dataform.DbAdapter.create(rpcImpl);
+  const dbAdapter = sqlanvil.DbAdapter.create(rpcImpl);
 
   switch (request.compilationTargetType) {
-    case dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION:
+    case sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION:
       return jitCompileOperation(request, dbAdapter).then(
-        operation => dataform.JitCompilationResponse.create({ operation }));
-    case dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_TABLE:
+        operation => sqlanvil.JitCompilationResponse.create({ operation }));
+    case sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_TABLE:
       return jitCompileTable(request, dbAdapter).then(
-        table => dataform.JitCompilationResponse.create({ table }));
-    case dataform.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_INCREMENTAL_TABLE:
+        table => sqlanvil.JitCompilationResponse.create({ table }));
+    case sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_INCREMENTAL_TABLE:
       return jitCompileIncrementalTable(request, dbAdapter).then(
-        incrementalTable => dataform.JitCompilationResponse.create({ incrementalTable }));
+        incrementalTable => sqlanvil.JitCompilationResponse.create({ incrementalTable }));
     default:
       throw new Error(`Unrecognized compilation target type: ${request.compilationTargetType}`);
   }
@@ -119,9 +119,9 @@ export function jitCompile(request: dataform.IJitCompilationRequest, rpcCallback
 export function jitCompiler(rpcCallback: RpcCallback): IJitCompiler {
   return {
     compile: (request: Uint8Array) => {
-      const requestMessage = dataform.JitCompilationRequest.decode(request);
+      const requestMessage = sqlanvil.JitCompilationRequest.decode(request);
       return jitCompile(requestMessage, rpcCallback).then(
-        response => dataform.JitCompilationResponse.encode(response).finish()
+        response => sqlanvil.JitCompilationResponse.encode(response).finish()
       );
     }
   };

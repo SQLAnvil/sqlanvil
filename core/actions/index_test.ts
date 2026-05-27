@@ -3,14 +3,14 @@ import { expect } from "chai";
 import * as fs from "fs-extra";
 import * as path from "path";
 
-import { dataform } from "df/protos/ts";
-import { asPlainObject, suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+import { sqlanvil } from "sa/protos/ts";
+import { asPlainObject, suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
   VALID_WORKFLOW_SETTINGS_YAML
-} from "df/testing/run_core";
+} from "sa/testing/run_core";
 
 export const exampleActionDescriptor = {
   inputSqlxConfigBlock: `
@@ -43,7 +43,7 @@ export const exampleActionDescriptor = {
       }
     ],
     description: "description"
-  } as dataform.IColumnDescriptor
+  } as sqlanvil.IColumnDescriptor
 };
 
 export const exampleBuiltInAssertions = {
@@ -112,7 +112,7 @@ export const exampleBuiltInAssertions = {
           "\nSELECT\n  'rowConditions1' AS failing_row_condition,\n  *\nFROM `project.dataset.name`\nWHERE NOT (rowConditions1)\nUNION ALL\nSELECT\n  'rowConditions2' AS failing_row_condition,\n  *\nFROM `project.dataset.name`\nWHERE NOT (rowConditions2)\nUNION ALL\nSELECT\n  'nonNull IS NOT NULL' AS failing_row_condition,\n  *\nFROM `project.dataset.name`\nWHERE NOT (nonNull IS NOT NULL)\n",
         tags: ["tag1", "tag2"]
       }
-    ] as dataform.IAssertion[]
+    ] as sqlanvil.IAssertion[]
 };
 
 export const exampleBuiltInAssertionsAsYaml = {
@@ -191,13 +191,13 @@ export const exampleBuiltInAssertionsAsYaml = {
         "\nSELECT\n  'rowConditions1' AS failing_row_condition,\n  *\nFROM `project.dataset.name`\nWHERE NOT (rowConditions1)\nUNION ALL\nSELECT\n  'rowConditions2' AS failing_row_condition,\n  *\nFROM `project.dataset.name`\nWHERE NOT (rowConditions2)\nUNION ALL\nSELECT\n  'nonNull IS NOT NULL' AS failing_row_condition,\n  *\nFROM `project.dataset.name`\nWHERE NOT (nonNull IS NOT NULL)\n",
       tags: ["tag1", "tag2"]
     }
-  ] as dataform.IAssertion[]
+  ] as sqlanvil.IAssertion[]
 };
 
 suite("actions", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);
 
-  const getActionsFromResult = (tableType: string, result: dataform.CoreExecutionResponse) => {
+  const getActionsFromResult = (tableType: string, result: sqlanvil.CoreExecutionResponse) => {
     switch (tableType) {
       case "table":
       case "view":
@@ -234,7 +234,7 @@ SELECT 1`
       const result = runMainInVm(
         coreExecutionRequestFromPath(
           projectDir,
-          dataform.ProjectConfig.create({
+          sqlanvil.ProjectConfig.create({
             defaultDatabase: "otherProject",
             defaultSchema: "otherDataset",
             assertionSchema: "otherDataset",

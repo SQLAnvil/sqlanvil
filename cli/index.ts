@@ -5,10 +5,10 @@ import parseDuration from "parse-duration";
 import * as path from "path";
 import yargs from "yargs";
 
-import { build, compile, credentials, init, install, run, test } from "df/cli/api";
-import { CREDENTIALS_FILENAME } from "df/cli/api/commands/credentials";
-import { BigQueryDbAdapter } from "df/cli/api/dbadapters/bigquery";
-import { prettyJsonStringify } from "df/cli/api/utils";
+import { build, compile, credentials, init, install, run, test } from "sa/cli/api";
+import { CREDENTIALS_FILENAME } from "sa/cli/api/commands/credentials";
+import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
+import { prettyJsonStringify } from "sa/cli/api/utils";
 import {
   compiledGraphOutputType,
   print,
@@ -22,18 +22,18 @@ import {
   printInitResult,
   printSuccess,
   printTestResult
-} from "df/cli/console";
-import { getBigQueryCredentials } from "df/cli/credentials";
+} from "sa/cli/console";
+import { getBigQueryCredentials } from "sa/cli/credentials";
 import {
   actuallyResolve,
   assertPathExists,
   compiledGraphHasErrors,
   promptForIcebergConfig,
-} from "df/cli/util";
-import { createYargsCli, INamedOption } from "df/cli/yargswrapper";
-import { targetAsReadableString } from "df/core/targets";
-import { dataform } from "df/protos/ts";
-import { formatFile } from "df/sqlx/format";
+} from "sa/cli/util";
+import { createYargsCli, INamedOption } from "sa/cli/yargswrapper";
+import { targetAsReadableString } from "sa/core/targets";
+import { sqlanvil } from "sa/protos/ts";
+import { formatFile } from "sa/sqlx/format";
 
 const RECOMPILE_DELAY = 500;
 
@@ -295,7 +295,7 @@ export function runCli() {
         options: [icebergOption],
         processFn: async argv => {
           const projectDir = argv[projectDirOption.name];
-          const projectConfig: dataform.IProjectConfig = {
+          const projectConfig: sqlanvil.IProjectConfig = {
             defaultDatabase: argv[ProjectConfigOptions.defaultDatabase.name],
             defaultLocation: argv[ProjectConfigOptions.defaultLocation.name],
           };
@@ -653,7 +653,7 @@ export function runCli() {
             bigqueryOptions = { ...bigqueryOptions, labels: argv[bigqueryJobLabelsOption.name] };
           }
 
-          const actionsByName = new Map<string, dataform.IExecutionAction>();
+          const actionsByName = new Map<string, sqlanvil.IExecutionAction>();
           executionGraph.actions.forEach(action => {
             actionsByName.set(targetAsReadableString(action.target), action);
           });
@@ -676,11 +676,11 @@ export function runCli() {
 
           const alreadyPrintedActions = new Set<string>();
 
-          const printExecutedGraph = (executedGraph: dataform.IRunResult) => {
+          const printExecutedGraph = (executedGraph: sqlanvil.IRunResult) => {
             executedGraph.actions
               .filter(
                 actionResult =>
-                  actionResult.status !== dataform.ActionResult.ExecutionStatus.RUNNING
+                  actionResult.status !== sqlanvil.ActionResult.ExecutionStatus.RUNNING
               )
               .filter(
                 executedAction =>
@@ -699,7 +699,7 @@ export function runCli() {
           runner.onChange(printExecutedGraph);
           const runResult = await runner.result();
           printExecutedGraph(runResult);
-          return runResult.status === dataform.RunResult.ExecutionStatus.SUCCESSFUL ? 0 : 1;
+          return runResult.status === sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL ? 0 : 1;
         }
       },
       {
@@ -862,7 +862,7 @@ class ProjectConfigOptions {
     option: {
       describe:
         "Override for variables to inject via '--vars=someKey=someValue,a=b', referenced by " +
-        "`dataform.projectConfig.vars.someValue`.  If unset, the value from workflow_settings.yaml is used.",
+        "`sqlanvil.projectConfig.vars.someValue`.  If unset, the value from workflow_settings.yaml is used.",
       type: "string",
       default: null,
       coerce: (rawVarsString: string | null) => {
@@ -939,8 +939,8 @@ class ProjectConfigOptions {
 
   public static constructProjectConfigOverride(
     argv: yargs.Arguments<any>
-  ): dataform.IProjectConfig {
-    const projectConfigOptions: dataform.IProjectConfig = {};
+  ): sqlanvil.IProjectConfig {
+    const projectConfigOptions: sqlanvil.IProjectConfig = {};
 
     if (argv[ProjectConfigOptions.defaultDatabase.name]) {
       projectConfigOptions.defaultDatabase = argv[ProjectConfigOptions.defaultDatabase.name];

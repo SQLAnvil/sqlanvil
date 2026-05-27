@@ -6,8 +6,8 @@ import {
   validateIcebergConfigBucketName,
   validateIcebergConfigTableFolderRoot,
   validateIcebergConfigTableFolderSubpath,
-} from "df/cli/util";
-import { suite, test } from "df/testing";
+} from "sa/cli/util";
+import { suite, test } from "sa/testing";
 
 suite('format execution suffix', () => {
     test('format execution suffix', () => {

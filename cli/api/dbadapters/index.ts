@@ -1,19 +1,19 @@
-import { QueryOrAction } from "df/cli/api/dbadapters/execution_sql";
-import { dataform } from "df/protos/ts";
+import { QueryOrAction } from "sa/cli/api/dbadapters/execution_sql";
+import { sqlanvil } from "sa/protos/ts";
 
 export type OnCancel = (handleCancel: () => void) => void;
 
 export interface IExecutionResult {
   rows: any[];
-  metadata: dataform.IExecutionMetadata;
+  metadata: sqlanvil.IExecutionMetadata;
 }
 
 export interface IExecutionResultRaw extends IExecutionResult {
-  schema?: dataform.IField[];
+  schema?: sqlanvil.IField[];
 }
 
 export interface IBigQueryError extends Error {
-  metadata?: dataform.IExecutionMetadata
+  metadata?: sqlanvil.IExecutionMetadata
 }
 
 export interface IDbClient {
@@ -53,15 +53,15 @@ export interface IDbClient {
 export interface IDbAdapter extends IDbClient {
   withClientLock<T>(callback: (client: IDbClient) => Promise<T>): Promise<T>;
 
-  evaluate(queryOrAction: QueryOrAction): Promise<dataform.IQueryEvaluation[]>;
+  evaluate(queryOrAction: QueryOrAction): Promise<sqlanvil.IQueryEvaluation[]>;
 
   schemas(database: string): Promise<string[]>;
   createSchema(database: string, schema: string): Promise<void>;
 
-  tables(database: string, schema?: string): Promise<dataform.ITableMetadata[]>;
-  search(searchText: string, options?: { limit: number }): Promise<dataform.ITableMetadata[]>;
-  table(target: dataform.ITarget): Promise<dataform.ITableMetadata>;
-  deleteTable(target: dataform.ITarget): Promise<void>;
+  tables(database: string, schema?: string): Promise<sqlanvil.ITableMetadata[]>;
+  search(searchText: string, options?: { limit: number }): Promise<sqlanvil.ITableMetadata[]>;
+  table(target: sqlanvil.ITarget): Promise<sqlanvil.ITableMetadata>;
+  deleteTable(target: sqlanvil.ITarget): Promise<void>;
 
-  setMetadata(action: dataform.IExecutionAction): Promise<void>;
+  setMetadata(action: sqlanvil.IExecutionAction): Promise<void>;
 }

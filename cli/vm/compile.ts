@@ -4,10 +4,10 @@ import * as path from "path";
 import * as semver from "semver";
 import { CompilerFunction, NodeVM } from "vm2";
 
-import { encode64 } from "df/common/protos";
-import { dataform } from "df/protos/ts";
+import { encode64 } from "sa/common/protos";
+import { sqlanvil } from "sa/protos/ts";
 
-export function compile(compileConfig: dataform.ICompileConfig) {
+export function compile(compileConfig: sqlanvil.ICompileConfig) {
   compileConfig.projectDir = fs.realpathSync(path.resolve(compileConfig.projectDir));
   if (
     !fs.existsSync(
@@ -16,7 +16,7 @@ export function compile(compileConfig: dataform.ICompileConfig) {
   ) {
     throw new Error(
       "Could not find a recent installed version of @sqlanvil/core in the project. Check that " +
-        "either `dataformCoreVersion` is specified in `workflow_settings.yaml`, or " +
+        "either `sqlanvilCoreVersion` is specified in `workflow_settings.yaml`, or " +
         "`@sqlanvil/core` is specified in `package.json`. If using `package.json`, then run " +
         "`dataform install`."
     );
@@ -58,22 +58,22 @@ export function compile(compileConfig: dataform.ICompileConfig) {
     compiler: (code, filePath) => {
       const compiledCode = compiler(code, filePath);
       return `
-        var __old_file = global.__dataform_current_file;
-        global.__dataform_current_file = ${JSON.stringify(filePath)};
+        var __old_file = global.__sqlanvil_current_file;
+        global.__sqlanvil_current_file = ${JSON.stringify(filePath)};
         try {
           ${compiledCode}
         } finally {
-          global.__dataform_current_file = __old_file;
+          global.__sqlanvil_current_file = __old_file;
         }
       `;
     }
   });
 
-  const dataformCoreVersion: string = userCodeVm.run(
+  const sqlanvilCoreVersion: string = userCodeVm.run(
     'return require("@sqlanvil/core").version || "0.0.0"',
     vmIndexFileName
   );
-  if (semver.lt(dataformCoreVersion, "3.0.0-alpha.0")) {
+  if (semver.lt(sqlanvilCoreVersion, "3.0.0-alpha.0")) {
     throw new Error("@sqlanvil/core ^3.0.0 required.");
   }
 
@@ -88,7 +88,7 @@ export function compile(compileConfig: dataform.ICompileConfig) {
 }
 
 export function listenForCompileRequest() {
-  process.on("message", (compileConfig: dataform.ICompileConfig) => {
+  process.on("message", (compileConfig: sqlanvil.ICompileConfig) => {
     try {
       const compiledResult = compile(compileConfig);
       process.send(compiledResult);
@@ -107,14 +107,14 @@ if (require.main === module) {
 }
 
 /**
- * @returns a base64 encoded @see {@link dataform.CoreExecutionRequest} proto.
+ * @returns a base64 encoded @see {@link sqlanvil.CoreExecutionRequest} proto.
  */
-function createCoreExecutionRequest(compileConfig: dataform.ICompileConfig): string {
+function createCoreExecutionRequest(compileConfig: sqlanvil.ICompileConfig): string {
   const filePaths = Array.from(
     new Set<string>(glob.sync("!(node_modules)/**/*.*", { cwd: compileConfig.projectDir }))
   );
 
-  return encode64(dataform.CoreExecutionRequest, {
+  return encode64(sqlanvil.CoreExecutionRequest, {
     // Add the list of file paths to the compile config if not already set.
     compile: { compileConfig: { filePaths, ...compileConfig } }
   });

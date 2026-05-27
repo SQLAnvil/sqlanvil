@@ -1,11 +1,11 @@
-import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "df/common/protos";
-import { ActionBuilder, INamedConfig, TableType } from "df/core/actions";
-import { IncrementalTable } from "df/core/actions/incremental_table";
-import { Table } from "df/core/actions/table";
-import { View } from "df/core/actions/view";
-import { Contextable, IActionContext, ITableContext, Resolvable } from "df/core/contextables";
-import { Session } from "df/core/session";
-import { targetStringifier } from "df/core/targets";
+import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
+import { ActionBuilder, INamedConfig, TableType } from "sa/core/actions";
+import { IncrementalTable } from "sa/core/actions/incremental_table";
+import { Table } from "sa/core/actions/table";
+import { View } from "sa/core/actions/view";
+import { Contextable, IActionContext, ITableContext, Resolvable } from "sa/core/contextables";
+import { Session } from "sa/core/session";
+import { targetStringifier } from "sa/core/targets";
 import {
   ambiguousActionNameMsg,
   checkExcessProperties,
@@ -13,8 +13,8 @@ import {
   strictKeysOf,
   stringifyResolvable,
   toResolvable
-} from "df/core/utils";
-import { dataform } from "df/protos/ts";
+} from "sa/core/utils";
+import { sqlanvil } from "sa/protos/ts";
 
 /**
  * Configuration options for unit tests.
@@ -74,19 +74,19 @@ const ITestConfigProperties = strictKeysOf<ITestConfig>()(["type", "dataset", "n
  * Note: When using the Javascript API, methods in this class can be accessed by the returned value.
  * This is where `input` and `expect` come from.
  */
-export class Test extends ActionBuilder<dataform.Test> {
+export class Test extends ActionBuilder<sqlanvil.Test> {
   /** @hidden Hold a reference to the Session instance. */
   public session: Session;
 
   /** @hidden We delay contextification until the final compile step, so hold these here for now. */
   public contextableInputs = new Map<string, Contextable<IActionContext, string>>();
   private contextableQuery: Contextable<IActionContext, string>; 
-  private testTarget: dataform.ITarget;
+  private testTarget: sqlanvil.ITarget;
 
   /**
    * @hidden Stores the generated proto for the compiled graph.
    */
-  private proto = dataform.Test.create();
+  private proto = sqlanvil.Test.create();
 
   /** @hidden */
   constructor(session?: Session, config?: ITestConfig) {
@@ -111,7 +111,7 @@ export class Test extends ActionBuilder<dataform.Test> {
     }
     if (config.dataset) {
       // Determine target from the parent dataset name
-      this.testTarget = dataform.Target.create(
+      this.testTarget = sqlanvil.Target.create(
         this.applySessionToTarget(
           resolvableAsTarget(
             toResolvable(config.dataset)
@@ -119,7 +119,7 @@ export class Test extends ActionBuilder<dataform.Test> {
           this.session.projectConfig
         )
       );
-      const canonicalTestTarget = dataform.Target.create(
+      const canonicalTestTarget = sqlanvil.Target.create(
         this.applySessionToTarget(
           resolvableAsTarget(
             toResolvable(config.dataset)
@@ -174,12 +174,12 @@ export class Test extends ActionBuilder<dataform.Test> {
   }
 
   /** @hidden */
-  public getTarget(): dataform.Target {
-    return dataform.Target.create(this.proto.target);
+  public getTarget(): sqlanvil.Target {
+    return sqlanvil.Target.create(this.proto.target);
   }
 
-  public getTestTarget(): dataform.Target {
-    return dataform.Target.create(this.testTarget);
+  public getTestTarget(): sqlanvil.Target {
+    return sqlanvil.Target.create(this.testTarget);
   }
 
   public setFilename(filename: string) {
@@ -239,7 +239,7 @@ export class Test extends ActionBuilder<dataform.Test> {
     }
 
     return verifyObjectMatchesProto(
-      dataform.Test,
+      sqlanvil.Test,
       this.proto,
       VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
     );
@@ -358,8 +358,8 @@ class RefReplacingContext implements ITableContext {
   }
 }
 
-function overrideTargetWithNewName(target: dataform.ITarget, testName: string): dataform.Target {
-  return dataform.Target.create({
+function overrideTargetWithNewName(target: sqlanvil.ITarget, testName: string): sqlanvil.Target {
+  return sqlanvil.Target.create({
     database: target.database,
     schema: target.schema,
     name: testName

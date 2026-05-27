@@ -2,9 +2,9 @@ import * as fs from "fs";
 import { dump as dumpYaml } from "js-yaml";
 import * as path from "path";
 
-import { CREDENTIALS_FILENAME } from "df/cli/api/commands/credentials";
-import { version } from "df/core/version";
-import { dataform } from "df/protos/ts";
+import { CREDENTIALS_FILENAME } from "sa/cli/api/commands/credentials";
+import { version } from "sa/core/version";
+import { sqlanvil } from "sa/protos/ts";
 
 const gitIgnoreContents = `
 ${CREDENTIALS_FILENAME}
@@ -18,7 +18,7 @@ export interface IInitResult {
 
 export async function init(
   projectDir: string,
-  projectConfig: dataform.IProjectConfig
+  projectConfig: sqlanvil.IProjectConfig
 ): Promise<IInitResult> {
   const workflowSettingsYamlPath = path.join(projectDir, "workflow_settings.yaml");
   const packageJsonPath = path.join(projectDir, "package.json");
@@ -45,12 +45,12 @@ export async function init(
   }
 
   // The order that fields are set here is preserved in the written yaml.
-  const workflowSettings: dataform.IWorkflowSettings = {
-    dataformCoreVersion: version,
+  const workflowSettings: sqlanvil.IWorkflowSettings = {
+    sqlanvilCoreVersion: version,
     defaultProject: projectConfig.defaultDatabase,
     defaultLocation: projectConfig.defaultLocation,
     defaultDataset: projectConfig.defaultSchema || "dataform",
-    defaultAssertionDataset: projectConfig.assertionSchema || "dataform_assertions",
+    defaultAssertionDataset: projectConfig.assertionSchema || "sqlanvil_assertions",
     defaultIcebergConfig: projectConfig.defaultIcebergConfig,
   };
   if (projectConfig.databaseSuffix) {

@@ -1,4 +1,4 @@
-import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "df/common/protos";
+import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
 import {
   ActionBuilder,
   checkConfigAdditionalOptionsOverlap,
@@ -6,14 +6,14 @@ import {
   ILegacyTableConfig,
   LegacyConfigConverter,
   TableType
-} from "df/core/actions";
-import { Assertion } from "df/core/actions/assertion";
-import { JitTableResult, Table } from "df/core/actions/table";
-import { View } from "df/core/actions/view";
-import { ColumnDescriptors } from "df/core/column_descriptors";
-import { Contextable, ITableContext, JitContextable, Resolvable } from "df/core/contextables";
-import * as Path from "df/core/path";
-import { Session } from "df/core/session";
+} from "sa/core/actions";
+import { Assertion } from "sa/core/actions/assertion";
+import { JitTableResult, Table } from "sa/core/actions/table";
+import { View } from "sa/core/actions/view";
+import { ColumnDescriptors } from "sa/core/column_descriptors";
+import { Contextable, ITableContext, JitContextable, Resolvable } from "sa/core/contextables";
+import * as Path from "sa/core/path";
+import { Session } from "sa/core/session";
 import {
   actionConfigToCompiledGraphTarget,
   checkAssertionsForDependency,
@@ -35,8 +35,8 @@ import {
   validateNoMixedCompilationMode,
   validateQueryString,
   validateStorageUriFormat,
-} from "df/core/utils";
-import { dataform } from "df/protos/ts";
+} from "sa/core/utils";
+import { sqlanvil } from "sa/protos/ts";
 
 /**
  * When you define an incremental table, Dataform builds the incremental table from scratch only for
@@ -44,7 +44,7 @@ import { dataform } from "df/protos/ts";
  * incremental table according to the conditions that you configure.
  *
  * You can create incremental tables in the following ways. Available config options are defined in
- * [IncrementalTableConfig](configs#dataform-ActionConfig-IncrementalTableConfig), and are shared across all the
+ * [IncrementalTableConfig](configs#sqlanvil-ActionConfig-IncrementalTableConfig), and are shared across all the
  * following ways of creating tables.
  *
  * **Using a SQLX file:**
@@ -74,7 +74,7 @@ import { dataform } from "df/protos/ts";
  * Note: When using the Javascript API, methods in this class can be accessed by the returned value.
  * This is where `query` comes from.
  */
-export class IncrementalTable extends ActionBuilder<dataform.Table> {
+export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
   /** @hidden Hold a reference to the Session instance. */
   public session: Session;
 
@@ -94,9 +94,9 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
   /**
    * @hidden Stores the generated proto for the compiled graph.
    */
-  private proto = dataform.Table.create({
+  private proto = sqlanvil.Table.create({
     type: "incremental",
-    enumType: dataform.TableType.INCREMENTAL,
+    enumType: sqlanvil.TableType.INCREMENTAL,
     disabled: false,
     tags: []
   });
@@ -146,7 +146,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
     if (config.dependencyTargets) {
       this.dependencies(
         config.dependencyTargets.map(dependencyTarget =>
-          configTargetToCompiledGraphTarget(dataform.ActionConfig.Target.create(dependencyTarget))
+          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
         )
       );
     }
@@ -171,7 +171,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
     if (config.columns?.length) {
       this.columns(
         config.columns.map(columnDescriptor =>
-          dataform.ActionConfig.ColumnDescriptor.create(columnDescriptor)
+          sqlanvil.ActionConfig.ColumnDescriptor.create(columnDescriptor)
         )
       );
     }
@@ -182,7 +182,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
       this.schema(config.dataset);
     }
     if (config.assertions) {
-      this.assertions(dataform.ActionConfig.TableAssertionsConfig.create(config.assertions));
+      this.assertions(sqlanvil.ActionConfig.TableAssertionsConfig.create(config.assertions));
     }
     if (config.uniqueKey) {
       this.uniqueKey(config.uniqueKey);
@@ -208,7 +208,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
           session.projectConfig.defaultIcebergConfig?.connection
         ),
         fileFormat: getFileFormatValueForIcebergTable(config.iceberg.fileFormat?.toString()),
-        tableFormat: dataform.TableFormat.ICEBERG,
+        tableFormat: sqlanvil.TableFormat.ICEBERG,
         storageUri: getStorageUriForIcebergTable(
           getEffectiveBucketName(session.projectConfig.defaultIcebergConfig?.bucketName, config.iceberg.bucketName),
           getEffectiveTableFolderRoot(session.projectConfig.defaultIcebergConfig?.tableFolderRoot, config.iceberg.tableFolderRoot),
@@ -282,7 +282,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
     if (!this.proto.actionDescriptor) {
       this.proto.actionDescriptor = {};
     }
-    this.proto.actionDescriptor.compilationMode = dataform.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
+    this.proto.actionDescriptor.compilationMode = sqlanvil.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
     this.contextableJitCode = jitCode;
     return this;
   }
@@ -327,7 +327,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [IncrementalTableConfig.disabled](configs#dataform-ActionConfig-IncrementalTableConfig).
+   * [IncrementalTableConfig.disabled](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * If called with `true`, this action is not executed. The action can still be depended upon.
    * Useful for temporarily turning off broken actions.
@@ -341,7 +341,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [IncrementalTableConfig.protected](configs#dataform-ActionConfig-IncrementalTableConfig).
+   * [IncrementalTableConfig.protected](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * If called with `true`, prevents the dataset from being rebuilt from scratch.
    */
@@ -353,7 +353,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [IncrementalTableConfig.uniqueKey](configs#dataform-ActionConfig-IncrementalTableConfig).
+   * [IncrementalTableConfig.uniqueKey](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * If set, unique key represents a set of names of columns that will act as a the unique key. To
    * enforce this, when updating the incremental table, Dataform merges rows with `uniqueKey`
@@ -365,12 +365,12 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of options available directly on
-   * [IncrementalTableConfig](configs#dataform-ActionConfig-IncrementalTableConfig). For example:
+   * [IncrementalTableConfig](configs#sqlanvil-ActionConfig-IncrementalTableConfig). For example:
    * `publish("name", { type: "table", partitionBy: "column" }`).
    *
    * Sets bigquery options for the action.
    */
-  public bigquery(bigquery: dataform.IBigQueryOptions) {
+  public bigquery(bigquery: sqlanvil.IBigQueryOptions) {
     if (!!bigquery.labels && Object.keys(bigquery.labels).length > 0) {
       if (!this.proto.actionDescriptor) {
         this.proto.actionDescriptor = {};
@@ -380,14 +380,14 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
 
     const bigqueryFiltered = LegacyConfigConverter.legacyConvertBigQueryOptions(bigquery);
     if (Object.values(bigqueryFiltered).length > 0) {
-      this.proto.bigquery = dataform.BigQueryOptions.create(bigqueryFiltered);
+      this.proto.bigquery = sqlanvil.BigQueryOptions.create(bigqueryFiltered);
     }
     return this;
   }
 
   /**
    * @deprecated Deprecated in favor of
-   * [IncrementalTableConfig.dependencies](configs#dataform-ActionConfig-IncrementalTableConfig).
+   * [IncrementalTableConfig.dependencies](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * Sets dependencies of the incremental table.
    */
@@ -401,7 +401,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [IncrementalTableConfig.hermetic](configs#dataform-ActionConfig-IncrementalTableConfig).
+   * [IncrementalTableConfig.hermetic](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * If true, this indicates that the action only depends on data from explicitly-declared
    * dependencies. Otherwise if false, it indicates that the  action depends on data from a source
@@ -409,13 +409,13 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
    */
   public hermetic(hermetic: boolean) {
     this.proto.hermeticity = hermetic
-      ? dataform.ActionHermeticity.HERMETIC
-      : dataform.ActionHermeticity.NON_HERMETIC;
+      ? sqlanvil.ActionHermeticity.HERMETIC
+      : sqlanvil.ActionHermeticity.NON_HERMETIC;
   }
 
   /**
    * @deprecated Deprecated in favor of
-   * [IncrementalTableConfig.tags](configs#dataform-ActionConfig-IncrementalTableConfig).
+   * [IncrementalTableConfig.tags](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * Sets a list of user-defined tags applied to this action.
    */
@@ -431,7 +431,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [IncrementalTableConfig.description](configs#dataform-ActionConfig-IncrementalTableConfig).
+   * [IncrementalTableConfig.description](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * Sets the description of this incremental table.
    */
@@ -445,11 +445,11 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [IncrementalTableConfig.columns](configs#dataform-ActionConfig-IncrementalTableConfig).
+   * [IncrementalTableConfig.columns](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * Sets the column descriptors of columns in this incremental table.
    */
-  public columns(columns: dataform.ActionConfig.ColumnDescriptor[]) {
+  public columns(columns: sqlanvil.ActionConfig.ColumnDescriptor[]) {
     if (!this.proto.actionDescriptor) {
       this.proto.actionDescriptor = {};
     }
@@ -461,14 +461,14 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [IncrementalTableConfig.project](configs#dataform-ActionConfig-IncrementalTableConfig).
+   * [IncrementalTableConfig.project](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * Sets the
    * Sets the database (Google Cloud project ID) in which to create the output of this action.
    */
   public database(database: string) {
     this.proto.target = this.applySessionToTarget(
-      dataform.Target.create({ ...this.proto.target, database }),
+      sqlanvil.Target.create({ ...this.proto.target, database }),
       this.session.projectConfig,
       this.proto.fileName,
       { validateTarget: true }
@@ -478,13 +478,13 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [IncrementalTableConfig.dataset](configs#dataform-ActionConfig-IncrementalTableConfig).
+   * [IncrementalTableConfig.dataset](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * Sets the schema (BigQuery dataset) in which to create the output of this action.
    */
   public schema(schema: string) {
     this.proto.target = this.applySessionToTarget(
-      dataform.Target.create({ ...this.proto.target, schema }),
+      sqlanvil.Target.create({ ...this.proto.target, schema }),
       this.session.projectConfig,
       this.proto.fileName,
       { validateTarget: true }
@@ -494,7 +494,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [IncrementalTableConfig.assertions](configs#dataform-ActionConfig-IncrementalTableConfig).
+   * [IncrementalTableConfig.assertions](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * Sets in-line assertions for this incremental table.
    *
@@ -503,7 +503,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
    * needed -->
    */
   public assertions(
-    tableAssertionsConfig: dataform.ActionConfig.TableAssertionsConfig
+    tableAssertionsConfig: sqlanvil.ActionConfig.TableAssertionsConfig
   ): IncrementalTable {
     const inlineAssertions = this.generateInlineAssertions(tableAssertionsConfig, this.proto);
     this.uniqueKeyAssertions = inlineAssertions.uniqueKeyAssertions;
@@ -513,7 +513,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [IncrementalTableConfig.dependOnDependencyAssertions](configs#dataform-ActionConfig-IncrementalTableConfig).
+   * [IncrementalTableConfig.dependOnDependencyAssertions](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * When called with `true`, assertions dependent upon any dependency will be add as dedpendency
    * to this action.
@@ -530,7 +530,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
 
   /** @hidden */
   public getTarget() {
-    return dataform.Target.create(this.proto.target);
+    return sqlanvil.Target.create(this.proto.target);
   }
 
   /** @hidden */
@@ -551,7 +551,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
     }
 
     return verifyObjectMatchesProto(
-      dataform.Table,
+      sqlanvil.Table,
       this.proto,
       VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
     );
@@ -620,8 +620,8 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
   private verifyConfig(
     // `any` is used here to facilitate the type merging of the legacy table config, which is very
     // different to the new structure.
-    unverifiedConfig: dataform.ActionConfig.IncrementalTableConfig | ILegacyTableConfig | any
-  ): dataform.ActionConfig.IncrementalTableConfig {
+    unverifiedConfig: sqlanvil.ActionConfig.IncrementalTableConfig | ILegacyTableConfig | any
+  ): sqlanvil.ActionConfig.IncrementalTableConfig {
     // The "type" field only exists on legacy incremental table configs. Here we convert them to the
     // new format.
     if (unverifiedConfig.type) {
@@ -687,7 +687,7 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
     }
 
     const config = verifyObjectMatchesProto(
-      dataform.ActionConfig.IncrementalTableConfig,
+      sqlanvil.ActionConfig.IncrementalTableConfig,
       unverifiedConfig,
       VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
     );
@@ -703,21 +703,21 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
   // - for sqlx it will have type "string"
   // - for action.yaml it will be converted to enum which is represented
   // in TypeScript as a "number".
-  private mapOnSchemaChange(onSchemaChange?: string | number): dataform.OnSchemaChange {
+  private mapOnSchemaChange(onSchemaChange?: string | number): sqlanvil.OnSchemaChange {
     if (!onSchemaChange) {
-      return dataform.OnSchemaChange.IGNORE;
+      return sqlanvil.OnSchemaChange.IGNORE;
     }
 
     if (typeof onSchemaChange === "number") {
       switch (onSchemaChange) {
-        case dataform.ActionConfig.OnSchemaChange.IGNORE:
-          return dataform.OnSchemaChange.IGNORE;
-        case dataform.ActionConfig.OnSchemaChange.FAIL:
-          return dataform.OnSchemaChange.FAIL;
-        case dataform.ActionConfig.OnSchemaChange.EXTEND:
-          return dataform.OnSchemaChange.EXTEND;
-        case dataform.ActionConfig.OnSchemaChange.SYNCHRONIZE:
-          return dataform.OnSchemaChange.SYNCHRONIZE;
+        case sqlanvil.ActionConfig.OnSchemaChange.IGNORE:
+          return sqlanvil.OnSchemaChange.IGNORE;
+        case sqlanvil.ActionConfig.OnSchemaChange.FAIL:
+          return sqlanvil.OnSchemaChange.FAIL;
+        case sqlanvil.ActionConfig.OnSchemaChange.EXTEND:
+          return sqlanvil.OnSchemaChange.EXTEND;
+        case sqlanvil.ActionConfig.OnSchemaChange.SYNCHRONIZE:
+          return sqlanvil.OnSchemaChange.SYNCHRONIZE;
         default:
           throw new Error(`OnSchemaChange value "${onSchemaChange}" is not supported`);
       }
@@ -725,13 +725,13 @@ export class IncrementalTable extends ActionBuilder<dataform.Table> {
 
     switch (onSchemaChange.toString().toUpperCase()) {
       case "IGNORE":
-        return dataform.OnSchemaChange.IGNORE;
+        return sqlanvil.OnSchemaChange.IGNORE;
       case "FAIL":
-        return dataform.OnSchemaChange.FAIL;
+        return sqlanvil.OnSchemaChange.FAIL;
       case "EXTEND":
-        return dataform.OnSchemaChange.EXTEND;
+        return sqlanvil.OnSchemaChange.EXTEND;
       case "SYNCHRONIZE":
-        return dataform.OnSchemaChange.SYNCHRONIZE;
+        return sqlanvil.OnSchemaChange.SYNCHRONIZE;
       default:
         throw new Error(`OnSchemaChange value "${onSchemaChange}" is not supported`);
     }
@@ -811,7 +811,7 @@ export class IncrementalTableContext implements ITableContext {
     return "";
   }
 
-  public bigquery(bigquery: dataform.IBigQueryOptions) {
+  public bigquery(bigquery: sqlanvil.IBigQueryOptions) {
     this.incrementalTable.bigquery(bigquery);
     return "";
   }

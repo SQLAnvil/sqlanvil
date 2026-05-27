@@ -1,4 +1,4 @@
-import { google } from "df/protos/ts";
+import { google } from "sa/protos/ts";
 
 export type AnyValue = null | number | string | boolean | undefined | AnyValue[] | { [key: string]: AnyValue };
 

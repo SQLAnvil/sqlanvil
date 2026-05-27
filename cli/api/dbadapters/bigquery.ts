@@ -2,7 +2,7 @@ import { BigQuery, GetTablesResponse, TableField, TableMetadata } from "@google-
 import Long from "long";
 import { PromisePoolExecutor } from "promise-pool-executor";
 
-import { collectEvaluationQueries, QueryOrAction } from "df/cli/api/dbadapters/execution_sql";
+import { collectEvaluationQueries, QueryOrAction } from "sa/cli/api/dbadapters/execution_sql";
 import {
   IBigQueryError,
   IDbAdapter,
@@ -10,12 +10,12 @@ import {
   IExecutionResult,
   IExecutionResultRaw,
   OnCancel
-} from "df/cli/api/dbadapters/index";
-import { parseBigqueryEvalError } from "df/cli/api/utils/error_parsing";
-import { LimitedResultSet } from "df/cli/api/utils/results";
-import { coerceAsError } from "df/common/errors/errors";
-import { retry } from "df/common/promises";
-import { dataform } from "df/protos/ts";
+} from "sa/cli/api/dbadapters/index";
+import { parseBigqueryEvalError } from "sa/cli/api/utils/error_parsing";
+import { LimitedResultSet } from "sa/cli/api/utils/results";
+import { coerceAsError } from "sa/common/errors/errors";
+import { retry } from "sa/common/promises";
+import { sqlanvil } from "sa/protos/ts";
 
 const EXTRA_GOOGLE_SCOPES = ["https://www.googleapis.com/auth/drive"];
 
@@ -38,14 +38,14 @@ export interface IBigQueryExecutionOptions {
 }
 
 export class BigQueryDbAdapter implements IDbAdapter {
-  private bigQueryCredentials: dataform.IBigQuery;
+  private bigQueryCredentials: sqlanvil.IBigQuery;
   private pool: PromisePoolExecutor;
 
   private readonly clients = new Map<string, BigQuery>();
   private readonly bigqueryClient?: BigQuery;
 
   constructor(
-    credentials: dataform.IBigQuery,
+    credentials: sqlanvil.IBigQuery,
     options?: { concurrencyLimit?: number; bigqueryClient?: BigQuery }
   ) {
     this.bigQueryCredentials = credentials;
@@ -149,14 +149,14 @@ export class BigQueryDbAdapter implements IDbAdapter {
                 })
             })
             .promise();
-          return dataform.QueryEvaluation.create({
-            status: dataform.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
+          return sqlanvil.QueryEvaluation.create({
+            status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
             incremental,
             query
           });
         } catch (e) {
           return {
-            status: dataform.QueryEvaluation.QueryEvaluationStatus.FAILURE,
+            status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE,
             error: parseBigqueryEvalError(e),
             incremental,
             query
@@ -166,9 +166,9 @@ export class BigQueryDbAdapter implements IDbAdapter {
     );
   }
 
-  public async tables(database: string, schema?: string): Promise<dataform.ITableMetadata[]> {
+  public async tables(database: string, schema?: string): Promise<sqlanvil.ITableMetadata[]> {
     const datasetIds = schema ? [schema] : await this.schemas(database);
-    const tablesMetadata: dataform.ITableMetadata[] = [];
+    const tablesMetadata: sqlanvil.ITableMetadata[] = [];
 
     await Promise.all(
       datasetIds.map(async datasetId => {
@@ -196,7 +196,7 @@ export class BigQueryDbAdapter implements IDbAdapter {
   public async search(
     searchText: string,
     options: { limit: number } = { limit: 1000 }
-  ): Promise<dataform.ITableMetadata[]> {
+  ): Promise<sqlanvil.ITableMetadata[]> {
     const results = await this.execute(
       `select table_catalog, table_schema, table_name
        from region-${this.bigQueryCredentials.location}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS
@@ -221,7 +221,7 @@ export class BigQueryDbAdapter implements IDbAdapter {
     );
   }
 
-  public async table(target: dataform.ITarget): Promise<dataform.ITableMetadata> {
+  public async table(target: sqlanvil.ITarget): Promise<sqlanvil.ITableMetadata> {
     const metadata = await this.getMetadata(target);
 
     if (!metadata) {
@@ -246,13 +246,13 @@ export class BigQueryDbAdapter implements IDbAdapter {
       );
     }
 
-    return dataform.TableMetadata.create({
+    return sqlanvil.TableMetadata.create({
       type:
         metadata.type === "TABLE"
-          ? dataform.TableMetadata.Type.TABLE
+          ? sqlanvil.TableMetadata.Type.TABLE
           : metadata.type === "VIEW"
-            ? dataform.TableMetadata.Type.VIEW
-            : dataform.TableMetadata.Type.UNKNOWN,
+            ? sqlanvil.TableMetadata.Type.VIEW
+            : sqlanvil.TableMetadata.Type.UNKNOWN,
       target,
       fields: metadata.schema.fields?.map(field => convertField(field)),
       lastUpdatedMillis: Long.fromString(metadata.lastModifiedTime),
@@ -264,7 +264,7 @@ export class BigQueryDbAdapter implements IDbAdapter {
     });
   }
 
-  public async deleteTable(target: dataform.ITarget): Promise<void> {
+  public async deleteTable(target: sqlanvil.ITarget): Promise<void> {
     await this.getClient(target.database)
       .dataset(target.schema)
       .table(target.name)
@@ -283,7 +283,7 @@ export class BigQueryDbAdapter implements IDbAdapter {
     );
   }
 
-  public async setMetadata(action: dataform.IExecutionAction): Promise<void> {
+  public async setMetadata(action: sqlanvil.IExecutionAction): Promise<void> {
     const { target, actionDescriptor } = action;
 
     const metadata = await this.getMetadata(target);
@@ -302,7 +302,7 @@ export class BigQueryDbAdapter implements IDbAdapter {
       });
   }
 
-  private async getMetadata(target: dataform.ITarget): Promise<TableMetadata> {
+  private async getMetadata(target: sqlanvil.ITarget): Promise<TableMetadata> {
     try {
       const table = await this.getClient(target.database)
         .dataset(target.schema)
@@ -379,7 +379,7 @@ export class BigQueryDbAdapter implements IDbAdapter {
     return {
       query,
       useLegacySql: false,
-      jobPrefix: "dataform-" + (bigqueryOptions?.jobPrefix ? `${bigqueryOptions.jobPrefix}-` : ""),
+      jobPrefix: "sqlanvil-" + (bigqueryOptions?.jobPrefix ? `${bigqueryOptions.jobPrefix}-` : ""),
       location: bigqueryOptions?.location,
       maxResults: rowLimit,
       labels: bigqueryOptions?.labels,
@@ -518,20 +518,20 @@ function cleanRows(rows: any[]) {
   return rows;
 }
 
-function convertField(field: TableField): dataform.IField {
-  const result: dataform.IField = {
+function convertField(field: TableField): sqlanvil.IField {
+  const result: sqlanvil.IField = {
     name: field.name,
-    flags: field.mode === "REPEATED" ? [dataform.Field.Flag.REPEATED] : [],
+    flags: field.mode === "REPEATED" ? [sqlanvil.Field.Flag.REPEATED] : [],
     description: field.description
   };
   if (field.type === "RECORD" || field.type === "STRUCT") {
-    result.struct = dataform.Fields.create({
+    result.struct = sqlanvil.Fields.create({
       fields: field.fields.map(innerField => convertField(innerField))
     });
   } else {
     result.primitive = convertFieldType(field.type);
   }
-  return dataform.Field.create(result);
+  return sqlanvil.Field.create(result);
 }
 
 // See: https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#TableFieldSchema
@@ -539,42 +539,42 @@ function convertFieldType(type: string) {
   switch (String(type).toUpperCase()) {
     case "FLOAT":
     case "FLOAT64":
-      return dataform.Field.Primitive.FLOAT;
+      return sqlanvil.Field.Primitive.FLOAT;
     case "INTEGER":
     case "INT64":
-      return dataform.Field.Primitive.INTEGER;
+      return sqlanvil.Field.Primitive.INTEGER;
     case "NUMERIC":
-      return dataform.Field.Primitive.NUMERIC;
+      return sqlanvil.Field.Primitive.NUMERIC;
     case "BOOL":
     case "BOOLEAN":
-      return dataform.Field.Primitive.BOOLEAN;
+      return sqlanvil.Field.Primitive.BOOLEAN;
     case "STRING":
-      return dataform.Field.Primitive.STRING;
+      return sqlanvil.Field.Primitive.STRING;
     case "DATE":
-      return dataform.Field.Primitive.DATE;
+      return sqlanvil.Field.Primitive.DATE;
     case "DATETIME":
-      return dataform.Field.Primitive.DATETIME;
+      return sqlanvil.Field.Primitive.DATETIME;
     case "TIMESTAMP":
-      return dataform.Field.Primitive.TIMESTAMP;
+      return sqlanvil.Field.Primitive.TIMESTAMP;
     case "TIME":
-      return dataform.Field.Primitive.TIME;
+      return sqlanvil.Field.Primitive.TIME;
     case "BYTES":
-      return dataform.Field.Primitive.BYTES;
+      return sqlanvil.Field.Primitive.BYTES;
     case "GEOGRAPHY":
-      return dataform.Field.Primitive.GEOGRAPHY;
+      return sqlanvil.Field.Primitive.GEOGRAPHY;
     case "BIGNUMERIC":
-      return dataform.Field.Primitive.BIGNUMERIC;
+      return sqlanvil.Field.Primitive.BIGNUMERIC;
     case "JSON":
-      return dataform.Field.Primitive.JSON;
+      return sqlanvil.Field.Primitive.JSON;
     case "INTERVAL":
-      return dataform.Field.Primitive.INTERVAL;
+      return sqlanvil.Field.Primitive.INTERVAL;
     default:
-      return dataform.Field.Primitive.UNKNOWN;
+      return sqlanvil.Field.Primitive.UNKNOWN;
   }
 }
 
 function addDescriptionToMetadata(
-  columnDescriptions: dataform.IColumnDescriptor[],
+  columnDescriptions: sqlanvil.IColumnDescriptor[],
   metadataArray: TableField[]
 ): TableField[] {
   if (!columnDescriptions) {

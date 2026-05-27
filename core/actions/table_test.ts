@@ -7,15 +7,15 @@ import {
   exampleActionDescriptor,
   exampleBuiltInAssertions,
   exampleBuiltInAssertionsAsYaml
-} from "df/core/actions/index_test";
-import { dataform } from "df/protos/ts";
-import { asPlainObject, suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+} from "sa/core/actions/index_test";
+import { sqlanvil } from "sa/protos/ts";
+import { asPlainObject, suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
   VALID_WORKFLOW_SETTINGS_YAML
-} from "df/testing/run_core";
+} from "sa/testing/run_core";
 
 suite("table", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);
@@ -564,7 +564,7 @@ defaultIcebergConfig:
         wsContent: VALID_WORKFLOW_SETTINGS_YAML,
       },
       {
-        testName: "defaults to \`_dataform\` for tableFolderRoot",
+        testName: "defaults to \`_sqlanvil\` for tableFolderRoot",
         configBlock: `
         name: "table3",
         dataset: "dataset3",
@@ -582,7 +582,7 @@ defaultIcebergConfig:
             tableFormat: "ICEBERG",
             fileFormat: "PARQUET",
             connection: "gcp.us.conn-id",
-            storageUri: "gs://my-bucket/_dataform/my-subpath",
+            storageUri: "gs://my-bucket/_sqlanvil/my-subpath",
           },
         },
         expectError: false,

@@ -1,13 +1,13 @@
 import * as pg from "pg";
 
-import { Credentials } from "df/api/commands/credentials";
-import { IDbAdapter, IDbClient } from "df/api/dbadapters/index";
-import { SSHTunnelProxy } from "df/api/ssh_tunnel_proxy";
-import { parseRedshiftEvalError } from "df/api/utils/error_parsing";
-import { convertFieldType, PgPoolExecutor } from "df/api/utils/postgres";
-import { ErrorWithCause } from "df/common/errors/errors";
-import { collectEvaluationQueries, QueryOrAction } from "df/core/adapters";
-import { dataform } from "df/protos/ts";
+import { Credentials } from "sa/api/commands/credentials";
+import { IDbAdapter, IDbClient } from "sa/api/dbadapters/index";
+import { SSHTunnelProxy } from "sa/api/ssh_tunnel_proxy";
+import { parseRedshiftEvalError } from "sa/api/utils/error_parsing";
+import { convertFieldType, PgPoolExecutor } from "sa/api/utils/postgres";
+import { ErrorWithCause } from "sa/common/errors/errors";
+import { collectEvaluationQueries, QueryOrAction } from "sa/core/adapters";
+import { sqlanvil } from "sa/protos/ts";
 
 interface IPostgresAdapterOptions {
   sshTunnel?: SSHTunnelProxy;
@@ -18,7 +18,7 @@ export class PostgresDbAdapter implements IDbAdapter {
     credentials: Credentials,
     options?: { concurrencyLimit?: number; disableSslForTestsOnly?: boolean }
   ) {
-    const jdbcCredentials = credentials as dataform.IJDBC;
+    const jdbcCredentials = credentials as sqlanvil.IJDBC;
     const baseClientConfig: Partial<pg.ClientConfig> = {
       user: jdbcCredentials.username,
       password: jdbcCredentials.password,
@@ -107,21 +107,21 @@ export class PostgresDbAdapter implements IDbAdapter {
     ).map((validationQuery, index) => ({ index, validationQuery }));
     const validationQueriesWithoutWrappers = collectEvaluationQueries(queryOrAction, false);
 
-    const queryEvaluations = new Array<dataform.IQueryEvaluation>();
+    const queryEvaluations = new Array<sqlanvil.IQueryEvaluation>();
     for (const { index, validationQuery } of validationQueries) {
-      let evaluationResponse: dataform.IQueryEvaluation = {
-        status: dataform.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+      let evaluationResponse: sqlanvil.IQueryEvaluation = {
+        status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
       };
       try {
         await this.execute(validationQuery.query);
       } catch (e) {
         evaluationResponse = {
-          status: dataform.QueryEvaluation.QueryEvaluationStatus.FAILURE,
+          status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE,
           error: parseRedshiftEvalError(validationQuery.query, e)
         };
       }
       queryEvaluations.push(
-        dataform.QueryEvaluation.create({
+        sqlanvil.QueryEvaluation.create({
           ...evaluationResponse,
           incremental: validationQuery.incremental,
           query: validationQueriesWithoutWrappers[index].query
@@ -131,7 +131,7 @@ export class PostgresDbAdapter implements IDbAdapter {
     return queryEvaluations;
   }
 
-  public async tables(): Promise<dataform.ITarget[]> {
+  public async tables(): Promise<sqlanvil.ITarget[]> {
     const queryResult = await this.execute(
       `select table_name, table_schema
      from information_schema.tables
@@ -150,7 +150,7 @@ export class PostgresDbAdapter implements IDbAdapter {
   public async search(
     searchText: string,
     options: { limit: number } = { limit: 1000 }
-  ): Promise<dataform.ITableMetadata[]> {
+  ): Promise<sqlanvil.ITableMetadata[]> {
     // TODO: It would be nice to extend this to search through table/column descriptions. However, this involves
     // a somewhat crazy 5-way join.
     const results = await this.execute(
@@ -174,7 +174,7 @@ export class PostgresDbAdapter implements IDbAdapter {
     );
   }
 
-  public async table(target: dataform.ITarget): Promise<dataform.ITableMetadata> {
+  public async table(target: sqlanvil.ITarget): Promise<sqlanvil.ITableMetadata> {
     const params = [target.schema, target.name];
     const [tableResults, columnResults, descriptionResults] = await Promise.all([
       this.execute(
@@ -201,14 +201,14 @@ export class PostgresDbAdapter implements IDbAdapter {
     if (tableResults.rows.length === 0) {
       return null;
     }
-    return dataform.TableMetadata.create({
+    return sqlanvil.TableMetadata.create({
       target,
       type:
         tableResults.rows[0].table_type === "VIEW"
-          ? dataform.TableMetadata.Type.VIEW
-          : dataform.TableMetadata.Type.TABLE,
+          ? sqlanvil.TableMetadata.Type.VIEW
+          : sqlanvil.TableMetadata.Type.TABLE,
       fields: columnResults.rows.map(row =>
-        dataform.Field.create({
+        sqlanvil.Field.create({
           name: row.column_name,
           primitive: convertFieldType(row.data_type),
           description: descriptionResults.rows.find(
@@ -222,7 +222,7 @@ export class PostgresDbAdapter implements IDbAdapter {
     });
   }
 
-  public async preview(target: dataform.ITarget, limitRows: number = 10): Promise<any[]> {
+  public async preview(target: sqlanvil.ITarget, limitRows: number = 10): Promise<any[]> {
     const { rows } = await this.execute(
       `SELECT * FROM "${target.schema}"."${target.name}" LIMIT ${limitRows}`
     );
@@ -247,7 +247,7 @@ export class PostgresDbAdapter implements IDbAdapter {
     }
   }
 
-  public async setMetadata(action: dataform.IExecutionAction): Promise<void> {
+  public async setMetadata(action: sqlanvil.IExecutionAction): Promise<void> {
     const { target, actionDescriptor, tableType } = action;
 
     const actualMetadata = await this.table(target);

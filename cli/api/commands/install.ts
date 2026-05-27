@@ -3,10 +3,10 @@ import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
 
-import { readDataformCoreVersionFromWorkflowSettings } from "df/cli/api/utils";
+import { readDataformCoreVersionFromWorkflowSettings } from "sa/cli/api/utils";
 
 export const MISSING_CORE_VERSION_ERROR =
-  "dataformCoreVersion must be specified either in workflow_settings.yaml or via a package.json";
+  "sqlanvilCoreVersion must be specified either in workflow_settings.yaml or via a package.json";
 
 export async function install(projectPath: string) {
   const resolvedProjectPath = path.resolve(projectPath);
@@ -14,8 +14,8 @@ export async function install(projectPath: string) {
 
   // Core's readWorkflowSettings method cannot be used for this because Core assumes that
   // `require` can read YAML files directly.
-  const dataformCoreVersion = readDataformCoreVersionFromWorkflowSettings(resolvedProjectPath);
-  if (dataformCoreVersion) {
+  const sqlanvilCoreVersion = readDataformCoreVersionFromWorkflowSettings(resolvedProjectPath);
+  if (sqlanvilCoreVersion) {
     throw new Error(
       "No installation is needed when using workflow_settings.yaml, as packages are installed at " +
         "runtime."

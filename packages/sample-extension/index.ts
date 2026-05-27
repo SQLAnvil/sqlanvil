@@ -1,9 +1,9 @@
-import type { IDataformExtension } from "df/core";
-import { Session } from "df/core/session";
-import { dataform } from "df/protos/ts";
+import type { IDataformExtension } from "sa/core";
+import { Session } from "sa/core/session";
+import { sqlanvil } from "sa/protos/ts";
 
 class SampleExtension implements IDataformExtension {
-    public compile(request: dataform.ICompileExecutionRequest, session: Session): void {
+    public compile(request: sqlanvil.ICompileExecutionRequest, session: Session): void {
         if (request.compileConfig?.projectConfigOverride?.vars["throw-error"] === "true") {
             throw new Error("throwing exception as requested!");
         }

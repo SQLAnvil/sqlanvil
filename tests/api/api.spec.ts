@@ -4,15 +4,15 @@ import Long from "long";
 import * as path from "path";
 import { anyString, anything, instance, mock, verify, when } from "ts-mockito";
 
-import { Builder, credentials, prune, Runner } from "df/cli/api";
-import { IDbAdapter } from "df/cli/api/dbadapters";
-import { BigQueryDbAdapter } from "df/cli/api/dbadapters/bigquery";
-import { sleep, sleepUntil } from "df/common/promises";
-import { equals } from "df/common/protos";
-import { targetAsReadableString } from "df/core/targets";
-import { dataform } from "df/protos/ts";
-import { asPlainObject, cleanSql, suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+import { Builder, credentials, prune, Runner } from "sa/cli/api";
+import { IDbAdapter } from "sa/cli/api/dbadapters";
+import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
+import { sleep, sleepUntil } from "sa/common/promises";
+import { equals } from "sa/common/protos";
+import { targetAsReadableString } from "sa/core/targets";
+import { sqlanvil } from "sa/protos/ts";
+import { asPlainObject, cleanSql, suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 
 config.truncateThreshold = 0;
 
@@ -21,7 +21,7 @@ suite("@sqlanvil/api", () => {
   //       ^
   //       d
   // Made with asciiflow.com
-  const TEST_GRAPH: dataform.ICompiledGraph = dataform.CompiledGraph.create({
+  const TEST_GRAPH: sqlanvil.ICompiledGraph = sqlanvil.CompiledGraph.create({
     projectConfig: { warehouse: "bigquery" },
     tables: [
       {
@@ -66,7 +66,7 @@ suite("@sqlanvil/api", () => {
     ]
   });
 
-  const TEST_STATE = dataform.WarehouseState.create({ tables: [] });
+  const TEST_STATE = sqlanvil.WarehouseState.create({ tables: [] });
 
   suite("build", () => {
     test("exclude_disabled", () => {
@@ -94,7 +94,7 @@ suite("@sqlanvil/api", () => {
 
     test("build_with_errors", () => {
       expect(() => {
-        const graphWithErrors: dataform.ICompiledGraph = dataform.CompiledGraph.create({
+        const graphWithErrors: sqlanvil.ICompiledGraph = sqlanvil.CompiledGraph.create({
           projectConfig: { warehouse: "bigquery" },
           graphErrors: { compilationErrors: [{ message: "Some critical error" }] },
           tables: [{ target: { schema: "schema", name: "a" } }]
@@ -106,7 +106,7 @@ suite("@sqlanvil/api", () => {
     });
 
     test("action_types", () => {
-      const graph: dataform.ICompiledGraph = dataform.CompiledGraph.create({
+      const graph: sqlanvil.ICompiledGraph = sqlanvil.CompiledGraph.create({
         projectConfig: { warehouse: "bigquery" },
         tables: [
           { target: { schema: "schema", name: "a" }, type: "table" },
@@ -131,39 +131,39 @@ suite("@sqlanvil/api", () => {
 
       expect(executedGraph.actions.length).greaterThan(0);
 
-      graph.tables.forEach((t: dataform.ITable) => {
+      graph.tables.forEach((t: sqlanvil.ITable) => {
         const action = executedGraph.actions.find(item =>
-          equals(dataform.Target, item.target, t.target)
+          equals(sqlanvil.Target, item.target, t.target)
         );
         expect(action).to.include({ type: "table", target: t.target, tableType: t.type });
       });
 
-      graph.operations.forEach((o: dataform.IOperation) => {
+      graph.operations.forEach((o: sqlanvil.IOperation) => {
         const action = executedGraph.actions.find(item =>
-          equals(dataform.Target, item.target, o.target)
+          equals(sqlanvil.Target, item.target, o.target)
         );
         expect(action).to.include({ type: "operation", target: o.target });
       });
 
-      graph.assertions.forEach((a: dataform.IAssertion) => {
+      graph.assertions.forEach((a: sqlanvil.IAssertion) => {
         const action = executedGraph.actions.find(item =>
-          equals(dataform.Target, item.target, a.target)
+          equals(sqlanvil.Target, item.target, a.target)
         );
         expect(action).to.include({ type: "assertion" });
       });
     });
 
     test("table_enum_types", () => {
-      const graph: dataform.ICompiledGraph = dataform.CompiledGraph.create({
+      const graph: sqlanvil.ICompiledGraph = sqlanvil.CompiledGraph.create({
         projectConfig: { warehouse: "bigquery" },
         tables: [
-          { target: { schema: "schema", name: "a" }, enumType: dataform.TableType.TABLE },
+          { target: { schema: "schema", name: "a" }, enumType: sqlanvil.TableType.TABLE },
           {
             target: { schema: "schema", name: "b" },
-            enumType: dataform.TableType.INCREMENTAL,
+            enumType: sqlanvil.TableType.INCREMENTAL,
             where: "test"
           },
-          { target: { schema: "schema", name: "c" }, enumType: dataform.TableType.VIEW }
+          { target: { schema: "schema", name: "c" }, enumType: sqlanvil.TableType.VIEW }
         ]
       });
 
@@ -172,25 +172,25 @@ suite("@sqlanvil/api", () => {
 
       expect(executedGraph.actions.length).greaterThan(0);
 
-      graph.tables.forEach((t: dataform.ITable) => {
+      graph.tables.forEach((t: sqlanvil.ITable) => {
         const action = executedGraph.actions.find(item =>
-          equals(dataform.Target, item.target, t.target)
+          equals(sqlanvil.Target, item.target, t.target)
         );
         expect(action).to.include({
           type: "table",
           target: t.target,
-          tableType: dataform.TableType[t.enumType].toLowerCase()
+          tableType: sqlanvil.TableType[t.enumType].toLowerCase()
         });
       });
     });
 
     test("table_enum_and_str_types_should_match", () => {
-      const graph: dataform.ICompiledGraph = dataform.CompiledGraph.create({
+      const graph: sqlanvil.ICompiledGraph = sqlanvil.CompiledGraph.create({
         projectConfig: { warehouse: "bigquery" },
         tables: [
           {
             target: { schema: "schema", name: "a" },
-            enumType: dataform.TableType.TABLE,
+            enumType: sqlanvil.TableType.TABLE,
             type: "incremental"
           }
         ]
@@ -203,7 +203,7 @@ suite("@sqlanvil/api", () => {
 
     suite("pre and post ops", () => {
       for (const warehouse of ["bigquery"]) {
-        const graph: dataform.ICompiledGraph = dataform.CompiledGraph.create({
+        const graph: sqlanvil.ICompiledGraph = sqlanvil.CompiledGraph.create({
           projectConfig: { warehouse: "bigquery" },
           tables: [
             {
@@ -217,13 +217,13 @@ suite("@sqlanvil/api", () => {
               incrementalPostOps: ["incremental postOp"]
             }
           ],
-          dataformCoreVersion: "1.4.9"
+          sqlanvilCoreVersion: "1.4.9"
         });
 
         test(`${warehouse} when running non incrementally`, () => {
           const action = new Builder(graph, {}, TEST_STATE).build().actions[0];
           expect(action.tasks).eql([
-            dataform.ExecutionTask.create({
+            sqlanvil.ExecutionTask.create({
               type: "statement",
               statement: "preOp\n;\ncreate or replace table `schema.a` as foo\n;\npostOp"
             })
@@ -234,12 +234,12 @@ suite("@sqlanvil/api", () => {
           const action = new Builder(
             graph,
             {},
-            dataform.WarehouseState.create({
+            sqlanvil.WarehouseState.create({
               tables: [{ target: graph.tables[0].target, fields: [] }]
             })
           ).build().actions[0];
           expect(action.tasks).eql([
-            dataform.ExecutionTask.create({
+            sqlanvil.ExecutionTask.create({
               type: "statement",
               statement:
                 "incremental preOp\n;\ndrop view if exists `schema.a`\n;\ninsert into `schema.a`\t\n()\t\nselect \t\nfrom (incremental foo) as insertions\n;\nincremental postOp"
@@ -256,7 +256,7 @@ suite("@sqlanvil/api", () => {
     //        +-> op_c
     //
     // op_d +---> tab_a
-    const TEST_GRAPH_WITH_TAGS: dataform.ICompiledGraph = dataform.CompiledGraph.create({
+    const TEST_GRAPH_WITH_TAGS: sqlanvil.ICompiledGraph = sqlanvil.CompiledGraph.create({
       projectConfig: { warehouse: "bigquery", defaultLocation: "US" },
       operations: [
         {
@@ -391,14 +391,14 @@ suite("@sqlanvil/api", () => {
         query: "select 1 as test",
         where: "true"
       };
-      const warehouseState = dataform.WarehouseState.create({
+      const warehouseState = sqlanvil.WarehouseState.create({
         tables: [
           {
             target: {
               schema: "schema",
               name: "incremental"
             },
-            type: dataform.TableMetadata.Type.TABLE,
+            type: sqlanvil.TableMetadata.Type.TABLE,
             fields: [
               {
                 name: "existing_field"
@@ -409,7 +409,7 @@ suite("@sqlanvil/api", () => {
       });
 
       test("incremental_mode", () => {
-        const graph = dataform.CompiledGraph.create({
+        const graph = sqlanvil.CompiledGraph.create({
           projectConfig,
           tables: [ incrementalTable ]
         });
@@ -434,7 +434,7 @@ suite("@sqlanvil/api", () => {
       });
 
       test("full refresh", () => {
-        const graph = dataform.CompiledGraph.create({
+        const graph = sqlanvil.CompiledGraph.create({
           projectConfig,
           tables: [ incrementalTable ]
         });
@@ -457,7 +457,7 @@ suite("@sqlanvil/api", () => {
           ...incrementalTable,
           protected: true,
         };
-        const graph = dataform.CompiledGraph.create({
+        const graph = sqlanvil.CompiledGraph.create({
           projectConfig,
           tables: [ protectedIncrementalTable ]
         });
@@ -483,7 +483,7 @@ suite("@sqlanvil/api", () => {
     });
 
     test("bigquery_materialized", () => {
-      const testGraph: dataform.ICompiledGraph = dataform.CompiledGraph.create({
+      const testGraph: sqlanvil.ICompiledGraph = sqlanvil.CompiledGraph.create({
         projectConfig: { warehouse: "bigquery", defaultDatabase: "deeb", defaultLocation: "US" },
         tables: [
           {
@@ -505,7 +505,7 @@ suite("@sqlanvil/api", () => {
           }
         ]
       });
-      const expectedExecutionActions: dataform.IExecutionAction[] = [
+      const expectedExecutionActions: sqlanvil.IExecutionAction[] = [
         {
           type: "table",
           tableType: "view",
@@ -521,7 +521,7 @@ suite("@sqlanvil/api", () => {
             }
           ],
           dependencyTargets: [],
-          hermeticity: dataform.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
         },
         {
           type: "table",
@@ -537,17 +537,17 @@ suite("@sqlanvil/api", () => {
             }
           ],
           dependencyTargets: [],
-          hermeticity: dataform.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
         }
       ];
-      const executionGraph = new Builder(testGraph, {}, dataform.WarehouseState.create({})).build();
+      const executionGraph = new Builder(testGraph, {}, sqlanvil.WarehouseState.create({})).build();
       expect(asPlainObject(executionGraph.actions)).deep.equals(
         asPlainObject(expectedExecutionActions)
       );
     });
 
     test("bigquery_partitionby", () => {
-      const testGraph: dataform.ICompiledGraph = dataform.CompiledGraph.create({
+      const testGraph: sqlanvil.ICompiledGraph = sqlanvil.CompiledGraph.create({
         projectConfig: { warehouse: "bigquery", defaultDatabase: "deeb", defaultLocation: "US" },
         tables: [
           {
@@ -572,7 +572,7 @@ suite("@sqlanvil/api", () => {
           }
         ]
       });
-      const expectedExecutionActions: dataform.IExecutionAction[] = [
+      const expectedExecutionActions: sqlanvil.IExecutionAction[] = [
         {
           type: "table",
           tableType: "table",
@@ -588,7 +588,7 @@ suite("@sqlanvil/api", () => {
             }
           ],
           dependencyTargets: [],
-          hermeticity: dataform.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
         },
         {
           type: "table",
@@ -604,17 +604,17 @@ suite("@sqlanvil/api", () => {
             }
           ],
           dependencyTargets: [],
-          hermeticity: dataform.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
         }
       ];
-      const executionGraph = new Builder(testGraph, {}, dataform.WarehouseState.create({})).build();
+      const executionGraph = new Builder(testGraph, {}, sqlanvil.WarehouseState.create({})).build();
       expect(asPlainObject(executionGraph.actions)).deep.equals(
         asPlainObject(expectedExecutionActions)
       );
     });
 
     test("bigquery_options", () => {
-      const testGraph: dataform.ICompiledGraph = dataform.CompiledGraph.create({
+      const testGraph: sqlanvil.ICompiledGraph = sqlanvil.CompiledGraph.create({
         projectConfig: { warehouse: "bigquery", defaultDatabase: "deeb", defaultLocation: "US" },
         tables: [
           {
@@ -641,7 +641,7 @@ suite("@sqlanvil/api", () => {
           }
         ]
       });
-      const expectedExecutionActions: dataform.IExecutionAction[] = [
+      const expectedExecutionActions: sqlanvil.IExecutionAction[] = [
         {
           type: "table",
           tableType: "table",
@@ -657,7 +657,7 @@ suite("@sqlanvil/api", () => {
             }
           ],
           dependencyTargets: [],
-          hermeticity: dataform.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
         },
         {
           type: "table",
@@ -673,17 +673,17 @@ suite("@sqlanvil/api", () => {
             }
           ],
           dependencyTargets: [],
-          hermeticity: dataform.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
         }
       ];
-      const executionGraph = new Builder(testGraph, {}, dataform.WarehouseState.create({})).build();
+      const executionGraph = new Builder(testGraph, {}, sqlanvil.WarehouseState.create({})).build();
       expect(asPlainObject(executionGraph.actions)).deep.equals(
         asPlainObject(expectedExecutionActions)
       );
     });
 
     test("bigquery_clusterby", () => {
-      const testGraph: dataform.ICompiledGraph = dataform.CompiledGraph.create({
+      const testGraph: sqlanvil.ICompiledGraph = sqlanvil.CompiledGraph.create({
         projectConfig: { warehouse: "bigquery", defaultDatabase: "deeb", defaultLocation: "US" },
         tables: [
           {
@@ -708,7 +708,7 @@ suite("@sqlanvil/api", () => {
           }
         ]
       });
-      const expectedExecutionActions: dataform.IExecutionAction[] = [
+      const expectedExecutionActions: sqlanvil.IExecutionAction[] = [
         {
           type: "table",
           tableType: "table",
@@ -724,7 +724,7 @@ suite("@sqlanvil/api", () => {
             }
           ],
           dependencyTargets: [],
-          hermeticity: dataform.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
         },
         {
           type: "table",
@@ -740,17 +740,17 @@ suite("@sqlanvil/api", () => {
             }
           ],
           dependencyTargets: [],
-          hermeticity: dataform.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
         }
       ];
-      const executionGraph = new Builder(testGraph, {}, dataform.WarehouseState.create({})).build();
+      const executionGraph = new Builder(testGraph, {}, sqlanvil.WarehouseState.create({})).build();
       expect(asPlainObject(executionGraph.actions)).deep.equals(
         asPlainObject(expectedExecutionActions)
       );
     });
 
     test("bigquery_additional_options", () => {
-      const testGraph: dataform.ICompiledGraph = dataform.CompiledGraph.create({
+      const testGraph: sqlanvil.ICompiledGraph = sqlanvil.CompiledGraph.create({
         projectConfig: { warehouse: "bigquery", defaultDatabase: "deeb", defaultLocation: "US" },
         tables: [
           {
@@ -778,7 +778,7 @@ suite("@sqlanvil/api", () => {
           }
         ]
       });
-      const expectedExecutionActions: dataform.IExecutionAction[] = [
+      const expectedExecutionActions: sqlanvil.IExecutionAction[] = [
         {
           type: "table",
           tableType: "table",
@@ -794,7 +794,7 @@ suite("@sqlanvil/api", () => {
             }
           ],
           dependencyTargets: [],
-          hermeticity: dataform.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
         },
         {
           type: "table",
@@ -810,10 +810,10 @@ suite("@sqlanvil/api", () => {
             }
           ],
           dependencyTargets: [],
-          hermeticity: dataform.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
         }
       ];
-      const executionGraph = new Builder(testGraph, {}, dataform.WarehouseState.create({})).build();
+      const executionGraph = new Builder(testGraph, {}, sqlanvil.WarehouseState.create({})).build();
       expect(asPlainObject(executionGraph.actions)).deep.equals(
         asPlainObject(expectedExecutionActions)
       );
@@ -843,7 +843,7 @@ suite("@sqlanvil/api", () => {
   });
 
   suite("run", () => {
-    const RUN_TEST_GRAPH: dataform.IExecutionGraph = dataform.ExecutionGraph.create({
+    const RUN_TEST_GRAPH: sqlanvil.IExecutionGraph = sqlanvil.ExecutionGraph.create({
       projectConfig: {
         warehouse: "bigquery",
         defaultSchema: "foo",
@@ -857,7 +857,7 @@ suite("@sqlanvil/api", () => {
       warehouseState: {
         tables: [
           {
-            type: dataform.TableMetadata.Type.TABLE,
+            type: sqlanvil.TableMetadata.Type.TABLE,
             target: {
               schema: "schema1",
               name: "target1"
@@ -909,15 +909,15 @@ suite("@sqlanvil/api", () => {
       ]
     });
 
-    const EXPECTED_RUN_RESULT = dataform.RunResult.create({
-      status: dataform.RunResult.ExecutionStatus.FAILED,
+    const EXPECTED_RUN_RESULT = sqlanvil.RunResult.create({
+      status: sqlanvil.RunResult.ExecutionStatus.FAILED,
       actions: [
         {
           target: RUN_TEST_GRAPH.actions[0].target,
 
           tasks: [
             {
-              status: dataform.TaskResult.ExecutionStatus.SUCCESSFUL,
+              status: sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL,
               metadata: {
                 bigquery: {
                   jobId: "abc",
@@ -927,22 +927,22 @@ suite("@sqlanvil/api", () => {
               }
             },
             {
-              status: dataform.TaskResult.ExecutionStatus.SUCCESSFUL,
+              status: sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL,
               metadata: {}
             }
           ],
-          status: dataform.ActionResult.ExecutionStatus.SUCCESSFUL
+          status: sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL
         },
         {
           target: RUN_TEST_GRAPH.actions[1].target,
           tasks: [
             {
-              status: dataform.TaskResult.ExecutionStatus.FAILED,
+              status: sqlanvil.TaskResult.ExecutionStatus.FAILED,
               metadata: {},
               errorMessage: "bigquery error: bad statement"
             }
           ],
-          status: dataform.ActionResult.ExecutionStatus.FAILED
+          status: sqlanvil.ActionResult.ExecutionStatus.FAILED
         }
       ]
     });
@@ -979,7 +979,7 @@ suite("@sqlanvil/api", () => {
       const runner = new Runner(mockDbAdapterInstance, RUN_TEST_GRAPH);
 
       expect(
-        dataform.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
+        sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
       ).to.deep.equal(EXPECTED_RUN_RESULT.toJSON());
       verify(mockedDbAdapter.createSchema("database", "schema1")).once();
       verify(mockedDbAdapter.createSchema("database2", "schema2")).once();
@@ -1028,13 +1028,13 @@ suite("@sqlanvil/api", () => {
       stopWasCalled = true;
       const result = cleanTiming(await runner.result());
 
-      expect(dataform.RunResult.create(result).toJSON()).to.deep.equal(
-        dataform.RunResult.create({
-          status: dataform.RunResult.ExecutionStatus.RUNNING,
+      expect(sqlanvil.RunResult.create(result).toJSON()).to.deep.equal(
+        sqlanvil.RunResult.create({
+          status: sqlanvil.RunResult.ExecutionStatus.RUNNING,
           actions: [
             {
               target: EXPECTED_RUN_RESULT.actions[0].target,
-              status: dataform.ActionResult.ExecutionStatus.RUNNING,
+              status: sqlanvil.ActionResult.ExecutionStatus.RUNNING,
               tasks: [EXPECTED_RUN_RESULT.actions[0].tasks[0]]
             }
           ]
@@ -1044,7 +1044,7 @@ suite("@sqlanvil/api", () => {
       runner = new Runner(mockDbAdapterInstance, RUN_TEST_GRAPH, undefined, result);
 
       expect(
-        dataform.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
+        sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
       ).to.deep.equal(EXPECTED_RUN_RESULT.toJSON());
       verify(mockedDbAdapter.createSchema("database", "schema1")).once();
       verify(mockedDbAdapter.createSchema("database2", "schema2")).once();
@@ -1087,7 +1087,7 @@ suite("@sqlanvil/api", () => {
         });
 
         expect(
-          dataform.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
+          sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
         ).to.deep.equal(EXPECTED_RUN_RESULT.toJSON());
       });
 
@@ -1127,21 +1127,21 @@ suite("@sqlanvil/api", () => {
         });
 
         expect(
-          dataform.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
+          sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
         ).to.deep.equal(
-          dataform.RunResult.create({
-            status: dataform.RunResult.ExecutionStatus.SUCCESSFUL,
+          sqlanvil.RunResult.create({
+            status: sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL,
             actions: [
               EXPECTED_RUN_RESULT.actions[0],
               {
                 target: NEW_TEST_GRAPH.actions[1].target,
                 tasks: [
                   {
-                    status: dataform.TaskResult.ExecutionStatus.SUCCESSFUL,
+                    status: sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL,
                     metadata: {}
                   }
                 ],
-                status: dataform.ActionResult.ExecutionStatus.SUCCESSFUL
+                status: sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL
               }
             ]
           }).toJSON()
@@ -1191,13 +1191,13 @@ suite("@sqlanvil/api", () => {
         });
 
         expect(
-          dataform.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
+          sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
         ).to.deep.equal(EXPECTED_RUN_RESULT.toJSON());
       });
     });
 
     test("execute_with_cancel", async () => {
-      const CANCEL_TEST_GRAPH: dataform.IExecutionGraph = dataform.ExecutionGraph.create({
+      const CANCEL_TEST_GRAPH: sqlanvil.IExecutionGraph = sqlanvil.ExecutionGraph.create({
         projectConfig: {
           warehouse: "bigquery",
           defaultSchema: "foo",
@@ -1252,7 +1252,7 @@ suite("@sqlanvil/api", () => {
       // Cancelling a run doesn't actually throw at the top level.
       // The action should fail, and have an appropriate error message.
       expect(result.actions[0].tasks[0].status).equal(
-        dataform.TaskResult.ExecutionStatus.CANCELLED
+        sqlanvil.TaskResult.ExecutionStatus.CANCELLED
       );
       expect(result.actions[0].tasks[0].errorMessage).to.match(/cancelled/);
     });
@@ -1295,13 +1295,13 @@ suite("@sqlanvil/api", () => {
         mockDbAdapterInstance.withClientLock = async callback =>
           await callback(mockDbAdapterInstance);
 
-        const labels = { env: "testing", team: "dataform" };
+        const labels = { env: "testing", team: "sqlanvil" };
         const runner = new Runner(mockDbAdapterInstance, NEW_TEST_GRAPH, {
           bigquery: { labels }
         });
 
         const result = await runner.execute().result();
-        expect(result.status).to.equal(dataform.RunResult.ExecutionStatus.SUCCESSFUL);
+        expect(result.status).to.equal(sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL);
 
         // Verify that execute was called at least 3 times (for both tasks in first action and assertion)
         expect(executionOptions.length).to.equal(3);
@@ -1310,7 +1310,7 @@ suite("@sqlanvil/api", () => {
         const callsWithLabels = executionOptions.filter(
           opts => opts?.bigquery?.labels && 
                   opts.bigquery.labels.env === "testing" && 
-                  opts.bigquery.labels.team === "dataform"
+                  opts.bigquery.labels.team === "sqlanvil"
         );
         expect(callsWithLabels.length).to.equal(3, 
           "Expected 3 execute calls to include the labels in options");
@@ -1358,13 +1358,13 @@ suite("@sqlanvil/api", () => {
         mockDbAdapterInstance.withClientLock = async callback =>
           await callback(mockDbAdapterInstance);
 
-        const globalLabels = { env: "testing", team: "dataform" };
+        const globalLabels = { env: "testing", team: "sqlanvil" };
         const runner = new Runner(mockDbAdapterInstance, NEW_TEST_GRAPH, {
           bigquery: { labels: globalLabels }
         });
 
         const result = await runner.execute().result();
-        expect(result.status).to.equal(dataform.RunResult.ExecutionStatus.SUCCESSFUL);
+        expect(result.status).to.equal(sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL);
 
         // Verify that execute was called 3 times
         expect(executionOptions.length).to.equal(3);
@@ -1375,7 +1375,7 @@ suite("@sqlanvil/api", () => {
           expect(opts?.bigquery?.labels).to.not.equal(undefined);
           // Should have global labels
           expect(opts.bigquery.labels.env).to.equal("testing", `Call ${index} should have global label 'env'`);
-          expect(opts.bigquery.labels.team).to.equal("dataform", `Call ${index} should have global label 'team'`);
+          expect(opts.bigquery.labels.team).to.equal("sqlanvil", `Call ${index} should have global label 'team'`);
           // Should have action-level label
           expect(opts.bigquery.labels.action_level).to.equal("specific_value", 
             `Call ${index} should have action-level label 'action_level'`);
@@ -1385,14 +1385,14 @@ suite("@sqlanvil/api", () => {
         const assertionCall = executionOptions[2];
         expect(assertionCall?.bigquery?.labels).to.not.equal(undefined);
               expect(assertionCall.bigquery.labels.env).to.equal("testing");
-              expect(assertionCall.bigquery.labels.team).to.equal("dataform");
+              expect(assertionCall.bigquery.labels.team).to.equal("sqlanvil");
         // This action doesn't have action-level labels
         expect(assertionCall.bigquery.labels.action_level).to.equal(undefined);
       });
     });
 
     test("continues after setMetadata fails", async () => {
-      const METADATA_TEST_GRAPH: dataform.IExecutionGraph = dataform.ExecutionGraph.create({
+      const METADATA_TEST_GRAPH: sqlanvil.IExecutionGraph = sqlanvil.ExecutionGraph.create({
         projectConfig: {
           warehouse: "bigquery",
           defaultSchema: "foo",
@@ -1440,7 +1440,7 @@ suite("@sqlanvil/api", () => {
       const runner = new Runner(mockDbAdapterInstance, METADATA_TEST_GRAPH);
 
       expect(
-        dataform.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
+        sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
       ).to.deep.equal({
         actions: [
           {
@@ -1464,8 +1464,8 @@ suite("@sqlanvil/api", () => {
   });
 });
 
-function cleanTiming(runResult: dataform.IRunResult) {
-  const newRunResult = dataform.RunResult.create(runResult);
+function cleanTiming(runResult: sqlanvil.IRunResult) {
+  const newRunResult = sqlanvil.RunResult.create(runResult);
   delete newRunResult.timing;
   newRunResult.actions.forEach(actionResult => {
     delete actionResult.timing;

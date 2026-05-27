@@ -1,6 +1,6 @@
 import { util } from "protobufjs";
 
-import { google } from "df/protos/ts";
+import { google } from "sa/protos/ts";
 
 const CONFIGS_PROTO_DOCUMENTATION_URL =
   "https://dataform-co.github.io/dataform/docs/configs-reference";

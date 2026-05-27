@@ -1,16 +1,16 @@
-import { Assertion } from "df/core/actions/assertion";
-import { DataPreparation } from "df/core/actions/data_preparation";
-import { Declaration } from "df/core/actions/declaration";
-import { IncrementalTable } from "df/core/actions/incremental_table";
-import { Notebook } from "df/core/actions/notebook";
-import { Operation } from "df/core/actions/operation";
-import { Table } from "df/core/actions/table";
-import { Test } from "df/core/actions/test";
-import { View } from "df/core/actions/view";
-import { IColumnsDescriptor } from "df/core/column_descriptors";
-import { Resolvable } from "df/core/contextables";
-import { Session } from "df/core/session";
-import { dataform } from "df/protos/ts";
+import { Assertion } from "sa/core/actions/assertion";
+import { DataPreparation } from "sa/core/actions/data_preparation";
+import { Declaration } from "sa/core/actions/declaration";
+import { IncrementalTable } from "sa/core/actions/incremental_table";
+import { Notebook } from "sa/core/actions/notebook";
+import { Operation } from "sa/core/actions/operation";
+import { Table } from "sa/core/actions/table";
+import { Test } from "sa/core/actions/test";
+import { View } from "sa/core/actions/view";
+import { IColumnsDescriptor } from "sa/core/column_descriptors";
+import { Resolvable } from "sa/core/contextables";
+import { Session } from "sa/core/session";
+import { sqlanvil } from "sa/protos/ts";
 
 export type Action =
   | Table
@@ -24,13 +24,13 @@ export type Action =
   | Test;
 
 export type ActionProto =
-  | dataform.Table // core.proto's Table represents the Table, View or IncrementalTable action type.
-  | dataform.Operation
-  | dataform.Assertion
-  | dataform.Declaration
-  | dataform.Notebook
-  | dataform.DataPreparation
-  | dataform.Test;
+  | sqlanvil.Table // core.proto's Table represents the Table, View or IncrementalTable action type.
+  | sqlanvil.Operation
+  | sqlanvil.Assertion
+  | sqlanvil.Declaration
+  | sqlanvil.Notebook
+  | sqlanvil.DataPreparation
+  | sqlanvil.Test;
 
 // In v4, consider making methods on inheritors of this private, forcing users to use constructors
 // in order to populate actions.
@@ -43,18 +43,18 @@ export abstract class ActionBuilder<T> {
   }
 
   public applySessionToTarget(
-    targetFromConfig: dataform.Target,
-    projectConfig: dataform.ProjectConfig,
+    targetFromConfig: sqlanvil.Target,
+    projectConfig: sqlanvil.ProjectConfig,
     fileName?: string,
     options?: {
       validateTarget?: boolean;
       useDefaultAssertionDataset?: boolean;
     }
-  ): dataform.Target {
+  ): sqlanvil.Target {
     const defaultSchema = options?.useDefaultAssertionDataset
       ? projectConfig.assertionSchema || projectConfig.defaultSchema
       : projectConfig.defaultSchema;
-    const target = dataform.Target.create({
+    const target = sqlanvil.Target.create({
       name: targetFromConfig.name,
       schema: targetFromConfig.schema || defaultSchema || undefined,
       database: targetFromConfig.database || projectConfig.defaultDatabase || undefined
@@ -65,8 +65,8 @@ export abstract class ActionBuilder<T> {
     return target;
   }
 
-  public finalizeTarget(targetFromConfig: dataform.Target): dataform.Target {
-    return dataform.Target.create({
+  public finalizeTarget(targetFromConfig: sqlanvil.Target): sqlanvil.Target {
+    return sqlanvil.Target.create({
       name: this.session.finalizeName(targetFromConfig.name),
       schema: targetFromConfig.schema
         ? this.session.finalizeSchema(targetFromConfig.schema)
@@ -81,14 +81,14 @@ export abstract class ActionBuilder<T> {
   public abstract getFileName(): string;
 
   /** Retrieves the resolved target from the proto. */
-  public abstract getTarget(): dataform.Target;
+  public abstract getTarget(): sqlanvil.Target;
 
   /** Creates the final protobuf representation. */
   public abstract compile(): T;
 
   protected generateInlineAssertions(
-    tableAssertionsConfig: dataform.ActionConfig.TableAssertionsConfig,
-    proto: dataform.Table
+    tableAssertionsConfig: sqlanvil.ActionConfig.TableAssertionsConfig,
+    proto: sqlanvil.Table
   ): { uniqueKeyAssertions: Assertion[]; rowConditionsAssertion?: Assertion } {
     const inlineAssertions: {
       uniqueKeyAssertions: Assertion[];
@@ -101,11 +101,11 @@ export abstract class ActionBuilder<T> {
     }
     const assertionPrefix = !!this.session.projectConfig.builtinAssertionNamePrefix ? `${this.session.projectConfig.builtinAssertionNamePrefix}_` : "";
     let uniqueKeys = tableAssertionsConfig.uniqueKeys.map(uniqueKey =>
-      dataform.ActionConfig.TableAssertionsConfig.UniqueKey.create(uniqueKey)
+      sqlanvil.ActionConfig.TableAssertionsConfig.UniqueKey.create(uniqueKey)
     );
     if (!!tableAssertionsConfig.uniqueKey?.length) {
       uniqueKeys = [
-        dataform.ActionConfig.TableAssertionsConfig.UniqueKey.create({
+        sqlanvil.ActionConfig.TableAssertionsConfig.UniqueKey.create({
           uniqueKey: tableAssertionsConfig.uniqueKey
         })
       ];
@@ -115,7 +115,7 @@ export abstract class ActionBuilder<T> {
         const uniqueKeyAssertion = this.session
           .assert(
             `${assertionPrefix}${proto.target.schema}_${proto.target.name}_assertions_uniqueKey_${index}`,
-            dataform.ActionConfig.AssertionConfig.create({ filename: proto.fileName })
+            sqlanvil.ActionConfig.AssertionConfig.create({ filename: proto.fileName })
           )
           .query(ctx =>
             this.session.compilationSql().indexAssertion(ctx.ref(proto.target), uniqueKey)
@@ -123,7 +123,7 @@ export abstract class ActionBuilder<T> {
         if (proto.tags) {
           uniqueKeyAssertion.tags(proto.tags);
         }
-        uniqueKeyAssertion.setParentAction(dataform.Target.create(proto.target));
+        uniqueKeyAssertion.setParentAction(sqlanvil.Target.create(proto.target));
         if (proto.disabled) {
           uniqueKeyAssertion.disabled();
         }
@@ -142,13 +142,13 @@ export abstract class ActionBuilder<T> {
       inlineAssertions.rowConditionsAssertion = this.session
         .assert(`${assertionPrefix}${proto.target.schema}_${proto.target.name}_assertions_rowConditions`, {
           filename: proto.fileName
-        } as dataform.ActionConfig.AssertionConfig)
+        } as sqlanvil.ActionConfig.AssertionConfig)
         .query(ctx =>
           this.session
             .compilationSql()
             .rowConditionsAssertion(ctx.ref(proto.target), mergedRowConditions)
         );
-      inlineAssertions.rowConditionsAssertion.setParentAction(dataform.Target.create(proto.target));
+      inlineAssertions.rowConditionsAssertion.setParentAction(sqlanvil.Target.create(proto.target));
       if (proto.disabled) {
         inlineAssertions.rowConditionsAssertion.disabled();
       }
@@ -159,7 +159,7 @@ export abstract class ActionBuilder<T> {
     return inlineAssertions;
   }
 
-  private validateTarget(target: dataform.Target, fileName: string) {
+  private validateTarget(target: sqlanvil.Target, fileName: string) {
     if (target.name.includes(".")) {
       this.session.compileError(
         new Error("Action target names cannot include '.'"),
@@ -185,10 +185,10 @@ export abstract class ActionBuilder<T> {
 }
 
 export function checkConfigAdditionalOptionsOverlap(
-  config: dataform.ActionConfig.TableConfig | dataform.ActionConfig.IncrementalTableConfig,
+  config: sqlanvil.ActionConfig.TableConfig | sqlanvil.ActionConfig.IncrementalTableConfig,
   session: Session
 ) {
-  const target = dataform.Target.create({
+  const target = sqlanvil.Target.create({
     database: config.project,
     schema: config.dataset,
     name: config.name
@@ -390,9 +390,9 @@ export class LegacyConfigConverter {
   // This is a workaround to make bigquery options output empty fields with the same behaviour as
   // they did previously.
   public static legacyConvertBigQueryOptions(
-    bigquery: dataform.IBigQueryOptions
-  ): dataform.IBigQueryOptions {
-    let bigqueryFiltered: dataform.IBigQueryOptions = {};
+    bigquery: sqlanvil.IBigQueryOptions
+  ): sqlanvil.IBigQueryOptions {
+    let bigqueryFiltered: sqlanvil.IBigQueryOptions = {};
     Object.entries(bigquery).forEach(([key, value]) => {
       if (Array.isArray(value) && value.length === 0) {
         return;
@@ -422,7 +422,7 @@ export class LegacyConfigConverter {
       if (legacyConfig.assertions.uniqueKeys?.[0]?.length > 0) {
         legacyConfig.assertions.uniqueKeys = (legacyConfig.assertions
           .uniqueKeys as string[][]).map(uniqueKey =>
-          dataform.ActionConfig.TableAssertionsConfig.UniqueKey.create({ uniqueKey })
+          sqlanvil.ActionConfig.TableAssertionsConfig.UniqueKey.create({ uniqueKey })
         );
       }
       if (typeof legacyConfig.assertions.nonNull === "string") {

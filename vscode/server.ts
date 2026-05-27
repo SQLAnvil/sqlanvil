@@ -10,11 +10,11 @@ import {
 } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 
-import { dataform } from "df/protos/ts";
+import { sqlanvil } from "sa/protos/ts";
 
 const connection = createConnection(ProposedFeatures.all);
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
-let CACHED_COMPILE_GRAPH: dataform.ICompiledGraph = null;
+let CACHED_COMPILE_GRAPH: sqlanvil.ICompiledGraph = null;
 let WORKSPACE_ROOT_FOLDER: string = null;
 
 let settings = {
@@ -83,7 +83,7 @@ async function compileAndValidate() {
     }
   }
 
-  let parsedResult: dataform.ICompiledGraph = null;
+  let parsedResult: sqlanvil.ICompiledGraph = null;
   try {
     parsedResult = JSON.parse(compileResult.stdout);
   } catch (e) {
@@ -133,7 +133,7 @@ async function getProcessResult(childProcess: ChildProcess) {
 
 function gatherAllActions(
   graph = CACHED_COMPILE_GRAPH
-): Array<dataform.Table | dataform.Declaration | dataform.Operation | dataform.Assertion> {
+): Array<sqlanvil.Table | sqlanvil.Declaration | sqlanvil.Operation | sqlanvil.Assertion> {
   return [].concat(
     graph.tables ?? [],
     graph.operations ?? [],
@@ -190,7 +190,7 @@ connection.onDefinition(
       })[0].refContent;
 
     // split to dataset, schema and name
-    const linkedTable: dataform.ITarget = { database: null, schema: null, name: null };
+    const linkedTable: sqlanvil.ITarget = { database: null, schema: null, name: null };
     const splitMatch = clickedRef.match(
       /^ref\s*\(\s*(["'](.+?)["'])\s*(,\s*["'](.+?)["']\s*)?(,\s*["'](.+?)["']\s*)?,?\s*\)$/ // tslint:disable-line
     );

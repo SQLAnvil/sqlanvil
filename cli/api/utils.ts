@@ -2,7 +2,7 @@ import * as fs from "fs-extra";
 import { load as loadYaml, YAMLException } from "js-yaml";
 import * as path from "path";
 
-import { dataform } from "df/protos/ts";
+import { sqlanvil } from "sa/protos/ts";
 
 export function prettyJsonStringify(obj: object) {
   return JSON.stringify(obj, null, 4) + "\n";
@@ -11,12 +11,12 @@ export function prettyJsonStringify(obj: object) {
 export function readDataformCoreVersionFromWorkflowSettings(
   resolvedProjectPath: string
 ): string | undefined {
-  return readConfigFromWorkflowSettings(resolvedProjectPath)?.dataformCoreVersion;
+  return readConfigFromWorkflowSettings(resolvedProjectPath)?.sqlanvilCoreVersion;
 }
 
 export function readConfigFromWorkflowSettings(
   resolvedProjectPath: string
-): dataform.WorkflowSettings | undefined {
+): sqlanvil.WorkflowSettings | undefined {
   const workflowSettingsPath = path.join(resolvedProjectPath, "workflow_settings.yaml");
   if (!fs.existsSync(workflowSettingsPath)) {
     return;
@@ -32,5 +32,5 @@ export function readConfigFromWorkflowSettings(
     }
     throw e;
   }
-  return dataform.WorkflowSettings.create(workflowSettingsAsJson);
+  return sqlanvil.WorkflowSettings.create(workflowSettingsAsJson);
 }

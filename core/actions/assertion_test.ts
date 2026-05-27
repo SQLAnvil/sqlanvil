@@ -4,15 +4,15 @@ import * as fs from "fs-extra";
 import { dump as dumpYaml } from "js-yaml";
 import * as path from "path";
 
-import { dataform } from "df/protos/ts";
-import { asPlainObject, suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+import { sqlanvil } from "sa/protos/ts";
+import { asPlainObject, suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
   VALID_WORKFLOW_SETTINGS_YAML,
   WorkflowSettingsTemplates
-} from "df/testing/run_core";
+} from "sa/testing/run_core";
 
 const EMPTY_NOTEBOOK_CONTENTS = '{ "cells": [] }';
 
@@ -301,7 +301,7 @@ actions:
         projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          dumpYaml(dataform.WorkflowSettings.create(testConfig))
+          dumpYaml(sqlanvil.WorkflowSettings.create(testConfig))
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
@@ -928,7 +928,7 @@ actions:
 
         const coreRequest = coreExecutionRequestFromPath(
           projectDir,
-          dataform.ProjectConfig.create({
+          sqlanvil.ProjectConfig.create({
             disableAssertions: true
           })
         );
@@ -980,7 +980,7 @@ actions:
 
         const coreRequest = coreExecutionRequestFromPath(
           projectDir,
-          dataform.ProjectConfig.create({
+          sqlanvil.ProjectConfig.create({
             disableAssertions: true
           })
         );

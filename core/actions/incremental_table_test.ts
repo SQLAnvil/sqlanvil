@@ -7,15 +7,15 @@ import {
   exampleActionDescriptor,
   exampleBuiltInAssertions,
   exampleBuiltInAssertionsAsYaml
-} from "df/core/actions/index_test";
-import { dataform } from "df/protos/ts";
-import { asPlainObject, suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+} from "sa/core/actions/index_test";
+import { sqlanvil } from "sa/protos/ts";
+import { asPlainObject, suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
   VALID_WORKFLOW_SETTINGS_YAML
-} from "df/testing/run_core";
+} from "sa/testing/run_core";
 
 suite("incremental table", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);
@@ -439,7 +439,7 @@ defaultIcebergConfig:
         wsContent: VALID_WORKFLOW_SETTINGS_YAML,
       },
       {
-        testName: "defaults to \`_dataform\` for tableFolderRoot",
+        testName: "defaults to \`_sqlanvil\` for tableFolderRoot",
         configBlock: `
         type: "incremental",
         name: "incremental_table3",
@@ -458,7 +458,7 @@ defaultIcebergConfig:
             tableFormat: "ICEBERG",
             fileFormat: "PARQUET",
             connection: "gcp.us.conn-id",
-            storageUri: "gs://my-bucket/_dataform/my-subpath",
+            storageUri: "gs://my-bucket/_sqlanvil/my-subpath",
           },
         },
         expectError: false,
@@ -882,7 +882,7 @@ defaultIcebergConfig:
             expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
             const compiledTable = result.compile.compiledGraph.tables[0];
             expect(compiledTable.type).equals("incremental");
-            expect(compiledTable.enumType).equals(dataform.TableType.INCREMENTAL);
+            expect(compiledTable.enumType).equals(sqlanvil.TableType.INCREMENTAL);
             expect(compiledTable.target.name).equals(testCase.expected!.target.name);
             expect(compiledTable.target.schema).equals(testCase.expected!.target.schema);
             expect(compiledTable.target.database).equals(testCase.expected!.target.database);
@@ -902,7 +902,7 @@ defaultIcebergConfig:
     // Create workflow_settings without defaultProject (only defaultDataset and defaultLocation)
     fs.writeFileSync(
       path.join(projectDir, "workflow_settings.yaml"),
-      `defaultDataset: dataform
+      `defaultDataset: sqlanvil
 defaultLocation: europe-west2
 `
     );
@@ -926,8 +926,8 @@ select \${incremental()} as is_incremental`
     // when defaultProject is not specified, ensuring that warehouse state targets match compiled targets.
     // This allows incremental appends to work correctly even when defaultProject is not in workflow_settings.yaml.
     expect(compiledTable.type).equals("incremental");
-    expect(compiledTable.enumType).equals(dataform.TableType.INCREMENTAL);
-    expect(compiledTable.target.schema).equals("dataform");
+    expect(compiledTable.enumType).equals(sqlanvil.TableType.INCREMENTAL);
+    expect(compiledTable.target.schema).equals("sqlanvil");
     expect(compiledTable.target.name).equals("incremental_table_without_default_project");
     expect(compiledTable.target.database).equals("");
   });

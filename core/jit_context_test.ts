@@ -1,12 +1,12 @@
 import { expect } from "chai";
 
-import { IncrementalTableJitContext, SqlActionJitContext, TableJitContext } from "df/core/jit_context";
-import { dataform, google } from "df/protos/ts";
-import { suite, test } from "df/testing";
+import { IncrementalTableJitContext, SqlActionJitContext, TableJitContext } from "sa/core/jit_context";
+import { sqlanvil, google } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
 
 suite("jit_context", () => {
   suite("SqlActionJitContext", () => {
-    const adapter = {} as dataform.DbAdapter;
+    const adapter = {} as sqlanvil.DbAdapter;
     const jitData = google.protobuf.Struct.create({
       fields: {
         key: google.protobuf.Value.create({
@@ -42,14 +42,14 @@ suite("jit_context", () => {
         })
       }
     });
-    const request = dataform.JitCompilationRequest.create({
-      target: dataform.Target.create({
+    const request = sqlanvil.JitCompilationRequest.create({
+      target: sqlanvil.Target.create({
         database: "db",
         schema: "schema",
         name: "name"
       }),
       dependencies: [
-        dataform.Target.create({
+        sqlanvil.Target.create({
           database: "db",
           schema: "schema",
           name: "dep"
@@ -58,8 +58,8 @@ suite("jit_context", () => {
       filePaths: [],
       jitData,
     });
-    const withoutDependenciesRequest = dataform.JitCompilationRequest.create({
-      target: dataform.Target.create({
+    const withoutDependenciesRequest = sqlanvil.JitCompilationRequest.create({
+      target: sqlanvil.Target.create({
         database: "db",
         schema: "schema",
         name: "name"
@@ -136,9 +136,9 @@ suite("jit_context", () => {
   });
 
   suite("TableJitContext", () => {
-    const adapter = {} as dataform.DbAdapter;
-    const request = dataform.JitCompilationRequest.create({
-      target: dataform.Target.create({
+    const adapter = {} as sqlanvil.DbAdapter;
+    const request = sqlanvil.JitCompilationRequest.create({
+      target: sqlanvil.Target.create({
         database: "db",
         schema: "schema",
         name: "name"
@@ -159,9 +159,9 @@ suite("jit_context", () => {
   });
 
   suite("IncrementalTableJitContext", () => {
-    const adapter = {} as dataform.DbAdapter;
-    const request = dataform.JitCompilationRequest.create({
-      target: dataform.Target.create({
+    const adapter = {} as sqlanvil.DbAdapter;
+    const request = sqlanvil.JitCompilationRequest.create({
+      target: sqlanvil.Target.create({
         database: "db",
         schema: "schema",
         name: "name"

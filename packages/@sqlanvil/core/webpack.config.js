@@ -5,7 +5,7 @@ module.exports = (env, argv) => {
   const config = {
     mode: argv.mode || "development",
     target: 'node',
-    entry: [path.resolve(process.env.RUNFILES, "df/packages/@sqlanvil/core/index")],
+    entry: [path.resolve(process.env.RUNFILES, "sa/packages/@sqlanvil/core/index")],
     output: {
       libraryTarget: "commonjs-module",
     },

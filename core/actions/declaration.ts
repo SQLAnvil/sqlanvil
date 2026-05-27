@@ -1,9 +1,9 @@
-import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "df/common/protos";
-import { ActionBuilder } from "df/core/actions";
-import { ColumnDescriptors } from "df/core/column_descriptors";
-import { Session } from "df/core/session";
-import { actionConfigToCompiledGraphTarget } from "df/core/utils";
-import { dataform } from "df/protos/ts";
+import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
+import { ActionBuilder } from "sa/core/actions";
+import { ColumnDescriptors } from "sa/core/column_descriptors";
+import { Session } from "sa/core/session";
+import { actionConfigToCompiledGraphTarget } from "sa/core/utils";
+import { sqlanvil } from "sa/protos/ts";
 
 /**
  * @hidden
@@ -11,7 +11,7 @@ import { dataform } from "df/protos/ts";
  * This maintains backwards compatability with older versions.
  * Consider breaking backwards compatability of these in v4.
  */
-interface ILegacyDeclarationConfig extends dataform.ActionConfig.DeclarationConfig {
+interface ILegacyDeclarationConfig extends sqlanvil.ActionConfig.DeclarationConfig {
   database: string;
   schema: string;
   fileName: string;
@@ -30,7 +30,7 @@ interface ILegacyDeclarationConfig extends dataform.ActionConfig.DeclarationConf
  * * Trigger workflow invocations that include all the dependents of an external data source.
  *
  * You can create declarations in the following ways. Available config options are defined in
- * [DeclarationConfig](configs#dataform-ActionConfig-DeclarationConfig), and are shared across all
+ * [DeclarationConfig](configs#sqlanvil-ActionConfig-DeclarationConfig), and are shared across all
  * the followiing ways of creating declarations.
  *
  * **Using a SQLX file:**
@@ -59,14 +59,14 @@ interface ILegacyDeclarationConfig extends dataform.ActionConfig.DeclarationConf
  * declare("name")
  * ```
  */
-export class Declaration extends ActionBuilder<dataform.Declaration> {
+export class Declaration extends ActionBuilder<sqlanvil.Declaration> {
   /** @hidden Hold a reference to the Session instance. */
   public session: Session;
 
   /**
    * @hidden Stores the generated proto for the compiled graph.
    */
-  private proto = dataform.Declaration.create();
+  private proto = sqlanvil.Declaration.create();
 
   /** @hidden */
   constructor(session?: Session, unverifiedConfig?: any, filename?: string) {
@@ -97,7 +97,7 @@ export class Declaration extends ActionBuilder<dataform.Declaration> {
     if (config.columns?.length) {
       this.columns(
         config.columns.map(columnDescriptor =>
-          dataform.ActionConfig.ColumnDescriptor.create(columnDescriptor)
+          sqlanvil.ActionConfig.ColumnDescriptor.create(columnDescriptor)
         )
       );
     }
@@ -108,7 +108,7 @@ export class Declaration extends ActionBuilder<dataform.Declaration> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [DeclarationConfig.description](configs#dataform-ActionConfig-DeclarationConfig).
+   * [DeclarationConfig.description](configs#sqlanvil-ActionConfig-DeclarationConfig).
    *
    * Sets the description of this assertion.
    */
@@ -122,11 +122,11 @@ export class Declaration extends ActionBuilder<dataform.Declaration> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [DeclarationConfig.columns](configs#dataform-ActionConfig-DeclarationConfig).
+   * [DeclarationConfig.columns](configs#sqlanvil-ActionConfig-DeclarationConfig).
    *
    * Sets the column descriptors of columns in this table.
    */
-  public columns(columns: dataform.ActionConfig.ColumnDescriptor[]) {
+  public columns(columns: sqlanvil.ActionConfig.ColumnDescriptor[]) {
     if (!this.proto.actionDescriptor) {
       this.proto.actionDescriptor = {};
     }
@@ -143,13 +143,13 @@ export class Declaration extends ActionBuilder<dataform.Declaration> {
 
   /** @hidden */
   public getTarget() {
-    return dataform.Target.create(this.proto.target);
+    return sqlanvil.Target.create(this.proto.target);
   }
 
   /** @hidden */
   public compile() {
     return verifyObjectMatchesProto(
-      dataform.Declaration,
+      sqlanvil.Declaration,
       this.proto,
       VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
     );
@@ -162,7 +162,7 @@ export class Declaration extends ActionBuilder<dataform.Declaration> {
    */
   private verifyConfig(
     unverifiedConfig: ILegacyDeclarationConfig
-  ): dataform.ActionConfig.DeclarationConfig {
+  ): sqlanvil.ActionConfig.DeclarationConfig {
     if (unverifiedConfig.database) {
       unverifiedConfig.project = unverifiedConfig.database;
       delete unverifiedConfig.database;
@@ -182,7 +182,7 @@ export class Declaration extends ActionBuilder<dataform.Declaration> {
     }
 
     return verifyObjectMatchesProto(
-      dataform.ActionConfig.DeclarationConfig,
+      sqlanvil.ActionConfig.DeclarationConfig,
       unverifiedConfig,
       VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
     );

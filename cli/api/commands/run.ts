@@ -1,26 +1,26 @@
 import EventEmitter from "events";
 import Long from "long";
 
-import * as dbadapters from "df/cli/api/dbadapters";
-import { IBigQueryExecutionOptions } from "df/cli/api/dbadapters/bigquery";
-import { Flags } from "df/common/flags";
-import { retry } from "df/common/promises";
-import { deepClone, equals } from "df/common/protos";
-import { targetStringifier } from "df/core/targets";
-import { dataform } from "df/protos/ts";
+import * as dbadapters from "sa/cli/api/dbadapters";
+import { IBigQueryExecutionOptions } from "sa/cli/api/dbadapters/bigquery";
+import { Flags } from "sa/common/flags";
+import { retry } from "sa/common/promises";
+import { deepClone, equals } from "sa/common/protos";
+import { targetStringifier } from "sa/core/targets";
+import { sqlanvil } from "sa/protos/ts";
 
 const CANCEL_EVENT = "jobCancel";
 const flags = {
   runnerNotificationPeriodMillis: Flags.number("runner-notification-period-millis", 5000)
 };
 
-const isSuccessfulAction = (actionResult: dataform.IActionResult) =>
-  actionResult.status === dataform.ActionResult.ExecutionStatus.SUCCESSFUL ||
-  actionResult.status === dataform.ActionResult.ExecutionStatus.DISABLED;
+const isSuccessfulAction = (actionResult: sqlanvil.IActionResult) =>
+  actionResult.status === sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL ||
+  actionResult.status === sqlanvil.ActionResult.ExecutionStatus.DISABLED;
 
 export interface IExecutedAction {
-  executionAction: dataform.IExecutionAction;
-  actionResult: dataform.IActionResult;
+  executionAction: sqlanvil.IExecutionAction;
+  actionResult: sqlanvil.IActionResult;
 }
 
 export interface IExecutionOptions {
@@ -34,9 +34,9 @@ export interface IExecutionOptions {
 
 export function run(
   dbadapter: dbadapters.IDbAdapter,
-  graph: dataform.IExecutionGraph,
+  graph: sqlanvil.IExecutionGraph,
   executionOptions?: IExecutionOptions,
-  partiallyExecutedRunResult: dataform.IRunResult = {},
+  partiallyExecutedRunResult: sqlanvil.IRunResult = {},
   runnerNotificationPeriodMillis: number = flags.runnerNotificationPeriodMillis.get()
 ): Runner {
   return new Runner(
@@ -49,27 +49,27 @@ export function run(
 }
 
 export class Runner {
-  private readonly warehouseStateByTarget: Map<string, dataform.ITableMetadata>;
+  private readonly warehouseStateByTarget: Map<string, sqlanvil.ITableMetadata>;
 
   private readonly allActionTargets: Set<string>;
-  private readonly runResult: dataform.IRunResult;
-  private readonly changeListeners: Array<(graph: dataform.IRunResult) => void> = [];
+  private readonly runResult: sqlanvil.IRunResult;
+  private readonly changeListeners: Array<(graph: sqlanvil.IRunResult) => void> = [];
   private readonly eEmitter: EventEmitter;
   private executedActionTargets: Set<string>;
   private successfullyExecutedActionTargets: Set<string>;
-  private pendingActions: dataform.IExecutionAction[];
+  private pendingActions: sqlanvil.IExecutionAction[];
   private lastNotificationTimestampMillis = 0;
   private stopped = false;
   private cancelled = false;
   private timeout: NodeJS.Timer;
   private timedOut = false;
-  private executionTask: Promise<dataform.IRunResult>;
+  private executionTask: Promise<sqlanvil.IRunResult>;
 
   constructor(
     private readonly dbadapter: dbadapters.IDbAdapter,
-    private readonly graph: dataform.IExecutionGraph,
+    private readonly graph: sqlanvil.IExecutionGraph,
     private readonly executionOptions: IExecutionOptions = {},
-    partiallyExecutedRunResult: dataform.IRunResult = {},
+    partiallyExecutedRunResult: sqlanvil.IRunResult = {},
     private readonly runnerNotificationPeriodMillis: number = flags.runnerNotificationPeriodMillis.get()
   ) {
     this.allActionTargets = new Set<string>(
@@ -79,7 +79,7 @@ export class Runner {
       actions: [],
       ...partiallyExecutedRunResult
     };
-    this.warehouseStateByTarget = new Map<string, dataform.ITableMetadata>();
+    this.warehouseStateByTarget = new Map<string, sqlanvil.ITableMetadata>();
     graph.warehouseState.tables?.forEach(tableMetadata =>
       this.warehouseStateByTarget.set(
         targetStringifier.stringify(tableMetadata.target),
@@ -88,7 +88,7 @@ export class Runner {
     );
     this.executedActionTargets = new Set(
       this.runResult.actions
-        .filter(action => action.status !== dataform.ActionResult.ExecutionStatus.RUNNING)
+        .filter(action => action.status !== sqlanvil.ActionResult.ExecutionStatus.RUNNING)
         .map(action => targetStringifier.stringify(action.target))
     );
     this.successfullyExecutedActionTargets = new Set<string>(
@@ -104,7 +104,7 @@ export class Runner {
     this.eEmitter.setMaxListeners(0);
   }
 
-  public onChange(listener: (graph: dataform.IRunResult) => void): Runner {
+  public onChange(listener: (graph: sqlanvil.IRunResult) => void): Runner {
     this.changeListeners.push(listener);
     return this;
   }
@@ -136,7 +136,7 @@ export class Runner {
     this.eEmitter.emit(CANCEL_EVENT, undefined, undefined);
   }
 
-  public async result(): Promise<dataform.IRunResult> {
+  public async result(): Promise<sqlanvil.IRunResult> {
     try {
       return await this.executionTask;
     } finally {
@@ -150,7 +150,7 @@ export class Runner {
     if (Date.now() - this.runnerNotificationPeriodMillis < this.lastNotificationTimestampMillis) {
       return;
     }
-    const runResultClone = deepClone(dataform.RunResult, this.runResult);
+    const runResultClone = deepClone(sqlanvil.RunResult, this.runResult);
     this.lastNotificationTimestampMillis = Date.now();
     this.changeListeners.forEach(listener => listener(runResultClone));
   }
@@ -158,7 +158,7 @@ export class Runner {
   private async executeGraph() {
     const timer = Timer.start(this.runResult.timing);
 
-    this.runResult.status = dataform.RunResult.ExecutionStatus.RUNNING;
+    this.runResult.status = sqlanvil.RunResult.ExecutionStatus.RUNNING;
     this.runResult.timing = timer.current();
     this.notifyListeners();
 
@@ -176,17 +176,17 @@ export class Runner {
 
     this.runResult.timing = timer.end();
 
-    this.runResult.status = dataform.RunResult.ExecutionStatus.SUCCESSFUL;
+    this.runResult.status = sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL;
     if (this.timedOut) {
-      this.runResult.status = dataform.RunResult.ExecutionStatus.TIMED_OUT;
+      this.runResult.status = sqlanvil.RunResult.ExecutionStatus.TIMED_OUT;
     } else if (this.cancelled) {
-      this.runResult.status = dataform.RunResult.ExecutionStatus.CANCELLED;
+      this.runResult.status = sqlanvil.RunResult.ExecutionStatus.CANCELLED;
     } else if (
       this.runResult.actions.some(
-        action => action.status === dataform.ActionResult.ExecutionStatus.FAILED
+        action => action.status === sqlanvil.ActionResult.ExecutionStatus.FAILED
       )
     ) {
-      this.runResult.status = dataform.RunResult.ExecutionStatus.FAILED;
+      this.runResult.status = sqlanvil.RunResult.ExecutionStatus.FAILED;
     }
 
     return this.runResult;
@@ -198,7 +198,7 @@ export class Runner {
     this.graph.actions
       .filter(action => !!action.target && !!action.target.schema)
       .forEach(({ target }) => {
-        // This field may not be present for older versions of dataform.
+        // This field may not be present for older versions of sqlanvil.
         const trueDatabase = target.database || this.graph.projectConfig.defaultDatabase;
         if (!databaseSchemas.has(trueDatabase)) {
           databaseSchemas.set(trueDatabase, new Set<string>());
@@ -231,9 +231,9 @@ export class Runner {
       allPendingActions.forEach(pendingAction =>
         this.runResult.actions.push({
           target: pendingAction.target,
-          status: dataform.ActionResult.ExecutionStatus.SKIPPED,
+          status: sqlanvil.ActionResult.ExecutionStatus.SKIPPED,
           tasks: pendingAction.tasks.map(() => ({
-            status: dataform.TaskResult.ExecutionStatus.SKIPPED
+            status: sqlanvil.TaskResult.ExecutionStatus.SKIPPED
           }))
         })
       );
@@ -277,9 +277,9 @@ export class Runner {
         skippableActions.forEach(skippableAction => {
           this.runResult.actions.push({
             target: skippableAction.target,
-            status: dataform.ActionResult.ExecutionStatus.SKIPPED,
+            status: sqlanvil.ActionResult.ExecutionStatus.SKIPPED,
             tasks: skippableAction.tasks.map(() => ({
-              status: dataform.TaskResult.ExecutionStatus.SKIPPED
+              status: sqlanvil.TaskResult.ExecutionStatus.SKIPPED
             }))
           });
         });
@@ -303,28 +303,28 @@ export class Runner {
     ]);
   }
 
-  private async executeAction(action: dataform.IExecutionAction): Promise<dataform.IActionResult> {
-    let actionResult: dataform.IActionResult = {
+  private async executeAction(action: sqlanvil.IExecutionAction): Promise<sqlanvil.IActionResult> {
+    let actionResult: sqlanvil.IActionResult = {
       target: action.target,
       tasks: []
     };
 
     if (action.tasks.length === 0) {
-      actionResult.status = dataform.ActionResult.ExecutionStatus.DISABLED;
+      actionResult.status = sqlanvil.ActionResult.ExecutionStatus.DISABLED;
       this.runResult.actions.push(actionResult);
       this.notifyListeners();
       return actionResult;
     }
 
     const resumedActionResult = this.runResult.actions.find(existingActionResult =>
-      equals(dataform.Target, existingActionResult.target, action.target)
+      equals(sqlanvil.Target, existingActionResult.target, action.target)
     );
     if (resumedActionResult) {
       actionResult = resumedActionResult;
     } else {
       this.runResult.actions.push(actionResult);
     }
-    actionResult.status = dataform.ActionResult.ExecutionStatus.RUNNING;
+    actionResult.status = sqlanvil.ActionResult.ExecutionStatus.RUNNING;
     const timer = Timer.start(resumedActionResult?.timing);
     actionResult.timing = timer.current();
     this.notifyListeners();
@@ -336,7 +336,7 @@ export class Runner {
           return actionResult;
         }
         if (
-          actionResult.status === dataform.ActionResult.ExecutionStatus.RUNNING &&
+          actionResult.status === sqlanvil.ActionResult.ExecutionStatus.RUNNING &&
           !this.cancelled
         ) {
           const taskStatus = await this.executeTask(client, task, actionResult, {
@@ -354,14 +354,14 @@ export class Runner {
                 this.graph.projectConfig?.defaultReservation
             }
           });
-          if (taskStatus === dataform.TaskResult.ExecutionStatus.FAILED) {
-            actionResult.status = dataform.ActionResult.ExecutionStatus.FAILED;
-          } else if (taskStatus === dataform.TaskResult.ExecutionStatus.CANCELLED) {
-            actionResult.status = dataform.ActionResult.ExecutionStatus.CANCELLED;
+          if (taskStatus === sqlanvil.TaskResult.ExecutionStatus.FAILED) {
+            actionResult.status = sqlanvil.ActionResult.ExecutionStatus.FAILED;
+          } else if (taskStatus === sqlanvil.TaskResult.ExecutionStatus.CANCELLED) {
+            actionResult.status = sqlanvil.ActionResult.ExecutionStatus.CANCELLED;
           }
         } else {
           actionResult.tasks.push({
-            status: dataform.TaskResult.ExecutionStatus.SKIPPED
+            status: sqlanvil.TaskResult.ExecutionStatus.SKIPPED
           });
         }
       }
@@ -375,7 +375,7 @@ export class Runner {
       action.actionDescriptor &&
       // Only set metadata if we expect the action to complete in SUCCESSFUL state
       // (i.e. it must still be RUNNING, and not FAILED).
-      actionResult.status === dataform.ActionResult.ExecutionStatus.RUNNING &&
+      actionResult.status === sqlanvil.ActionResult.ExecutionStatus.RUNNING &&
       !(this.graph.runConfig && this.graph.runConfig.disableSetMetadata) &&
       // Only set metadata if not using BigQuery dry run
       !this.executionOptions.bigquery?.dryRun &&
@@ -392,16 +392,16 @@ export class Runner {
             actionResult.tasks.length - 1
           ].errorMessage = `Error setting metadata: ${e.message}`;
           actionResult.tasks[actionResult.tasks.length - 1].status =
-            dataform.TaskResult.ExecutionStatus.FAILED;
+            sqlanvil.TaskResult.ExecutionStatus.FAILED;
         }
-        actionResult.status = dataform.ActionResult.ExecutionStatus.FAILED;
+        actionResult.status = sqlanvil.ActionResult.ExecutionStatus.FAILED;
       }
     }
 
     this.warehouseStateByTarget.delete(targetStringifier.stringify(action.target));
 
-    if (actionResult.status === dataform.ActionResult.ExecutionStatus.RUNNING) {
-      actionResult.status = dataform.ActionResult.ExecutionStatus.SUCCESSFUL;
+    if (actionResult.status === sqlanvil.ActionResult.ExecutionStatus.RUNNING) {
+      actionResult.status = sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL;
     }
 
     actionResult.timing = timer.end();
@@ -411,20 +411,20 @@ export class Runner {
 
   private async executeTask(
     client: dbadapters.IDbClient,
-    task: dataform.IExecutionTask,
-    parentAction: dataform.IActionResult,
-    options: { bigquery?: dataform.IBigQueryOptions & IBigQueryExecutionOptions }
-  ): Promise<dataform.TaskResult.ExecutionStatus> {
+    task: sqlanvil.IExecutionTask,
+    parentAction: sqlanvil.IActionResult,
+    options: { bigquery?: sqlanvil.IBigQueryOptions & IBigQueryExecutionOptions }
+  ): Promise<sqlanvil.TaskResult.ExecutionStatus> {
     const timer = Timer.start();
-    const taskResult: dataform.ITaskResult = {
-      status: dataform.TaskResult.ExecutionStatus.RUNNING,
+    const taskResult: sqlanvil.ITaskResult = {
+      status: sqlanvil.TaskResult.ExecutionStatus.RUNNING,
       timing: timer.current(),
       metadata: {}
     };
     parentAction.tasks.push(taskResult);
     this.notifyListeners();
     if (options.bigquery?.dryRun && task.type === "assertion") {
-      taskResult.status = dataform.TaskResult.ExecutionStatus.SUCCESSFUL;
+      taskResult.status = sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL;
     }
     else {
       try {
@@ -447,11 +447,11 @@ export class Runner {
             throw new Error(`Assertion failed: query returned ${rowCount} row(s).`);
           }
         }
-        taskResult.status = dataform.TaskResult.ExecutionStatus.SUCCESSFUL;
+        taskResult.status = sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL;
       } catch (e) {
         taskResult.status = this.cancelled
-          ? dataform.TaskResult.ExecutionStatus.CANCELLED
-          : dataform.TaskResult.ExecutionStatus.FAILED;
+          ? sqlanvil.TaskResult.ExecutionStatus.CANCELLED
+          : sqlanvil.TaskResult.ExecutionStatus.FAILED;
         taskResult.errorMessage = `${this.graph.projectConfig.warehouse} error: ${e.message}`;
         if (e.metadata?.bigquery?.jobId) {
           taskResult.metadata = {
@@ -469,18 +469,18 @@ export class Runner {
 }
 
 class Timer {
-  public static start(existingTiming?: dataform.ITiming) {
+  public static start(existingTiming?: sqlanvil.ITiming) {
     return new Timer(existingTiming?.startTimeMillis.toNumber() || new Date().valueOf());
   }
   private constructor(readonly startTimeMillis: number) { }
 
-  public current(): dataform.ITiming {
+  public current(): sqlanvil.ITiming {
     return {
       startTimeMillis: Long.fromNumber(this.startTimeMillis)
     };
   }
 
-  public end(): dataform.ITiming {
+  public end(): sqlanvil.ITiming {
     return {
       startTimeMillis: Long.fromNumber(this.startTimeMillis),
       endTimeMillis: Long.fromNumber(new Date().valueOf())

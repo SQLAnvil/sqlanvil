@@ -1,13 +1,13 @@
-import { targetAsReadableString } from "df/core/targets";
-import * as utils from "df/core/utils";
-import { dataform } from "df/protos/ts";
+import { targetAsReadableString } from "sa/core/targets";
+import * as utils from "sa/core/utils";
+import { sqlanvil } from "sa/protos/ts";
 
-type CompileAction = dataform.ITable | dataform.IOperation | dataform.IAssertion;
+type CompileAction = sqlanvil.ITable | sqlanvil.IOperation | sqlanvil.IAssertion;
 
 export function prune(
-  compiledGraph: dataform.ICompiledGraph,
-  runConfig: dataform.IRunConfig
-): dataform.ICompiledGraph {
+  compiledGraph: sqlanvil.ICompiledGraph,
+  runConfig: sqlanvil.IRunConfig
+): sqlanvil.ICompiledGraph {
   compiledGraph.tables.forEach(utils.setOrValidateTableEnumType);
   const includedActionNames = computeIncludedActionNames(compiledGraph, runConfig);
   return {
@@ -25,8 +25,8 @@ export function prune(
 }
 
 function computeIncludedActionNames(
-  compiledGraph: dataform.ICompiledGraph,
-  runConfig: dataform.IRunConfig
+  compiledGraph: sqlanvil.ICompiledGraph,
+  runConfig: sqlanvil.IRunConfig
 ): Set<string> {
   // Union all tables, operations, assertions.
   const allActions: CompileAction[] = [].concat(

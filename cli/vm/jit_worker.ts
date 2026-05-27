@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { NodeVM } from "vm2";
 
-import { dataform } from "df/protos/ts";
+import { sqlanvil } from "sa/protos/ts";
 
 const pendingRpcCallbacks = new Map<string, (err: string | null, resBytes: Uint8Array | null) => void>();
 let hasStartedProcessing = false;
@@ -31,7 +31,7 @@ export async function handleJitRequest(message: {
     if (!fs.existsSync(path.join(projectDir, "node_modules", "@dataform", "core", "bundle.js"))) {
       throw new Error(
         "Could not find a recent installed version of @sqlanvil/core in the project. Check that " +
-          "either `dataformCoreVersion` is specified in `workflow_settings.yaml`, or " +
+          "either `sqlanvilCoreVersion` is specified in `workflow_settings.yaml`, or " +
           "`@sqlanvil/core` is specified in `package.json`. If using `package.json`, then run " +
           "`dataform install`."
       );
@@ -49,8 +49,8 @@ export async function handleJitRequest(message: {
       });
     };
 
-    const requestMessage = dataform.JitCompilationRequest.fromObject(request);
-    const requestBytes = dataform.JitCompilationRequest.encode(requestMessage).finish();
+    const requestMessage = sqlanvil.JitCompilationRequest.fromObject(request);
+    const requestBytes = sqlanvil.JitCompilationRequest.encode(requestMessage).finish();
 
     const vmFileName = path.resolve(projectDir, "index.js");
 
@@ -89,7 +89,7 @@ export async function handleJitRequest(message: {
     `, vmFileName);
 
     const responseBytes = await jitCompileInVm(requestBytes, rpcCallback);
-    const response = dataform.JitCompilationResponse.decode(responseBytes);
+    const response = sqlanvil.JitCompilationResponse.decode(responseBytes);
 
     process.send({ type: "jit_response", response: response.toJSON() });
   } catch (e) {

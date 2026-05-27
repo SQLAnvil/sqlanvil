@@ -4,14 +4,14 @@ import * as fs from "fs-extra";
 import { dump as dumpYaml, load as loadYaml } from "js-yaml";
 import * as path from "path";
 
-import { dataform } from "df/protos/ts";
-import { asPlainObject, suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+import { sqlanvil } from "sa/protos/ts";
+import { asPlainObject, suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
   VALID_WORKFLOW_SETTINGS_YAML
-} from "df/testing/run_core";
+} from "sa/testing/run_core";
 
 suite("data preparation", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);
@@ -427,7 +427,7 @@ FROM x
 
       const coreExecutionRequest = coreExecutionRequestFromPath(
         projectDir,
-        dataform.ProjectConfig.create({
+        sqlanvil.ProjectConfig.create({
           defaultDatabase: "projectOverride",
           defaultSchema: "datasetOverride"
         })

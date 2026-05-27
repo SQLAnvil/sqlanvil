@@ -3,13 +3,13 @@ import { expect } from "chai";
 import * as fs from "fs-extra";
 import * as path from "path";
 
-import { asPlainObject, suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+import { asPlainObject, suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
   VALID_WORKFLOW_SETTINGS_YAML
-} from "df/testing/run_core";
+} from "sa/testing/run_core";
 
 suite("test", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);

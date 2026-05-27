@@ -3,10 +3,10 @@ import * as fs from "fs-extra";
 import { dump as dumpYaml } from "js-yaml";
 import * as path from "path";
 
-import { readConfigFromWorkflowSettings } from "df/cli/api/utils";
-import { dataform } from "df/protos/ts";
-import { suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+import { readConfigFromWorkflowSettings } from "sa/cli/api/utils";
+import { sqlanvil } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 
 suite("readExtensionConfigFromWorkflowSettings", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);
@@ -34,7 +34,7 @@ suite("readExtensionConfigFromWorkflowSettings", ({ afterEach }) => {
     fs.writeFileSync(
       path.join(projectDir, "workflow_settings.yaml"),
       dumpYaml({
-        dataformCoreVersion: "3.0.0",
+        sqlanvilCoreVersion: "3.0.0",
         defaultProject: "dataform",
         extension: {
           name: "test-extension",
@@ -48,7 +48,7 @@ suite("readExtensionConfigFromWorkflowSettings", ({ afterEach }) => {
     if (typeof mode === "string") {
       expect(mode).to.equal("PROLOGUE");
     } else {
-      expect(mode).to.equal(dataform.ExtensionCompilationMode.PROLOGUE);
+      expect(mode).to.equal(sqlanvil.ExtensionCompilationMode.PROLOGUE);
     }
   });
 

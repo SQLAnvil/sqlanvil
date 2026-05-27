@@ -1,12 +1,12 @@
 import * as semver from "semver";
 
-import { concatenateQueries, Task, Tasks } from "df/cli/api/dbadapters/tasks";
-import { ErrorWithCause } from "df/common/errors/errors";
-import { CompilationSql } from "df/core/compilation_sql";
-import { tableTypeEnumToString } from "df/core/utils";
-import { dataform } from "df/protos/ts";
+import { concatenateQueries, Task, Tasks } from "sa/cli/api/dbadapters/tasks";
+import { ErrorWithCause } from "sa/common/errors/errors";
+import { CompilationSql } from "sa/core/compilation_sql";
+import { tableTypeEnumToString } from "sa/core/utils";
+import { sqlanvil } from "sa/protos/ts";
 
-export type QueryOrAction = string | dataform.Table | dataform.Operation | dataform.Assertion;
+export type QueryOrAction = string | sqlanvil.Table | sqlanvil.Operation | sqlanvil.Assertion;
 
 export interface IValidationQuery {
   query?: string;
@@ -17,37 +17,37 @@ export class ExecutionSql {
   private readonly CompilationSql: CompilationSql;
 
   constructor(
-    private readonly project: dataform.IProjectConfig,
-    private readonly dataformCoreVersion: string,
+    private readonly project: sqlanvil.IProjectConfig,
+    private readonly sqlanvilCoreVersion: string,
     private readonly uniqueIdGenerator: () => string = () => Math.random().toString(36).substring(2)
   ) {
-    this.CompilationSql = new CompilationSql(project, dataformCoreVersion);
+    this.CompilationSql = new CompilationSql(project, sqlanvilCoreVersion);
   }
 
-  public baseTableType(enumType: dataform.TableType) {
+  public baseTableType(enumType: sqlanvil.TableType) {
     switch (enumType) {
-      case dataform.TableType.TABLE:
-      case dataform.TableType.INCREMENTAL:
-        return dataform.TableMetadata.Type.TABLE;
-      case dataform.TableType.VIEW:
-        return dataform.TableMetadata.Type.VIEW;
+      case sqlanvil.TableType.TABLE:
+      case sqlanvil.TableType.INCREMENTAL:
+        return sqlanvil.TableMetadata.Type.TABLE;
+      case sqlanvil.TableType.VIEW:
+        return sqlanvil.TableMetadata.Type.VIEW;
       default:
         throw new Error(`Unexpected table type: ${tableTypeEnumToString(enumType)}`);
     }
   }
 
-  public tableTypeAsSql(type: dataform.TableMetadata.Type) {
+  public tableTypeAsSql(type: sqlanvil.TableMetadata.Type) {
     switch (type) {
-      case dataform.TableMetadata.Type.TABLE:
+      case sqlanvil.TableMetadata.Type.TABLE:
         return "table";
-      case dataform.TableMetadata.Type.VIEW:
+      case sqlanvil.TableMetadata.Type.VIEW:
         return "view";
       default:
         throw new Error(`Unexpected table type: ${type}`);
     }
   }
 
-  public insertInto(target: dataform.ITarget, columns: string[], query: string) {
+  public insertInto(target: sqlanvil.ITarget, columns: string[], query: string) {
     return `	
 insert into ${this.resolveTarget(target)}	
 (${columns.join(",")})	
@@ -55,12 +55,12 @@ select ${columns.join(",")}
 from (${query}) as insertions`;
   }
 
-  public oppositeTableType(type: dataform.TableMetadata.Type) {
+  public oppositeTableType(type: sqlanvil.TableMetadata.Type) {
     switch (type) {
-      case dataform.TableMetadata.Type.TABLE:
-        return dataform.TableMetadata.Type.VIEW;
-      case dataform.TableMetadata.Type.VIEW:
-        return dataform.TableMetadata.Type.TABLE;
+      case sqlanvil.TableMetadata.Type.TABLE:
+        return sqlanvil.TableMetadata.Type.VIEW;
+      case sqlanvil.TableMetadata.Type.VIEW:
+        return sqlanvil.TableMetadata.Type.TABLE;
       default:
         throw new Error(`Unexpected table type: ${type}`);
     }
@@ -75,26 +75,26 @@ from (${query}) as insertions`;
   }
 
   public shouldWriteIncrementally(
-    table: dataform.ITable,
-    runConfig: dataform.IRunConfig,
-    tableMetadata?: dataform.ITableMetadata
+    table: sqlanvil.ITable,
+    runConfig: sqlanvil.IRunConfig,
+    tableMetadata?: sqlanvil.ITableMetadata
   ) {
     return (
       (!runConfig.fullRefresh || table.protected) &&
       tableMetadata &&
-      tableMetadata.type !== dataform.TableMetadata.Type.VIEW
+      tableMetadata.type !== sqlanvil.TableMetadata.Type.VIEW
     );
   }
 
   public preOps(
-    table: dataform.ITable,
-    runConfig: dataform.IRunConfig,
-    tableMetadata?: dataform.ITableMetadata
+    table: sqlanvil.ITable,
+    runConfig: sqlanvil.IRunConfig,
+    tableMetadata?: sqlanvil.ITableMetadata
   ): Task[] {
     let preOps = table.preOps;
     if (
-      semver.gt(this.dataformCoreVersion, "1.4.8") &&
-      table.enumType === dataform.TableType.INCREMENTAL &&
+      semver.gt(this.sqlanvilCoreVersion, "1.4.8") &&
+      table.enumType === sqlanvil.TableType.INCREMENTAL &&
       this.shouldWriteIncrementally(table, runConfig, tableMetadata)
     ) {
       preOps = table.incrementalPreOps;
@@ -103,14 +103,14 @@ from (${query}) as insertions`;
   }
 
   public postOps(
-    table: dataform.ITable,
-    runConfig: dataform.IRunConfig,
-    tableMetadata?: dataform.ITableMetadata
+    table: sqlanvil.ITable,
+    runConfig: sqlanvil.IRunConfig,
+    tableMetadata?: sqlanvil.ITableMetadata
   ): Task[] {
     let postOps = table.postOps;
     if (
-      semver.gt(this.dataformCoreVersion, "1.4.8") &&
-      table.enumType === dataform.TableType.INCREMENTAL &&
+      semver.gt(this.sqlanvilCoreVersion, "1.4.8") &&
+      table.enumType === sqlanvil.TableType.INCREMENTAL &&
       this.shouldWriteIncrementally(table, runConfig, tableMetadata)
     ) {
       postOps = table.incrementalPostOps;
@@ -118,18 +118,18 @@ from (${query}) as insertions`;
     return (postOps || []).map(post => Task.statement(post));
   }
 
-  public resolveTarget(target: dataform.ITarget) {
+  public resolveTarget(target: sqlanvil.ITarget) {
     return this.CompilationSql.resolveTarget(target);
   }
 
-  public getIncrementalQuery(table: dataform.ITable): string {
+  public getIncrementalQuery(table: sqlanvil.ITable): string {
     return this.where(table.incrementalQuery || table.query, table.where);
   }
 
   public publishTasks(
-    table: dataform.ITable,
-    runConfig: dataform.IRunConfig,
-    tableMetadata?: dataform.ITableMetadata
+    table: sqlanvil.ITable,
+    runConfig: sqlanvil.IRunConfig,
+    tableMetadata?: sqlanvil.ITableMetadata
   ): Tasks {
     const tasks = new Tasks();
 
@@ -142,18 +142,18 @@ from (${query}) as insertions`;
       );
     }
 
-    if (table.enumType === dataform.TableType.INCREMENTAL) {
+    if (table.enumType === sqlanvil.TableType.INCREMENTAL) {
       if (!this.shouldWriteIncrementally(table, runConfig, tableMetadata)) {
         tasks.add(Task.statement(this.createOrReplace(table)));
       } else {
-        const onSchemaChange = table.onSchemaChange ?? dataform.OnSchemaChange.IGNORE;
+        const onSchemaChange = table.onSchemaChange ?? sqlanvil.OnSchemaChange.IGNORE;
         switch (onSchemaChange) {
-          case dataform.OnSchemaChange.FAIL:
-          case dataform.OnSchemaChange.EXTEND:
-          case dataform.OnSchemaChange.SYNCHRONIZE:
+          case sqlanvil.OnSchemaChange.FAIL:
+          case sqlanvil.OnSchemaChange.EXTEND:
+          case sqlanvil.OnSchemaChange.SYNCHRONIZE:
             this.buildIncrementalSchemaChangeTasks(tasks, table);
             // Fall through to run the static DML after the procedure alters the schema
-          case dataform.OnSchemaChange.IGNORE:
+          case sqlanvil.OnSchemaChange.IGNORE:
           default:
             tasks.add(
               Task.statement(
@@ -185,8 +185,8 @@ from (${query}) as insertions`;
   }
 
   public assertTasks(
-    assertion: dataform.IAssertion,
-    projectConfig: dataform.IProjectConfig,
+    assertion: sqlanvil.IAssertion,
+    projectConfig: sqlanvil.IProjectConfig,
   ): Tasks {
     const tasks = new Tasks();
     const target = assertion.target;
@@ -198,11 +198,11 @@ from (${query}) as insertions`;
     return tasks;
   }
 
-  public dropIfExists(target: dataform.ITarget, type: dataform.TableMetadata.Type) {
+  public dropIfExists(target: sqlanvil.ITarget, type: sqlanvil.TableMetadata.Type) {
     return `drop ${this.tableTypeAsSql(type)} if exists ${this.resolveTarget(target)}`;
   }
 
-  private buildIncrementalSchemaChangeTasks(tasks: Tasks, table: dataform.ITable) {
+  private buildIncrementalSchemaChangeTasks(tasks: Tasks, table: sqlanvil.ITable) {
     const uniqueId = this.uniqueIdGenerator();
 
     const emptyTempTableTarget = {
@@ -231,7 +231,7 @@ END;`;
     tasks.add(Task.statement(callProcedureSql));
   }
 
-  private createProcedureName(target: dataform.ITarget, uniqueId: string): string {
+  private createProcedureName(target: sqlanvil.ITarget, uniqueId: string): string {
     return this.resolveTarget({
       ...target,
       name: `df_osc_${uniqueId}`
@@ -262,8 +262,8 @@ CREATE OR REPLACE TABLE ${emptyTempTableName} AS (
   }
 
   private compareSchemasSql(
-    target: dataform.ITarget,
-    emptyTempTableTarget: dataform.ITarget
+    target: sqlanvil.ITarget,
+    emptyTempTableTarget: sqlanvil.ITarget
   ): string {
     return `
 -- Compare schemas
@@ -297,15 +297,15 @@ SET columns_removed = (
   }
 
   private applySchemaChangeStrategySql(
-    table: dataform.ITable,
+    table: sqlanvil.ITable,
     qualifiedTargetTableName: string
   ): string {
-    const onSchemaChange = table.onSchemaChange || dataform.OnSchemaChange.IGNORE;
+    const onSchemaChange = table.onSchemaChange || sqlanvil.OnSchemaChange.IGNORE;
     let sql = `
--- Apply schema change strategy (${dataform.OnSchemaChange[onSchemaChange]}).`;
+-- Apply schema change strategy (${sqlanvil.OnSchemaChange[onSchemaChange]}).`;
 
     switch (onSchemaChange) {
-      case dataform.OnSchemaChange.FAIL:
+      case sqlanvil.OnSchemaChange.FAIL:
         sql += `
 IF ARRAY_LENGTH(columns_added) > 0 OR ARRAY_LENGTH(columns_removed) > 0 THEN
   RAISE USING MESSAGE = FORMAT(
@@ -316,7 +316,7 @@ IF ARRAY_LENGTH(columns_added) > 0 OR ARRAY_LENGTH(columns_removed) > 0 THEN
 END IF;
 `;
         break;
-      case dataform.OnSchemaChange.EXTEND:
+      case sqlanvil.OnSchemaChange.EXTEND:
         sql += `
 IF ARRAY_LENGTH(columns_removed) > 0 THEN
   RAISE USING MESSAGE = FORMAT(
@@ -328,7 +328,7 @@ END IF;
 ${this.alterTableAddColumnsSql(qualifiedTargetTableName)}
 `;
         break;
-      case dataform.OnSchemaChange.SYNCHRONIZE:
+      case sqlanvil.OnSchemaChange.SYNCHRONIZE:
         const uniqueKeys = table.uniqueKey || [];
         sql += `
 DECLARE invalid_removed_columns ARRAY<STRING>;
@@ -380,9 +380,9 @@ DROP TABLE IF EXISTS ${emptyTempTableName};
   }
 
   private incrementalSchemaChangeBody(
-    table: dataform.ITable,
+    table: sqlanvil.ITable,
     qualifiedTargetTableName: string,
-    emptyTempTableTarget: dataform.ITarget
+    emptyTempTableTarget: sqlanvil.ITarget
   ): string {
     const emptyTempTableName = this.resolveTarget(emptyTempTableTarget);
     const query = this.getIncrementalQuery(table);
@@ -399,7 +399,7 @@ DROP TABLE IF EXISTS ${emptyTempTableName};
     return statements.join("\n\n");
   }
 
-  private createOrReplace(table: dataform.ITable) {
+  private createOrReplace(table: sqlanvil.ITable) {
     const options = [];
     if (table.bigquery && table.bigquery.partitionBy && table.bigquery.partitionExpirationDays) {
       options.push(`partition_expiration_days=${table.bigquery.partitionExpirationDays}`);
@@ -426,13 +426,13 @@ DROP TABLE IF EXISTS ${emptyTempTableName};
     }${options.length > 0 ? `OPTIONS(${options.join(",")})` : ""}as ${table.query}`;
   }
 
-  private createOrReplaceView(target: dataform.ITarget, query: string) {
+  private createOrReplaceView(target: sqlanvil.ITarget, query: string) {
     return `
       create or replace view ${this.resolveTarget(target)} as ${query}`;
   }
 
     private mergeInto(
-    target: dataform.ITarget,
+    target: sqlanvil.ITarget,
     columns: string[],
     query: string,
     uniqueKey: string[],
@@ -470,8 +470,8 @@ export function collectEvaluationQueries(
     validationQueries.push({ query: queryModifier(queryOrAction) });
   } else {
     try {
-      if (queryOrAction instanceof dataform.Table) {
-        if (queryOrAction.enumType === dataform.TableType.INCREMENTAL) {
+      if (queryOrAction instanceof sqlanvil.Table) {
+        if (queryOrAction.enumType === sqlanvil.TableType.INCREMENTAL) {
           const incrementalTableQueries = queryOrAction.incrementalPreOps.concat(
             queryOrAction.incrementalQuery,
             queryOrAction.incrementalPostOps
@@ -498,7 +498,7 @@ export function collectEvaluationQueries(
         } else {
           tableQueries.forEach(q => validationQueries.push({ query: queryModifier(q) }));
         }
-      } else if (queryOrAction instanceof dataform.Operation) {
+      } else if (queryOrAction instanceof sqlanvil.Operation) {
         if (concatenate) {
           validationQueries.push({
             query: concatenateQueries(queryOrAction.queries, queryModifier)
@@ -506,7 +506,7 @@ export function collectEvaluationQueries(
         } else {
           queryOrAction.queries.forEach(q => validationQueries.push({ query: queryModifier(q) }));
         }
-      } else if (queryOrAction instanceof dataform.Assertion) {
+      } else if (queryOrAction instanceof sqlanvil.Assertion) {
         validationQueries.push({ query: queryModifier(queryOrAction.query) });
       } else {
         throw new Error("Unrecognized evaluate type.");

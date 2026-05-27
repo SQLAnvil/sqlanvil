@@ -1,9 +1,9 @@
-import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "df/common/protos";
-import { ActionBuilder } from "df/core/actions";
-import { ColumnDescriptors } from "df/core/column_descriptors";
-import { Contextable, IActionContext, JitContextable, Resolvable } from "df/core/contextables";
-import * as Path from "df/core/path";
-import { Session } from "df/core/session";
+import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
+import { ActionBuilder } from "sa/core/actions";
+import { ColumnDescriptors } from "sa/core/column_descriptors";
+import { Contextable, IActionContext, JitContextable, Resolvable } from "sa/core/contextables";
+import * as Path from "sa/core/path";
+import { Session } from "sa/core/session";
 import {
   actionConfigToCompiledGraphTarget,
   checkAssertionsForDependency,
@@ -13,8 +13,8 @@ import {
   resolvableAsTarget,
   resolveActionsConfigFilename,
   toResolvable
-} from "df/core/utils";
-import { dataform } from "df/protos/ts";
+} from "sa/core/utils";
+import { sqlanvil } from "sa/protos/ts";
 
 /**
  * @hidden
@@ -22,7 +22,7 @@ import { dataform } from "df/protos/ts";
  * This maintains backwards compatability with older versions.
  * Consider breaking backwards compatability of these in v4.
  */
-interface ILegacyOperationConfig extends dataform.ActionConfig.OperationConfig {
+interface ILegacyOperationConfig extends sqlanvil.ActionConfig.OperationConfig {
   dependencies: Resolvable[];
   database: string;
   schema: string;
@@ -30,14 +30,14 @@ interface ILegacyOperationConfig extends dataform.ActionConfig.OperationConfig {
   type: string;
 }
 
-export type JitOperationResult = string | string[] | dataform.IJitOperationResult;
+export type JitOperationResult = string | string[] | sqlanvil.IJitOperationResult;
 
 /**
  * Operations define custom SQL operations that don't fit into the Dataform model of publishing a
  * table or writing an assertion.
  *
  * You can create operations in the following ways. Available config options are defined in
- * [OperationConfig](configs#dataform-ActionConfig-OperationConfig), and are shared across all the
+ * [OperationConfig](configs#sqlanvil-ActionConfig-OperationConfig), and are shared across all the
  * following ways of creating operations.
  *
  * **Using a SQLX file:**
@@ -74,7 +74,7 @@ export type JitOperationResult = string | string[] | dataform.IJitOperationResul
  * Note: When using the Javascript API, methods in this class can be accessed by the returned value.
  * This is where `query` comes from.
  */
-export class Operation extends ActionBuilder<dataform.Operation> {
+export class Operation extends ActionBuilder<sqlanvil.Operation> {
   /** @hidden Hold a reference to the Session instance. */
   public session: Session;
 
@@ -87,7 +87,7 @@ export class Operation extends ActionBuilder<dataform.Operation> {
   /**
    * @hidden Stores the generated proto for the compiled graph.
    */
-  private proto = dataform.Operation.create();
+  private proto = sqlanvil.Operation.create();
 
   /** @hidden We delay contextification until the final compile step, so hold these here for now. */
   private contextableQueries: Contextable<IActionContext, string | string[]>;
@@ -124,7 +124,7 @@ export class Operation extends ActionBuilder<dataform.Operation> {
     if (config.dependencyTargets) {
       this.dependencies(
         config.dependencyTargets.map(dependencyTarget =>
-          configTargetToCompiledGraphTarget(dataform.ActionConfig.Target.create(dependencyTarget))
+          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
         )
       );
     }
@@ -146,7 +146,7 @@ export class Operation extends ActionBuilder<dataform.Operation> {
     if (config.columns?.length) {
       this.columns(
         config.columns.map(columnDescriptor =>
-          dataform.ActionConfig.ColumnDescriptor.create(columnDescriptor)
+          sqlanvil.ActionConfig.ColumnDescriptor.create(columnDescriptor)
         )
       );
     }
@@ -183,14 +183,14 @@ export class Operation extends ActionBuilder<dataform.Operation> {
     if (!this.proto.actionDescriptor) {
       this.proto.actionDescriptor = {};
     }
-    this.proto.actionDescriptor.compilationMode = dataform.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
+    this.proto.actionDescriptor.compilationMode = sqlanvil.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
     this.contextableJitCode = jitCode;
     return this;
   }
 
   /**
    * @deprecated Deprecated in favor of
-   * [OperationConfig.dependencies](configs#dataform-ActionConfig-OperationConfig).
+   * [OperationConfig.dependencies](configs#sqlanvil-ActionConfig-OperationConfig).
    *
    * Sets dependencies of the table.
    */
@@ -207,7 +207,7 @@ export class Operation extends ActionBuilder<dataform.Operation> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [OperationConfig.hermetic](configs#dataform-ActionConfig-OperationConfig).
+   * [OperationConfig.hermetic](configs#sqlanvil-ActionConfig-OperationConfig).
    *
    * If true, this indicates that the action only depends on data from explicitly-declared
    * dependencies. Otherwise if false, it indicates that the  action depends on data from a source
@@ -215,13 +215,13 @@ export class Operation extends ActionBuilder<dataform.Operation> {
    */
   public hermetic(hermetic: boolean) {
     this.proto.hermeticity = hermetic
-      ? dataform.ActionHermeticity.HERMETIC
-      : dataform.ActionHermeticity.NON_HERMETIC;
+      ? sqlanvil.ActionHermeticity.HERMETIC
+      : sqlanvil.ActionHermeticity.NON_HERMETIC;
   }
 
   /**
    * @deprecated Deprecated in favor of
-   * [OperationConfig.disabled](configs#dataform-ActionConfig-OperationConfig).
+   * [OperationConfig.disabled](configs#sqlanvil-ActionConfig-OperationConfig).
    *
    * If called with `true`, this action is not executed. The action can still be depended upon.
    * Useful for temporarily turning off broken actions.
@@ -233,7 +233,7 @@ export class Operation extends ActionBuilder<dataform.Operation> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [OperationConfig.tags](configs#dataform-ActionConfig-OperationConfig).
+   * [OperationConfig.tags](configs#sqlanvil-ActionConfig-OperationConfig).
    *
    * Sets a list of user-defined tags applied to this action.
    */
@@ -249,7 +249,7 @@ export class Operation extends ActionBuilder<dataform.Operation> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [OperationConfig.hasOutput](configs#dataform-ActionConfig-OperationConfig).
+   * [OperationConfig.hasOutput](configs#sqlanvil-ActionConfig-OperationConfig).
    *
    * Declares that this action creates a dataset which should be referenceable as a dependency
    * target, for example by using the `ref` function.
@@ -261,7 +261,7 @@ export class Operation extends ActionBuilder<dataform.Operation> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [OperationConfig.description](configs#dataform-ActionConfig-OperationConfig).
+   * [OperationConfig.description](configs#sqlanvil-ActionConfig-OperationConfig).
    *
    * Sets the description of this assertion.
    */
@@ -275,11 +275,11 @@ export class Operation extends ActionBuilder<dataform.Operation> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [OperationConfig.columns](configs#dataform-ActionConfig-OperationConfig).
+   * [OperationConfig.columns](configs#sqlanvil-ActionConfig-OperationConfig).
    *
    * Sets the column descriptors of columns in this table.
    */
-  public columns(columns: dataform.ActionConfig.ColumnDescriptor[]) {
+  public columns(columns: sqlanvil.ActionConfig.ColumnDescriptor[]) {
     if (!this.proto.actionDescriptor) {
       this.proto.actionDescriptor = {};
     }
@@ -291,14 +291,14 @@ export class Operation extends ActionBuilder<dataform.Operation> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [OperationConfig.project](configs#dataform-ActionConfig-OperationConfig).
+   * [OperationConfig.project](configs#sqlanvil-ActionConfig-OperationConfig).
    *
    * Sets the database (Google Cloud project ID) in which to create the corresponding view for this
    * operation.
    */
   public database(database: string) {
     this.proto.target = this.applySessionToTarget(
-      dataform.Target.create({ ...this.proto.target, database }),
+      sqlanvil.Target.create({ ...this.proto.target, database }),
       this.session.projectConfig,
       this.proto.fileName,
       { validateTarget: true }
@@ -308,13 +308,13 @@ export class Operation extends ActionBuilder<dataform.Operation> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [OperationConfig.dataset](configs#dataform-ActionConfig-OperationConfig).
+   * [OperationConfig.dataset](configs#sqlanvil-ActionConfig-OperationConfig).
    *
    * Sets the schema (BigQuery dataset) in which to create the output of this action.
    */
   public schema(schema: string) {
     this.proto.target = this.applySessionToTarget(
-      dataform.Target.create({ ...this.proto.target, schema }),
+      sqlanvil.Target.create({ ...this.proto.target, schema }),
       this.session.projectConfig,
       this.proto.fileName,
       { validateTarget: true }
@@ -324,7 +324,7 @@ export class Operation extends ActionBuilder<dataform.Operation> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [OperationConfig.dependOnDependencyAssertions](configs#dataform-ActionConfig-OperationConfig).
+   * [OperationConfig.dependOnDependencyAssertions](configs#sqlanvil-ActionConfig-OperationConfig).
    *
    * When called with `true`, assertions dependent upon any dependency will be add as dedpendency
    * to this action.
@@ -341,7 +341,7 @@ export class Operation extends ActionBuilder<dataform.Operation> {
 
   /** @hidden */
   public getTarget() {
-    return dataform.Target.create(this.proto.target);
+    return sqlanvil.Target.create(this.proto.target);
   }
 
   /** @hidden */
@@ -370,7 +370,7 @@ export class Operation extends ActionBuilder<dataform.Operation> {
     }
 
     return verifyObjectMatchesProto(
-      dataform.Operation,
+      sqlanvil.Operation,
       this.proto,
       VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
     );
@@ -395,7 +395,7 @@ export class Operation extends ActionBuilder<dataform.Operation> {
    */
   private verifyConfig(
     unverifiedConfig: ILegacyOperationConfig
-  ): dataform.ActionConfig.OperationConfig {
+  ): sqlanvil.ActionConfig.OperationConfig {
     // The "type" field only exists on legacy view configs. Here we convert them to the new format.
     if (unverifiedConfig.type) {
       delete unverifiedConfig.type;
@@ -424,7 +424,7 @@ export class Operation extends ActionBuilder<dataform.Operation> {
       }
     }
     return verifyObjectMatchesProto(
-      dataform.ActionConfig.OperationConfig,
+      sqlanvil.ActionConfig.OperationConfig,
       unverifiedConfig,
       VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
     );

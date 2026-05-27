@@ -59,8 +59,8 @@ function createOptionsChain(yargsChain: yargs.Argv, command: ICommand) {
 function fixArgvForHelp() {
   // Obviously this is a massive hack.
   // The outcome of this is that the following commands are interchangeable:
-  // $ dataform help run
-  // $ dataform --help run
+  // $ sqlanvil help run
+  // $ sqlanvil --help run
   // The problem is that yargs.help() only allows us to specify an alias for the "--help" built-in option (by default that alias is "help").
   // But because "--help" is only an option, not a command, it appears to be impossible (?) to configure yargs to respond to "help" correctly
   // (or at least, to correctly print help strings for commands; it happily prints a top-level help string).

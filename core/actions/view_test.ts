@@ -7,14 +7,14 @@ import {
   exampleActionDescriptor,
   exampleBuiltInAssertions,
   exampleBuiltInAssertionsAsYaml
-} from "df/core/actions/index_test";
-import { asPlainObject, suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+} from "sa/core/actions/index_test";
+import { asPlainObject, suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
   VALID_WORKFLOW_SETTINGS_YAML
-} from "df/testing/run_core";
+} from "sa/testing/run_core";
 
 suite("view", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);

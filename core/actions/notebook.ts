@@ -1,23 +1,23 @@
-import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "df/common/protos";
-import { ActionBuilder } from "df/core/actions";
-import { Resolvable } from "df/core/contextables";
-import * as Path from "df/core/path";
-import { Session } from "df/core/session";
+import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
+import { ActionBuilder } from "sa/core/actions";
+import { Resolvable } from "sa/core/contextables";
+import * as Path from "sa/core/path";
+import { Session } from "sa/core/session";
 import {
   actionConfigToCompiledGraphTarget,
   checkAssertionsForDependency,
   configTargetToCompiledGraphTarget,
   nativeRequire,
   resolveActionsConfigFilename
-} from "df/core/utils";
-import { dataform } from "df/protos/ts";
+} from "sa/core/utils";
+import { sqlanvil } from "sa/protos/ts";
 
 /**
  * Notebooks run Jupyter Notebook files, and can output content to the storage buckets defined in
  * `workflow_settings.yaml` files.
  *
  * You can create notebooks in the following ways. Available config options are defined in
- * [NotebookConfig](configs#dataform-ActionConfig-NotebookConfig), and are shared across all the
+ * [NotebookConfig](configs#sqlanvil-ActionConfig-NotebookConfig), and are shared across all the
  * following ways of creating notebooks.
  *
  * **Using action configs files:**
@@ -46,7 +46,7 @@ import { dataform } from "df/protos/ts";
  * { "cells": [] }
  * ```
  */
-export class Notebook extends ActionBuilder<dataform.Notebook> {
+export class Notebook extends ActionBuilder<sqlanvil.Notebook> {
   /** @hidden Hold a reference to the Session instance. */
   public session: Session;
   /**
@@ -58,7 +58,7 @@ export class Notebook extends ActionBuilder<dataform.Notebook> {
   /**
    * @hidden Stores the generated proto for the compiled graph.
    */
-  private proto = dataform.Notebook.create();
+  private proto = sqlanvil.Notebook.create();
 
   /** @hidden */
   constructor(session?: Session, unverifiedConfig?: any, configPath?: string) {
@@ -82,7 +82,7 @@ export class Notebook extends ActionBuilder<dataform.Notebook> {
     if (config.dependencyTargets) {
       this.dependencies(
         config.dependencyTargets.map(dependencyTarget =>
-          configTargetToCompiledGraphTarget(dataform.ActionConfig.Target.create(dependencyTarget))
+          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
         )
       );
     }
@@ -125,13 +125,13 @@ export class Notebook extends ActionBuilder<dataform.Notebook> {
 
   /** @hidden */
   public getTarget() {
-    return dataform.Target.create(this.proto.target);
+    return sqlanvil.Target.create(this.proto.target);
   }
 
   /** @hidden */
   public compile() {
     return verifyObjectMatchesProto(
-      dataform.Notebook,
+      sqlanvil.Notebook,
       this.proto,
       VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
     );
@@ -141,9 +141,9 @@ export class Notebook extends ActionBuilder<dataform.Notebook> {
    * @hidden Verify config checks that the constructor provided config matches the expected proto
    * structure.
    */
-  private verifyConfig(unverifiedConfig: any): dataform.ActionConfig.NotebookConfig {
+  private verifyConfig(unverifiedConfig: any): sqlanvil.ActionConfig.NotebookConfig {
     return verifyObjectMatchesProto(
-      dataform.ActionConfig.NotebookConfig,
+      sqlanvil.ActionConfig.NotebookConfig,
       unverifiedConfig,
       VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
     );

@@ -3,13 +3,13 @@ import { expect } from "chai";
 import * as fs from "fs-extra";
 import * as path from "path";
 
-import { asPlainObject, suite, test } from "df/testing";
-import { TmpDirFixture } from "df/testing/fixtures";
+import { asPlainObject, suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
   VALID_WORKFLOW_SETTINGS_YAML
-} from "df/testing/run_core";
+} from "sa/testing/run_core";
 
 const EMPTY_NOTEBOOK_CONTENTS = '{ "cells": [] }';
 
@@ -136,7 +136,7 @@ actions:
 
   test(`notebook default runtime options are loaded`, () => {
     const projectDir = createSimpleNotebookProject(`
-defaultProject: dataform
+defaultProject: sqlanvil
 defaultLocation: US
 defaultNotebookRuntimeOptions:
   outputBucket: gs://some-bucket
@@ -150,7 +150,7 @@ defaultNotebookRuntimeOptions:
 
     expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
     expect(asPlainObject(result.compile.compiledGraph.projectConfig)).deep.equals({
-      defaultDatabase: "dataform",
+      defaultDatabase: "sqlanvil",
       defaultLocation: "US",
       defaultNotebookRuntimeOptions: {
         outputBucket: "gs://some-bucket",
@@ -166,7 +166,7 @@ defaultNotebookRuntimeOptions:
 
   test(`notebook default runtime options snapshot destination defaults to output bucket`, () => {
     const projectDir = createSimpleNotebookProject(`
-defaultProject: dataform
+defaultProject: sqlanvil
 defaultLocation: US
 defaultNotebookRuntimeOptions:
   outputBucket: gs://some-bucket
@@ -179,7 +179,7 @@ defaultNotebookRuntimeOptions:
 
     expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
     expect(asPlainObject(result.compile.compiledGraph.projectConfig)).deep.equals({
-      defaultDatabase: "dataform",
+      defaultDatabase: "sqlanvil",
       defaultLocation: "US",
       defaultNotebookRuntimeOptions: {
         outputBucket: "gs://some-bucket",
@@ -195,7 +195,7 @@ defaultNotebookRuntimeOptions:
 
   test(`notebook default runtime options throw for snapshot destination with no uri or output bucket`, () => {
     const projectDir = createSimpleNotebookProject(`
-defaultProject: dataform
+defaultProject: sqlanvil
 defaultLocation: US
 defaultNotebookRuntimeOptions:
   runtimeTemplateName: projects/test-project/locations/us-central1/notebookRuntimeTemplates/test-template

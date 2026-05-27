@@ -1,10 +1,10 @@
 import { ChildProcess } from "child_process";
 import * as os from "os";
 
-export * from "df/testing/hook";
-export * from "df/testing/suite";
-export * from "df/testing/test";
-export * from "df/testing/runner";
+export * from "sa/testing/hook";
+export * from "sa/testing/suite";
+export * from "sa/testing/test";
+export * from "sa/testing/runner";
 
 export const platformPath = () => {
   if (os.platform() === "darwin") {

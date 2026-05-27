@@ -1,4 +1,4 @@
-import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "df/common/protos";
+import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
 import {
   ActionBuilder,
   checkConfigAdditionalOptionsOverlap,
@@ -6,19 +6,19 @@ import {
   ILegacyTableConfig,
   LegacyConfigConverter,
   TableType
-} from "df/core/actions";
-import { Assertion } from "df/core/actions/assertion";
-import { IncrementalTable } from "df/core/actions/incremental_table";
-import { View } from "df/core/actions/view";
-import { ColumnDescriptors } from "df/core/column_descriptors";
+} from "sa/core/actions";
+import { Assertion } from "sa/core/actions/assertion";
+import { IncrementalTable } from "sa/core/actions/incremental_table";
+import { View } from "sa/core/actions/view";
+import { ColumnDescriptors } from "sa/core/column_descriptors";
 import {
   Contextable,
   ITableContext,
   JitContextable,
   Resolvable,
-} from "df/core/contextables";
-import * as Path from "df/core/path";
-import { Session } from "df/core/session";
+} from "sa/core/contextables";
+import * as Path from "sa/core/path";
+import { Session } from "sa/core/session";
 import {
   actionConfigToCompiledGraphTarget,
   checkAssertionsForDependency,
@@ -39,11 +39,11 @@ import {
   validateNoMixedCompilationMode,
   validateQueryString,
   validateStorageUriFormat,
-} from "df/core/utils";
-import { dataform } from "df/protos/ts";
+} from "sa/core/utils";
+import { sqlanvil } from "sa/protos/ts";
 
 /** JiT compilation stage result. String is equivalint to {query: value}. */
-export type JitTableResult = string | dataform.IJitTableResult;
+export type JitTableResult = string | sqlanvil.IJitTableResult;
 
 /**
  * Tables are the fundamental building block for storing data when using Dataform. Dataform compiles
@@ -51,7 +51,7 @@ export type JitTableResult = string | dataform.IJitTableResult;
  * BigQuery.
  *
  * You can create tables in the following ways. Available config options are defined in
- * [TableConfig](configs#dataform-ActionConfig-TableConfig), and are shared across all the
+ * [TableConfig](configs#sqlanvil-ActionConfig-TableConfig), and are shared across all the
  * following ways of creating tables.
  *
  * **Using a SQLX file:**
@@ -88,7 +88,7 @@ export type JitTableResult = string | dataform.IJitTableResult;
  * Note: When using the Javascript API, methods in this class can be accessed by the returned value.
  * This is where `query` comes from.
  */
-export class Table extends ActionBuilder<dataform.Table> {
+export class Table extends ActionBuilder<sqlanvil.Table> {
   /** @hidden Hold a reference to the Session instance. */
   public session: Session;
   /**
@@ -107,9 +107,9 @@ export class Table extends ActionBuilder<dataform.Table> {
   /**
    * @hidden Stores the generated proto for the compiled graph.
    */
-  private proto = dataform.Table.create({
+  private proto = sqlanvil.Table.create({
     type: "table",
-    enumType: dataform.TableType.TABLE,
+    enumType: sqlanvil.TableType.TABLE,
     disabled: false,
     tags: []
   });
@@ -179,12 +179,12 @@ export class Table extends ActionBuilder<dataform.Table> {
     if (config.columns?.length) {
       this.columns(
         config.columns.map(columnDescriptor =>
-          dataform.ActionConfig.ColumnDescriptor.create(columnDescriptor)
+          sqlanvil.ActionConfig.ColumnDescriptor.create(columnDescriptor)
         )
       );
     }
     if (config.assertions) {
-      this.assertions(dataform.ActionConfig.TableAssertionsConfig.create(config.assertions));
+      this.assertions(sqlanvil.ActionConfig.TableAssertionsConfig.create(config.assertions));
     }
     if (config.preOperations) {
       this.preOps(config.preOperations);
@@ -205,7 +205,7 @@ export class Table extends ActionBuilder<dataform.Table> {
           session.projectConfig.defaultIcebergConfig?.connection
         ),
         fileFormat: getFileFormatValueForIcebergTable(config.iceberg.fileFormat?.toString()),
-        tableFormat: dataform.TableFormat.ICEBERG,
+        tableFormat: sqlanvil.TableFormat.ICEBERG,
         storageUri: getStorageUriForIcebergTable(
           getEffectiveBucketName(session.projectConfig.defaultIcebergConfig?.bucketName, config.iceberg.bucketName),
           getEffectiveTableFolderRoot(session.projectConfig.defaultIcebergConfig?.tableFolderRoot, config.iceberg.tableFolderRoot),
@@ -278,7 +278,7 @@ export class Table extends ActionBuilder<dataform.Table> {
     if (!this.proto.actionDescriptor) {
       this.proto.actionDescriptor = {};
     }
-    this.proto.actionDescriptor.compilationMode = dataform.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
+    this.proto.actionDescriptor.compilationMode = sqlanvil.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
     this.contextableJitCode = jitCode;
     return this;
   }
@@ -323,7 +323,7 @@ export class Table extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [TableConfig.disabled](configs#dataform-ActionConfig-TableConfig).
+   * [TableConfig.disabled](configs#sqlanvil-ActionConfig-TableConfig).
    *
    * If called with `true`, this action is not executed. The action can still be depended upon.
    * Useful for temporarily turning off broken actions.
@@ -337,12 +337,12 @@ export class Table extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of options available directly on
-   * [TableConfig](configs#dataform-ActionConfig-TableConfig). For example:
+   * [TableConfig](configs#sqlanvil-ActionConfig-TableConfig). For example:
    * `publish("name", { type: "table", partitionBy: "column" }`).
    *
    * Sets bigquery options for the action.
    */
-  public bigquery(bigquery: dataform.IBigQueryOptions) {
+  public bigquery(bigquery: sqlanvil.IBigQueryOptions) {
     if (!!bigquery.labels && Object.keys(bigquery.labels).length > 0) {
       if (!this.proto.actionDescriptor) {
         this.proto.actionDescriptor = {};
@@ -352,14 +352,14 @@ export class Table extends ActionBuilder<dataform.Table> {
 
     const bigqueryFiltered = LegacyConfigConverter.legacyConvertBigQueryOptions(bigquery);
     if (Object.values(bigqueryFiltered).length > 0) {
-      this.proto.bigquery = dataform.BigQueryOptions.create(bigqueryFiltered);
+      this.proto.bigquery = sqlanvil.BigQueryOptions.create(bigqueryFiltered);
     }
     return this;
   }
 
   /**
    * @deprecated Deprecated in favor of
-   * [TableConfig.dependencies](configs#dataform-ActionConfig-TableConfig).
+   * [TableConfig.dependencies](configs#sqlanvil-ActionConfig-TableConfig).
    *
    * Sets dependencies of the table.
    */
@@ -376,7 +376,7 @@ export class Table extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [TableConfig.hermetic](configs#dataform-ActionConfig-TableConfig).
+   * [TableConfig.hermetic](configs#sqlanvil-ActionConfig-TableConfig).
    *
    * If true, this indicates that the action only depends on data from explicitly-declared
    * dependencies. Otherwise if false, it indicates that the  action depends on data from a source
@@ -384,13 +384,13 @@ export class Table extends ActionBuilder<dataform.Table> {
    */
   public hermetic(hermetic: boolean) {
     this.proto.hermeticity = hermetic
-      ? dataform.ActionHermeticity.HERMETIC
-      : dataform.ActionHermeticity.NON_HERMETIC;
+      ? sqlanvil.ActionHermeticity.HERMETIC
+      : sqlanvil.ActionHermeticity.NON_HERMETIC;
   }
 
   /**
    * @deprecated Deprecated in favor of
-   * [TableConfig.tags](configs#dataform-ActionConfig-TableConfig).
+   * [TableConfig.tags](configs#sqlanvil-ActionConfig-TableConfig).
    *
    * Sets a list of user-defined tags applied to this action.
    */
@@ -406,7 +406,7 @@ export class Table extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [TableConfig.description](configs#dataform-ActionConfig-TableConfig).
+   * [TableConfig.description](configs#sqlanvil-ActionConfig-TableConfig).
    *
    * Sets the description of this assertion.
    */
@@ -420,11 +420,11 @@ export class Table extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [TableConfig.columns](configs#dataform-ActionConfig-TableConfig).
+   * [TableConfig.columns](configs#sqlanvil-ActionConfig-TableConfig).
    *
    * Sets the column descriptors of columns in this table.
    */
-  public columns(columns: dataform.ActionConfig.ColumnDescriptor[]) {
+  public columns(columns: sqlanvil.ActionConfig.ColumnDescriptor[]) {
     if (!this.proto.actionDescriptor) {
       this.proto.actionDescriptor = {};
     }
@@ -436,13 +436,13 @@ export class Table extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [TableConfig.project](configs#dataform-ActionConfig-TableConfig).
+   * [TableConfig.project](configs#sqlanvil-ActionConfig-TableConfig).
    *
    * Sets the database (Google Cloud project ID) in which to create the output of this action.
    */
   public database(database: string) {
     this.proto.target = this.applySessionToTarget(
-      dataform.Target.create({ ...this.proto.target, database }),
+      sqlanvil.Target.create({ ...this.proto.target, database }),
       this.session.projectConfig,
       this.proto.fileName,
       { validateTarget: true }
@@ -452,13 +452,13 @@ export class Table extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [TableConfig.dataset](configs#dataform-ActionConfig-TableConfig).
+   * [TableConfig.dataset](configs#sqlanvil-ActionConfig-TableConfig).
    *
    * Sets the schema (BigQuery dataset) in which to create the output of this action.
    */
   public schema(schema: string) {
     this.proto.target = this.applySessionToTarget(
-      dataform.Target.create({ ...this.proto.target, schema }),
+      sqlanvil.Target.create({ ...this.proto.target, schema }),
       this.session.projectConfig,
       this.proto.fileName,
       { validateTarget: true }
@@ -468,7 +468,7 @@ export class Table extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [TableConfig.assertions](configs#dataform-ActionConfig-TableConfig).
+   * [TableConfig.assertions](configs#sqlanvil-ActionConfig-TableConfig).
    *
    * Sets in-line assertions for this table.
    *
@@ -476,7 +476,7 @@ export class Table extends ActionBuilder<dataform.Table> {
    * Usage of it via the JS API is deprecated, but the way it applies in-line assertions is still
    * needed -->
    */
-  public assertions(tableAssertionsConfig: dataform.ActionConfig.TableAssertionsConfig): Table {
+  public assertions(tableAssertionsConfig: sqlanvil.ActionConfig.TableAssertionsConfig): Table {
     const inlineAssertions = this.generateInlineAssertions(tableAssertionsConfig, this.proto);
     this.uniqueKeyAssertions = inlineAssertions.uniqueKeyAssertions;
     this.rowConditionsAssertion = inlineAssertions.rowConditionsAssertion;
@@ -485,7 +485,7 @@ export class Table extends ActionBuilder<dataform.Table> {
 
   /**
    * @deprecated Deprecated in favor of
-   * [TableConfig.dependOnDependencyAssertions](configs#dataform-ActionConfig-TableConfig).
+   * [TableConfig.dependOnDependencyAssertions](configs#sqlanvil-ActionConfig-TableConfig).
    *
    * When called with `true`, assertions dependent upon any dependency will be add as dedpendency
    * to this action.
@@ -502,7 +502,7 @@ export class Table extends ActionBuilder<dataform.Table> {
 
   /** @hidden */
   public getTarget() {
-    return dataform.Target.create(this.proto.target);
+    return sqlanvil.Target.create(this.proto.target);
   }
 
   /** @hidden */
@@ -522,7 +522,7 @@ export class Table extends ActionBuilder<dataform.Table> {
     }
 
     return verifyObjectMatchesProto(
-      dataform.Table,
+      sqlanvil.Table,
       this.proto,
       VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
     );
@@ -550,7 +550,7 @@ export class Table extends ActionBuilder<dataform.Table> {
 
     this.proto.query = context.apply(this.contextableQuery);
 
-    if (this.proto.enumType === dataform.TableType.INCREMENTAL) {
+    if (this.proto.enumType === sqlanvil.TableType.INCREMENTAL) {
       this.proto.incrementalQuery = incrementalContext.apply(this.contextableQuery);
 
       this.proto.incrementalPreOps = this.contextifyOps(this.contextablePreOps, incrementalContext);
@@ -596,8 +596,8 @@ export class Table extends ActionBuilder<dataform.Table> {
   private verifyConfig(
     // `any` is used here to facilitate the type merging of the legacy table config, which is very
     // different to the new structure.
-    unverifiedConfig: dataform.ActionConfig.TableConfig | ILegacyTableConfig | any
-  ): dataform.ActionConfig.TableConfig {
+    unverifiedConfig: sqlanvil.ActionConfig.TableConfig | ILegacyTableConfig | any
+  ): sqlanvil.ActionConfig.TableConfig {
     // The "type" field only exists on legacy table configs. Here we convert them to the
     // new format.
     if (unverifiedConfig.type) {
@@ -669,7 +669,7 @@ export class Table extends ActionBuilder<dataform.Table> {
     }
 
     const config = verifyObjectMatchesProto(
-      dataform.ActionConfig.TableConfig,
+      sqlanvil.ActionConfig.TableConfig,
       unverifiedConfig,
       VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
     );
@@ -678,7 +678,7 @@ export class Table extends ActionBuilder<dataform.Table> {
       this.session.compileError(
         `requirePartitionFilter/partitionExpirationDays are not valid for non partitioned BigQuery tables`,
         config.filename,
-        dataform.Target.create({
+        sqlanvil.Target.create({
           database: config.project,
           schema: config.dataset,
           name: config.name
@@ -768,7 +768,7 @@ export class TableContext implements ITableContext {
     return "";
   }
 
-  public bigquery(bigquery: dataform.IBigQueryOptions) {
+  public bigquery(bigquery: sqlanvil.IBigQueryOptions) {
     this.table.bigquery(bigquery);
     return "";
   }

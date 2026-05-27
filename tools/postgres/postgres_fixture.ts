@@ -1,8 +1,8 @@
 import * as pg from "pg";
 
 import { execSync } from "child_process";
-import { sleepUntil } from "df/common/promises";
-import { IHookHandler } from "df/testing";
+import { sleepUntil } from "sa/common/promises";
+import { IHookHandler } from "sa/testing";
 
 const USE_CLOUD_BUILD_NETWORK = !!process.env.USE_CLOUD_BUILD_NETWORK;
 const DOCKER_CONTAINER_NAME = "postgres-df-integration-testing";

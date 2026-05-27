@@ -1,5 +1,5 @@
-import { Session } from "df/core/session";
-import { dataform } from "df/protos/ts";
+import { Session } from "sa/core/session";
+import { sqlanvil } from "sa/protos/ts";
 
 /**
  * Extension interface.
@@ -9,5 +9,5 @@ export interface IDataformExtension {
      * Run additional compilation steps.
      * Passed session should be used for both new nodes creation and persisting errors.
      */
-    compile(request: dataform.ICompileExecutionRequest, session: Session): void;
+    compile(request: sqlanvil.ICompileExecutionRequest, session: Session): void;
 }

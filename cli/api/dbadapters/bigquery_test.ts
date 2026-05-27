@@ -2,9 +2,9 @@ import { Dataset, Table } from "@google-cloud/bigquery";
 import { expect } from "chai";
 import { anything, instance, mock, verify, when } from "ts-mockito";
 
-import { BigQueryDbAdapter } from "df/cli/api/dbadapters/bigquery";
-import { dataform } from "df/protos/ts";
-import { suite, test } from "df/testing";
+import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
+import { sqlanvil } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
 
 suite("BigQueryDbAdapter", () => {
   test("tables() with schema filters correctly", async () => {
@@ -16,7 +16,7 @@ suite("BigQueryDbAdapter", () => {
     const schemaName = "schema1";
     const projectId = "project1";
 
-    const credentials = dataform.BigQuery.create({ projectId, location: "US" });
+    const credentials = sqlanvil.BigQuery.create({ projectId, location: "US" });
     const adapter = new BigQueryDbAdapter(credentials, { bigqueryClient: instance(mockBigQuery) });
 
     when(mockBigQuery.dataset(schemaName)).thenReturn(instance(mockDataset));
@@ -53,7 +53,7 @@ suite("BigQueryDbAdapter", () => {
     const tableName = "table1";
     const projectId = "project";
 
-    const credentials = dataform.BigQuery.create({ projectId, location: "US" });
+    const credentials = sqlanvil.BigQuery.create({ projectId, location: "US" });
     const adapter = new BigQueryDbAdapter(credentials, { bigqueryClient: instance(mockBigQuery) });
 
     when(mockBigQuery.dataset(schemaName)).thenReturn(instance(mockDataset));

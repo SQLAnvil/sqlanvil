@@ -1,14 +1,14 @@
 import { expect } from "chai";
 
-import * as dfapi from "df/api";
-import * as dbadapters from "df/api/dbadapters";
-import * as adapters from "df/core/adapters";
-import { RedshiftAdapter } from "df/core/adapters/redshift";
-import { targetAsReadableString } from "df/core/targets";
-import { dataform } from "df/protos/ts";
-import { suite, test } from "df/testing";
-import { compile, getTableRows, keyBy } from "df/tests/integration/utils";
-import { PostgresFixture } from "df/tools/postgres/postgres_fixture";
+import * as dfapi from "sa/api";
+import * as dbadapters from "sa/api/dbadapters";
+import * as adapters from "sa/core/adapters";
+import { RedshiftAdapter } from "sa/core/adapters/redshift";
+import { targetAsReadableString } from "sa/core/targets";
+import { sqlanvil } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
+import { compile, getTableRows, keyBy } from "sa/tests/integration/utils";
+import { PostgresFixture } from "sa/tools/postgres/postgres_fixture";
 
 suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) => {
   let dbadapter: dbadapters.IDbAdapter;
@@ -45,8 +45,8 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     ];
     for (const actionName of Object.keys(actionMap)) {
       const expectedResult = expectedFailedActions.includes(actionName)
-        ? dataform.ActionResult.ExecutionStatus.FAILED
-        : dataform.ActionResult.ExecutionStatus.SUCCESSFUL;
+        ? sqlanvil.ActionResult.ExecutionStatus.FAILED
+        : sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL;
       expect(actionMap[actionName].status).equals(
         expectedResult,
         actionMap[actionName].tasks.map(task => task.errorMessage).join("\n")
@@ -59,7 +59,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     ).to.eql("postgres error: Assertion failed: query returned 1 row(s).");
 
     // Check the data in the incremental table.
-    const adapter = adapters.create(compiledGraph.projectConfig, compiledGraph.dataformCoreVersion);
+    const adapter = adapters.create(compiledGraph.projectConfig, compiledGraph.sqlanvilCoreVersion);
     let incrementalTable = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
       "df_integration_test_project_e2e.example_incremental"
     ];
@@ -88,7 +88,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     );
     executedGraph = await dfapi.run(dbadapter, executionGraph).result();
     expect(executedGraph.status).equals(
-      dataform.RunResult.ExecutionStatus.SUCCESSFUL,
+      sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL,
       executedGraph.actions
         .map(action => action.tasks.map(task => task.errorMessage).join("\n"))
         .join("\n")
@@ -122,8 +122,8 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       dbadapter
     );
     const runResult = await dfapi.run(dbadapter, executionGraph).result();
-    expect(dataform.RunResult.ExecutionStatus[runResult.status]).eql(
-      dataform.RunResult.ExecutionStatus[dataform.RunResult.ExecutionStatus.SUCCESSFUL]
+    expect(sqlanvil.RunResult.ExecutionStatus[runResult.status]).eql(
+      sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL]
     );
 
     // Check expected metadata.
@@ -135,15 +135,15 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
         },
         expectedDescription: "An incremental 'table'",
         expectedFields: [
-          dataform.Field.create({
+          sqlanvil.Field.create({
             description: "the 'timestamp'",
             name: "user_timestamp",
-            primitive: dataform.Field.Primitive.INTEGER
+            primitive: sqlanvil.Field.Primitive.INTEGER
           }),
-          dataform.Field.create({
+          sqlanvil.Field.create({
             description: "the id",
             name: "user_id",
-            primitive: dataform.Field.Primitive.INTEGER
+            primitive: sqlanvil.Field.Primitive.INTEGER
           })
         ]
       },
@@ -154,10 +154,10 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
         },
         expectedDescription: "An example view",
         expectedFields: [
-          dataform.Field.create({
+          sqlanvil.Field.create({
             name: "val",
             description: "val doc",
-            primitive: dataform.Field.Primitive.INTEGER
+            primitive: sqlanvil.Field.Primitive.INTEGER
           })
         ]
       }
@@ -239,58 +239,58 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       const view = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
         "df_integration_test_evaluate.example_view"
       ];
-      let evaluations = await dbadapter.evaluate(dataform.Table.create(view));
+      let evaluations = await dbadapter.evaluate(sqlanvil.Table.create(view));
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        dataform.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
       );
 
       const table = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
         "df_integration_test_evaluate.example_table"
       ];
-      evaluations = await dbadapter.evaluate(dataform.Table.create(table));
+      evaluations = await dbadapter.evaluate(sqlanvil.Table.create(table));
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        dataform.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
       );
 
       const assertion = keyBy(compiledGraph.assertions, t => targetAsReadableString(t.target))[
         "df_integration_test_assertions_evaluate.example_assertion_pass"
       ];
-      evaluations = await dbadapter.evaluate(dataform.Assertion.create(assertion));
+      evaluations = await dbadapter.evaluate(sqlanvil.Assertion.create(assertion));
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        dataform.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
       );
 
       const incremental = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
         "df_integration_test_evaluate.example_incremental"
       ];
-      evaluations = await dbadapter.evaluate(dataform.Table.create(incremental));
+      evaluations = await dbadapter.evaluate(sqlanvil.Table.create(incremental));
       expect(evaluations.length).to.equal(2);
       expect(evaluations[0].status).to.equal(
-        dataform.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
       );
       expect(evaluations[1].status).to.equal(
-        dataform.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
       );
     });
 
     test("invalid table fails validation", async () => {
       const evaluations = await dbadapter.evaluate(
-        dataform.Table.create({
-          enumType: dataform.TableType.TABLE,
+        sqlanvil.Table.create({
+          enumType: sqlanvil.TableType.TABLE,
           query: "thisisillegal",
           target: {
             schema: "df_integration_test",
             name: "example_illegal_table",
-            database: "dataform-integration-tests"
+            database: "sqlanvil-integration-tests"
           }
         })
       );
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        dataform.QueryEvaluation.QueryEvaluationStatus.FAILURE
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE
       );
     });
   });
@@ -298,8 +298,8 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
   suite("publish tasks", async () => {
     test("incremental pre and post ops, core version <= 1.4.8", async () => {
       // 1.4.8 used `preOps` and `postOps` instead of `incrementalPreOps` and `incrementalPostOps`.
-      const table: dataform.ITable = {
-        enumType: dataform.TableType.INCREMENTAL,
+      const table: sqlanvil.ITable = {
+        enumType: sqlanvil.TableType.INCREMENTAL,
         query: "query",
         preOps: ["preop task1", "preop task2"],
         incrementalQuery: "",
@@ -338,8 +338,8 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       dbadapter
     );
     const runResult = await dfapi.run(dbadapter, executionGraph).result();
-    expect(dataform.RunResult.ExecutionStatus[runResult.status]).eql(
-      dataform.RunResult.ExecutionStatus[dataform.RunResult.ExecutionStatus.SUCCESSFUL]
+    expect(sqlanvil.RunResult.ExecutionStatus[runResult.status]).eql(
+      sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL]
     );
 
     const [fullSearch, partialSearch, columnSearch] = await Promise.all([

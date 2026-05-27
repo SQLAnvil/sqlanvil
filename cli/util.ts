@@ -7,9 +7,9 @@ import {
   print,
   printError,
   printSuccess,
-} from "df/cli/console";
-import {validateConnectionFormat} from "df/core/utils"
-import { dataform } from "df/protos/ts";
+} from "sa/cli/console";
+import {validateConnectionFormat} from "sa/core/utils"
+import { sqlanvil } from "sa/protos/ts";
 
 export function actuallyResolve(...filePaths: string[]) {
   return path.resolve(...filePaths.map(filePath => untildify(filePath)));
@@ -21,7 +21,7 @@ export function assertPathExists(checkPath: string) {
   }
 }
 
-export function compiledGraphHasErrors(graph: dataform.ICompiledGraph) {
+export function compiledGraphHasErrors(graph: sqlanvil.ICompiledGraph) {
   return graph.graphErrors?.compilationErrors?.length > 0;
 }
 
@@ -60,11 +60,11 @@ export function formatBytesInHumanReadableFormat(bytes: number): string {
  * @returns Constructed DefaultIcebergConfig object, or undefined if no inputs
  * were provided.
  */
-export function promptForIcebergConfig(): dataform.IDefaultIcebergConfig | undefined {
+export function promptForIcebergConfig(): sqlanvil.IDefaultIcebergConfig | undefined {
   print(ICEBERG_CONFIG_PROMPT_TEXT);
   print(ICEBERG_CONFIG_PROMPT_HINT);
 
-  const tempIcebergConfig: dataform.IDefaultIcebergConfig = {};
+  const tempIcebergConfig: sqlanvil.IDefaultIcebergConfig = {};
 
   let bucketName: string;
   while (true) {

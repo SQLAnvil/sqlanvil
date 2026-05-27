@@ -1,14 +1,14 @@
-import { prune } from "df/cli/api/commands/prune";
-import { state } from "df/cli/api/commands/state";
-import * as dbadapters from "df/cli/api/dbadapters";
-import { ExecutionSql } from "df/cli/api/dbadapters/execution_sql";
-import { targetStringifier } from "df/core/targets";
-import * as utils from "df/core/utils";
-import { dataform } from "df/protos/ts";
+import { prune } from "sa/cli/api/commands/prune";
+import { state } from "sa/cli/api/commands/state";
+import * as dbadapters from "sa/cli/api/dbadapters";
+import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
+import { targetStringifier } from "sa/core/targets";
+import * as utils from "sa/core/utils";
+import { sqlanvil } from "sa/protos/ts";
 
 export async function build(
-  compiledGraph: dataform.ICompiledGraph,
-  runConfig: dataform.IRunConfig,
+  compiledGraph: sqlanvil.ICompiledGraph,
+  runConfig: sqlanvil.IRunConfig,
   dbadapter: dbadapters.IDbAdapter
 ) {
   const prunedGraph = prune(compiledGraph, runConfig);
@@ -31,29 +31,29 @@ export class Builder {
   private readonly executionSql: ExecutionSql;
 
   constructor(
-    private readonly prunedGraph: dataform.ICompiledGraph,
-    private readonly runConfig: dataform.IRunConfig,
-    private readonly warehouseState: dataform.IWarehouseState
+    private readonly prunedGraph: sqlanvil.ICompiledGraph,
+    private readonly runConfig: sqlanvil.IRunConfig,
+    private readonly warehouseState: sqlanvil.IWarehouseState
   ) {
     this.executionSql = new ExecutionSql(
       prunedGraph.projectConfig,
-      prunedGraph.dataformCoreVersion || "1.0.0"
+      prunedGraph.sqlanvilCoreVersion || "1.0.0"
     );
     prunedGraph.tables.forEach(utils.setOrValidateTableEnumType);
   }
 
-  public build(): dataform.ExecutionGraph {
+  public build(): sqlanvil.ExecutionGraph {
     if (utils.graphHasErrors(this.prunedGraph)) {
       throw new Error(`Project has unresolved compilation or validation errors.`);
     }
 
-    const tableMetadataByTarget = new Map<string, dataform.ITableMetadata>();
+    const tableMetadataByTarget = new Map<string, sqlanvil.ITableMetadata>();
 
     this.warehouseState.tables.forEach(tableState => {
       tableMetadataByTarget.set(targetStringifier.stringify(tableState.target), tableState);
     });
 
-    const actions: dataform.IExecutionAction[] = [].concat(
+    const actions: sqlanvil.IExecutionAction[] = [].concat(
       this.prunedGraph.tables.map(t =>
         this.buildTable(
           t,
@@ -64,7 +64,7 @@ export class Builder {
       this.prunedGraph.operations.map(o => this.buildOperation(o)),
       this.prunedGraph.assertions.map(a => this.buildAssertion(a))
     );
-    return dataform.ExecutionGraph.create({
+    return sqlanvil.ExecutionGraph.create({
       projectConfig: this.prunedGraph.projectConfig,
       runConfig: this.runConfig,
       warehouseState: this.warehouseState,
@@ -74,9 +74,9 @@ export class Builder {
   }
 
   private buildTable(
-    table: dataform.ITable,
-    tableMetadata: dataform.ITableMetadata,
-    runConfig: dataform.IRunConfig
+    table: sqlanvil.ITable,
+    tableMetadata: sqlanvil.ITableMetadata,
+    runConfig: sqlanvil.IRunConfig
   ) {
     return {
       ...this.toPartialExecutionAction(table),
@@ -85,36 +85,36 @@ export class Builder {
       tasks: table.disabled
         ? []
         : this.executionSql.publishTasks(table, runConfig, tableMetadata).build(),
-      hermeticity: table.hermeticity || dataform.ActionHermeticity.HERMETIC
+      hermeticity: table.hermeticity || sqlanvil.ActionHermeticity.HERMETIC
     };
   }
 
-  private buildOperation(operation: dataform.IOperation) {
+  private buildOperation(operation: sqlanvil.IOperation) {
     return {
       ...this.toPartialExecutionAction(operation),
       type: "operation",
       tasks: operation.disabled
         ? []
         : operation.queries.map(statement => ({ type: "statement", statement })),
-      hermeticity: operation.hermeticity || dataform.ActionHermeticity.NON_HERMETIC
+      hermeticity: operation.hermeticity || sqlanvil.ActionHermeticity.NON_HERMETIC
     };
   }
 
-  private buildAssertion(assertion: dataform.IAssertion) {
+  private buildAssertion(assertion: sqlanvil.IAssertion) {
     return {
       ...this.toPartialExecutionAction(assertion),
       type: "assertion",
       tasks: assertion.disabled
         ? []
         : this.executionSql.assertTasks(assertion, this.prunedGraph.projectConfig).build(),
-      hermeticity: assertion.hermeticity || dataform.ActionHermeticity.HERMETIC
+      hermeticity: assertion.hermeticity || sqlanvil.ActionHermeticity.HERMETIC
     };
   }
 
   private toPartialExecutionAction(
-    action: dataform.ITable | dataform.IOperation | dataform.IAssertion
+    action: sqlanvil.ITable | sqlanvil.IOperation | sqlanvil.IAssertion
   ) {
-    return dataform.ExecutionAction.create({
+    return sqlanvil.ExecutionAction.create({
       target: action.target,
       fileName: action.fileName,
       dependencyTargets: action.dependencyTargets,

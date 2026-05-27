@@ -1,7 +1,7 @@
 import { expect } from "chai";
 
-import { compile } from "df/core/compilers";
-import { suite, test } from "df/testing";
+import { compile } from "sa/core/compilers";
+import { suite, test } from "sa/testing";
 
 suite("core/compilers", () => {
     suite("compile", () => {
@@ -9,7 +9,7 @@ suite("core/compilers", () => {
             const code = `config { type: "table" } select 1`;
             const path = "definitions/foo.sqlx";
             const result = compile(code, path);
-            expect(result).to.include("dataform.sqlxAction");
+            expect(result).to.include("sqlanvil.sqlxAction");
             expect(result).to.include("name: \"foo\"");
             expect(result).to.include("{ type: \"table\" }");
             // The sqlx compiler will format the query.
