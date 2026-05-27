@@ -15,8 +15,11 @@ bazel-*
 go.sum
 
 .df-credentials.json
+.sa-credentials.json
 secret.json
 bigquery.json
+# All JSON in test_credentials/ is service-account keys etc. — never commit.
+test_credentials/*.json
 
 yarn-error.log
 
