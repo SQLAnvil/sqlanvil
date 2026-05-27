@@ -59,23 +59,23 @@ documents.onDidSave(change => {
 });
 
 async function applySettings() {
-  settings = await connection.workspace.getConfiguration("dataform");
+  settings = await connection.workspace.getConfiguration("sqlanvil");
 }
 
 async function compileAndValidate() {
   let compilationFailed = false;
-  const spawnedProcess = spawn("dataform", ["compile", "--json", ...settings.compilerOptions], {
+  const spawnedProcess = spawn("sqlanvil", ["compile", "--json", ...settings.compilerOptions], {
     shell: true
   });
 
   const compileResult = await getProcessResult(spawnedProcess);
   if (compileResult.exitCode !== 0) {
     // tslint:disable-next-line: no-console
-    console.error("Error running 'dataform compile':", compileResult);
+    console.error("Error running 'sqlanvil compile':", compileResult);
     if (compileResult.error?.code === "ENOENT") {
       connection.sendNotification(
         "error",
-        "Errors encountered when running 'dataform' CLI. Please ensure that the CLI is installed and up-to-date: 'npm i -g @sqlanvil/cli'."
+        "Errors encountered when running 'sqlanvil' CLI. Please ensure that the CLI is installed and up-to-date: 'npm i -g @sqlanvil/cli'."
       );
       return;
     } else {
@@ -88,10 +88,10 @@ async function compileAndValidate() {
     parsedResult = JSON.parse(compileResult.stdout);
   } catch (e) {
     // tslint:disable-next-line: no-console
-    console.error("Error parsing 'dataform compile' output", e);
+    console.error("Error parsing 'sqlanvil compile' output", e);
     connection.sendNotification(
       "error",
-      "Error parsing 'dataform compile' output. Please check the output for more information."
+      "Error parsing 'sqlanvil compile' output. Please check the output for more information."
     );
     return;
   }
@@ -106,7 +106,7 @@ async function compileAndValidate() {
     if (compilationFailed) {
       connection.sendNotification(
         "error",
-        "Errors encountered when running 'dataform' CLI. Please check the output for more information."
+        "Errors encountered when running 'sqlanvil' CLI. Please check the output for more information."
       );
       return;
     }

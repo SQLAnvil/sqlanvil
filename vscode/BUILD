@@ -43,7 +43,7 @@ sh_binary(
     srcs = ["packager.sh"],
     data = [
         ":language-configuration.json",
-        ":dataform_logo.png",
+        ":sqlanvil_logo.png",
         ":package.json",
         ":README.md",
         ":LICENSE",

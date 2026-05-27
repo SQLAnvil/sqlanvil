@@ -27,8 +27,8 @@ export function getBigQueryCredentials(): sqlanvil.IBigQuery {
   }
   const cloudCredentialsPath = actuallyResolve(
     question(
-      "Please follow the instructions at https://docs.sqlanvil.co/dataform-cli#create-a-credentials-file/\n" +
-        "to create and download a private key from the Google Cloud Console in JSON format.\n" +
+      "Follow instructions for creating a service account key for BigQuery access\n" +
+        "(see https://cloud.google.com/iam/docs/keys-create-delete) and download as JSON.\n" +
         "(You can delete this file after credential initialization is complete.)\n\n" +
         "Enter the path to your Google Cloud private key file:"
     )

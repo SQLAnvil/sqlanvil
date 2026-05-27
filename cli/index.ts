@@ -46,7 +46,7 @@ process.on("unhandledRejection", async (reason: any) => {
 const projectDirOption: INamedOption<yargs.PositionalOptions> = {
   name: "project-dir",
   option: {
-    describe: "The Dataform project directory.",
+    describe: "The sqlanvil project directory.",
     default: ".",
     coerce: actuallyResolve
   }
@@ -180,7 +180,7 @@ const timeoutOption: INamedOption<yargs.Options> = {
 const jobPrefixOption: INamedOption<yargs.Options> = {
   name: "job-prefix",
   option: {
-    describe: "Adds an additional prefix in the form of `dataform-${jobPrefix}-`.",
+    describe: "Adds an additional prefix in the form of `sqlanvil-${jobPrefix}-`.",
     type: "string",
     default: null
   }
@@ -209,7 +209,7 @@ const bigqueryJobLabelsOption: INamedOption<yargs.Options> = {
 const quietCompileOption: INamedOption<yargs.Options> = {
   name: "quiet",
   option: {
-    describe: "Less verbose compilation output. Example usage: 'dataform compile --quiet'",
+    describe: "Less verbose compilation output. Example usage: 'sqlanvil compile --quiet'",
     type: "boolean",
     default: false
   }
@@ -257,7 +257,7 @@ export function runCli() {
         format:
           `init [${projectDirOption.name}] [${ProjectConfigOptions.defaultDatabase.name}]` +
           ` [${ProjectConfigOptions.defaultLocation.name}]`,
-        description: "Create a new dataform project.",
+        description: "Create a new sqlanvil project.",
         positionalOptions: [
           projectDirOption,
           {
@@ -269,7 +269,7 @@ export function runCli() {
               if (!argv[ProjectConfigOptions.defaultDatabase.name]) {
                 throw new Error(
                   `The ${ProjectConfigOptions.defaultDatabase.name} positional argument is ` +
-                    `required. Use "dataform help init" for more info.`
+                    `required. Use "sqlanvil help init" for more info.`
                 );
               }
             }
@@ -285,7 +285,7 @@ export function runCli() {
               if (!argv[ProjectConfigOptions.defaultLocation.name]) {
                 throw new Error(
                   `The ${ProjectConfigOptions.defaultLocation.name} positional argument is ` +
-                    `required. Use "dataform help init" for more info.`
+                    `required. Use "sqlanvil help init" for more info.`
                 );
               }
             }
@@ -328,7 +328,7 @@ export function runCli() {
       {
         format: `init-creds [${projectDirMustExistOption.name}]`,
         description:
-          `Create a ${credentials.CREDENTIALS_FILENAME} file for Dataform to use when ` +
+          `Create a ${credentials.CREDENTIALS_FILENAME} file for sqlanvil to use when ` +
           `accessing BigQuery.`,
         positionalOptions: [projectDirMustExistOption],
         options: [
@@ -377,7 +377,7 @@ export function runCli() {
       {
         format: `compile [${projectDirMustExistOption.name}]`,
         description:
-          "Compile the dataform project. Produces JSON output describing the non-executable graph.",
+          "Compile the sqlanvil project. Produces JSON output describing the non-executable graph.",
         positionalOptions: [projectDirMustExistOption],
         options: [
           {
@@ -395,7 +395,7 @@ export function runCli() {
           {
             name: verboseOptionName,
             option: {
-              describe: "Enable verbose compilation output. Example usage: 'dataform compile --verbose'",
+              describe: "Enable verbose compilation output. Example usage: 'sqlanvil compile --verbose'",
               type: "boolean",
               default: false
             },
@@ -500,7 +500,7 @@ export function runCli() {
       },
       {
         format: `test [${projectDirMustExistOption.name}]`,
-        description: "Run the dataform project's unit tests.",
+        description: "Run the sqlanvil project's unit tests.",
         positionalOptions: [projectDirMustExistOption],
         options: [credentialsOption, timeoutOption, jsonOutputOption, ...ProjectConfigOptions.allYargsOptions],
         processFn: async argv => {
@@ -544,7 +544,7 @@ export function runCli() {
       },
       {
         format: `run [${projectDirMustExistOption.name}]`,
-        description: "Run the dataform project.",
+        description: "Run the sqlanvil project.",
         positionalOptions: [projectDirMustExistOption],
         options: [
           {
@@ -703,7 +703,7 @@ export function runCli() {
       },
       {
         format: `format [${projectDirMustExistOption.name}]`,
-        description: "Format the dataform project's files.",
+        description: "Format the sqlanvil project's files.",
         positionalOptions: [projectDirMustExistOption],
         options: [
           actionsOption,
@@ -790,16 +790,16 @@ export function runCli() {
       }
     ]
   })
-    .scriptName("dataform")
+    .scriptName("sqlanvil")
     .strict()
     .wrap(null)
     .recommendCommands()
     .fail(async (msg: string, err: any) => {
       if (!!err && err.name === "VMError" && err.message.includes("Cannot find module")) {
-        printError("Could not find NPM dependencies. Have you run 'dataform install'?");
+        printError("Could not find NPM dependencies. Have you run 'sqlanvil install'?");
       } else {
         const message = err?.message ? err.message.split("\n")[0] : msg;
-        printError(`Dataform encountered an error: ${message}`);
+        printError(`sqlanvil encountered an error: ${message}`);
         if (err?.stack) {
           printError(err.stack);
         }

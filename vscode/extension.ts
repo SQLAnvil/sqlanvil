@@ -31,8 +31,8 @@ export async function activate(context: vscode.ExtensionContext) {
   };
 
   client = new LanguageClient(
-    "dataformLanguageServer",
-    "Dataform Language Server",
+    "sqlanvilLanguageServer",
+    "sqlanvil Language Server",
     serverOptions,
     clientOptions
   );
@@ -61,12 +61,12 @@ export async function activate(context: vscode.ExtensionContext) {
   // We also can add the extension to "extensionDependencies" in package.json,
   // but this way we can avoid forcing users to install the extension.
   // You can control this recommendation behavior through the setting.
-  if (workspace.getConfiguration("dataform").get("recommendYamlExtension")) {
+  if (workspace.getConfiguration("sqlanvil").get("recommendYamlExtension")) {
     const yamlExtension = vscode.extensions.getExtension("redhat.vscode-yaml");
     if (!yamlExtension) {
       await vscode.window
         .showInformationMessage(
-          "The Dataform extension recommends installing the YAML extension for workflow_settings.yaml support.",
+          "The sqlanvil extension recommends installing the YAML extension for workflow_settings.yaml support.",
           "Install",
           "Don't show again"
         )
@@ -77,7 +77,7 @@ export async function activate(context: vscode.ExtensionContext) {
           } else if (selection === "Don't show again") {
             // Disable the recommendation
             workspace
-              .getConfiguration("dataform")
+              .getConfiguration("sqlanvil")
               .update("recommendYamlExtension", false, vscode.ConfigurationTarget.Global);
           }
         });

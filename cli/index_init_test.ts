@@ -44,7 +44,7 @@ suite("init command", ({ afterEach }) => {
 defaultProject: sqlanvil-database
 defaultLocation: us-central1
 defaultDataset: sqlanvil
-defaultAssertionDataset: dataform_assertions
+defaultAssertionDataset: sqlanvil_assertions
 `);
   });
 
@@ -280,14 +280,14 @@ defaultAssertionDataset: dataform_assertions
 suite("init-creds command", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);
 
-  test("init-creds fails for directory without dataform config", async () => {
+  test("init-creds fails for directory without sqlanvil config", async () => {
     const emptyDir = tmpDirFixture.createNewTmpDir();
     const result = await getProcessResult(
       execFile(nodePath, [cliEntryPointPath, "init-creds", emptyDir])
     );
     expect(result.exitCode).to.not.equal(0);
     expect(result.stderr).to.include(
-      `${emptyDir} does not appear to be a dataform directory (missing workflow_settings.yaml file).`
+      `${emptyDir} does not appear to be a sqlanvil directory (missing workflow_settings.yaml file).`
     );
   });
 });
