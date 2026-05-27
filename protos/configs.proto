@@ -744,3 +744,188 @@ message NotebookRuntimeOptionsConfig {
   }
 
 }
+
+// =============================================================================
+// Postgres-first-class adapter — additions per
+// docs/postgres_first_class_design.md. Phase 3c.
+//
+// These messages are declared here for wiring in subsequent phases:
+//   - PostgresOptions / SupabaseOptions      → ActionConfig table-level blocks
+//   - PostgresConnection / SupabaseConnection / BigQueryConnection
+//                                            → WorkflowSettings.warehouse
+//   - WarehouseConfig                        → discriminated union over the
+//                                              connection variants
+//
+// Adding the messages alone does not change behavior — wiring happens in
+// Phase 4 (CLI) and the parallel rewrite of ActionConfig's table/view/
+// incremental_table sub-messages.
+// =============================================================================
+
+// PostgresOptions — Postgres-native table-level options. Mirrors what
+// BigQueryOptions-style fields do in TableConfig but in idiomatic Postgres.
+//
+// Used as a peer of the existing `bigquery: {...}` shape on action configs:
+//   publish("daily_orders", { postgres: { tablespace: "fast_ssd", ... } })
+message PostgresOptions {
+  // Physical storage placement (CREATE TABLE ... TABLESPACE <name>).
+  string tablespace = 1;
+
+  // Storage parameter — fraction of each page to fill on insert (1-100).
+  uint32 fillfactor = 2;
+
+  // CREATE UNLOGGED TABLE — faster writes, lost on crash. For staging/temp
+  // tables where durability isn't required.
+  bool unlogged = 3;
+
+  // Native Postgres declarative partitioning.
+  message Partition {
+    enum Kind {
+      RANGE = 0;
+      LIST = 1;
+      HASH = 2;
+    }
+    Kind kind = 1;
+    repeated string columns = 2;
+  }
+  Partition partition = 4;
+
+  // Indexes to create alongside the table.
+  message Index {
+    string name = 1;
+    repeated string columns = 2;
+
+    enum Method {
+      BTREE = 0;
+      HASH = 1;
+      GIN = 2;
+      GIST = 3;
+      BRIN = 4;
+    }
+    Method method = 3;
+
+    // Partial index predicate (WHERE <expr>).
+    string where = 4;
+
+    bool unique = 5;
+
+    // INCLUDE non-key columns for covering indexes.
+    repeated string include = 6;
+  }
+  repeated Index indexes = 5;
+
+  // Materialized view: WITH DATA vs WITH NO DATA on initial creation.
+  bool with_data = 6;
+
+  // Materialized view refresh policy. "manual" | "on_dependency_change".
+  string refresh_policy = 7;
+}
+
+// SupabaseOptions — Supabase-specific platform features layered on top of
+// standard Postgres. Used as a peer of `postgres: {...}` for projects
+// targeting `warehouse: { kind: supabase }`.
+message SupabaseOptions {
+  // Standard Postgres options apply. Set these via `postgres:` directly or
+  // nest under `supabase.postgres:` — either is accepted.
+  PostgresOptions postgres = 1;
+
+  // ALTER PUBLICATION supabase_realtime ADD TABLE <this>.
+  // Implicitly sets REPLICA IDENTITY appropriately.
+  bool publish_to_realtime = 2;
+
+  // ALTER TABLE <this> ENABLE ROW LEVEL SECURITY.
+  // Note: only enables RLS — policies are declared via the `rlsPolicy`
+  // action type (see Phase 5).
+  bool enable_rls = 3;
+
+  // OWNER TO <role>. Typically "postgres" or "service_role".
+  string owner_role = 4;
+
+  // pgvector convenience config. Equivalent to declaring a
+  // PostgresOptions.Index with method=HNSW or method=GIST + ivfflat ops,
+  // but more ergonomic for RAG pipelines.
+  message VectorConfig {
+    string column = 1;
+    uint32 dimensions = 2;
+
+    enum IndexType {
+      IVFFLAT = 0;
+      HNSW = 1;
+    }
+    IndexType index_type = 3;
+
+    // ivfflat: { lists }, hnsw: { m, ef_construction }.
+    map<string, string> params = 4;
+  }
+  repeated VectorConfig vectors = 5;
+}
+
+// BigQueryConnection — connection params for warehouse.kind = "bigquery".
+// Mirrors the legacy flat fields on WorkflowSettings (default_project,
+// default_location, default_dataset) but namespaced under warehouse.
+message BigQueryConnection {
+  // The Google Cloud project (database).
+  string project = 1;
+
+  // BigQuery location, e.g. "US", "EU", "europe-west4".
+  string location = 2;
+
+  // Default dataset (schema).
+  string default_dataset = 3;
+}
+
+// PostgresConnection — libpq-style connection params for
+// warehouse.kind = "postgres". Standard Postgres host/port/database/user.
+message PostgresConnection {
+  string host = 1;
+  uint32 port = 2;
+  string database = 3;
+  string user = 4;
+  string password = 5;
+
+  // SSL mode: "disable" | "allow" | "prefer" | "require" | "verify-ca"
+  // | "verify-full". See https://www.postgresql.org/docs/current/libpq-ssl.html.
+  string ssl_mode = 6;
+
+  string default_schema = 7;
+}
+
+// SupabaseConnection — connection params for warehouse.kind = "supabase".
+// Supabase projects expose a Postgres connection via project_ref +
+// service_role_key, or a direct connection string for bypassing PostgREST.
+message SupabaseConnection {
+  // From the Supabase dashboard (project URL host before .supabase.co).
+  string project_ref = 1;
+
+  // Project service-role JWT. NEVER commit literally — use ${ENV_VAR}
+  // interpolation in workflow_settings.yaml.
+  string service_role_key = 2;
+
+  string default_schema = 3;
+
+  // Optional override — direct Postgres URL bypassing the PostgREST proxy.
+  // e.g. "postgresql://postgres:${PASSWORD}@db.<project_ref>.supabase.co:5432/postgres".
+  // If set, takes precedence over project_ref + service_role_key for the
+  // direct DB connection. service_role_key is still used for RLS bypass.
+  string connection_string = 4;
+}
+
+// WarehouseConfig — discriminated union over connection variants. The
+// `kind:` YAML tag selects which `oneof` arm is unmarshalled.
+//
+// Example YAML:
+//   warehouse:
+//     kind: postgres
+//     host: db.example.com
+//     port: 5432
+//     database: analytics
+//     user: sqlanvil_writer
+//     password: ${PG_PASSWORD}
+//     ssl_mode: require
+//     default_schema: public
+message WarehouseConfig {
+  oneof connection {
+    BigQueryConnection bigquery = 1;
+    PostgresConnection postgres = 2;
+    SupabaseConnection supabase = 3;
+  }
+}
