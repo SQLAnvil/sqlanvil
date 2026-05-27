@@ -1,0 +1,55 @@
+# Dev container for building sqlanvil on Linux.
+#
+# Why: the pinned Bazel 5.4 + 2022-era rules_proto/protobuf chain does not
+# build on macOS Tahoe (wrapped_clang missing LC_UUID, Apple SDK header
+# conflicts with old protobuf). On Linux those issues don't apply.
+#
+# Build the image once:
+#   docker build -f Dockerfile.dev -t sqlanvil-dev .
+#
+# Run a one-shot Bazel command (caches persist in a named volume):
+#   docker run --rm -it \
+#     -v "$PWD:/workspace" \
+#     -v sqlanvil-bazel-cache:/root/.cache/bazel \
+#     -v sqlanvil-bazel-disk:/root/.cache/bazel-disk \
+#     sqlanvil-dev bazel build //protos:sqlanvil_proto
+#
+# Drop into a shell:
+#   docker run --rm -it \
+#     -v "$PWD:/workspace" \
+#     -v sqlanvil-bazel-cache:/root/.cache/bazel \
+#     -v sqlanvil-bazel-disk:/root/.cache/bazel-disk \
+#     sqlanvil-dev
+#
+# Or use the wrapper: ./scripts/docker-bazel build //protos:sqlanvil_proto
+
+FROM node:20-bookworm
+
+# Bazel needs: JDK, python (for some rules), git, build-essential, unzip,
+# zip, and the usual C/C++ toolchain (gcc, g++, make).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+        gnupg \
+        openjdk-17-jdk-headless \
+        python3 \
+        python-is-python3 \
+        build-essential \
+        unzip \
+        zip \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Bazelisk — reads .bazelversion and downloads the matching Bazel.
+RUN npm install -g @bazel/bazelisk
+
+# Bazel writes a lot to ~/.cache/bazel; expose it as a volume target so
+# the host docker volume sticks across runs.
+ENV BAZEL_DISK_CACHE_DIR=/root/.cache/bazel-disk
+RUN mkdir -p /root/.cache/bazel /root/.cache/bazel-disk
+
+WORKDIR /workspace
+
+# Default to an interactive shell. Override with the bazel command you want.
+CMD ["bash"]

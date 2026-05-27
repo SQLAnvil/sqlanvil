@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Run a bazel command inside the sqlanvil-dev Docker container.
+#
+# Usage:
+#   ./scripts/docker-bazel build //protos:sqlanvil_proto
+#   ./scripts/docker-bazel test //core/...
+#   ./scripts/docker-bazel build //...
+#   ./scripts/docker-bazel              # drops into an interactive shell
+#
+# First run is slow: pulls the node:20 base image, installs deps, then
+# downloads Bazel 5.4 + all toolchains/rules from cold. Subsequent runs
+# reuse the named volumes for the Bazel cache.
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+IMAGE="sqlanvil-dev"
+
+# Build the image if it doesn't exist locally yet.
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  echo "Building $IMAGE image (one-time setup)..." >&2
+  docker build -f "$REPO_ROOT/Dockerfile.dev" -t "$IMAGE" "$REPO_ROOT"
+fi
+
+# tty + interactive flags only when STDIN is a terminal — keeps CI happy.
+TTY_FLAGS=()
+if [ -t 0 ] && [ -t 1 ]; then
+  TTY_FLAGS=(-it)
+fi
+
+# If no args: drop into a shell. Otherwise run `bazel <args>`.
+if [ "$#" -eq 0 ]; then
+  CMD=(bash)
+else
+  CMD=(bazel "$@")
+fi
+
+docker run --rm "${TTY_FLAGS[@]}" \
+  -v "$REPO_ROOT:/workspace" \
+  -v sqlanvil-bazel-cache:/root/.cache/bazel \
+  -v sqlanvil-bazel-disk:/root/.cache/bazel-disk \
+  "$IMAGE" "${CMD[@]}"

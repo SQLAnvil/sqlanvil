@@ -13,6 +13,8 @@ sqlanvil is a TypeScript project, using [Bazel](https://bazel.build) as a build 
 Bazel is the build system. Install via Bazelisk:
 
 ```bash
+brew install bazelisk          # macOS
+# or:
 npm i -g @bazel/bazelisk
 ```
 
@@ -21,6 +23,29 @@ On macOS, increase the open-file limit (Bazel hits the default):
 ```bash
 sudo sysctl -w kern.maxfiles=65536
 ```
+
+##### macOS compatibility (important)
+
+The currently pinned Bazel 5.4 + 2022-era protobuf chain inherited from
+upstream **does not build natively on macOS Tahoe / Apple Silicon** —
+`wrapped_clang` ships without `LC_UUID` (rejected by current dyld) and the
+old protobuf headers conflict with Xcode 21's SDK. This will be fixed by
+a future toolchain modernization PR (Bazel 7 + Bzlmod migration).
+
+Until then, build via Docker on macOS:
+
+```bash
+./scripts/docker-bazel build //protos:sqlanvil_proto
+./scripts/docker-bazel test //core/...
+./scripts/docker-bazel build //...
+./scripts/docker-bazel                    # drops into an interactive shell
+```
+
+The wrapper builds a `sqlanvil-dev` image (Debian + Node 20 + JDK 17 +
+Bazelisk) on first invocation and reuses named volumes for the Bazel cache
+so subsequent runs are fast.
+
+Linux users can use Bazelisk directly without Docker.
 
 ### Run the CLI
 
