@@ -4,7 +4,7 @@ import { sqlanvil } from "sa/protos/ts";
 /**
  * Extension interface.
  */
-export interface IDataformExtension {
+export interface ISqlanvilExtension {
     /**
      * Run additional compilation steps.
      * Passed session should be used for both new nodes creation and persisting errors.

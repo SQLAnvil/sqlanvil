@@ -1,5 +1,5 @@
 import { compile as compiler } from "sa/core/compilers";
-import { IDataformExtension } from "sa/core/extension";
+import { ISqlanvilExtension } from "sa/core/extension";
 import { IJitCompiler, jitCompiler } from "sa/core/jit_compiler";
 import { main } from "sa/core/main";
 import { Session } from "sa/core/session";
@@ -30,4 +30,4 @@ function indexFileGenerator() {
 // These exports constitute the public API of @sqlanvil/core.
 // They must also be listed in packages/@sqlanvil/core/index.ts.
 // Changes to these will break @sqlanvil/cli, so take care!
-export { compiler, IDataformExtension, indexFileGenerator, IJitCompiler, jitCompiler, main, session, supportedFeatures, version };
+export { compiler, ISqlanvilExtension, indexFileGenerator, IJitCompiler, jitCompiler, main, session, supportedFeatures, version };

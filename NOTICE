@@ -1,0 +1,14 @@
+sqlanvil
+Copyright 2026 Ivan Histand
+
+This product includes software originally developed as Dataform
+(https://github.com/dataform-co/dataform) by Dataform Co and contributed
+to by Google LLC, licensed under the Apache License, Version 2.0.
+
+The original Dataform copyright notice from upstream is preserved in
+the LICENSE file. This derivative work (renamed sqlanvil) adds
+PostgreSQL and Supabase warehouse adapter support, and is distributed
+under the same Apache License, Version 2.0.
+
+Apache License, Version 2.0
+http://www.apache.org/licenses/LICENSE-2.0

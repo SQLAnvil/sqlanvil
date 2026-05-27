@@ -1,60 +1,39 @@
-# Dataform Core
+# sqlanvil
 
-Dataform Core is an open source meta-language to create SQL tables and workflows in BigQuery. Dataform Core extends SQL by providing a dependency management system, automated data quality testing, and data documentation.
+**sqlanvil** is an open-source SQL workflow tool. Define dependent tables, views, materialized views, incremental tables, assertions, and operations as code — then compile, test, and execute them against your warehouse.
 
-Using Dataform Core, data teams can build scalable SQL data transformation pipelines following software engineering best practices, like version control and testing.
+sqlanvil is a hard fork of [Dataform](https://github.com/dataform-co/dataform) (Apache 2.0), renamed and restructured to support **PostgreSQL/Supabase** as a first-class target alongside **BigQuery**.
 
-For more details, see [how Dataform works](https://cloud.google.com/dataform/docs/overview).
+## Status
 
-![Data collections and integrations feed into Dataform, which exports this data to BI and analytics tools.](static/images/single-source-of-truth.png?raw=true)
+Pre-alpha. Active reintegration of the Postgres adapter is in progress on the
+`restore-postgres-adapter` branch. See `docs/postgres_first_class_design.md`
+for the implementation spec and `docs/rename_checklist.md` for the
+dataform → sqlanvil rename surface.
 
-## Get started
+## Supported warehouses
 
-### In Google Cloud Platform
+| Warehouse | Status |
+| :--- | :--- |
+| BigQuery | Working (inherited from upstream Dataform) |
+| PostgreSQL | In progress — first-class native adapter |
+| Supabase (PostgreSQL + RLS, Realtime, Wrappers, pgvector) | Planned |
 
-Dataform in Google Cloud Platform provides a fully managed experience to build scalable data transformations pipelines in **BigQuery** using SQL. It includes:
+## Quickstart (when published)
 
-- A cloud development environment to develop data assets with SQL and Dataform Core and version control code with GitHub, GitLab, and other Git providers.
-- A fully managed, serverless orchestration environment for data pipelines, fully integrated in Google Cloud Platform.
-
-Follow the [quickstart guide](https://cloud.google.com/dataform/docs/quickstart)!
-
-### With the CLI
-
-You can run Dataform locally using the Dataform CLI tool, which can be installed using the following command line. Follow the [CLI guide](https://cloud.google.com/dataform/docs/use-dataform-cli) to get started.
-
-```
+```bash
 npm i -g @sqlanvil/cli
+sqlanvil init my-project
+cd my-project
+sqlanvil compile
+sqlanvil run
 ```
 
-## Useful Links
+For now, building from source requires Bazel via Bazelisk
+(`npm i -g @bazel/bazelisk`). See `contributing.md`.
 
-- [Documentation home page](https://cloud.google.com/dataform).
-- [Create tables and views](https://cloud.google.com/dataform/docs/tables).
-- [Configure dependencies](https://cloud.google.com/dataform/docs/define-table#define_table_structure_and_dependencies).
-- Write [data quality checks](https://cloud.google.com/dataform/docs/assertions).
-- Enable [scripting](https://cloud.google.com/dataform/docs/develop-workflows-js) and code re-use with a JavaScript API.
-- Import [pre-defined packages](https://dataform-co.github.io/dataform/docs/packages), or create your own.
-- View the [Dataform Core reference](https://cloud.google.com/dataform/docs/reference/dataform-core-reference).
-- View the [Dataform configs reference](https://dataform-co.github.io/dataform/docs/configs-reference).
+## Attribution
 
-_Note: this readme can also be viewed on https://dataform-co.github.io/dataform._
-
-## Example Projects
-
-- [https://github.com/GoogleCloudPlatform/marketing-data-engine-dataform](https://github.com/GoogleCloudPlatform/marketing-data-engine-dataform).
-- [https://github.com/wintermi/movielens-dataform](https://github.com/wintermi/movielens-dataform).
-- [https://github.com/wintermi/bqe-dataform](https://github.com/wintermi/bqe-dataform).
-- [https://github.com/wintermi/imdb-dataform](https://github.com/wintermi/imdb-dataform).
-- [https://github.com/wintermi/fashion-dataform](https://github.com/wintermi/fashion-dataform).
-- [https://github.com/G2H/dataform-stackoverflow](https://github.com/G2H/dataform-stackoverflow).
-- [https://github.com/karcot1/dataform_deployment_sample](https://github.com/karcot1/dataform_deployment_sample).
-
-## Want to report a bug or request a feature?
-
-- For Dataform Core / open source requests, you can open an [issue](https://github.com/dataform-co/dataform/issues) in GitHub.
-- For Dataform in Google Cloud Platform, you can file a bug [here](https://issuetracker.google.com/issues/new?component=1193995&template=1698201), and file feature requests [here](https://issuetracker.google.com/issues/new?component=1193995&template=1713836).
-
-## Want to contribute?
-
-Check out our [contributors guide](https://github.com/dataform-co/dataform/blob/main/contributing.md) to get started with setting up the repo.
+sqlanvil derives from Dataform OSS by Dataform Co (acquired by Google).
+The original code remains under the Apache 2.0 license. See `NOTICE` and
+`LICENSE` for required attribution.

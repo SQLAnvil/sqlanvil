@@ -1,1 +1,1 @@
-export { compiler, IDataformExtension, indexFileGenerator, IJitCompiler, jitCompiler, main, session, supportedFeatures, version } from "sa/core";
+export { compiler, ISqlanvilExtension, indexFileGenerator, IJitCompiler, jitCompiler, main, session, supportedFeatures, version } from "sa/core";

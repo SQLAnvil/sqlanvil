@@ -1,8 +1,8 @@
-import type { IDataformExtension } from "sa/core";
+import type { ISqlanvilExtension } from "sa/core";
 import { Session } from "sa/core/session";
 import { sqlanvil } from "sa/protos/ts";
 
-class SampleExtension implements IDataformExtension {
+class SampleExtension implements ISqlanvilExtension {
     public compile(request: sqlanvil.ICompileExecutionRequest, session: Session): void {
         if (request.compileConfig?.projectConfigOverride?.vars["throw-error"] === "true") {
             throw new Error("throwing exception as requested!");
@@ -16,6 +16,6 @@ class SampleExtension implements IDataformExtension {
     }
 }
 
-export function extension(): IDataformExtension {
+export function extension(): ISqlanvilExtension {
     return new SampleExtension();
 }

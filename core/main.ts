@@ -12,7 +12,7 @@ import { Notebook } from "sa/core/actions/notebook";
 import { Operation } from "sa/core/actions/operation";
 import { Table } from "sa/core/actions/table";
 import { View } from "sa/core/actions/view";
-import { IDataformExtension } from "sa/core/extension";
+import { ISqlanvilExtension } from "sa/core/extension";
 import * as Path from "sa/core/path";
 import { Session } from "sa/core/session";
 import { nativeRequire } from "sa/core/utils";
@@ -196,7 +196,7 @@ function mainCompile(compileRequest: sqlanvil.ICompileExecutionRequest, session:
 function extensionCompile(compileRequest: sqlanvil.ICompileExecutionRequest, session: Session) {
   try {
     const module = nativeRequire(compileRequest?.compileConfig?.extension.name);
-    const extension: () => IDataformExtension = module.extension;
+    const extension: () => ISqlanvilExtension = module.extension;
     extension().compile(compileRequest, session);
   } catch (e) {
     session.compileError(e, compileRequest?.compileConfig?.extension.name);

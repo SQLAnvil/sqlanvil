@@ -1,6 +1,6 @@
 # Packages
 
-[<- Back to Home](https://dataform-co.github.io/dataform).
+[<- Back to Home](https://github.com/ihistand/sqlanvil).
 
 ## Sample Packages
 
@@ -13,11 +13,11 @@
 
 ## Creating a package
 
-Creating your own package is relatively easy, as long as you're relatively familiar with the Dataform framework. It may also help to understand the fundamentals of JavaScript, but you can probably muddle through without this!
+Creating your own package is relatively easy, as long as you're relatively familiar with the sqlanvil framework. It may also help to understand the fundamentals of JavaScript, but you can probably muddle through without this!
 
 ### Clone the base package repo
 
-[This repo](https://github.com/dataform-co/dataform-package-base) contains the building blocks of a package:
+[This repo](https://github.com/ihistand/sqlanvil-package-base) contains the building blocks of a package:
 
 - index.js
 - example.js

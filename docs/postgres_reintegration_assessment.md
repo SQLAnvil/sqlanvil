@@ -1,6 +1,13 @@
-# Technical Assessment: PostgreSQL Reintegration in SqlAnvil
+# Technical Assessment: PostgreSQL Reintegration in sqlanvil
 
-This document provides a detailed technical assessment of what is required to re-integrate PostgreSQL database adapter support into the modern **SqlAnvil** (Dataform) codebase using the old restored files.
+> **SUPERSEDED.** Phase 3+ of this assessment is replaced by
+> [`postgres_first_class_design.md`](postgres_first_class_design.md), which
+> treats the Postgres adapter as first-class (idiomatic SQL generation, native
+> action config blocks, dedicated SQL generator path) rather than a
+> BigQuery-shaped adapter swap. Phases 1-2 (deps + relocation) below remain
+> applicable; Phases 3-5 are re-scoped in the design doc.
+
+This document provides a detailed technical assessment of what is required to re-integrate PostgreSQL database adapter support into the modern **sqlanvil** codebase using the old restored files.
 
 ---
 
