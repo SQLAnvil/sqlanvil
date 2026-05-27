@@ -22,8 +22,7 @@ ts_test_suite(
     data = [
         ":all_projects",
         ":node_modules",
-        "//packages/@dataform/core:package_tar",
-        "//test_credentials:bigquery.json",
+        "//packages/@sqlanvil/core:package_tar",
         "@nodejs//:node",
     ],
     deps = [
@@ -44,7 +43,7 @@ node_modules(
     deps = [
         # The CLI bundle remains at this directory level's node_modules, whereas the core package
         # is copied into each example project's node_modules during testing.
-        "//packages/@dataform/cli:package_tar",
-        "//packages/@dataform/core:package_tar",
+        "//packages/@sqlanvil/cli:package_tar",
+        "//packages/@sqlanvil/core:package_tar",
     ],
 )

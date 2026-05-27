@@ -39,7 +39,7 @@ suite("compile command", ({ afterEach }) => {
       path.join(projectDir, "package.json"),
       `{
   "dependencies":{
-    "@dataform/core": "${version}"
+    "@sqlanvil/core": "${version}"
   }
 }`
     );
@@ -58,9 +58,9 @@ suite("compile command", ({ afterEach }) => {
       (await getProcessResult(execFile(nodePath, [cliEntryPointPath, "compile", projectDir])))
         .stderr
     ).contains(
-      "Could not find a recent installed version of @dataform/core in the project. Check that " +
+      "Could not find a recent installed version of @sqlanvil/core in the project. Check that " +
         "either `dataformCoreVersion` is specified in `workflow_settings.yaml`, or " +
-        "`@dataform/core` is specified in `package.json`. If using `package.json`, then run " +
+        "`@sqlanvil/core` is specified in `package.json`. If using `package.json`, then run " +
         "`dataform install`."
     );
   });
@@ -115,7 +115,7 @@ suite("disable-assertions flag (compilation)", ({ afterEach, beforeEach }) => {
       packageJsonPath,
       `{
   "dependencies":{
-    "@dataform/core": "${version}"
+    "@sqlanvil/core": "${version}"
   }
 }`
     );
@@ -323,7 +323,7 @@ suite("extension config", ({ afterEach }) => {
       path.join(projectDir, "package.json"),
       `{
   "dependencies":{
-    "@dataform/core": "${version}"
+    "@sqlanvil/core": "${version}"
   }
 }`
     );

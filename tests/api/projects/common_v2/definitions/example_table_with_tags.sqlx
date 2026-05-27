@@ -11,7 +11,7 @@ config {
 select * from ${ref("sample_data")}
 
 post_operations {
-    GRANT SELECT ON ${self()} TO GROUP "allusers@dataform.co"
+    GRANT SELECT ON ${self()} TO GROUP "allusers@example.com"
     ---
-    GRANT SELECT ON ${self()} TO GROUP "otherusers@dataform.co"
+    GRANT SELECT ON ${self()} TO GROUP "otherusers@example.com"
 }

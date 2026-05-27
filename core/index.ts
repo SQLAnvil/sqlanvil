@@ -8,7 +8,7 @@ import { dataform } from "df/protos/ts";
 
 // Create static session object.
 // This hack just enforces the singleton session object to
-// be the same, regardless of the @dataform/core package that is running.
+// be the same, regardless of the @sqlanvil/core package that is running.
 function globalSession() {
   if (!(global as any)._DF_SESSION) {
     (global as any)._DF_SESSION = new Session();
@@ -24,10 +24,10 @@ const supportedFeatures = [dataform.SupportedFeatures.ARRAY_BUFFER_IPC];
 // Note: for future backwards compatability breaking changes, the exported "version" variable should
 // be used instead.
 function indexFileGenerator() {
-  throw new Error("@dataform/cli ^3.0.0 required.");
+  throw new Error("@sqlanvil/cli ^3.0.0 required.");
 }
 
-// These exports constitute the public API of @dataform/core.
-// They must also be listed in packages/@dataform/core/index.ts.
-// Changes to these will break @dataform/cli, so take care!
+// These exports constitute the public API of @sqlanvil/core.
+// They must also be listed in packages/@sqlanvil/core/index.ts.
+// Changes to these will break @sqlanvil/cli, so take care!
 export { compiler, IDataformExtension, indexFileGenerator, IJitCompiler, jitCompiler, main, session, supportedFeatures, version };

@@ -21,7 +21,7 @@ function combineAllActions(graph: dataform.ICompiledGraph) {
 export function actionsByTarget(compiledGraph: dataform.ICompiledGraph) {
   const actionsMap = new Map<string, CoreProtoActionTypes>();
   combineAllActions(compiledGraph)
-    // Required for backwards compatibility with old versions of @dataform/core.
+    // Required for backwards compatibility with old versions of @sqlanvil/core.
     .filter(action => !!action.target)
     .forEach(action => {
       actionsMap.set(targetStringifier.stringify(action.target), action);
@@ -31,7 +31,7 @@ export function actionsByTarget(compiledGraph: dataform.ICompiledGraph) {
 export function actionsByCanonicalTarget(compiledGraph: dataform.ICompiledGraph) {
   const actionsMap = new Map<string, CoreProtoActionTypes>();
   combineAllActions(compiledGraph)
-    // Required for backwards compatibility with old versions of @dataform/core.
+    // Required for backwards compatibility with old versions of @sqlanvil/core.
     .filter(action => !!action.canonicalTarget)
     .forEach(action => {
       actionsMap.set(targetStringifier.stringify(action.canonicalTarget), action);

@@ -40,7 +40,7 @@ suite("run e2e", ({ afterEach }) => {
       packageJsonPath,
       `{
   "dependencies":{
-    "@dataform/core": "${version}"
+    "@sqlanvil/core": "${version}"
   }
 }`
     );
@@ -213,7 +213,7 @@ select 1 as \${dataform.projectConfig.vars.testVar2}
         packageJsonPath,
         `{
   "dependencies":{
-    "@dataform/core": "${version}"
+    "@sqlanvil/core": "${version}"
   }
 }`
       );
@@ -413,7 +413,7 @@ SELECT 1 as id
         packageJsonPath,
         `{
   "dependencies":{
-    "@dataform/core": "${version}"
+    "@sqlanvil/core": "${version}"
   }
 }`
       );
@@ -511,7 +511,7 @@ SELECT 1 as id
       packageJsonPath,
       `{
   "dependencies":{
-    "@dataform/core": "${version}"
+    "@sqlanvil/core": "${version}"
   }
 }`
     );
@@ -588,7 +588,7 @@ select 1
       packageJsonPath,
       `{
   "dependencies":{
-    "@dataform/core": "${version}"
+    "@sqlanvil/core": "${version}"
   }
 }`
     );
@@ -671,7 +671,7 @@ select 2
         packageJsonPath,
         `{
   "dependencies":{
-    "@dataform/core": "${version}"
+    "@sqlanvil/core": "${version}"
   }
 }`
       );

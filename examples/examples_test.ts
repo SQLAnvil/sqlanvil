@@ -7,7 +7,7 @@ import { dataform } from "df/protos/ts";
 import { getProcessResult, nodePath, suite, test } from "df/testing";
 
 suite("examples", { parallel: true }, () => {
-  const cliEntryPointPath = "examples/node_modules/@dataform/cli/bundle.js";
+  const cliEntryPointPath = "examples/node_modules/@sqlanvil/cli/bundle.js";
 
   ["stackoverflow_reporter", "extreme_weather_programming"].forEach(exampleProject => {
     test(`${exampleProject} runs`, async () => {
@@ -19,8 +19,8 @@ suite("examples", { parallel: true }, () => {
       const projectDir = `examples/${exampleProject}_copy`;
       fs.copySync(originalProjectDir, projectDir, { dereference: true });
       fs.copySync(
-        "examples/node_modules/@dataform/core",
-        `${projectDir}/node_modules/@dataform/core`
+        "examples/node_modules/@sqlanvil/core",
+        `${projectDir}/node_modules/@sqlanvil/core`
       );
       // A blank `package.json` makes no `dataformCoreVersion` in `workflow_settings.yaml` be OK.
       // tslint:disable-next-line: tsr-detect-non-literal-fs-filename

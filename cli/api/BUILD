@@ -51,7 +51,7 @@ ts_library(
 node_modules(
     name = "node_modules",
     deps = [
-        "//packages/@dataform/core:package_tar",
+        "//packages/@sqlanvil/core:package_tar",
     ],
 )
 
@@ -65,8 +65,7 @@ ts_test_suite(
     ],
     data = [
         ":node_modules",
-        "//packages/@dataform/core:package_tar",
-        "//test_credentials:bigquery.json",
+        "//packages/@sqlanvil/core:package_tar",
         "@nodejs//:node",
         "@nodejs//:npm",
     ] + glob(["goldens/**"]),

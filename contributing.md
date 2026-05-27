@@ -20,7 +20,7 @@ npm i -g @bazel/bazelisk
 
 ### Run the CLI
 
-You can run the project as you would the `npm` installation of `@dataform/cli`, but replace `dataform` with `./scripts/run`.
+You can run the project as you would the `npm` installation of `@sqlanvil/cli`, but replace `dataform` with `./scripts/run`.
 
 For example, to print out the default help information:
 
@@ -34,7 +34,7 @@ _Note: If you are running Bazel on a **Mac**, this or any step that requires bui
 
 ### Test
 
-The following command runs tests for @dataform/core:
+The following command runs tests for @sqlanvil/core:
 
 ```bash
 bazel test //core/...

@@ -15,9 +15,9 @@ export function compile(compileConfig: dataform.ICompileConfig) {
     )
   ) {
     throw new Error(
-      "Could not find a recent installed version of @dataform/core in the project. Check that " +
+      "Could not find a recent installed version of @sqlanvil/core in the project. Check that " +
         "either `dataformCoreVersion` is specified in `workflow_settings.yaml`, or " +
-        "`@dataform/core` is specified in `package.json`. If using `package.json`, then run " +
+        "`@sqlanvil/core` is specified in `package.json`. If using `package.json`, then run " +
         "`dataform install`."
     );
   }
@@ -34,7 +34,7 @@ export function compile(compileConfig: dataform.ICompileConfig) {
     }
   });
   const compiler: CompilerFunction = indexGeneratorVm.run(
-    'return require("@dataform/core").compiler',
+    'return require("@sqlanvil/core").compiler',
     vmIndexFileName
   );
 
@@ -51,7 +51,7 @@ export function compile(compileConfig: dataform.ICompileConfig) {
     },
     sourceExtensions: ["js", "sql", "sqlx", "yaml", "yml"],
     // vm2 3.11.3 strips file paths from V8 CallSite objects inside the sandbox,
-    // which breaks getCallerFile() in @dataform/core. Wrap each compiled module so
+    // which breaks getCallerFile() in @sqlanvil/core. Wrap each compiled module so
     // the current file path is exposed via a global, used as a fallback when the
     // stack-trace path is unavailable. The try/finally restores the previous value
     // to keep nested requires (macros) consistent.
@@ -70,18 +70,18 @@ export function compile(compileConfig: dataform.ICompileConfig) {
   });
 
   const dataformCoreVersion: string = userCodeVm.run(
-    'return require("@dataform/core").version || "0.0.0"',
+    'return require("@sqlanvil/core").version || "0.0.0"',
     vmIndexFileName
   );
   if (semver.lt(dataformCoreVersion, "3.0.0-alpha.0")) {
-    throw new Error("@dataform/core ^3.0.0 required.");
+    throw new Error("@sqlanvil/core ^3.0.0 required.");
   }
 
   return userCodeVm.run(
     `
       global.workflowSettingsYaml = (function() { try { return require("./workflow_settings.yaml"); } catch(e) { console.error("YAML require failed:", e); } })();
       global.dataformJson = (function() { try { return require("./dataform.json"); } catch(e) {} })();
-      return require("@dataform/core").main("${createCoreExecutionRequest(compileConfig)}")
+      return require("@sqlanvil/core").main("${createCoreExecutionRequest(compileConfig)}")
     `,
     vmIndexFileName
   );

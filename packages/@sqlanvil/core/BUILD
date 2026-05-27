@@ -44,12 +44,12 @@ npm_package_bin(
 
 pkg_json(
     name = "json",
-    package_name = "@dataform/core",
+    package_name = "@sqlanvil/core",
     description = "Dataform core API.",
     external_deps = [],
     layers = [
         "//:package.json",
-        "//packages/@dataform:package.layer.json",
+        "//packages/@sqlanvil:package.layer.json",
     ],
     main = "bundle.js",
     version = DF_VERSION,

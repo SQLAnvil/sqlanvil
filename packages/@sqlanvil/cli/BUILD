@@ -53,13 +53,13 @@ externals = [
 
 pkg_json(
     name = "json",
-    package_name = "@dataform/cli",
+    package_name = "@sqlanvil/cli",
     description = "Dataform command line interface.",
     external_deps = externals,
     layers = [
         "//:package.json",
-        "//packages/@dataform:package.layer.json",
-        "//packages/@dataform/cli:package.layer.json",
+        "//packages/@sqlanvil:package.layer.json",
+        "//packages/@sqlanvil/cli:package.layer.json",
     ],
     main = "bundle.js",
     version = DF_VERSION,

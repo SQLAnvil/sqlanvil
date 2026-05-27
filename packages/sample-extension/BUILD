@@ -43,12 +43,12 @@ npm_package_bin(
 
 pkg_json(
     name = "json",
-    package_name = "@dataform/sample-extension",
+    package_name = "@sqlanvil/sample-extension",
     description = "Sample extension.",
     external_deps = [],
     layers = [
         "//:package.json",
-        "//packages/@dataform:package.layer.json",
+        "//packages/@sqlanvil:package.layer.json",
     ],
     main = "bundle.js",
     version = DF_VERSION,

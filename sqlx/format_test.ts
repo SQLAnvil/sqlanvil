@@ -5,7 +5,7 @@ import * as path from "path";
 import { format, formatFile } from "df/sqlx/format";
 import { suite, test } from "df/testing";
 
-suite("@dataform/sqlx", () => {
+suite("@sqlanvil/sqlx", () => {
   suite("formatter", () => {
     test("correctly formats a simple SQLX file", async () => {
       const filePath = path.join(process.env.TEST_TMPDIR, "simple.sqlx");

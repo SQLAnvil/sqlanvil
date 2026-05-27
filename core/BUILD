@@ -106,7 +106,7 @@ ts_test_suite(
 node_modules(
     name = "node_modules",
     deps = [
-        "//packages/@dataform/core:package_tar",
+        "//packages/@sqlanvil/core:package_tar",
         "//packages/sample-extension:package_tar",
     ],
 )

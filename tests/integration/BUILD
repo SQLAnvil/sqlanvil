@@ -9,7 +9,6 @@ ts_test_suite(
         "utils.ts",
     ],
     data = [
-        "//test_credentials:bigquery.json",
         "//tests/integration/bigquery_project:files",
         "//tests/integration/bigquery_project:node_modules",
     ],

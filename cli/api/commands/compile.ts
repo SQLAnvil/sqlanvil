@@ -48,7 +48,7 @@ export async function compile(
     });
 
     if (compileConfig.verbose) {
-      print(`Using isolated environment for @dataform/core@${workflowSettingsDataformCoreVersion}\n`);
+      print(`Using isolated environment for @sqlanvil/core@${workflowSettingsDataformCoreVersion}\n`);
       print(`Copying project to temporary directory: ${temporaryProjectPath}\n`);
     }
     const copyStartTime = performance.now();
@@ -64,7 +64,7 @@ export async function compile(
       path.join(temporaryProjectPath, "package.json"),
       `{
   "dependencies": {
-  "@dataform/core": "${workflowSettingsDataformCoreVersion}"
+  "@sqlanvil/core": "${workflowSettingsDataformCoreVersion}"
   }
 }`
     );
@@ -100,7 +100,7 @@ export async function compile(
 
 export class CompileChildProcess {
   public static forkProcess() {
-    // Runs the worker_bundle script we generate for the package (see packages/@dataform/cli/BUILD)
+    // Runs the worker_bundle script we generate for the package (see packages/@sqlanvil/cli/BUILD)
     // if it exists, otherwise run the bazel compile loader target.
     const findForkScript = () => {
       try {

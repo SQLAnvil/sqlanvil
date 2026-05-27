@@ -183,7 +183,7 @@ suite("examples", () => {
             "select * from `tada-analytics.df_integration_test.sample_data`"
           );
           expect(exampleBackticks.preOps).to.eql([
-            '\n    GRANT SELECT ON `tada-analytics.df_integration_test.sample_data` TO GROUP "allusers@dataform.co"\n'
+            '\n    GRANT SELECT ON `tada-analytics.df_integration_test.sample_data` TO GROUP "allusers@example.com"\n'
           ]);
           expect(exampleBackticks.postOps).to.eql([]);
 
@@ -336,12 +336,12 @@ suite("examples", () => {
               databaseWithSuffix("tada-analytics"),
               schemaWithSuffix("df_integration_test"),
               "example_table"
-            )}\` TO GROUP "allusers@dataform.co"\n`,
+            )}\` TO GROUP "allusers@example.com"\n`,
             `\n    GRANT SELECT ON \`${dotJoined(
               databaseWithSuffix("tada-analytics"),
               schemaWithSuffix("df_integration_test"),
               "example_table"
-            )}\` TO GROUP "otherusers@dataform.co"\n`
+            )}\` TO GROUP "otherusers@example.com"\n`
           ]);
           expect(exampleTable.tags).to.eql([]);
 

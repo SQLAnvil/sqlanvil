@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { SyntaxTreeNode, SyntaxTreeNodeType } from "df/sqlx/lexer";
 import { suite, test } from "df/testing";
 
-suite("@dataform/sqlx", () => {
+suite("@sqlanvil/sqlx", () => {
   suite("syntax tree construction", () => {
     test("SQL strings don't affect the tree", () => {
       const actual = SyntaxTreeNode.create("SELECT SUM(IF(track.event = 'example', 1, 0)) js { }");

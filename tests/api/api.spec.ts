@@ -16,7 +16,7 @@ import { TmpDirFixture } from "df/testing/fixtures";
 
 config.truncateThreshold = 0;
 
-suite("@dataform/api", () => {
+suite("@sqlanvil/api", () => {
   // c +-> b +-> a
   //       ^
   //       d

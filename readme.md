@@ -24,7 +24,7 @@ Follow the [quickstart guide](https://cloud.google.com/dataform/docs/quickstart)
 You can run Dataform locally using the Dataform CLI tool, which can be installed using the following command line. Follow the [CLI guide](https://cloud.google.com/dataform/docs/use-dataform-cli) to get started.
 
 ```
-npm i -g @dataform/cli
+npm i -g @sqlanvil/cli
 ```
 
 ## Useful Links

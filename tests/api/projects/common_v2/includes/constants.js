@@ -1,3 +1,3 @@
 module.exports = {
-  allUsersEmailAddress: "allusers@dataform.co"
+  allUsersEmailAddress: "allusers@example.com"
 };

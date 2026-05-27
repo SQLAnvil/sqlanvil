@@ -111,7 +111,7 @@ export function runMainInVm(
     `
       global.workflowSettingsYaml = (function() { try { return require("./workflow_settings.yaml"); } catch(e) { console.error("YAML require failed run_core:", e); } })();
       global.dataformJson = (function() { try { return require("./dataform.json"); } catch(e) {} })();
-      return require("@dataform/core").main("${encodedCoreExecutionRequest}")
+      return require("@sqlanvil/core").main("${encodedCoreExecutionRequest}")
     `,
     vmIndexFileName
   );

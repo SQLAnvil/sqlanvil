@@ -8,5 +8,5 @@ select * from ${ref("df_integration_test", "sample_data")}
 post_operations {
     GRANT SELECT ON ${self()} TO GROUP "${constants.allUsersEmailAddress}"
     ---
-    GRANT SELECT ON ${self()} TO GROUP "otherusers@dataform.co"
+    GRANT SELECT ON ${self()} TO GROUP "otherusers@example.com"
 }

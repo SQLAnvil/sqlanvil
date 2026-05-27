@@ -48,7 +48,7 @@ function toVerifiableAction(graph: dataform.ICompiledGraph, actionType: string):
 
 // INFO: if you want to see an overview of the tests in this file, press cmd-k-3 while in
 // VSCode, to collapse everything below the third level of indentation.
-suite("@dataform/core", ({ afterEach }) => {
+suite("@sqlanvil/core", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);
 
   suite("session", () => {
@@ -1939,7 +1939,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const projectDir = setUpProjectWithExtension();
       const request = coreExecutionRequestFromPath(projectDir);
       request.compile.compileConfig.extension = {
-        name: "@dataform/sample-extension",
+        name: "@sqlanvil/sample-extension",
         compilationMode: dataform.ExtensionCompilationMode.PROLOGUE,
       };
 
@@ -1953,7 +1953,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const projectDir = setUpProjectWithExtension();
       const request = coreExecutionRequestFromPath(projectDir);
       request.compile.compileConfig.extension = {
-        name: "@dataform/sample-extension",
+        name: "@sqlanvil/sample-extension",
         compilationMode: dataform.ExtensionCompilationMode.APPLICATION_CODE,
       };
 
@@ -1971,7 +1971,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
 
       const request = coreExecutionRequestFromPath(projectDir);
       request.compile.compileConfig.extension = {
-        name: "@dataform/sample-extension",
+        name: "@sqlanvil/sample-extension",
         compilationMode: dataform.ExtensionCompilationMode.APPLICATION_CODE
       };
 
@@ -1991,7 +1991,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
 
       const request = coreExecutionRequestFromPath(projectDir);
       request.compile.compileConfig.extension = {
-        name: "@dataform/sample-extension",
+        name: "@sqlanvil/sample-extension",
         compilationMode: dataform.ExtensionCompilationMode.PROLOGUE,
       };
 
@@ -2020,7 +2020,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const projectDir = setUpProjectWithExtension();
       const request = coreExecutionRequestFromPath(projectDir, dataform.ProjectConfig.create({vars: {"throw-error": "true"}}));
       request.compile.compileConfig.extension = {
-        name: "@dataform/sample-extension",
+        name: "@sqlanvil/sample-extension",
         compilationMode: dataform.ExtensionCompilationMode.PROLOGUE,
       };
 
@@ -2035,7 +2035,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const projectDir = setUpProjectWithExtension();
       const request = coreExecutionRequestFromPath(projectDir, dataform.ProjectConfig.create({vars: {"store-compile-error": "true"}}));
       request.compile.compileConfig.extension = {
-        name: "@dataform/sample-extension",
+        name: "@sqlanvil/sample-extension",
         compilationMode: dataform.ExtensionCompilationMode.PROLOGUE,
       };
 

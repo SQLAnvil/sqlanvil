@@ -30,9 +30,9 @@ export async function handleJitRequest(message: {
 
     if (!fs.existsSync(path.join(projectDir, "node_modules", "@dataform", "core", "bundle.js"))) {
       throw new Error(
-        "Could not find a recent installed version of @dataform/core in the project. Check that " +
+        "Could not find a recent installed version of @sqlanvil/core in the project. Check that " +
           "either `dataformCoreVersion` is specified in `workflow_settings.yaml`, or " +
-          "`@dataform/core` is specified in `package.json`. If using `package.json`, then run " +
+          "`@sqlanvil/core` is specified in `package.json`. If using `package.json`, then run " +
           "`dataform install`."
       );
     }
@@ -60,7 +60,7 @@ export async function handleJitRequest(message: {
         builtin: [],
         context: "sandbox",
         external: {
-          modules: ["@dataform/*"]
+          modules: ["@sqlanvil/*"]
         },
         root: projectDir
       },
@@ -68,7 +68,7 @@ export async function handleJitRequest(message: {
     });
 
     const jitCompileInVm = vm.run(`
-      const { jitCompiler } = require("@dataform/core");
+      const { jitCompiler } = require("@sqlanvil/core");
 
       global.require = require;
 

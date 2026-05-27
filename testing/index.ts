@@ -25,7 +25,7 @@ export const platformPath = () => {
 // Note: it would be more correct for these to be injected by blaze at run time.
 export const nodePath = `external/${platformPath()}/bin/node`;
 export const npmPath = `external/${platformPath()}/bin/npm`;
-export const corePackageTarPath = "packages/@dataform/core/package.tar.gz";
+export const corePackageTarPath = "packages/@sqlanvil/core/package.tar.gz";
 
 export async function getProcessResult(childProcess: ChildProcess) {
   let stderr = "";

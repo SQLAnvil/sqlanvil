@@ -52,7 +52,7 @@ export function main(coreExecutionRequest: Uint8Array | string): Uint8Array | st
   });
 
   // Initialize the compilation session.
-  const session = nativeRequire("@dataform/core").session as Session;
+  const session = nativeRequire("@sqlanvil/core").session as Session;
   session.init(compileRequest.compileConfig.projectDir, projectConfig, projectConfig);
 
   // Allow "includes" files to use the current session object.
@@ -224,7 +224,7 @@ function dataformCompile(compileRequest: dataform.ICompileExecutionRequest, sess
     });
   Object.assign(globalAny, topLevelIncludes);
 
-  // Bind various @dataform/core APIs to the 'global' object.
+  // Bind various @sqlanvil/core APIs to the 'global' object.
   globalAny.publish = session.publish.bind(session);
   globalAny.operate = session.operate.bind(session);
   globalAny.assert = session.assert.bind(session);

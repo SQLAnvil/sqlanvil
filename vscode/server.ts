@@ -75,7 +75,7 @@ async function compileAndValidate() {
     if (compileResult.error?.code === "ENOENT") {
       connection.sendNotification(
         "error",
-        "Errors encountered when running 'dataform' CLI. Please ensure that the CLI is installed and up-to-date: 'npm i -g @dataform/cli'."
+        "Errors encountered when running 'dataform' CLI. Please ensure that the CLI is installed and up-to-date: 'npm i -g @sqlanvil/cli'."
       );
       return;
     } else {

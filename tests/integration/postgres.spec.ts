@@ -10,7 +10,7 @@ import { suite, test } from "df/testing";
 import { compile, getTableRows, keyBy } from "df/tests/integration/utils";
 import { PostgresFixture } from "df/tools/postgres/postgres_fixture";
 
-suite("@dataform/integration/postgres", { parallel: true }, ({ before, after }) => {
+suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) => {
   let dbadapter: dbadapters.IDbAdapter;
 
   const postgres = new PostgresFixture(5432, before, after);

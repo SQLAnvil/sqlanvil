@@ -59,7 +59,7 @@ suite("project ops", ({ afterEach }) => {
         packageJsonPath,
         `{
   "dependencies":{
-    "@dataform/core": "${version}"
+    "@sqlanvil/core": "${version}"
   }
 }`
       );

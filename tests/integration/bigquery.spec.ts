@@ -10,7 +10,7 @@ import { dataform } from "df/protos/ts";
 import { suite, test } from "df/testing";
 import { compile, dropAllTables, getTableRows, keyBy } from "df/tests/integration/utils";
 
-suite("@dataform/integration/bigquery", { parallel: true }, ({ before, after }) => {
+suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) => {
   const credentials = dfapi.credentials.read("test_credentials/bigquery.json");
   let dbadapter: BigQueryDbAdapter;
 
