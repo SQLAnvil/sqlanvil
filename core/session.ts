@@ -29,13 +29,13 @@ const DEFAULT_CONFIG = {
 
 /**
  * Contains methods that are published globally, so can be invoked anywhere in the `/definitions`
- * folder of a Dataform project.
+ * folder of a sqlanvil project.
  */
 export class Session {
   public rootDir: string;
 
   /**
-   * Stores the Dataform project configuration of the current Dataform project. Can be accessed via
+   * Stores the sqlanvil project configuration of the current sqlanvil project. Can be accessed via
    * the `sqlanvil` global variable.
    *
    * Example:
@@ -334,7 +334,7 @@ export class Session {
   }
 
   /**
-   * Adds a Dataform assertion the compiled graph.
+   * Adds a sqlanvil assertion the compiled graph.
    *
    * Available only in the `/definitions` directory.
    *
@@ -344,7 +344,7 @@ export class Session {
     name: string,
     queryOrConfig?: AContextable<string> | sqlanvil.ActionConfig.AssertionConfig
     // // `any` is used here to facilitate the type merging of legacy declaration configs options,
-    // // without breaking typescript consumers of Dataform.
+    // // without breaking typescript consumers of sqlanvil.
     // | any
   ): Assertion {
     const filename = utils.getCallerFile(this.rootDir);
@@ -362,7 +362,7 @@ export class Session {
   }
 
   /**
-   * Declares the dataset as a Dataform data source.
+   * Declares the dataset as a sqlanvil data source.
    *
    * Available only in the `/definitions` directory.
    *
@@ -372,7 +372,7 @@ export class Session {
     config:
       | sqlanvil.ActionConfig.DeclarationConfig
       // `any` is used here to facilitate the type merging of legacy declaration configs options,
-      // without breaking typescript consumers of Dataform.
+      // without breaking typescript consumers of sqlanvil.
       | any
   ): Declaration {
     const declaration = new Declaration(this, config, utils.getCallerFile(this.rootDir));

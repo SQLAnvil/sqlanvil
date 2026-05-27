@@ -9,12 +9,12 @@ CREATE OR REPLACE TABLE `project-id.dataset-id.incremental_on_schema_change_df_t
 
 
 -- Compare schemas
-DECLARE dataform_columns ARRAY<STRING>;
+DECLARE sqlanvil_columns ARRAY<STRING>;
 DECLARE temp_table_columns ARRAY<STRUCT<column_name STRING, data_type STRING>>;
 DECLARE columns_added ARRAY<STRUCT<column_name STRING, data_type STRING>>;
 DECLARE columns_removed ARRAY<STRING>;
 
-SET dataform_columns = (
+SET sqlanvil_columns = (
   SELECT IFNULL(ARRAY_AGG(DISTINCT column_name), [])
   FROM `project-id.dataset-id.INFORMATION_SCHEMA.COLUMNS`
   WHERE table_name = 'incremental_on_schema_change'
@@ -29,11 +29,11 @@ SET temp_table_columns = (
 SET columns_added = (
   SELECT IFNULL(ARRAY_AGG(column_info), [])
   FROM UNNEST(temp_table_columns) AS column_info
-  WHERE column_info.column_name NOT IN UNNEST(dataform_columns)
+  WHERE column_info.column_name NOT IN UNNEST(sqlanvil_columns)
 );
 SET columns_removed = (
   SELECT IFNULL(ARRAY_AGG(column_name), [])
-  FROM UNNEST(dataform_columns) AS column_name
+  FROM UNNEST(sqlanvil_columns) AS column_name
   WHERE column_name NOT IN (SELECT col.column_name FROM UNNEST(temp_table_columns) AS col)
 );
 

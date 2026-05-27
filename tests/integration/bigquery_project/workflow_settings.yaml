@@ -1,4 +1,4 @@
-defaultProject: dataform-open-source
+defaultProject: your-bigquery-project
 defaultLocation: us
 defaultDataset: df_integration_test
 defaultAssertionDataset: df_integration_test_assertions

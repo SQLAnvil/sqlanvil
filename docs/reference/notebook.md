@@ -1,4 +1,4 @@
-[Dataform Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/notebook"](../modules/_core_actions_notebook_.md) › [Notebook](_core_actions_notebook_.notebook.md)
+[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/notebook"](../modules/_core_actions_notebook_.md) › [Notebook](_core_actions_notebook_.notebook.md)
 
 # Class: Notebook
 
@@ -6,7 +6,7 @@ Notebooks run Jupyter Notebook files, and can output content to the storage buck
 `workflow_settings.yaml` files.
 
 You can create notebooks in the following ways. Available config options are defined in
-[NotebookConfig](configs#dataform-ActionConfig-NotebookConfig), and are shared across all the
+[NotebookConfig](configs#sqlanvil-ActionConfig-NotebookConfig), and are shared across all the
 following ways of creating notebooks.
 
 **Using action configs files:**

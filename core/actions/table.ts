@@ -46,8 +46,8 @@ import { sqlanvil } from "sa/protos/ts";
 export type JitTableResult = string | sqlanvil.IJitTableResult;
 
 /**
- * Tables are the fundamental building block for storing data when using Dataform. Dataform compiles
- * your Dataform core code into SQL, executes the SQL code, and creates your defined tables in
+ * Tables are the fundamental building block for storing data when using sqlanvil. sqlanvil compiles
+ * your sqlanvil core code into SQL, executes the SQL code, and creates your defined tables in
  * BigQuery.
  *
  * You can create tables in the following ways. Available config options are defined in
@@ -254,7 +254,7 @@ export class Table extends ActionBuilder<sqlanvil.Table> {
     const existingAction = this.session.actions.indexOf(this);
     if (existingAction === -1) {
       throw Error(
-        "Expected pre-existing action, but none found. Please report this to the Dataform team."
+        "Expected pre-existing action, but none found. Please report this to the sqlanvil team."
       );
     }
     this.session.actions[existingAction] = newAction;

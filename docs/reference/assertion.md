@@ -1,4 +1,4 @@
-[Dataform Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/assertion"](../modules/_core_actions_assertion_.md) › [Assertion](_core_actions_assertion_.assertion.md)
+[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/assertion"](../modules/_core_actions_assertion_.md) › [Assertion](_core_actions_assertion_.assertion.md)
 
 # Class: Assertion
 
@@ -6,7 +6,7 @@ An assertion is a data quality test query that finds rows that violate one or mo
 specified in the query. If the query returns any rows, the assertion fails.
 
 You can create assertions in the following ways. Available config options are defined in
-[AssertionConfig](configs#dataform-ActionConfig-AssertionConfig), and are shared across all the
+[AssertionConfig](configs#sqlanvil-ActionConfig-AssertionConfig), and are shared across all the
 following ways of creating assertions.
 
 **Using a SQLX file:**
@@ -21,7 +21,7 @@ SELECT * FROM table WHERE a IS NULL
 
 **Using built-in assertions in the config block of a table:**
 
-See [TableConfig.assertions](configs#dataform-ActionConfig-TableConfig)
+See [TableConfig.assertions](configs#sqlanvil-ActionConfig-TableConfig)
 
 **Using action configs files:**
 
@@ -73,7 +73,7 @@ This is where `query` comes from.
 ▸ **database**(`database`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[AssertionConfig.project](configs#dataform-ActionConfig-AssertionConfig).
+[AssertionConfig.project](configs#sqlanvil-ActionConfig-AssertionConfig).
 
 Sets the database (Google Cloud project ID) in which to create the corresponding view for this
 assertion.
@@ -93,7 +93,7 @@ ___
 ▸ **dependencies**(`value`: [Resolvable](../modules/_core_contextables_.md#resolvable) | [Resolvable](../modules/_core_contextables_.md#resolvable)[]): *this*
 
 **`deprecated`** Deprecated in favor of
-[AssertionConfig.dependencies](configs#dataform-ActionConfig-AssertionConfig).
+[AssertionConfig.dependencies](configs#sqlanvil-ActionConfig-AssertionConfig).
 
 Sets dependencies of the assertion.
 
@@ -112,7 +112,7 @@ ___
 ▸ **description**(`description`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[AssertionConfig.description](configs#dataform-ActionConfig-AssertionConfig).
+[AssertionConfig.description](configs#sqlanvil-ActionConfig-AssertionConfig).
 
 Sets the description of this assertion.
 
@@ -131,7 +131,7 @@ ___
 ▸ **disabled**(`disabled`: boolean): *this*
 
 **`deprecated`** Deprecated in favor of
-[AssertionConfig.disabled](configs#dataform-ActionConfig-AssertionConfig).
+[AssertionConfig.disabled](configs#sqlanvil-ActionConfig-AssertionConfig).
 
 If called with `true`, this action is not executed. The action can still be depended upon.
 Useful for temporarily turning off broken actions.
@@ -151,7 +151,7 @@ ___
 ▸ **hermetic**(`hermetic`: boolean): *void*
 
 **`deprecated`** Deprecated in favor of
-[AssertionConfig.hermetic](configs#dataform-ActionConfig-AssertionConfig).
+[AssertionConfig.hermetic](configs#sqlanvil-ActionConfig-AssertionConfig).
 
 If true, this indicates that the action only depends on data from explicitly-declared
 dependencies. Otherwise if false, it indicates that the  action depends on data from a source
@@ -188,7 +188,7 @@ ___
 ▸ **schema**(`schema`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[AssertionConfig.dataset](configs#dataform-ActionConfig-AssertionConfig).
+[AssertionConfig.dataset](configs#sqlanvil-ActionConfig-AssertionConfig).
 
 Sets the schema (BigQuery dataset) in which to create the corresponding view for this
 assertion.
@@ -208,7 +208,7 @@ ___
 ▸ **tags**(`value`: string | string[]): *this*
 
 **`deprecated`** Deprecated in favor of
-[AssertionConfig.tags](configs#dataform-ActionConfig-AssertionConfig).
+[AssertionConfig.tags](configs#sqlanvil-ActionConfig-AssertionConfig).
 
 Sets a list of user-defined tags applied to this action.
 

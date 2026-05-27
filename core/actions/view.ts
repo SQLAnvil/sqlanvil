@@ -253,7 +253,7 @@ export class View extends ActionBuilder<sqlanvil.Table> {
     const existingAction = this.session.actions.indexOf(this);
     if (existingAction === -1) {
       throw Error(
-        "Expected pre-existing action, but none found. Please report this to the Dataform team."
+        "Expected pre-existing action, but none found. Please report this to the sqlanvil team."
       );
     }
     this.session.actions[existingAction] = newAction;

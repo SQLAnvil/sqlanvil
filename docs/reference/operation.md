@@ -1,12 +1,12 @@
-[Dataform Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/operation"](../modules/_core_actions_operation_.md) › [Operation](_core_actions_operation_.operation.md)
+[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/operation"](../modules/_core_actions_operation_.md) › [Operation](_core_actions_operation_.operation.md)
 
 # Class: Operation
 
-Operations define custom SQL operations that don't fit into the Dataform model of publishing a
+Operations define custom SQL operations that don't fit into the sqlanvil model of publishing a
 table or writing an assertion.
 
 You can create operations in the following ways. Available config options are defined in
-[OperationConfig](configs#dataform-ActionConfig-OperationConfig), and are shared across all the
+[OperationConfig](configs#sqlanvil-ActionConfig-OperationConfig), and are shared across all the
 following ways of creating operations.
 
 **Using a SQLX file:**
@@ -72,7 +72,7 @@ This is where `query` comes from.
 ▸ **columns**(`columns`: ColumnDescriptor[]): *this*
 
 **`deprecated`** Deprecated in favor of
-[OperationConfig.columns](configs#dataform-ActionConfig-OperationConfig).
+[OperationConfig.columns](configs#sqlanvil-ActionConfig-OperationConfig).
 
 Sets the column descriptors of columns in this table.
 
@@ -91,7 +91,7 @@ ___
 ▸ **database**(`database`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[OperationConfig.project](configs#dataform-ActionConfig-OperationConfig).
+[OperationConfig.project](configs#sqlanvil-ActionConfig-OperationConfig).
 
 Sets the database (Google Cloud project ID) in which to create the corresponding view for this
 operation.
@@ -111,7 +111,7 @@ ___
 ▸ **dependencies**(`value`: [Resolvable](../modules/_core_contextables_.md#resolvable) | [Resolvable](../modules/_core_contextables_.md#resolvable)[]): *this*
 
 **`deprecated`** Deprecated in favor of
-[OperationConfig.dependencies](configs#dataform-ActionConfig-OperationConfig).
+[OperationConfig.dependencies](configs#sqlanvil-ActionConfig-OperationConfig).
 
 Sets dependencies of the table.
 
@@ -130,7 +130,7 @@ ___
 ▸ **description**(`description`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[OperationConfig.description](configs#dataform-ActionConfig-OperationConfig).
+[OperationConfig.description](configs#sqlanvil-ActionConfig-OperationConfig).
 
 Sets the description of this assertion.
 
@@ -149,7 +149,7 @@ ___
 ▸ **disabled**(`disabled`: boolean): *this*
 
 **`deprecated`** Deprecated in favor of
-[OperationConfig.disabled](configs#dataform-ActionConfig-OperationConfig).
+[OperationConfig.disabled](configs#sqlanvil-ActionConfig-OperationConfig).
 
 If called with `true`, this action is not executed. The action can still be depended upon.
 Useful for temporarily turning off broken actions.
@@ -169,7 +169,7 @@ ___
 ▸ **hasOutput**(`hasOutput`: boolean): *this*
 
 **`deprecated`** Deprecated in favor of
-[OperationConfig.hasOutput](configs#dataform-ActionConfig-OperationConfig).
+[OperationConfig.hasOutput](configs#sqlanvil-ActionConfig-OperationConfig).
 
 Declares that this action creates a dataset which should be referenceable as a dependency
 target, for example by using the `ref` function.
@@ -189,7 +189,7 @@ ___
 ▸ **hermetic**(`hermetic`: boolean): *void*
 
 **`deprecated`** Deprecated in favor of
-[OperationConfig.hermetic](configs#dataform-ActionConfig-OperationConfig).
+[OperationConfig.hermetic](configs#sqlanvil-ActionConfig-OperationConfig).
 
 If true, this indicates that the action only depends on data from explicitly-declared
 dependencies. Otherwise if false, it indicates that the  action depends on data from a source
@@ -228,7 +228,7 @@ ___
 ▸ **schema**(`schema`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[OperationConfig.dataset](configs#dataform-ActionConfig-OperationConfig).
+[OperationConfig.dataset](configs#sqlanvil-ActionConfig-OperationConfig).
 
 Sets the schema (BigQuery dataset) in which to create the output of this action.
 
@@ -247,7 +247,7 @@ ___
 ▸ **setDependOnDependencyAssertions**(`dependOnDependencyAssertions`: boolean): *this*
 
 **`deprecated`** Deprecated in favor of
-[OperationConfig.dependOnDependencyAssertions](configs#dataform-ActionConfig-OperationConfig).
+[OperationConfig.dependOnDependencyAssertions](configs#sqlanvil-ActionConfig-OperationConfig).
 
 When called with `true`, assertions dependent upon any dependency will be add as dedpendency
 to this action.
@@ -267,7 +267,7 @@ ___
 ▸ **tags**(`value`: string | string[]): *this*
 
 **`deprecated`** Deprecated in favor of
-[OperationConfig.tags](configs#dataform-ActionConfig-OperationConfig).
+[OperationConfig.tags](configs#sqlanvil-ActionConfig-OperationConfig).
 
 Sets a list of user-defined tags applied to this action.
 

@@ -19,13 +19,13 @@ interface ILegacyDeclarationConfig extends sqlanvil.ActionConfig.DeclarationConf
 }
 
 /**
- * You can declare any BigQuery table as a data source in Dataform. Declaring BigQuery data
- * sources that are external to Dataform lets you treat those data sources as Dataform objects.
+ * You can declare any BigQuery table as a data source in sqlanvil. Declaring BigQuery data
+ * sources that are external to sqlanvil lets you treat those data sources as sqlanvil objects.
  *
  * Declaring data sources is optional, but can be useful when you want to do the following:
- * * Reference or resolve declared sources in the same way as any other table in Dataform.
- * * View declared sources in the visualized Dataform graph.
- * * Use Dataform to manage the table-level and column-level descriptions of externally created
+ * * Reference or resolve declared sources in the same way as any other table in sqlanvil.
+ * * View declared sources in the visualized sqlanvil graph.
+ * * Use sqlanvil to manage the table-level and column-level descriptions of externally created
  *   tables.
  * * Trigger workflow invocations that include all the dependents of an external data source.
  *

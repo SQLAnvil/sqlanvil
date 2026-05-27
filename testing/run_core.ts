@@ -64,7 +64,7 @@ export function runMainInVm(
 ): sqlanvil.CoreExecutionResponse {
   const projectDir = coreExecutionRequest.compile.compileConfig.projectDir;
 
-  // Copy over the build Dataform Core that is set up as a node_modules directory.
+  // Copy over the build sqlanvil Core that is set up as a node_modules directory.
   fs.copySync(`${process.cwd()}/core/node_modules`, `${projectDir}/node_modules`);
 
   const compiler = compile as CompilerFunction;

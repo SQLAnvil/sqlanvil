@@ -54,7 +54,7 @@ externals = [
 pkg_json(
     name = "json",
     package_name = "@sqlanvil/cli",
-    description = "Dataform command line interface.",
+    description = "sqlanvil command line interface.",
     external_deps = externals,
     layers = [
         "//:package.json",

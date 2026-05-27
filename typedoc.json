@@ -1,7 +1,7 @@
 {
     "out": "newdocs",
     "plugin": ["typedoc-plugin-markdown"],
-    "name": "Dataform Javascript API Reference",
+    "name": "sqlanvil Javascript API Reference",
     "excludeExternals": true,
     "exclude": [
         "*", "!core/**"

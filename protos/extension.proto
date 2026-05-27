@@ -12,9 +12,9 @@ option go_package = "github.com/ihistand/sqlanvil/protos/sqlanvil";
 enum ExtensionCompilationMode {
   // Unspecified compiled mode - extension will be skipped.
   COMPILATION_MODE_UNSPECIFIED = 0;
-  // Execute before regular Dataform compilation.
+  // Execute before regular sqlanvil compilation.
   PROLOGUE = 1;
-  // Replace regular Dataform compilation.
+  // Replace regular sqlanvil compilation.
   APPLICATION_CODE = 2;
 }
 

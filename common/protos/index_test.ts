@@ -30,7 +30,7 @@ suite("verifyObjectMatchesProto", () => {
       );
     }).to.throw(
       ReferenceError,
-      /Unexpected property "actionDescriptor" for ".*Table".*please report this to the Dataform team/
+      /Unexpected property "actionDescriptor" for ".*Table".*please report this to the sqlanvil team/
     );
   });
 

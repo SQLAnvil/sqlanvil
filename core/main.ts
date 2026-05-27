@@ -30,7 +30,7 @@ export function main(coreExecutionRequest: Uint8Array | string): Uint8Array | st
 
   let request: sqlanvil.CoreExecutionRequest;
   if (typeof coreExecutionRequest === "string") {
-    // Older versions of the Dataform CLI send a base64 encoded string.
+    // Older versions of the sqlanvil CLI send a base64 encoded string.
     // See https://github.com/dataform-co/dataform/pull/1570.
     request = decode64(sqlanvil.CoreExecutionRequest, coreExecutionRequest);
   } else {
@@ -67,7 +67,7 @@ export function main(coreExecutionRequest: Uint8Array | string): Uint8Array | st
   });
 
   if (typeof coreExecutionRequest === "string") {
-    // Older versions of the Dataform CLI expect a base64 encoded string to be returned.
+    // Older versions of the sqlanvil CLI expect a base64 encoded string to be returned.
     // See https://github.com/dataform-co/dataform/pull/1570.
     return encode64(sqlanvil.CoreExecutionResponse, coreExecutionResponse);
   }

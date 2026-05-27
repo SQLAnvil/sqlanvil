@@ -3,8 +3,8 @@ import { util } from "protobufjs";
 import { google } from "sa/protos/ts";
 
 const CONFIGS_PROTO_DOCUMENTATION_URL =
-  "https://dataform-co.github.io/dataform/docs/configs-reference";
-const REPORT_ISSUE_URL = "https://github.com/dataform-co/dataform/issues";
+  "https://github.com/ihistand/sqlanvil/blob/main/docs/reference/configs.md";
+const REPORT_ISSUE_URL = "https://github.com/ihistand/sqlanvil/issues";
 
 export interface IProtoClass<IProto, Proto> {
   new (): Proto;
@@ -92,7 +92,7 @@ export function verifyObjectMatchesProto<Proto>(
           throw ReferenceError(
             `Unexpected property "${presentKey}" for "${protoType
               .getTypeUrl("")
-              .replace("/", "")}", please report this to the Dataform team at ` +
+              .replace("/", "")}", please report this to the sqlanvil team at ` +
             `${REPORT_ISSUE_URL}.`
           );
         }

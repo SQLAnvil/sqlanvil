@@ -20,7 +20,7 @@ suite("compile command", ({ afterEach }) => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(sqlanvil.WorkflowSettings.create({ defaultProject: "dataform" }))
+        dumpYaml(sqlanvil.WorkflowSettings.create({ defaultProject: "sqlanvil" }))
       );
 
       expect(
@@ -59,7 +59,7 @@ defaultLocation: "${DEFAULT_LOCATION}"
       "Could not find a recent installed version of @sqlanvil/core in the project. Check that " +
         "either `sqlanvilCoreVersion` is specified in `workflow_settings.yaml`, or " +
         "`@sqlanvil/core` is specified in `package.json`. If using `package.json`, then run " +
-        "`dataform install`."
+        "`sqlanvil install`."
     );
   });
 
@@ -70,7 +70,7 @@ defaultLocation: "${DEFAULT_LOCATION}"
         path.join(projectDir, "workflow_settings.yaml"),
         dumpYaml(
           sqlanvil.WorkflowSettings.create({
-            defaultProject: "dataform",
+            defaultProject: "sqlanvil",
             sqlanvilCoreVersion: "3.0.0"
           })
         )
@@ -173,14 +173,14 @@ SELECT 1 as id
       {
         canonicalTarget: {
           database: DEFAULT_DATABASE,
-          name: "dataform_example_table_assertions_uniqueKey_0",
+          name: "sqlanvil_example_table_assertions_uniqueKey_0",
           schema: "sqlanvil_assertions"
         },
         dependencyTargets: [
           {
             database: DEFAULT_DATABASE,
             name: "example_table",
-            schema: "dataform"
+            schema: "sqlanvil"
           }
         ],
         disabled: true,
@@ -188,14 +188,14 @@ SELECT 1 as id
         parentAction: {
           database: DEFAULT_DATABASE,
           name: "example_table",
-          schema: "dataform"
+          schema: "sqlanvil"
         },
         query:
           // tslint:disable-next-line:tsr-detect-sql-literal-injection
           `\nSELECT\n  *\nFROM (\n  SELECT\n    id,\n    COUNT(1) AS index_row_count\n  FROM \`${DEFAULT_DATABASE}.sqlanvil.example_table\`\n  GROUP BY id\n  ) AS data\nWHERE index_row_count > 1\n`,
         target: {
           database: DEFAULT_DATABASE,
-          name: "dataform_example_table_assertions_uniqueKey_0",
+          name: "sqlanvil_example_table_assertions_uniqueKey_0",
           schema: "sqlanvil_assertions"
         }
       },
@@ -231,7 +231,7 @@ SELECT 1 as id
         canonicalTarget: {
           database: DEFAULT_DATABASE,
           name: "example_table",
-          schema: "dataform"
+          schema: "sqlanvil"
         },
         disabled: false,
         enumType: "TABLE",
@@ -241,7 +241,7 @@ SELECT 1 as id
         target: {
           database: DEFAULT_DATABASE,
           name: "example_table",
-          schema: "dataform"
+          schema: "sqlanvil"
         },
         type: "table"
       }
@@ -249,13 +249,13 @@ SELECT 1 as id
     targets: [
       {
         database: DEFAULT_DATABASE,
-        name: "dataform_example_table_assertions_uniqueKey_0",
+        name: "sqlanvil_example_table_assertions_uniqueKey_0",
         schema: "sqlanvil_assertions"
       },
       {
         database: DEFAULT_DATABASE,
         name: "example_table",
-        schema: "dataform"
+        schema: "sqlanvil"
       },
       {
         database: DEFAULT_DATABASE,
@@ -306,7 +306,7 @@ suite("extension config", ({ afterEach }) => {
       dumpYaml({
         defaultProject: DEFAULT_DATABASE,
         defaultLocation: DEFAULT_LOCATION,
-        defaultDataset: "dataform",
+        defaultDataset: "sqlanvil",
         defaultAssertionDataset: "sqlanvil_assertions",
         extension: {
           name: "test-extension",

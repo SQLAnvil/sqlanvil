@@ -1,13 +1,13 @@
-[Dataform Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/incremental_table"](../modules/_core_actions_incremental_table_.md) › [IncrementalTable](_core_actions_incremental_table_.incrementaltable.md)
+[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/incremental_table"](../modules/_core_actions_incremental_table_.md) › [IncrementalTable](_core_actions_incremental_table_.incrementaltable.md)
 
 # Class: IncrementalTable
 
-When you define an incremental table, Dataform builds the incremental table from scratch only for
-the first time. During subsequent executions, Dataform only inserts or merges new rows into the
+When you define an incremental table, sqlanvil builds the incremental table from scratch only for
+the first time. During subsequent executions, sqlanvil only inserts or merges new rows into the
 incremental table according to the conditions that you configure.
 
 You can create incremental tables in the following ways. Available config options are defined in
-[IncrementalTableConfig](configs#dataform-ActionConfig-IncrementalTableConfig), and are shared across all the
+[IncrementalTableConfig](configs#sqlanvil-ActionConfig-IncrementalTableConfig), and are shared across all the
 following ways of creating tables.
 
 **Using a SQLX file:**
@@ -72,7 +72,7 @@ This is where `query` comes from.
 ▸ **assertions**(`assertions`: TableAssertionsConfig): *this*
 
 **`deprecated`** Deprecated in favor of
-[IncrementalTableConfig.assertions](configs#dataform-ActionConfig-IncrementalTableConfig).
+[IncrementalTableConfig.assertions](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
 
 Sets in-line assertions for this incremental table.
 
@@ -95,7 +95,7 @@ ___
 ▸ **bigquery**(`bigquery`: IBigQueryOptions): *this*
 
 **`deprecated`** Deprecated in favor of options available directly on
-[IncrementalTableConfig](configs#dataform-ActionConfig-IncrementalTableConfig). For example:
+[IncrementalTableConfig](configs#sqlanvil-ActionConfig-IncrementalTableConfig). For example:
 `publish("name", { type: "table", partitionBy: "column" }`).
 
 Sets bigquery options for the action.
@@ -115,7 +115,7 @@ ___
 ▸ **columns**(`columns`: ColumnDescriptor[]): *this*
 
 **`deprecated`** Deprecated in favor of
-[IncrementalTableConfig.columns](configs#dataform-ActionConfig-IncrementalTableConfig).
+[IncrementalTableConfig.columns](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
 
 Sets the column descriptors of columns in this incremental table.
 
@@ -134,7 +134,7 @@ ___
 ▸ **database**(`database`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[IncrementalTableConfig.project](configs#dataform-ActionConfig-IncrementalTableConfig).
+[IncrementalTableConfig.project](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
 
 Sets the
 Sets the database (Google Cloud project ID) in which to create the output of this action.
@@ -154,7 +154,7 @@ ___
 ▸ **dependencies**(`value`: [Resolvable](../modules/_core_contextables_.md#resolvable) | [Resolvable](../modules/_core_contextables_.md#resolvable)[]): *this*
 
 **`deprecated`** Deprecated in favor of
-[IncrementalTableConfig.dependencies](configs#dataform-ActionConfig-IncrementalTableConfig).
+[IncrementalTableConfig.dependencies](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
 
 Sets dependencies of the incremental table.
 
@@ -173,7 +173,7 @@ ___
 ▸ **description**(`description`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[IncrementalTableConfig.description](configs#dataform-ActionConfig-IncrementalTableConfig).
+[IncrementalTableConfig.description](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
 
 Sets the description of this incremental table.
 
@@ -192,7 +192,7 @@ ___
 ▸ **disabled**(`disabled`: boolean): *this*
 
 **`deprecated`** Deprecated in favor of
-[IncrementalTableConfig.disabled](configs#dataform-ActionConfig-IncrementalTableConfig).
+[IncrementalTableConfig.disabled](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
 
 If called with `true`, this action is not executed. The action can still be depended upon.
 Useful for temporarily turning off broken actions.
@@ -212,7 +212,7 @@ ___
 ▸ **hermetic**(`hermetic`: boolean): *void*
 
 **`deprecated`** Deprecated in favor of
-[IncrementalTableConfig.hermetic](configs#dataform-ActionConfig-IncrementalTableConfig).
+[IncrementalTableConfig.hermetic](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
 
 If true, this indicates that the action only depends on data from explicitly-declared
 dependencies. Otherwise if false, it indicates that the  action depends on data from a source
@@ -287,7 +287,7 @@ ___
 ▸ **protected**(`isProtected`: boolean): *this*
 
 **`deprecated`** Deprecated in favor of
-[IncrementalTableConfig.protected](configs#dataform-ActionConfig-IncrementalTableConfig).
+[IncrementalTableConfig.protected](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
 
 If called with `true`, prevents the dataset from being rebuilt from scratch.
 
@@ -322,7 +322,7 @@ ___
 ▸ **schema**(`schema`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[IncrementalTableConfig.dataset](configs#dataform-ActionConfig-IncrementalTableConfig).
+[IncrementalTableConfig.dataset](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
 
 Sets the schema (BigQuery dataset) in which to create the output of this action.
 
@@ -341,7 +341,7 @@ ___
 ▸ **setDependOnDependencyAssertions**(`dependOnDependencyAssertions`: boolean): *this*
 
 **`deprecated`** Deprecated in favor of
-[IncrementalTableConfig.dependOnDependencyAssertions](configs#dataform-ActionConfig-IncrementalTableConfig).
+[IncrementalTableConfig.dependOnDependencyAssertions](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
 
 When called with `true`, assertions dependent upon any dependency will be add as dedpendency
 to this action.
@@ -361,7 +361,7 @@ ___
 ▸ **tags**(`value`: string | string[]): *this*
 
 **`deprecated`** Deprecated in favor of
-[IncrementalTableConfig.tags](configs#dataform-ActionConfig-IncrementalTableConfig).
+[IncrementalTableConfig.tags](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
 
 Sets a list of user-defined tags applied to this action.
 
@@ -398,10 +398,10 @@ ___
 ▸ **uniqueKey**(`uniqueKey`: string[]): *void*
 
 **`deprecated`** Deprecated in favor of
-[IncrementalTableConfig.uniqueKey](configs#dataform-ActionConfig-IncrementalTableConfig).
+[IncrementalTableConfig.uniqueKey](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
 
 If set, unique key represents a set of names of columns that will act as a the unique key. To
-enforce this, when updating the incremental table, Dataform merges rows with `uniqueKey`
+enforce this, when updating the incremental table, sqlanvil merges rows with `uniqueKey`
 instead of appending them.
 
 **Parameters:**

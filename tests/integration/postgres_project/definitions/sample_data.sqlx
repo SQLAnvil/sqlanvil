@@ -2,6 +2,6 @@ config {
   type: "view"
 }
 
-select ${when(dataform.projectConfig.vars.fooVar === "bar", "1", "2")} as val union all
+select ${when(sqlanvil.projectConfig.vars.fooVar === "bar", "1", "2")} as val union all
 select 2 as val union all
-select ${when(dataform.projectConfig.warehouse === "postgres", "3", "2")} as val
+select ${when(sqlanvil.projectConfig.warehouse === "postgres", "3", "2")} as val

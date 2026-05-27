@@ -24,7 +24,7 @@ suite("readExtensionConfigFromWorkflowSettings", ({ afterEach }) => {
     const projectDir = tmpDirFixture.createNewTmpDir();
     fs.writeFileSync(
       path.join(projectDir, "workflow_settings.yaml"),
-      dumpYaml({ defaultProject: "dataform" })
+      dumpYaml({ defaultProject: "sqlanvil" })
     );
     expect(readExtensionConfigFromWorkflowSettings(projectDir)).to.equal(undefined);
   });
@@ -35,7 +35,7 @@ suite("readExtensionConfigFromWorkflowSettings", ({ afterEach }) => {
       path.join(projectDir, "workflow_settings.yaml"),
       dumpYaml({
         sqlanvilCoreVersion: "3.0.0",
-        defaultProject: "dataform",
+        defaultProject: "sqlanvil",
         extension: {
           name: "test-extension",
           compilationMode: "PROLOGUE",

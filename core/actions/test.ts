@@ -41,7 +41,7 @@ export interface ITestConfig extends INamedConfig {
 const ITestConfigProperties = strictKeysOf<ITestConfig>()(["type", "dataset", "name", "filename", "tags"]);
 
 /**
- * Dataform test actions can be used to write unit tests for your generated SQL
+ * sqlanvil test actions can be used to write unit tests for your generated SQL
  *
  * You can create unit tests in the following ways.
  *

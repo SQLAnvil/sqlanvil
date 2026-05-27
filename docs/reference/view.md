@@ -1,4 +1,4 @@
-[Dataform Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/view"](../modules/_core_actions_view_.md) › [View](_core_actions_view_.view.md)
+[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/view"](../modules/_core_actions_view_.md) › [View](_core_actions_view_.view.md)
 
 # Class: View
 
@@ -7,7 +7,7 @@ to copy the original data to it, which can result in significant cost savings fo
 processing and storage.
 
 You can create views in the following ways. Available config options are defined in
-[ViewConfig](configs#dataform-ActionConfig-ViewConfig), and are shared across all the
+[ViewConfig](configs#sqlanvil-ActionConfig-ViewConfig), and are shared across all the
 following ways of creating tables.
 
 **Using a SQLX file:**
@@ -78,7 +78,7 @@ This is where `query` comes from.
 ▸ **assertions**(`assertions`: TableAssertionsConfig): *this*
 
 **`deprecated`** Deprecated in favor of
-[ViewConfig.assertions](configs#dataform-ActionConfig-ViewConfig).
+[ViewConfig.assertions](configs#sqlanvil-ActionConfig-ViewConfig).
 
 Sets in-line assertions for this view.
 
@@ -101,7 +101,7 @@ ___
 ▸ **bigquery**(`bigquery`: IBigQueryOptions): *this*
 
 **`deprecated`** Deprecated in favor of options available directly on
-[ViewConfig](configs#dataform-ActionConfig-ViewConfig).
+[ViewConfig](configs#sqlanvil-ActionConfig-ViewConfig).
 
 Sets bigquery options for the action.
 
@@ -120,7 +120,7 @@ ___
 ▸ **columns**(`columns`: ColumnDescriptor[]): *this*
 
 **`deprecated`** Deprecated in favor of
-[ViewConfig.columns](configs#dataform-ActionConfig-ViewConfig).
+[ViewConfig.columns](configs#sqlanvil-ActionConfig-ViewConfig).
 
 Sets the column descriptors of columns in this view.
 
@@ -139,7 +139,7 @@ ___
 ▸ **database**(`database`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[ViewConfig.project](configs#dataform-ActionConfig-ViewConfig).
+[ViewConfig.project](configs#sqlanvil-ActionConfig-ViewConfig).
 
 Sets the
 Sets the database (Google Cloud project ID) in which to create the output of this action.
@@ -159,7 +159,7 @@ ___
 ▸ **dependencies**(`value`: [Resolvable](../modules/_core_contextables_.md#resolvable) | [Resolvable](../modules/_core_contextables_.md#resolvable)[]): *this*
 
 **`deprecated`** Deprecated in favor of
-[ViewConfig.dependencies](configs#dataform-ActionConfig-ViewConfig).
+[ViewConfig.dependencies](configs#sqlanvil-ActionConfig-ViewConfig).
 
 Sets dependencies of the view.
 
@@ -178,7 +178,7 @@ ___
 ▸ **description**(`description`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[ViewConfig.description](configs#dataform-ActionConfig-ViewConfig).
+[ViewConfig.description](configs#sqlanvil-ActionConfig-ViewConfig).
 
 Sets the description of this view.
 
@@ -197,7 +197,7 @@ ___
 ▸ **disabled**(`disabled`: boolean): *this*
 
 **`deprecated`** Deprecated in favor of
-[ViewConfig.disabled](configs#dataform-ActionConfig-ViewConfig).
+[ViewConfig.disabled](configs#sqlanvil-ActionConfig-ViewConfig).
 
 If called with `true`, this action is not executed. The action can still be depended upon.
 Useful for temporarily turning off broken actions.
@@ -217,7 +217,7 @@ ___
 ▸ **hermetic**(`hermetic`: boolean): *void*
 
 **`deprecated`** Deprecated in favor of
-[ViewConfig.hermetic](configs#dataform-ActionConfig-ViewConfig).
+[ViewConfig.hermetic](configs#sqlanvil-ActionConfig-ViewConfig).
 
 If true, this indicates that the action only depends on data from explicitly-declared
 dependencies. Otherwise if false, it indicates that the  action depends on data from a source
@@ -238,7 +238,7 @@ ___
 ▸ **materialized**(`materialized`: boolean): *void*
 
 **`deprecated`** Deprecated in favor of
-[ViewConfig.materialized](configs#dataform-ActionConfig-ViewConfig).
+[ViewConfig.materialized](configs#sqlanvil-ActionConfig-ViewConfig).
 
 Applies the materialized view optimization, see
 https://cloud.google.com/bigquery/docs/materialized-views-intro.
@@ -328,7 +328,7 @@ ___
 ▸ **schema**(`schema`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[ViewConfig.dataset](configs#dataform-ActionConfig-ViewConfig).
+[ViewConfig.dataset](configs#sqlanvil-ActionConfig-ViewConfig).
 
 Sets the schema (BigQuery dataset) in which to create the output of this action.
 
@@ -347,7 +347,7 @@ ___
 ▸ **setDependOnDependencyAssertions**(`dependOnDependencyAssertions`: boolean): *this*
 
 **`deprecated`** Deprecated in favor of
-[ViewConfig.dependOnDependencyAssertions](configs#dataform-ActionConfig-ViewConfig).
+[ViewConfig.dependOnDependencyAssertions](configs#sqlanvil-ActionConfig-ViewConfig).
 
 When called with `true`, assertions dependent upon any dependency will be add as dedpendency
 to this action.
@@ -367,7 +367,7 @@ ___
 ▸ **tags**(`value`: string | string[]): *this*
 
 **`deprecated`** Deprecated in favor of
-[ViewConfig.tags](configs#dataform-ActionConfig-ViewConfig).
+[ViewConfig.tags](configs#sqlanvil-ActionConfig-ViewConfig).
 
 Sets a list of user-defined tags applied to this action.
 

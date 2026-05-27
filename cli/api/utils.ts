@@ -8,7 +8,7 @@ export function prettyJsonStringify(obj: object) {
   return JSON.stringify(obj, null, 4) + "\n";
 }
 
-export function readDataformCoreVersionFromWorkflowSettings(
+export function readsqlanvilCoreVersionFromWorkflowSettings(
   resolvedProjectPath: string
 ): string | undefined {
   return readConfigFromWorkflowSettings(resolvedProjectPath)?.sqlanvilCoreVersion;

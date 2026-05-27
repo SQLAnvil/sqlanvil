@@ -1,8 +1,8 @@
-[Dataform Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/test"](../modules/_core_actions_test_.md) › [Test](_core_actions_test_.test.md)
+[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/test"](../modules/_core_actions_test_.md) › [Test](_core_actions_test_.test.md)
 
 # Class: Test
 
-Dataform test actions can be used to write unit tests for your generated SQL
+sqlanvil test actions can be used to write unit tests for your generated SQL
 
 You can create unit tests in the following ways.
 

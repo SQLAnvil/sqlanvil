@@ -87,11 +87,11 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
           enumType: "TABLE",
           target: {
             database: DEFAULT_DATABASE,
-            schema: "dataform_test_schema_suffix",
+            schema: "sqlanvil_test_schema_suffix",
             name: "example"
           },
           canonicalTarget: {
-            schema: "dataform",
+            schema: "sqlanvil",
             name: "example",
             database: DEFAULT_DATABASE
           },
@@ -120,7 +120,7 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
       targets: [
         {
           database: DEFAULT_DATABASE,
-          schema: "dataform",
+          schema: "sqlanvil",
           name: "example"
         }
       ]
@@ -158,7 +158,7 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
           target: {
             database: DEFAULT_DATABASE,
             name: "example",
-            schema: "dataform"
+            schema: "sqlanvil"
           },
           tasks: [
             {
@@ -275,7 +275,7 @@ SELECT 1 as id
           target: {
             database: DEFAULT_DATABASE,
             name: "example_table",
-            schema: "dataform"
+            schema: "sqlanvil"
           },
           tasks: [
             {
@@ -376,7 +376,7 @@ SELECT 1 as id
           "--json",
           "--disable-assertions",
           "--actions=test_assertion,example_table",
-          "--job-labels=env=testing,team=dataform"
+          "--job-labels=env=testing,team=sqlanvil"
         ])
       );
 
@@ -649,7 +649,7 @@ select 2
 
   suite("onSchemaChange", ({ beforeEach }) => {
     const projectDir = tmpDirFixture.createNewTmpDir();
-    const uniqueDataset = `dataform_e2e_osc_${Math.random().toString(36).substring(7)}`;
+    const uniqueDataset = `sqlanvil_e2e_osc_${Math.random().toString(36).substring(7)}`;
 
     beforeEach("setup test project", async () => {
       const npmCacheDir = tmpDirFixture.createNewTmpDir();
@@ -724,7 +724,7 @@ DROP SCHEMA IF EXISTS \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.p
     test("generates dynamic SQL for EXTEND when table exists in BigQuery", async () => {
       try {
         // Run setup operation to create the table in BigQuery.
-        // Dataform will automatically create the uniqueDataset schema.
+        // sqlanvil will automatically create the uniqueDataset schema.
         await getProcessResult(
           execFile(nodePath, [
             cliEntryPointPath,
@@ -737,7 +737,7 @@ DROP SCHEMA IF EXISTS \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.p
         );
 
         // Run the incremental table in dry-run mode. 
-        // Dataform will detect the table exists and generate the dynamic procedural SQL.
+        // sqlanvil will detect the table exists and generate the dynamic procedural SQL.
         const runResult = await getProcessResult(
           execFile(nodePath, [
             cliEntryPointPath,

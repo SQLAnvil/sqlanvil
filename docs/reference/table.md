@@ -1,13 +1,13 @@
-[Dataform Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/table"](../modules/_core_actions_table_.md) › [Table](_core_actions_table_.table.md)
+[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/table"](../modules/_core_actions_table_.md) › [Table](_core_actions_table_.table.md)
 
 # Class: Table
 
-Tables are the fundamental building block for storing data when using Dataform. Dataform compiles
-your Dataform core code into SQL, executes the SQL code, and creates your defined tables in
+Tables are the fundamental building block for storing data when using sqlanvil. sqlanvil compiles
+your sqlanvil core code into SQL, executes the SQL code, and creates your defined tables in
 BigQuery.
 
 You can create tables in the following ways. Available config options are defined in
-[TableConfig](configs#dataform-ActionConfig-TableConfig), and are shared across all the
+[TableConfig](configs#sqlanvil-ActionConfig-TableConfig), and are shared across all the
 following ways of creating tables.
 
 **Using a SQLX file:**
@@ -77,7 +77,7 @@ This is where `query` comes from.
 ▸ **assertions**(`assertions`: TableAssertionsConfig): *this*
 
 **`deprecated`** Deprecated in favor of
-[TableConfig.assertions](configs#dataform-ActionConfig-TableConfig).
+[TableConfig.assertions](configs#sqlanvil-ActionConfig-TableConfig).
 
 Sets in-line assertions for this table.
 
@@ -100,7 +100,7 @@ ___
 ▸ **bigquery**(`bigquery`: IBigQueryOptions): *this*
 
 **`deprecated`** Deprecated in favor of options available directly on
-[TableConfig](configs#dataform-ActionConfig-TableConfig). For example:
+[TableConfig](configs#sqlanvil-ActionConfig-TableConfig). For example:
 `publish("name", { type: "table", partitionBy: "column" }`).
 
 Sets bigquery options for the action.
@@ -120,7 +120,7 @@ ___
 ▸ **columns**(`columns`: ColumnDescriptor[]): *this*
 
 **`deprecated`** Deprecated in favor of
-[TableConfig.columns](configs#dataform-ActionConfig-TableConfig).
+[TableConfig.columns](configs#sqlanvil-ActionConfig-TableConfig).
 
 Sets the column descriptors of columns in this table.
 
@@ -139,7 +139,7 @@ ___
 ▸ **database**(`database`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[TableConfig.project](configs#dataform-ActionConfig-TableConfig).
+[TableConfig.project](configs#sqlanvil-ActionConfig-TableConfig).
 
 Sets the database (Google Cloud project ID) in which to create the output of this action.
 
@@ -158,7 +158,7 @@ ___
 ▸ **dependencies**(`value`: [Resolvable](../modules/_core_contextables_.md#resolvable) | [Resolvable](../modules/_core_contextables_.md#resolvable)[]): *this*
 
 **`deprecated`** Deprecated in favor of
-[TableConfig.dependencies](configs#dataform-ActionConfig-TableConfig).
+[TableConfig.dependencies](configs#sqlanvil-ActionConfig-TableConfig).
 
 Sets dependencies of the table.
 
@@ -177,7 +177,7 @@ ___
 ▸ **description**(`description`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[TableConfig.description](configs#dataform-ActionConfig-TableConfig).
+[TableConfig.description](configs#sqlanvil-ActionConfig-TableConfig).
 
 Sets the description of this assertion.
 
@@ -196,7 +196,7 @@ ___
 ▸ **disabled**(`disabled`: boolean): *this*
 
 **`deprecated`** Deprecated in favor of
-[TableConfig.disabled](configs#dataform-ActionConfig-TableConfig).
+[TableConfig.disabled](configs#sqlanvil-ActionConfig-TableConfig).
 
 If called with `true`, this action is not executed. The action can still be depended upon.
 Useful for temporarily turning off broken actions.
@@ -216,7 +216,7 @@ ___
 ▸ **hermetic**(`hermetic`: boolean): *void*
 
 **`deprecated`** Deprecated in favor of
-[TableConfig.hermetic](configs#dataform-ActionConfig-TableConfig).
+[TableConfig.hermetic](configs#sqlanvil-ActionConfig-TableConfig).
 
 If true, this indicates that the action only depends on data from explicitly-declared
 dependencies. Otherwise if false, it indicates that the  action depends on data from a source
@@ -307,7 +307,7 @@ ___
 ▸ **schema**(`schema`: string): *this*
 
 **`deprecated`** Deprecated in favor of
-[TableConfig.dataset](configs#dataform-ActionConfig-TableConfig).
+[TableConfig.dataset](configs#sqlanvil-ActionConfig-TableConfig).
 
 Sets the schema (BigQuery dataset) in which to create the output of this action.
 
@@ -326,7 +326,7 @@ ___
 ▸ **setDependOnDependencyAssertions**(`dependOnDependencyAssertions`: boolean): *this*
 
 **`deprecated`** Deprecated in favor of
-[TableConfig.dependOnDependencyAssertions](configs#dataform-ActionConfig-TableConfig).
+[TableConfig.dependOnDependencyAssertions](configs#sqlanvil-ActionConfig-TableConfig).
 
 When called with `true`, assertions dependent upon any dependency will be add as dedpendency
 to this action.
@@ -346,7 +346,7 @@ ___
 ▸ **tags**(`value`: string | string[]): *this*
 
 **`deprecated`** Deprecated in favor of
-[TableConfig.tags](configs#dataform-ActionConfig-TableConfig).
+[TableConfig.tags](configs#sqlanvil-ActionConfig-TableConfig).
 
 Sets a list of user-defined tags applied to this action.
 

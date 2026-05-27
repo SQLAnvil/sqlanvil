@@ -59,7 +59,7 @@ message WorkflowSettings {
 
   // Optional. The default BigQuery reservation to use for execution.
   // If unset, default BigQuery behavior applies.
-  // Dataform CLI only (GCP Dataform support pending).
+  // sqlanvil CLI only (GCP sqlanvil support pending).
   string default_reservation = 14;
 
   // Optional. An external package that provides an extension.
@@ -278,7 +278,7 @@ message ActionConfig {
 
     // Optional. The BigQuery reservation to use for execution.
     // If unset, the value from workflow_settings.yaml is used. If neither is set, default BigQuery behavior applies.
-    // Dataform CLI only (GCP Dataform support pending).
+    // sqlanvil CLI only (GCP sqlanvil support pending).
     string reservation = 24;
   }
 
@@ -366,7 +366,7 @@ message ActionConfig {
 
     // Optional. The BigQuery reservation to use for execution.
     // If unset, the value from workflow_settings.yaml is used. If neither is set, default BigQuery behavior applies.
-    // Dataform CLI only (GCP Dataform support pending).
+    // sqlanvil CLI only (GCP sqlanvil support pending).
     string reservation = 21;
   }
 
@@ -418,7 +418,7 @@ message ActionConfig {
 
     // If set, unique key represents a set of names of columns that will act as
     // a the unique key. To enforce this, when updating the incremental
-    // table, Dataform merges rows with `uniqueKey` instead of appending them.
+    // table, sqlanvil merges rows with `uniqueKey` instead of appending them.
     repeated string unique_key = 11;
 
     // Description of the incremental table.
@@ -483,7 +483,7 @@ message ActionConfig {
 
     // Optional. The BigQuery reservation to use for execution.
     // If unset, the value from workflow_settings.yaml is used. If neither is set, default BigQuery behavior applies.
-    // Dataform CLI only (GCP Dataform support pending).
+    // sqlanvil CLI only (GCP sqlanvil support pending).
     string reservation = 27;
   }
 
@@ -526,7 +526,7 @@ message ActionConfig {
 
     // Optional. The BigQuery reservation to use for execution.
     // If unset, the value from workflow_settings.yaml is used. If neither is set, default BigQuery behavior applies.
-    // Dataform CLI only (GCP Dataform support pending).
+    // sqlanvil CLI only (GCP sqlanvil support pending).
     string reservation = 11;
   }
 
@@ -578,7 +578,7 @@ message ActionConfig {
 
     // Optional. The BigQuery reservation to use for execution.
     // If unset, the value from workflow_settings.yaml is used. If neither is set, default BigQuery behavior applies.
-    // Dataform CLI only (GCP Dataform support pending).
+    // sqlanvil CLI only (GCP sqlanvil support pending).
     string reservation = 13;
   }
 

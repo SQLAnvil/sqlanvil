@@ -1,9 +1,9 @@
-[Dataform Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/session"](../modules/_core_session_.md) › [Session](_core_session_.session.md)
+[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/session"](../modules/_core_session_.md) › [Session](_core_session_.session.md)
 
 # Class: Session
 
 Contains methods that are published globally, so can be invoked anywhere in the `/definitions`
-folder of a Dataform project.
+folder of a sqlanvil project.
 
 ## Hierarchy
 
@@ -30,13 +30,13 @@ folder of a Dataform project.
 
 • **projectConfig**: *ProjectConfig*
 
-Stores the Dataform project configuration of the current Dataform project. Can be accessed via
-the `dataform` global variable.
+Stores the sqlanvil project configuration of the current sqlanvil project. Can be accessed via
+the `sqlanvil` global variable.
 
 Example:
 
 ```js
-dataform.projectConfig.vars.myVariableName === "myVariableValue"
+sqlanvil.projectConfig.vars.myVariableName === "myVariableValue"
 ```
 
 ## Methods
@@ -45,7 +45,7 @@ dataform.projectConfig.vars.myVariableName === "myVariableValue"
 
 ▸ **assert**(`name`: string, `queryOrConfig?`: AContextable‹string› | AssertionConfig): *[Assertion](_core_actions_assertion_.assertion.md)*
 
-Adds a Dataform assertion the compiled graph.
+Adds a sqlanvil assertion the compiled graph.
 
 Available only in the `/definitions` directory.
 
@@ -66,7 +66,7 @@ ___
 
 ▸ **declare**(`config`: DeclarationConfig | any): *[Declaration](_core_actions_declaration_.declaration.md)*
 
-Declares the dataset as a Dataform data source.
+Declares the dataset as a sqlanvil data source.
 
 Available only in the `/definitions` directory.
 

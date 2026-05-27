@@ -46,7 +46,7 @@ function verifyWorkflowSettingsAsJson(workflowSettingsAsJson: object): sqlanvil.
     throw e;
   }
 
-  // The caller of Dataform Core should ensure that the correct version is installed.
+  // The caller of sqlanvil Core should ensure that the correct version is installed.
   if (!!workflowSettings.sqlanvilCoreVersion && workflowSettings.sqlanvilCoreVersion !== version) {
     throw Error(
       `Version mismatch: workflow settings specifies version ${workflowSettings.sqlanvilCoreVersion}` +

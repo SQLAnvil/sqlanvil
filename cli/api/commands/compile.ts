@@ -29,18 +29,18 @@ export async function compile(
   const temporaryProjectPath = tmp.dirSync().name;
 
   const workflowSettings = readConfigFromWorkflowSettings(resolvedProjectPath);
-  const workflowSettingsDataformCoreVersion = workflowSettings?.sqlanvilCoreVersion;
+  const workflowSettingssqlanvilCoreVersion = workflowSettings?.sqlanvilCoreVersion;
   const workflowSettingsExtension = workflowSettings?.extension ?? undefined;
 
   compileConfig.extension = workflowSettingsExtension;
 
-  if (!workflowSettingsDataformCoreVersion && !fs.existsSync(packageJsonPath)) {
+  if (!workflowSettingssqlanvilCoreVersion && !fs.existsSync(packageJsonPath)) {
     throw new Error(MISSING_CORE_VERSION_ERROR);
   }
 
   // For stateless package installation, a temporary directory is used in order to avoid interfering
   // with user's project directories.
-  if (workflowSettingsDataformCoreVersion) {
+  if (workflowSettingssqlanvilCoreVersion) {
     [projectNodeModulesPath, packageJsonPath, packageLockJsonPath].forEach(npmPath => {
       if (fs.existsSync(npmPath)) {
         throw new Error(`'${npmPath}' unexpected; remove it and try again`);
@@ -48,7 +48,7 @@ export async function compile(
     });
 
     if (compileConfig.verbose) {
-      print(`Using isolated environment for @sqlanvil/core@${workflowSettingsDataformCoreVersion}\n`);
+      print(`Using isolated environment for @sqlanvil/core@${workflowSettingssqlanvilCoreVersion}\n`);
       print(`Copying project to temporary directory: ${temporaryProjectPath}\n`);
     }
     const copyStartTime = performance.now();
@@ -64,7 +64,7 @@ export async function compile(
       path.join(temporaryProjectPath, "package.json"),
       `{
   "dependencies": {
-  "@sqlanvil/core": "${workflowSettingsDataformCoreVersion}"
+  "@sqlanvil/core": "${workflowSettingssqlanvilCoreVersion}"
   }
 }`
     );
@@ -91,7 +91,7 @@ export async function compile(
   const decodedResult = decode64(sqlanvil.CoreExecutionResponse, result);
   compiledGraph = sqlanvil.CompiledGraph.create(decodedResult.compile.compiledGraph);
 
-  if (workflowSettingsDataformCoreVersion) {
+  if (workflowSettingssqlanvilCoreVersion) {
     fs.rmSync(temporaryProjectPath, { recursive: true });
   }
 

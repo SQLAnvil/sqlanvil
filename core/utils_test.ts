@@ -55,7 +55,7 @@ function assertThrowsWithMessage(testFn: () => void, expectedMessage: string) {
   }
 }
 
-suite('Dataform Utility Validations', () => {
+suite('sqlanvil Utility Validations', () => {
   const CONNECTION_ERROR_MSG = 'The connection must be in the format `{project}.{location}.{connection_id}` or `projects/{project}/locations/{location}/connections/{connection_id}`, or be set to `DEFAULT`.';
   const STORAGE_ERROR_MSG = 'The storage URI must be in the format `gs://{bucket_name}/{path_to_data}`.';
 

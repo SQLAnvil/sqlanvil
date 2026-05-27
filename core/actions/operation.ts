@@ -33,7 +33,7 @@ interface ILegacyOperationConfig extends sqlanvil.ActionConfig.OperationConfig {
 export type JitOperationResult = string | string[] | sqlanvil.IJitOperationResult;
 
 /**
- * Operations define custom SQL operations that don't fit into the Dataform model of publishing a
+ * Operations define custom SQL operations that don't fit into the sqlanvil model of publishing a
  * table or writing an assertion.
  *
  * You can create operations in the following ways. Available config options are defined in

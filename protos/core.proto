@@ -111,7 +111,7 @@ message CompilationError {
 // Compilation mode, unspecified is interpreted to AoT.
 enum ActionCompilationMode {
   ACTION_COMPILATION_MODE_UNSPECIFIED = 0;
-  // Ahead-of-time compilation (regular Dataform compilation).
+  // Ahead-of-time compilation (regular sqlanvil compilation).
   ACTION_COMPILATION_MODE_AOT = 1;
   // Just-in-time compilation.
   // Will only populate jit_code fields in compiled graph,
@@ -441,7 +441,7 @@ message CompileExecutionResponse {
 }
 
 // This feature list is added to when making potentilly backwards breaking
-// changes. It lets the caller of Dataform Core know whether it supports the
+// changes. It lets the caller of sqlanvil Core know whether it supports the
 // change.
 enum SupportedFeatures {
   UNKNOWN_FEATURE = 0;

@@ -45,7 +45,7 @@ npm_package_bin(
 pkg_json(
     name = "json",
     package_name = "@sqlanvil/core",
-    description = "Dataform core API.",
+    description = "sqlanvil core API.",
     external_deps = [],
     layers = [
         "//:package.json",

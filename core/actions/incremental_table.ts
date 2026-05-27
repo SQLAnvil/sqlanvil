@@ -39,8 +39,8 @@ import {
 import { sqlanvil } from "sa/protos/ts";
 
 /**
- * When you define an incremental table, Dataform builds the incremental table from scratch only for
- * the first time. During subsequent executions, Dataform only inserts or merges new rows into the
+ * When you define an incremental table, sqlanvil builds the incremental table from scratch only for
+ * the first time. During subsequent executions, sqlanvil only inserts or merges new rows into the
  * incremental table according to the conditions that you configure.
  *
  * You can create incremental tables in the following ways. Available config options are defined in
@@ -258,7 +258,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     const existingAction = this.session.actions.indexOf(this);
     if (existingAction === -1) {
       throw Error(
-        "Expected pre-existing action, but none found. Please report this to the Dataform team."
+        "Expected pre-existing action, but none found. Please report this to the sqlanvil team."
       );
     }
     this.session.actions[existingAction] = newAction;
@@ -356,7 +356,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
    * [IncrementalTableConfig.uniqueKey](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * If set, unique key represents a set of names of columns that will act as a the unique key. To
-   * enforce this, when updating the incremental table, Dataform merges rows with `uniqueKey`
+   * enforce this, when updating the incremental table, sqlanvil merges rows with `uniqueKey`
    * instead of appending them.
    */
   public uniqueKey(uniqueKey: string[]) {

@@ -28,12 +28,12 @@ export async function handleJitRequest(message: {
   try {
     const { request, projectDir } = message;
 
-    if (!fs.existsSync(path.join(projectDir, "node_modules", "@dataform", "core", "bundle.js"))) {
+    if (!fs.existsSync(path.join(projectDir, "node_modules", "@sqlanvil", "core", "bundle.js"))) {
       throw new Error(
         "Could not find a recent installed version of @sqlanvil/core in the project. Check that " +
           "either `sqlanvilCoreVersion` is specified in `workflow_settings.yaml`, or " +
           "`@sqlanvil/core` is specified in `package.json`. If using `package.json`, then run " +
-          "`dataform install`."
+          "`sqlanvil install`."
       );
     }
 
