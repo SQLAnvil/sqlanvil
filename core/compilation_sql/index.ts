@@ -6,21 +6,48 @@ export class CompilationSql {
     private readonly sqlanvilCoreVersion: string
   ) {}
 
+  private get warehouse(): string {
+    return (this.project.warehouse || "bigquery").toLowerCase();
+  }
+
   public resolveTarget(target: sqlanvil.ITarget) {
     const database = target.database || this.project.defaultDatabase;
-    if (!database) {
-      return `\`${target.schema || this.project.defaultSchema}.${target.name}\``;
+    const schema = target.schema || this.project.defaultSchema;
+    const name = target.name;
+
+    if (this.warehouse === "postgres" || this.warehouse === "supabase") {
+      // Postgres/Supabase standard double-quoting dialect: "schema"."name" or "database"."schema"."name"
+      if (!database) {
+        return `"${schema}"."${name}"`;
+      }
+      return `"${database}"."${schema}"."${name}"`;
     }
-    return `\`${database}.${target.schema || this.project.defaultSchema}.${target.name}\``;
+
+    // Default to BigQuery backtick dialect: `database.schema.name`
+    if (!database) {
+      return `\`${schema}.${name}\``;
+    }
+    return `\`${database}.${schema}.${name}\``;
   }
 
   public sqlString(stringContents: string) {
-    // Escape escape characters, then escape single quotes, then wrap the string in single quotes.
+    if (this.warehouse === "postgres" || this.warehouse === "supabase") {
+      // Postgres/ANSI SQL standard single quote escaping (doubling up single quotes)
+      return `'${stringContents.replace(/'/g, "''")}'`;
+    }
+    // BigQuery backslash-based single quote escaping
     return `'${stringContents.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
   }
 
   public indexAssertion(dataset: string, indexCols: string[]) {
-    const commaSeparatedColumns = indexCols.join(", ");
+    const quoteCol = (col: string) => {
+      if (this.warehouse === "postgres" || this.warehouse === "supabase") {
+        // Double quote columns to handle case sensitivity and reserved SQL keywords
+        return `"${col.replace(/"/g, '""')}"`;
+      }
+      return col;
+    };
+    const commaSeparatedColumns = indexCols.map(quoteCol).join(", ");
     return `
 SELECT
   *
@@ -49,3 +76,4 @@ WHERE NOT (${rowCondition})
       .join(`UNION ALL`);
   }
 }
+
