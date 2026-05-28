@@ -214,6 +214,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
           getEffectiveTableFolderRoot(session.projectConfig.defaultIcebergConfig?.tableFolderRoot, config.iceberg.tableFolderRoot),
           getEffectiveTableFolderSubpath(this.proto.target.schema, this.proto.target.name, session.projectConfig.defaultIcebergConfig?.tableFolderSubpath, config.iceberg.tableFolderSubpath),
         ),
+      } : {}),
     });
 
     if (config.postgres) {
