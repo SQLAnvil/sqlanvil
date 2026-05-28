@@ -146,7 +146,7 @@ suite("ExecutionSql with Postgres/Supabase", () => {
     const statements = tasks.build().map(t => t.statement);
     expect(statements).to.have.lengthOf(1);
     expect(statements[0]).to.equal(
-      'insert into "public"."my_table" ("id", "field1") select "id", "field1" from (select 1 as id, \'a\' as field1) as insertions'
+      'insert into "my_db"."public"."my_table" ("id", "field1") select "id", "field1" from (select 1 as id, \'a\' as field1) as insertions'
     );
   });
 
@@ -168,7 +168,7 @@ suite("ExecutionSql with Postgres/Supabase", () => {
     const statements = tasks.build().map(t => t.statement);
     expect(statements).to.have.lengthOf(1);
     expect(statements[0]).to.equal(
-      'insert into "public"."my_table" ("id", "field1") select "id", "field1" from (select 1 as id, \'a\' as field1) as insertions on conflict ("id") do update set "field1" = EXCLUDED."field1"'
+      'insert into "my_db"."public"."my_table" ("id", "field1") select "id", "field1" from (select 1 as id, \'a\' as field1) as insertions on conflict ("id") do update set "field1" = EXCLUDED."field1"'
     );
   });
 });

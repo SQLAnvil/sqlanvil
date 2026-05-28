@@ -154,6 +154,10 @@ export function workflowSettingsAsProjectConfig(
     projectConfig.includeTestsInCompiledGraph = workflowSettings.includeTestsInCompiledGraph;
   }
 
-  projectConfig.warehouse = "bigquery";
+  if (workflowSettings.warehouse) {
+    projectConfig.warehouse = workflowSettings.warehouse;
+  } else {
+    projectConfig.warehouse = "bigquery";
+  }
   return projectConfig;
 }
