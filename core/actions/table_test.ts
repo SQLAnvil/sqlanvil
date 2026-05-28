@@ -1113,5 +1113,67 @@ SELECT 1`
         reservation: "projects/my-project/locations/us/reservations/action-reservation"
       });
     });
+
+    test("postgres and supabase action configs can be parsed and compiled", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `
+defaultProject: defaultProject
+defaultDataset: defaultDataset
+defaultLocation: US
+`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/table.sqlx"),
+        `
+config {
+  type: "table",
+  postgres: {
+    unlogged: true,
+    tablespace: "ssd_space",
+    fillfactor: 90,
+    indexes: [
+      {
+        name: "my_idx",
+        columns: ["id"],
+        unique: true
+      }
+    ]
+  },
+  supabase: {
+    enableRls: true,
+    publishToRealtime: true
+  }
+}
+SELECT 1`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      expect(
+        asPlainObject(result.compile.compiledGraph.tables[0].postgres)
+      ).deep.equals({
+        unlogged: true,
+        tablespace: "ssd_space",
+        fillfactor: 90,
+        indexes: [
+          {
+            name: "my_idx",
+            columns: ["id"],
+            unique: true
+          }
+        ]
+      });
+      expect(
+        asPlainObject(result.compile.compiledGraph.tables[0].supabase)
+      ).deep.equals({
+        enableRls: true,
+        publishToRealtime: true
+      });
+    });
   });
 });
+
