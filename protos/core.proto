@@ -213,6 +213,8 @@ message Table {
 
   // Warehouse specific features.
   BigQueryOptions bigquery = 22;
+  PostgresOptions postgres = 39;
+  SupabaseOptions supabase = 40;
 
   // Generated.
   string file_name = 18;

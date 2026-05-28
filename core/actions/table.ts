@@ -214,6 +214,13 @@ export class Table extends ActionBuilder<sqlanvil.Table> {
       } : {}),
     });
 
+    if (config.postgres) {
+      this.postgres(config.postgres);
+    }
+    if (config.supabase) {
+      this.supabase(config.supabase);
+    }
+
     if (config.reservation) {
       if (!this.proto.actionDescriptor) {
         this.proto.actionDescriptor = {};
@@ -354,6 +361,16 @@ export class Table extends ActionBuilder<sqlanvil.Table> {
     if (Object.values(bigqueryFiltered).length > 0) {
       this.proto.bigquery = sqlanvil.BigQueryOptions.create(bigqueryFiltered);
     }
+    return this;
+  }
+
+  public postgres(postgres: sqlanvil.IPostgresOptions) {
+    this.proto.postgres = sqlanvil.PostgresOptions.create(postgres);
+    return this;
+  }
+
+  public supabase(supabase: sqlanvil.ISupabaseOptions) {
+    this.proto.supabase = sqlanvil.SupabaseOptions.create(supabase);
     return this;
   }
 

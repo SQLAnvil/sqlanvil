@@ -280,6 +280,10 @@ message ActionConfig {
     // If unset, the value from workflow_settings.yaml is used. If neither is set, default BigQuery behavior applies.
     // sqlanvil CLI only (GCP sqlanvil support pending).
     string reservation = 24;
+
+    // Postgres and Supabase specific options.
+    PostgresOptions postgres = 25;
+    SupabaseOptions supabase = 26;
   }
 
   message Metadata {
@@ -485,6 +489,10 @@ message ActionConfig {
     // If unset, the value from workflow_settings.yaml is used. If neither is set, default BigQuery behavior applies.
     // sqlanvil CLI only (GCP sqlanvil support pending).
     string reservation = 27;
+
+    // Postgres and Supabase specific options.
+    PostgresOptions postgres = 28;
+    SupabaseOptions supabase = 29;
   }
 
   message AssertionConfig {

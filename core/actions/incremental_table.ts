@@ -214,8 +214,15 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
           getEffectiveTableFolderRoot(session.projectConfig.defaultIcebergConfig?.tableFolderRoot, config.iceberg.tableFolderRoot),
           getEffectiveTableFolderSubpath(this.proto.target.schema, this.proto.target.name, session.projectConfig.defaultIcebergConfig?.tableFolderSubpath, config.iceberg.tableFolderSubpath),
         ),
-      } : {}),
     });
+
+    if (config.postgres) {
+      this.postgres(config.postgres);
+    }
+    if (config.supabase) {
+      this.supabase(config.supabase);
+    }
+
     this.proto.onSchemaChange = this.mapOnSchemaChange(config.onSchemaChange);
 
     if (config.reservation) {
@@ -382,6 +389,16 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     if (Object.values(bigqueryFiltered).length > 0) {
       this.proto.bigquery = sqlanvil.BigQueryOptions.create(bigqueryFiltered);
     }
+    return this;
+  }
+
+  public postgres(postgres: sqlanvil.IPostgresOptions) {
+    this.proto.postgres = sqlanvil.PostgresOptions.create(postgres);
+    return this;
+  }
+
+  public supabase(supabase: sqlanvil.ISupabaseOptions) {
+    this.proto.supabase = sqlanvil.SupabaseOptions.create(supabase);
     return this;
   }
 
