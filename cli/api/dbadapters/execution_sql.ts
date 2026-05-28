@@ -22,6 +22,7 @@ export interface IExecutionSql {
     assertion: sqlanvil.IAssertion,
     projectConfig: sqlanvil.IProjectConfig
   ): Tasks;
+  dropIfExists(target: sqlanvil.ITarget, type: sqlanvil.TableMetadata.Type): string;
 }
 
 export class ExecutionSql implements IExecutionSql {
@@ -57,6 +58,10 @@ export class ExecutionSql implements IExecutionSql {
     projectConfig: sqlanvil.IProjectConfig
   ): Tasks {
     return this.delegate.assertTasks(assertion, projectConfig);
+  }
+
+  public dropIfExists(target: sqlanvil.ITarget, type: sqlanvil.TableMetadata.Type): string {
+    return this.delegate.dropIfExists(target, type);
   }
 }
 
