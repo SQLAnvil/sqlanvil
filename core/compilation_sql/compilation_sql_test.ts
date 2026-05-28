@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { CompilationSql } from "sa/core/compilation_sql";
 import { sqlanvil } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
 
 suite("CompilationSql", () => {
   suite("resolveTarget", () => {

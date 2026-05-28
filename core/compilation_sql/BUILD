@@ -24,6 +24,7 @@ ts_test_suite(
     deps = [
         ":compilation_sql",
         "//protos:ts",
+        "//testing",
         "@npm//@types/chai",
         "@npm//chai",
     ]
