@@ -87,3 +87,89 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
     expect(procedureSql).to.equal(expectedSql.trim());
   });
 });
+
+suite("ExecutionSql with Postgres/Supabase", () => {
+  const executionSql = new ExecutionSql(
+    {
+      warehouse: "postgres",
+      defaultDatabase: "my_db",
+      defaultSchema: "public"
+    },
+    "2.0.0"
+  );
+
+  const baseTable: sqlanvil.ITable = {
+    type: "table",
+    enumType: sqlanvil.TableType.TABLE,
+    target: {
+      schema: "public",
+      name: "my_table"
+    },
+    query: "select 1 as id, 'a' as field1"
+  };
+
+  test("generates drop and create table", () => {
+    const tasks = executionSql.publishTasks(baseTable, { fullRefresh: false });
+    const statements = tasks.build().map(t => t.statement);
+    expect(statements).to.have.lengthOf(2);
+    expect(statements[0]).to.equal('drop table if exists "public"."my_table" cascade');
+    expect(statements[1]).to.equal('create table "public"."my_table" as select 1 as id, \'a\' as field1');
+  });
+
+  test("generates drop and create view", () => {
+    const viewTable = {
+      ...baseTable,
+      type: "view",
+      enumType: sqlanvil.TableType.VIEW
+    };
+    const tasks = executionSql.publishTasks(viewTable, { fullRefresh: false });
+    const statements = tasks.build().map(t => t.statement);
+    expect(statements).to.have.lengthOf(2);
+    expect(statements[0]).to.equal('drop view if exists "public"."my_table" cascade');
+    expect(statements[1]).to.equal('create view "public"."my_table" as select 1 as id, \'a\' as field1');
+  });
+
+  test("generates incremental insert (no unique keys)", () => {
+    const incTable = {
+      ...baseTable,
+      type: "incremental",
+      enumType: sqlanvil.TableType.INCREMENTAL
+    };
+    const tableMetadata: sqlanvil.ITableMetadata = {
+      type: sqlanvil.TableMetadata.Type.TABLE,
+      fields: [
+        { name: "id", primitive: sqlanvil.Field.Primitive.INTEGER },
+        { name: "field1", primitive: sqlanvil.Field.Primitive.STRING }
+      ]
+    };
+    const tasks = executionSql.publishTasks(incTable, { fullRefresh: false }, tableMetadata);
+    const statements = tasks.build().map(t => t.statement);
+    expect(statements).to.have.lengthOf(1);
+    expect(statements[0]).to.equal(
+      'insert into "public"."my_table" ("id", "field1") select "id", "field1" from (select 1 as id, \'a\' as field1) as insertions'
+    );
+  });
+
+  test("generates incremental upsert (with unique keys)", () => {
+    const incTable = {
+      ...baseTable,
+      type: "incremental",
+      enumType: sqlanvil.TableType.INCREMENTAL,
+      uniqueKey: ["id"]
+    };
+    const tableMetadata: sqlanvil.ITableMetadata = {
+      type: sqlanvil.TableMetadata.Type.TABLE,
+      fields: [
+        { name: "id", primitive: sqlanvil.Field.Primitive.INTEGER },
+        { name: "field1", primitive: sqlanvil.Field.Primitive.STRING }
+      ]
+    };
+    const tasks = executionSql.publishTasks(incTable, { fullRefresh: false }, tableMetadata);
+    const statements = tasks.build().map(t => t.statement);
+    expect(statements).to.have.lengthOf(1);
+    expect(statements[0]).to.equal(
+      'insert into "public"."my_table" ("id", "field1") select "id", "field1" from (select 1 as id, \'a\' as field1) as insertions on conflict ("id") do update set "field1" = EXCLUDED."field1"'
+    );
+  });
+});
+
