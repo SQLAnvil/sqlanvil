@@ -42,10 +42,10 @@ export class BigQueryExecutionSql implements IExecutionSql {
   }
 
   public insertInto(target: sqlanvil.ITarget, columns: string[], query: string) {
-    return `	
-insert into ${this.resolveTarget(target)}	
-(${columns.join(",")})	
-select ${columns.join(",")}	
+    return `
+insert into ${this.resolveTarget(target)}
+(${columns.join(",")})
+select ${columns.join(",")}
 from (${query}) as insertions`;
   }
 
@@ -265,19 +265,19 @@ DECLARE sqlanvil_columns ARRAY<STRING>;
 DECLARE temp_table_columns ARRAY<STRUCT<column_name STRING, data_type STRING>>;
 DECLARE columns_added ARRAY<STRUCT<column_name STRING, data_type STRING>>;
 DECLARE columns_removed ARRAY<STRING>;
- 
+
 SET sqlanvil_columns = (
   SELECT IFNULL(ARRAY_AGG(DISTINCT column_name), [])
   FROM \`${target.database}.${target.schema}.INFORMATION_SCHEMA.COLUMNS\`
   WHERE table_name = '${target.name}'
 );
- 
+
 SET temp_table_columns = (
   SELECT IFNULL(ARRAY_AGG(STRUCT(column_name, data_type)), [])
   FROM \`${emptyTempTableTarget.database}.${emptyTempTableTarget.schema}.INFORMATION_SCHEMA.COLUMNS\`
   WHERE table_name = '${emptyTempTableTarget.name}'
 );
- 
+
 SET columns_added = (
   SELECT IFNULL(ARRAY_AGG(column_info), [])
   FROM UNNEST(temp_table_columns) AS column_info
@@ -318,7 +318,7 @@ IF ARRAY_LENGTH(columns_removed) > 0 THEN
     columns_removed
   );
 END IF;
- 
+
 ${this.alterTableAddColumnsSql(qualifiedTargetTableName)}
 `;
         break;
@@ -329,14 +329,14 @@ DECLARE invalid_removed_columns ARRAY<STRING>;
 SET invalid_removed_columns = (
   SELECT IFNULL(ARRAY_AGG(col), []) FROM UNNEST(columns_removed) AS col WHERE col IN UNNEST(${JSON.stringify(uniqueKeys)})
 );
- 
+
 IF ARRAY_LENGTH(invalid_removed_columns) > 0 THEN
   RAISE USING MESSAGE = FORMAT(
     "Cannot drop columns %T as they are part of the unique key for table ${qualifiedTargetTableName}",
     invalid_removed_columns
   );
 END IF;
- 
+
 IF ARRAY_LENGTH(columns_removed) > 0 THEN
   EXECUTE IMMEDIATE (
     "ALTER TABLE ${qualifiedTargetTableName} " ||
@@ -346,7 +346,7 @@ IF ARRAY_LENGTH(columns_removed) > 0 THEN
     )
   );
 END IF;
- 
+
 ${this.alterTableAddColumnsSql(qualifiedTargetTableName)}
 `;
         break;

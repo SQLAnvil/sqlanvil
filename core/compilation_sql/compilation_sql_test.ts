@@ -21,17 +21,21 @@ suite("CompilationSql", () => {
     });
 
     test("Postgres: should format with double quotes", () => {
-      const config = sqlanvil.ProjectConfig.create({
+      const configWithDb = sqlanvil.ProjectConfig.create({
         warehouse: "postgres",
         defaultDatabase: "my_db",
         defaultSchema: "public"
       });
-      const compiler = new CompilationSql(config, "3.0.0");
-      
-      expect(compiler.resolveTarget({ database: "my_db", schema: "public", name: "my_table" }))
+      const compilerWithDb = new CompilationSql(configWithDb, "3.0.0");
+      expect(compilerWithDb.resolveTarget({ database: "my_db", schema: "public", name: "my_table" }))
         .to.equal('"my_db"."public"."my_table"');
 
-      expect(compiler.resolveTarget({ schema: "public", name: "my_table" }))
+      const configNoDb = sqlanvil.ProjectConfig.create({
+        warehouse: "postgres",
+        defaultSchema: "public"
+      });
+      const compilerNoDb = new CompilationSql(configNoDb, "3.0.0");
+      expect(compilerNoDb.resolveTarget({ schema: "public", name: "my_table" }))
         .to.equal('"public"."my_table"');
     });
 
