@@ -1,5 +1,3 @@
-[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/test"](../modules/_core_actions_test_.md) › [Test](_core_actions_test_.test.md)
-
 # Class: Test
 
 sqlanvil test actions can be used to write unit tests for your generated SQL
@@ -55,7 +53,7 @@ This is where `input` and `expect` come from.
 
 ▸ **dataset**(`ref`: [Resolvable](../modules/_core_contextables_.md#resolvable)): *this*
 
-Sets the schema (BigQuery dataset) in which to create the output of this action.
+Sets the schema (BigQuery dataset / Postgres schema) in which to create the output of this action.
 
 **Parameters:**
 

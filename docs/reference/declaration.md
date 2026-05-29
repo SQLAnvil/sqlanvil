@@ -1,8 +1,6 @@
-[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/declaration"](../modules/_core_actions_declaration_.md) › [Declaration](_core_actions_declaration_.declaration.md)
-
 # Class: Declaration
 
-You can declare any BigQuery table as a data source in sqlanvil. Declaring BigQuery data
+You can declare any external table as a data source in sqlanvil. Declaring external data
 sources that are external to sqlanvil lets you treat those data sources as sqlanvil objects.
 
 Declaring data sources is optional, but can be useful when you want to do the following:

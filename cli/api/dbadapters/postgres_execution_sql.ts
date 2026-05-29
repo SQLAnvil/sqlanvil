@@ -122,6 +122,15 @@ export class PostgresExecutionSql implements IExecutionSql {
         // Full Refresh / Table doesn't exist yet: Create table fresh
         tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
         tasks.add(Task.statement(this.createTable(table)));
+        if (table.uniqueKey && table.uniqueKey.length > 0) {
+          const indexName = `pk_${table.target.schema}_${table.target.name}`;
+          const columns = table.uniqueKey.map(k => `"${k}"`).join(", ");
+          tasks.add(
+            Task.statement(
+              `create unique index if not exists "${indexName}" on ${this.resolveTarget(table.target)} (${columns})`
+            )
+          );
+        }
       } else {
         // Incremental Load: execute UPSERT or INSERT
         if (table.uniqueKey && table.uniqueKey.length > 0) {
@@ -145,7 +154,7 @@ export class PostgresExecutionSql implements IExecutionSql {
     // Run Post-operations
     this.postOps(table, runConfig, tableMetadata).forEach(statement => tasks.add(statement));
 
-    return tasks.concatenate();
+    return tasks;
   }
 
   public assertTasks(

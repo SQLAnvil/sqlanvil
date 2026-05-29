@@ -1,5 +1,3 @@
-[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/assertion"](../modules/_core_actions_assertion_.md) › [Assertion](_core_actions_assertion_.assertion.md)
-
 # Class: Assertion
 
 An assertion is a data quality test query that finds rows that violate one or more conditions
@@ -57,14 +55,14 @@ This is where `query` comes from.
 
 ### Methods
 
-* [database](_core_actions_assertion_.assertion.md#database)
-* [dependencies](_core_actions_assertion_.assertion.md#dependencies)
-* [description](_core_actions_assertion_.assertion.md#description)
-* [disabled](_core_actions_assertion_.assertion.md#disabled)
-* [hermetic](_core_actions_assertion_.assertion.md#hermetic)
-* [query](_core_actions_assertion_.assertion.md#query)
-* [schema](_core_actions_assertion_.assertion.md#schema)
-* [tags](_core_actions_assertion_.assertion.md#tags)
+* [database](#database)
+* [dependencies](#dependencies)
+* [description](#description)
+* [disabled](#disabled)
+* [hermetic](#hermetic)
+* [query](#query)
+* [schema](#schema)
+* [tags](#tags)
 
 ## Methods
 
@@ -75,8 +73,9 @@ This is where `query` comes from.
 **`deprecated`** Deprecated in favor of
 [AssertionConfig.project](configs#sqlanvil-ActionConfig-AssertionConfig).
 
-Sets the database (Google Cloud project ID) in which to create the corresponding view for this
-assertion.
+Sets the database in which to create the corresponding view for this assertion.
+For BigQuery targets this is the Google Cloud project ID; for Postgres/Supabase targets this
+is the database name configured in `workflow_settings.yaml`.
 
 **Parameters:**
 
@@ -90,7 +89,7 @@ ___
 
 ###  dependencies
 
-▸ **dependencies**(`value`: [Resolvable](../modules/_core_contextables_.md#resolvable) | [Resolvable](../modules/_core_contextables_.md#resolvable)[]): *this*
+▸ **dependencies**(`value`: Resolvable | Resolvable[]): *this*
 
 **`deprecated`** Deprecated in favor of
 [AssertionConfig.dependencies](configs#sqlanvil-ActionConfig-AssertionConfig).
@@ -101,7 +100,7 @@ Sets dependencies of the assertion.
 
 Name | Type |
 ------ | ------ |
-`value` | [Resolvable](../modules/_core_contextables_.md#resolvable) &#124; [Resolvable](../modules/_core_contextables_.md#resolvable)[] |
+`value` | Resolvable &#124; Resolvable[] |
 
 **Returns:** *this*
 
@@ -154,7 +153,7 @@ ___
 [AssertionConfig.hermetic](configs#sqlanvil-ActionConfig-AssertionConfig).
 
 If true, this indicates that the action only depends on data from explicitly-declared
-dependencies. Otherwise if false, it indicates that the  action depends on data from a source
+dependencies. Otherwise if false, it indicates that the action depends on data from a source
 which has not been declared as a dependency.
 
 **Parameters:**
@@ -190,8 +189,9 @@ ___
 **`deprecated`** Deprecated in favor of
 [AssertionConfig.dataset](configs#sqlanvil-ActionConfig-AssertionConfig).
 
-Sets the schema (BigQuery dataset) in which to create the corresponding view for this
-assertion.
+Sets the schema in which to create the corresponding view for this assertion.
+For BigQuery targets this is the dataset name; for Postgres/Supabase targets this is the
+schema name (e.g. `public`).
 
 **Parameters:**
 

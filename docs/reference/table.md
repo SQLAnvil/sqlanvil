@@ -1,5 +1,3 @@
-[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/table"](../modules/_core_actions_table_.md) › [Table](_core_actions_table_.table.md)
-
 # Class: Table
 
 Tables are the fundamental building block for storing data when using sqlanvil. sqlanvil compiles
@@ -141,7 +139,7 @@ ___
 **`deprecated`** Deprecated in favor of
 [TableConfig.project](configs#sqlanvil-ActionConfig-TableConfig).
 
-Sets the database (Google Cloud project ID) in which to create the output of this action.
+Sets the database in which to create the output of this action. For BigQuery targets this is the Google Cloud project ID; for Postgres/Supabase targets this is the database name in workflow_settings.yaml.
 
 **Parameters:**
 
@@ -244,9 +242,9 @@ Example:
 ```js
 // definitions/file.js
 publish("example")
-  .preOps(ctx => `GRANT \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} TO "group:automation@example.com"`)
+  .preOps(ctx => `GRANT \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} FROM "sqlanvil_reader"`)
   .query(ctx => `SELECT * FROM ${ctx.ref("other_table")}`)
-  .postOps(ctx => `REVOKE \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} TO "group:automation@example.com"`)
+  .postOps(ctx => `REVOKE \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} FROM "sqlanvil_reader"`)
 ```
 
 **Parameters:**
@@ -271,9 +269,9 @@ Example:
 ```js
 // definitions/file.js
 publish("example")
-  .preOps(ctx => `GRANT \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} TO "group:automation@example.com"`)
+  .preOps(ctx => `GRANT \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} FROM "sqlanvil_reader"`)
   .query(ctx => `SELECT * FROM ${ctx.ref("other_table")}`)
-  .postOps(ctx => `REVOKE \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} TO "group:automation@example.com"`)
+  .postOps(ctx => `REVOKE \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} FROM "sqlanvil_reader"`)
 ```
 
 **Parameters:**
@@ -309,7 +307,7 @@ ___
 **`deprecated`** Deprecated in favor of
 [TableConfig.dataset](configs#sqlanvil-ActionConfig-TableConfig).
 
-Sets the schema (BigQuery dataset) in which to create the output of this action.
+Sets the schema (BigQuery dataset / Postgres schema) in which to create the output of this action.
 
 **Parameters:**
 

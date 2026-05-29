@@ -39,6 +39,8 @@ externals = [
     "moo",
     "object-sizeof",
     "parse-duration",
+    "pg",
+    "pg-query-stream",
     "promise-pool-executor",
     "protobufjs",
     "readline-sync",

@@ -1,44 +1,90 @@
 # Packages
 
-[<- Back to Home](https://github.com/ihistand/sqlanvil).
+[← Back to Home](https://github.com/ihistand/sqlanvil)
 
-## Sample Packages
+SQLAnvil supports npm-style packages that extend the framework with reusable macros, utility tables, and shared includes. Packages are declared in `package.json` as dependencies of `@sqlanvil/core`.
 
-- [https://github.com/dataform-co/dataform-scd](https://github.com/dataform-co/dataform-scd).
-- [https://github.com/ArtemKorneevGA/dataform-ga4-sessions](https://github.com/ArtemKorneevGA/dataform-ga4-sessions).
-- [https://github.com/mokhahmed/dvform](https://github.com/mokhahmed/dvform).
-- [https://github.com/dataform-co/dataform-fivetran-log](https://github.com/dataform-co/dataform-fivetran-log).
-- [https://github.com/dataform-co/dataform-segment](https://github.com/dataform-co/dataform-segment).
-- [https://github.com/dataform-co/dataform-fivetran-stripe](https://github.com/dataform-co/dataform-fivetran-stripe).
+## Using a package
+
+Add a package to your project's `package.json`:
+
+```json
+{
+  "dependencies": {
+    "@sqlanvil/core": "latest",
+    "sqlanvil-scd": "^1.0.0"
+  }
+}
+```
+
+Then import it in an `includes/` file:
+
+```js
+// includes/scd.js
+const scd = require("sqlanvil-scd");
+module.exports = { scd };
+```
 
 ## Creating a package
 
-Creating your own package is relatively easy, as long as you're relatively familiar with the sqlanvil framework. It may also help to understand the fundamentals of JavaScript, but you can probably muddle through without this!
+Creating a package requires familiarity with the SQLAnvil JavaScript API. A package is an npm module that exports functions using the SQLAnvil `session` object.
 
-### Clone the base package repo
+### Basic structure
 
-[This repo](https://github.com/ihistand/sqlanvil-package-base) contains the building blocks of a package:
+A minimal package looks like:
 
-- index.js
-- example.js
-- README.md
+```
+my-package/
+├── index.js       ← exports your macros/helpers
+├── example.js     ← demonstrates usage against a real project
+└── README.md
+```
 
-To get started, clone this repo into a location of your choice. Make sure the repo is public (if you'd like to share it with others).
+### `index.js` example
 
-### Update the base repo to add your packages functionality
+```js
+// A macro that creates a standard SCD Type 2 dimension table
+function scdType2(tableName, naturalKey, columns) {
+  return session.publish(tableName, {
+    type: "incremental",
+    uniqueKey: [naturalKey],
+    description: `SCD Type 2 dimension: ${tableName}`
+  }).query(ctx => `
+    SELECT
+      ${naturalKey},
+      ${columns.join(",\n      ")},
+      CURRENT_TIMESTAMP AS valid_from,
+      NULL AS valid_to
+    FROM ${ctx.ref("staging_" + tableName)}
+  `);
+}
 
-The base package repo creates a simple dependency graph with one declaration and two chained tables reading from that declaration. Explore the files in the package to get an idea of how it's put together. Then, start making the changes to create the functionality you'd like to create in your package. At a minimum, you should update:
+module.exports = { scdType2 };
+```
 
-- README.md
-- index.js
-- example.js
-- includes/dataset_one.js
-- includes/dataset_two.js
+### Test your package
 
-### Connect to a data warehouse and test it out
+Connect to a data warehouse (BigQuery, Postgres, or Supabase) and run:
 
-Once you're done, it's a good idea to connect to a data warehouse and make sure it's doing what you expected.
+```bash
+sqlanvil compile
+sqlanvil run --actions my_dimension_table
+```
 
-### Release to the community!
+### Publish to npm
 
-Once your package is ready to be released, let [the community know](https://cloud.google.com/dataform/docs/get-support#get_support_from_the_community). If you'd like to list your package here, make a pull request to add it!
+Once ready, publish under your own npm scope:
+
+```bash
+npm publish --access public
+```
+
+## Community packages
+
+> **Note:** The packages below were written for upstream Dataform (BigQuery-only). They may work for BigQuery-targeted SQLAnvil projects. Postgres/Supabase-specific packages are in development.
+
+- [dataform-co/dataform-scd](https://github.com/dataform-co/dataform-scd) — Slowly Changing Dimensions
+- [dataform-co/dataform-fivetran-log](https://github.com/dataform-co/dataform-fivetran-log) — Fivetran sync log analysis
+- [dataform-co/dataform-segment](https://github.com/dataform-co/dataform-segment) — Segment event modeling
+
+To discuss packages or share your own, open a [GitHub Discussion](https://github.com/ihistand/sqlanvil/discussions).

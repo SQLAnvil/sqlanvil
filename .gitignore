@@ -21,3 +21,7 @@ bigquery.json
 yarn-error.log
 
 tmp/
+
+# Credentials & Keys
+keys/
+test_credentials/bigquery.json

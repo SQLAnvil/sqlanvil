@@ -1,0 +1,33 @@
+Supabase Partner Form — Integration Description
+================================================
+
+SQLAnvil is an open-source SQL workflow tool that brings Dataform-style data modeling — SQLX
+files, dependency graphs, data quality assertions, and incremental table management — to
+Supabase and PostgreSQL natively.
+
+Most Supabase projects outgrow raw SQL queries quickly: data needs to be cleaned, joined across
+sources, tested for quality, and refreshed on a schedule. SQLAnvil handles all of this without
+requiring teams to leave the Postgres ecosystem or adopt a Google Cloud stack.
+
+What the integration enables:
+
+- Model data directly in Supabase. Define tables, views, and incremental models as .sqlx files.
+  SQLAnvil compiles them to idiomatic Postgres DDL, runs them against your Supabase database,
+  and tracks the dependency order automatically.
+
+- Cross-database pipelines. Teams with data split across multiple Postgres databases or between
+  Supabase and BigQuery can use SQLAnvil to orchestrate joins and write unified results back
+  into Supabase schemas.
+
+- Built-in data quality. Assertions compile to queries that verify row-level conditions before
+  downstream models run — broken data never silently propagates.
+
+- Supabase-native features. The roadmap includes first-class support for Row Level Security
+  policies, Realtime publications, and pgvector indexes as declarative SQLAnvil action types.
+
+- ML and product data pipelines. Teams use SQLAnvil to curate training datasets in Supabase,
+  build eCommerce product feeds, and maintain reporting-ready data structures — all versioned,
+  tested, and reproducible.
+
+SQLAnvil is the missing SQL workflow layer for Supabase teams who want the rigor of a data
+modeling framework without being forced into BigQuery.

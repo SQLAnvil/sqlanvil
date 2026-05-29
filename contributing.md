@@ -1,110 +1,90 @@
-# Contributing
+# Contributing to SQLAnvil
 
-sqlanvil is a TypeScript project, using [Bazel](https://bazel.build) as a build tool.
+SQLAnvil uses [Bazel](https://bazel.build) for all build and test targets. There are no `npm run` scripts — everything goes through Bazel.
 
-## Getting Started
+## Prerequisites
 
-[Fork the repository](https://github.com/ihistand/sqlanvil/fork), clone it, and navigate inside.
+- [Bazelisk](https://github.com/bazelbuild/bazelisk) — `npm install -g @bazel/bazelisk`
+- Docker (recommended for macOS — see note below)
+- Node.js 20 LTS (used by some tooling outside Bazel)
 
-### Requirements
+## macOS build note
 
-#### [Bazel](https://bazel.build)
-
-Bazel is the build system. Install via Bazelisk:
-
-```bash
-brew install bazelisk          # macOS
-# or:
-npm i -g @bazel/bazelisk
-```
-
-On macOS, increase the open-file limit (Bazel hits the default):
+The pinned Bazel version has toolchain issues with macOS Tahoe (Bazel 5's `wrapped_clang` lacks `LC_UUID`). Use the Docker dev container until the toolchain is modernized:
 
 ```bash
-sudo sysctl -w kern.maxfiles=65536
-```
-
-##### macOS compatibility (important)
-
-The currently pinned Bazel 5.4 + 2022-era protobuf chain inherited from
-upstream **does not build natively on macOS Tahoe / Apple Silicon** —
-`wrapped_clang` ships without `LC_UUID` (rejected by current dyld) and the
-old protobuf headers conflict with Xcode 21's SDK. This will be fixed by
-a future toolchain modernization PR (Bazel 7 + Bzlmod migration).
-
-Until then, build via Docker on macOS:
-
-```bash
+# Build anything
 ./scripts/docker-bazel build //protos:sqlanvil_proto
-./scripts/docker-bazel test //core/...
-./scripts/docker-bazel build //...
-./scripts/docker-bazel                    # drops into an interactive shell
+
+# Interactive shell
+./scripts/docker-bazel
 ```
 
-The wrapper builds a `sqlanvil-dev` image (Debian + Node 20 + JDK 17 +
-Bazelisk) on first invocation and reuses named volumes for the Bazel cache
-so subsequent runs are fast.
-
-Linux users can use Bazelisk directly without Docker.
-
-### Run the CLI
-
-Substitute `./scripts/run` for the installed `sqlanvil` binary:
+## Run the CLI
 
 ```bash
+# Via the wrapper script (builds first if needed)
 ./scripts/run help
 ./scripts/run compile path/to/project
+./scripts/run run path/to/project
+
+# Via Bazel directly
+bazel run //packages/@sqlanvil/cli:bin -- help
 ```
 
-### Test
+## Run tests
 
 ```bash
-bazel test //core/...             # core compiler tests
-bazel test //...                  # everything (slow on cold cache)
+# All tests
+bazel test //...
+
+# Core compiler tests only
+bazel test //core/...
+
+# Integration tests (requires warehouse credentials)
+bazel test //tests/integration/...
 ```
 
-### Integration Tests
+### Integration test setup
 
-Integration tests require real warehouse credentials. The upstream
-`test_credentials` GCP project is no longer accessible; you'll need to wire
-your own.
+**BigQuery:** Place a GCP service account key at `test_credentials/bigquery.json`.
 
-For BigQuery integration tests:
-
-1. Create a GCP service account with BigQuery access.
-2. Download the key JSON.
-3. Update constants in `cli/index_test_base.ts` to match your project
-   (`DEFAULT_DATABASE`, `DEFAULT_LOCATION`, `CREDENTIALS_PATH`).
-4. `bazel test //cli:index_test`.
-
-For Postgres integration tests, `tools/postgres/postgres_fixture.ts` boots a
-Docker container inside the Bazel sandbox — requires Docker running locally.
-
-### Building
+**Postgres:** The Postgres integration tests use a Docker fixture started by Bazel:
 
 ```bash
-bazel build cli                   # build the CLI
-bazel build //...                 # build everything
+bazel test //tests/integration:postgres
+# Bazel launches tools/postgres/postgres_fixture.ts automatically inside the sandbox
 ```
 
-### Adding NPM Dependencies
+## Code style
 
-Use Bazel-wrapped yarn:
+- TypeScript throughout (no JavaScript in `core/` or `cli/`)
+- `tslint.json` and `.prettierrc` at the repo root
+- Run `bazel build //...` and `bazel test //...` before submitting a PR
+
+## Package names
+
+All packages are scoped under `@sqlanvil/`:
+
+- `@sqlanvil/core` — compiler and action types
+- `@sqlanvil/cli` — command-line interface
+- `@sqlanvil/sample-extension` — example extension package
+
+## Branch strategy
+
+Three sequential PRs against `restore-postgres-adapter`:
+
+1. `rename/dataform-to-sqlanvil` — rename sweep (already complete)
+2. `adapter/postgres-first-class` — Postgres adapter, SQL generator, proto changes
+3. `adapter/supabase-variant` — Supabase adapter and new action types
+
+## Upstream sync
+
+The `upstream` remote points at `github.com/dataform-co/dataform`. Pull upstream changes before starting new work:
 
 ```bash
-bazel run @nodejs//:yarn add <package>
+git fetch upstream
+git rebase upstream/main
 ```
 
-After installation, add the package to relevant `ts_library` deps prefixed
-with `@npm//`.
-
-## Pull Requests
-
-- Keep PRs small and focused — small diffs are easier to review.
-- Add tests when changing behavior.
-- Don't reformat unrelated code (makes diffs noisy).
-- Branch off `main`.
-
-## Reporting Issues
-
-[Open an issue](https://github.com/ihistand/sqlanvil/issues) on GitHub.
+After the rename PR, cherry-picks from upstream will conflict on package names and import paths. Resolve mechanically — the patterns are consistent.

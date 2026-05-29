@@ -1,5 +1,3 @@
-[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/view"](../modules/_core_actions_view_.md) › [View](_core_actions_view_.view.md)
-
 # Class: View
 
 Views are virtualised tables. They are useful for creating a new structured table without having
@@ -98,7 +96,7 @@ ___
 
 ###  bigquery
 
-▸ **bigquery**(`bigquery`: IBigQueryOptions): *this*
+▸ **bigquery**(`bigquery`: WarehouseOptions): *this*
 
 **`deprecated`** Deprecated in favor of options available directly on
 [ViewConfig](configs#sqlanvil-ActionConfig-ViewConfig).
@@ -109,7 +107,7 @@ Sets bigquery options for the action.
 
 Name | Type |
 ------ | ------ |
-`bigquery` | IBigQueryOptions |
+`bigquery` | WarehouseOptions |
 
 **Returns:** *this*
 
@@ -142,7 +140,7 @@ ___
 [ViewConfig.project](configs#sqlanvil-ActionConfig-ViewConfig).
 
 Sets the
-Sets the database (Google Cloud project ID) in which to create the output of this action.
+Sets the database in which to create the output of this action. For BigQuery targets this is the Google Cloud project ID; for Postgres/Supabase targets this is the database name in workflow_settings.yaml.
 
 **Parameters:**
 
@@ -265,9 +263,9 @@ Example:
 ```js
 // definitions/file.js
 publish("example")
-  .preOps(ctx => `GRANT \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} TO "group:automation@example.com"`)
+  .preOps(ctx => `GRANT \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} FROM "sqlanvil_reader"`)
   .query(ctx => `SELECT * FROM ${ctx.ref("other_table")}`)
-  .postOps(ctx => `REVOKE \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} TO "group:automation@example.com"`)
+  .postOps(ctx => `REVOKE \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} FROM "sqlanvil_reader"`)
 ```
 
 **Parameters:**
@@ -292,9 +290,9 @@ Example:
 ```js
 // definitions/file.js
 publish("example")
-  .preOps(ctx => `GRANT \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} TO "group:automation@example.com"`)
+  .preOps(ctx => `GRANT \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} FROM "sqlanvil_reader"`)
   .query(ctx => `SELECT * FROM ${ctx.ref("other_table")}`)
-  .postOps(ctx => `REVOKE \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} TO "group:automation@example.com"`)
+  .postOps(ctx => `REVOKE \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} FROM "sqlanvil_reader"`)
 ```
 
 **Parameters:**
@@ -330,7 +328,7 @@ ___
 **`deprecated`** Deprecated in favor of
 [ViewConfig.dataset](configs#sqlanvil-ActionConfig-ViewConfig).
 
-Sets the schema (BigQuery dataset) in which to create the output of this action.
+Sets the schema (BigQuery dataset / Postgres schema) in which to create the output of this action.
 
 **Parameters:**
 

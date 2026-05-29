@@ -42,7 +42,7 @@ export class PostgresDbAdapter implements IDbAdapter {
     return new PostgresDbAdapter(queryExecutor);
   }
 
-  private constructor(private readonly queryExecutor: PgPoolExecutor) {}
+  protected constructor(protected readonly queryExecutor: PgPoolExecutor) {}
 
   public async execute(
     statement: string,

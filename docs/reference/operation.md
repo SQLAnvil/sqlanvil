@@ -1,5 +1,3 @@
-[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/operation"](../modules/_core_actions_operation_.md) › [Operation](_core_actions_operation_.operation.md)
-
 # Class: Operation
 
 Operations define custom SQL operations that don't fit into the sqlanvil model of publishing a
@@ -230,7 +228,7 @@ ___
 **`deprecated`** Deprecated in favor of
 [OperationConfig.dataset](configs#sqlanvil-ActionConfig-OperationConfig).
 
-Sets the schema (BigQuery dataset) in which to create the output of this action.
+Sets the schema (BigQuery dataset / Postgres schema) in which to create the output of this action.
 
 **Parameters:**
 

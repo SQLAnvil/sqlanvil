@@ -6,7 +6,7 @@ import { sqlanvil } from "sa/protos/ts";
 
 export const CREDENTIALS_FILENAME = ".df-credentials.json";
 
-export function read(credentialsPath: string): sqlanvil.IBigQuery {
+export function read(credentialsPath: string, warehouse: string = "bigquery"): any {
   if (!fs.existsSync(credentialsPath)) {
     throw new Error(`Missing credentials JSON file; not found at path '${credentialsPath}'.`);
   }
@@ -16,11 +16,20 @@ export function read(credentialsPath: string): sqlanvil.IBigQuery {
   } catch (e) {
     throw new Error(`Error reading credentials file: ${e.message}`);
   }
-  const credentials = verifyObjectMatchesProto(sqlanvil.BigQuery, credentialsAsJson);
-  if (!Object.keys(credentials).find(key => key === "projectId")?.length) {
-    throw new Error(`Error reading credentials file: the projectId field is required`);
+  const isPostgres = warehouse.toLowerCase() === "postgres" || warehouse.toLowerCase() === "supabase";
+  if (isPostgres) {
+    const credentials = verifyObjectMatchesProto(sqlanvil.PostgresConnection, credentialsAsJson);
+    if (!credentials.host) {
+      throw new Error(`Error reading credentials file: the host field is required`);
+    }
+    return credentials;
+  } else {
+    const credentials = verifyObjectMatchesProto(sqlanvil.BigQuery, credentialsAsJson);
+    if (!Object.keys(credentials).find(key => key === "projectId")?.length) {
+      throw new Error(`Error reading credentials file: the projectId field is required`);
+    }
+    return credentials;
   }
-  return credentials;
 }
 
 export enum TestResultStatus {

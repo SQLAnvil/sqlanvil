@@ -36,6 +36,18 @@ else
 fi
 
 docker run --rm "${TTY_FLAGS[@]}" \
+  -e PG_HOST \
+  -e PG_PORT \
+  -e PG_USER \
+  -e PG_PASSWORD \
+  -e PG_DATABASE \
+  -e PG_CONNECTION_STRING \
+  -e SUPABASE_HOST \
+  -e SUPABASE_PORT \
+  -e SUPABASE_USER \
+  -e SUPABASE_PASSWORD \
+  -e SUPABASE_DATABASE \
+  -e SUPABASE_CONNECTION_STRING \
   -v "$REPO_ROOT:/workspace" \
   -v sqlanvil-bazel-cache:/root/.cache/bazel \
   -v sqlanvil-bazel-disk:/root/.cache/bazel-disk \

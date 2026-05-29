@@ -8,6 +8,8 @@ import yargs from "yargs";
 import { build, compile, credentials, init, install, run, test } from "sa/cli/api";
 import { CREDENTIALS_FILENAME } from "sa/cli/api/commands/credentials";
 import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
+import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
+import { SupabaseDbAdapter } from "sa/cli/api/dbadapters/supabase";
 import { prettyJsonStringify } from "sa/cli/api/utils";
 import {
   compiledGraphOutputType,
@@ -519,8 +521,10 @@ export function runCli() {
           if (!argv[jsonOutputOption.name]) {
             printSuccess("Compiled successfully.\n");
           }   
+          const warehouse = compiledGraph.projectConfig.warehouse || "bigquery";
           const readCredentials = credentials.read(
-            getCredentialsPath(argv[projectDirOption.name], argv[credentialsOption.name])
+            getCredentialsPath(argv[projectDirOption.name], argv[credentialsOption.name]),
+            warehouse
           );
 
           if (!compiledGraph.tests.length) {
@@ -531,7 +535,14 @@ export function runCli() {
           if (!argv[jsonOutputOption.name]) {
             print(`Running ${compiledGraph.tests.length} unit tests...\n`);
           }
-          const dbadapter = new BigQueryDbAdapter(readCredentials);
+          let dbadapter: any;
+          if (warehouse.toLowerCase() === "supabase") {
+            dbadapter = await SupabaseDbAdapter.create(readCredentials);
+          } else if (warehouse.toLowerCase() === "postgres") {
+            dbadapter = await PostgresDbAdapter.create(readCredentials);
+          } else {
+            dbadapter = new BigQueryDbAdapter(readCredentials);
+          }
           const testResults = await test(dbadapter, compiledGraph.tests);
           if (!argv[jsonOutputOption.name]) {
             testResults.forEach(testResult => printTestResult(testResult));
@@ -606,11 +617,20 @@ export function runCli() {
           if (!argv[jsonOutputOption.name]) {
             printSuccess("Compiled successfully.\n");
           }
+          const warehouse = compiledGraph.projectConfig.warehouse || "bigquery";
           const readCredentials = credentials.read(
-            getCredentialsPath(argv[projectDirOption.name], argv[credentialsOption.name])
+            getCredentialsPath(argv[projectDirOption.name], argv[credentialsOption.name]),
+            warehouse
           );
 
-          const dbadapter = new BigQueryDbAdapter(readCredentials);
+          let dbadapter: any;
+          if (warehouse.toLowerCase() === "supabase") {
+            dbadapter = await SupabaseDbAdapter.create(readCredentials);
+          } else if (warehouse.toLowerCase() === "postgres") {
+            dbadapter = await PostgresDbAdapter.create(readCredentials);
+          } else {
+            dbadapter = new BigQueryDbAdapter(readCredentials);
+          }
           const executionGraph = await build(
             compiledGraph,
             {

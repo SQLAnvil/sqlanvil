@@ -1,0 +1,15 @@
+FROM postgres:15-alpine
+
+RUN apk add --no-cache --virtual .build-deps \
+    git \
+    build-base \
+    postgresql-dev \
+    && git clone --branch v0.6.0 https://github.com/pgvector/pgvector.git /tmp/pgvector \
+    && cd /tmp/pgvector \
+    && make OPTFLAGS="" with_llvm=no \
+    && make install with_llvm=no \
+    && rm -rf /tmp/pgvector \
+    && apk del .build-deps
+
+# Expose standard Postgres port
+EXPOSE 5432

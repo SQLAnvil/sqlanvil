@@ -232,6 +232,10 @@ function sqlanvilCompile(compileRequest: sqlanvil.ICompileExecutionRequest, sess
   globalAny.notebook = session.notebook.bind(session);
   globalAny.test = session.test.bind(session);
   globalAny.jitData = session.jitData.bind(session);
+  globalAny.rlsPolicy = session.rlsPolicy.bind(session);
+  globalAny.realtimePublication = session.realtimePublication.bind(session);
+  globalAny.wrapper = session.wrapper.bind(session);
+  globalAny.vectorIndex = session.vectorIndex.bind(session);
 
   loadActionConfigs(session, compileRequest.compileConfig.filePaths);
 

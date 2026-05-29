@@ -12,6 +12,7 @@ import { compile, dropAllTables, getTableRows, keyBy } from "sa/tests/integratio
 
 suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) => {
   const credentials = dfapi.credentials.read("test_credentials/bigquery.json");
+  const PROJECT_ID = credentials.projectId;
   let dbadapter: BigQueryDbAdapter;
 
   before("create adapter", async () => {
@@ -27,7 +28,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
 
       // Drop schemas to make sure schema creation works.
       await dbadapter.execute(
-        "drop schema if exists `your-bigquery-project.df_integration_test_project_e2e` cascade"
+        `drop schema if exists \`${PROJECT_ID}.df_integration_test_project_e2e\` cascade`
       );
 
       // Run the project.
@@ -39,8 +40,8 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
 
       // Check the status of action execution.
       const expectedFailedActions = [
-        "your-bigquery-project.df_integration_test_assertions_project_e2e.example_assertion_fail",
-        "your-bigquery-project.df_integration_test_project_e2e.example_operation_partial_fail"
+        `${PROJECT_ID}.df_integration_test_assertions_project_e2e.example_assertion_fail`,
+        `${PROJECT_ID}.df_integration_test_project_e2e.example_operation_partial_fail`
       ];
       for (const actionName of Object.keys(actionMap)) {
         const expectedResult = expectedFailedActions.includes(actionName)
@@ -54,13 +55,13 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
 
       expect(
         actionMap[
-          "your-bigquery-project.df_integration_test_assertions_project_e2e.example_assertion_fail"
+          `${PROJECT_ID}.df_integration_test_assertions_project_e2e.example_assertion_fail`
         ].tasks[1].errorMessage
       ).to.eql("bigquery error: Assertion failed: query returned 1 row(s).");
 
       expect(
         actionMap[
-          "your-bigquery-project.df_integration_test_project_e2e.example_operation_partial_fail"
+          `${PROJECT_ID}.df_integration_test_project_e2e.example_operation_partial_fail`
         ].tasks[0].errorMessage
       ).to.eql("bigquery error: Query error: Unrecognized name: invalid_column at [3:8]");
     });
@@ -99,12 +100,13 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
         const executionGraph = await dfapi.build(compiledGraph, runIteration.runConfig, dbadapter);
         const runResult = await dfapi.run(dbadapter, executionGraph).result();
         expect(sqlanvil.RunResult.ExecutionStatus[runResult.status]).eql(
-          sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL]
+          sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL],
+          runResult.actions.map(action => action.tasks.map(task => task.errorMessage).filter(Boolean).join("\n")).filter(Boolean).join("\n")
         );
         const [incrementalRows, incrementalMergeRows] = await Promise.all([
           getTableRows(
             {
-              database: "your-bigquery-project",
+              database: PROJECT_ID,
               schema: "df_integration_test_incremental_tables",
               name: "example_incremental"
             },
@@ -113,7 +115,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
           ),
           getTableRows(
             {
-              database: "your-bigquery-project",
+              database: PROJECT_ID,
               schema: "df_integration_test_incremental_tables",
               name: "example_incremental_merge"
             },
@@ -150,7 +152,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       for (const expectedMetadata of [
         {
           target: {
-            database: "your-bigquery-project",
+            database: PROJECT_ID,
             schema: "df_integration_test_dataset_metadata",
             name: "example_incremental"
           },
@@ -189,7 +191,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
         },
         {
           target: {
-            database: "your-bigquery-project",
+            database: PROJECT_ID,
             schema: "df_integration_test_dataset_metadata",
             name: "example_view"
           },
@@ -258,7 +260,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       await dfapi.run(dbadapter, executionGraph).result();
 
       const view = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
-        "your-bigquery-project.df_integration_test_evaluate.example_view"
+        `${PROJECT_ID}.df_integration_test_evaluate.example_view`
       ];
       let evaluations = await dbadapter.evaluate(sqlanvil.Table.create(view));
       expect(evaluations.length).to.equal(1);
@@ -267,7 +269,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       );
 
       const materializedView = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
-        "your-bigquery-project.df_integration_test_evaluate.example_materialized_view"
+        `${PROJECT_ID}.df_integration_test_evaluate.example_materialized_view`
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Table.create(materializedView));
       expect(evaluations.length).to.equal(1);
@@ -276,7 +278,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       );
 
       const table = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
-        "your-bigquery-project.df_integration_test_evaluate.example_table"
+        `${PROJECT_ID}.df_integration_test_evaluate.example_table`
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Table.create(table));
       expect(evaluations.length).to.equal(1);
@@ -285,7 +287,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       );
 
       const operation = keyBy(compiledGraph.operations, t => targetAsReadableString(t.target))[
-        "your-bigquery-project.df_integration_test_evaluate.example_operation"
+        `${PROJECT_ID}.df_integration_test_evaluate.example_operation`
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Operation.create(operation));
       expect(evaluations.length).to.equal(1);
@@ -294,7 +296,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       );
 
       const assertion = keyBy(compiledGraph.assertions, t => targetAsReadableString(t.target))[
-        "your-bigquery-project.df_integration_test_assertions_evaluate.example_assertion_pass"
+        `${PROJECT_ID}.df_integration_test_assertions_evaluate.example_assertion_pass`
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Assertion.create(assertion));
       expect(evaluations.length).to.equal(1);
@@ -303,7 +305,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       );
 
       const incremental = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
-        "your-bigquery-project.df_integration_test_evaluate.example_incremental"
+        `${PROJECT_ID}.df_integration_test_evaluate.example_incremental`
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Table.create(incremental));
       expect(evaluations.length).to.equal(2);
@@ -319,7 +321,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       const target = (name: string) => ({
         schema: "df_integration_test",
         name,
-        database: "your-bigquery-project"
+        database: PROJECT_ID
       });
 
       let evaluations = await dbadapter.evaluate(

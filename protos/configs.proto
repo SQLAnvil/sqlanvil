@@ -705,6 +705,49 @@ message ActionConfig {
     DeclarationConfig declaration = 6;
     NotebookConfig notebook = 7;
     DataPreparationConfig data_preparation = 8;
+    RlsPolicyConfig rls_policy = 9;
+    RealtimePublicationConfig realtime_publication = 10;
+    ForeignWrapperConfig foreign_wrapper = 11;
+    VectorIndexConfig vector_index = 12;
+  }
+
+  message RlsPolicyConfig {
+    string name = 1;
+    string table = 2;
+    string command = 3;
+    repeated string roles = 4;
+    string using = 5;
+    string with_check = 6;
+    string filename = 7;
+    repeated Target dependency_targets = 8;
+  }
+
+  message RealtimePublicationConfig {
+    string name = 1;
+    string table = 2;
+    repeated string events = 3;
+    string filename = 4;
+    repeated Target dependency_targets = 5;
+  }
+
+  message ForeignWrapperConfig {
+    string name = 1;
+    string wrapper = 2;
+    string server = 3;
+    map<string, string> options = 4;
+    string filename = 5;
+    repeated Target dependency_targets = 6;
+  }
+
+  message VectorIndexConfig {
+    string name = 1;
+    string table = 2;
+    string column = 3;
+    uint32 dimensions = 4;
+    string index_type = 5;
+    map<string, string> params = 6;
+    string filename = 7;
+    repeated Target dependency_targets = 8;
   }
 
   message LoadModeConfig {

@@ -72,6 +72,7 @@ ts_test_suite(
         "//packages/@sqlanvil/core:package_tar",
         "@nodejs//:node",
         "@nodejs//:npm",
+        "//test_credentials:bigquery.json",
     ],
     deps = [
         ":index_test_base",

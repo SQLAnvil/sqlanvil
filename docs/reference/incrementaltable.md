@@ -1,5 +1,3 @@
-[sqlanvil Javascript API Reference](../README.md) › [Globals](../globals.md) › ["core/actions/incremental_table"](../modules/_core_actions_incremental_table_.md) › [IncrementalTable](_core_actions_incremental_table_.incrementaltable.md)
-
 # Class: IncrementalTable
 
 When you define an incremental table, sqlanvil builds the incremental table from scratch only for
@@ -92,11 +90,11 @@ ___
 
 ###  bigquery
 
-▸ **bigquery**(`bigquery`: IBigQueryOptions): *this*
+▸ **bigquery**(`bigquery`: WarehouseOptions): *this*
 
 **`deprecated`** Deprecated in favor of options available directly on
 [IncrementalTableConfig](configs#sqlanvil-ActionConfig-IncrementalTableConfig). For example:
-`publish("name", { type: "table", partitionBy: "column" }`).
+`publish("name", { type: "table", partitionBy: "column" }`) for BigQuery, or the `postgres:` config block for Postgres..
 
 Sets bigquery options for the action.
 
@@ -104,7 +102,7 @@ Sets bigquery options for the action.
 
 Name | Type |
 ------ | ------ |
-`bigquery` | IBigQueryOptions |
+`bigquery` | WarehouseOptions |
 
 **Returns:** *this*
 
@@ -137,7 +135,7 @@ ___
 [IncrementalTableConfig.project](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
 
 Sets the
-Sets the database (Google Cloud project ID) in which to create the output of this action.
+Sets the database in which to create the output of this action. For BigQuery targets this is the Google Cloud project ID; for Postgres/Supabase targets this is the database name in workflow_settings.yaml.
 
 **Parameters:**
 
@@ -240,9 +238,9 @@ Example:
 ```js
 // definitions/file.js
 publish("example")
-  .preOps(ctx => `GRANT \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} TO "group:automation@example.com"`)
+  .preOps(ctx => `GRANT \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} FROM "sqlanvil_reader"`)
   .query(ctx => `SELECT * FROM ${ctx.ref("other_table")}`)
-  .postOps(ctx => `REVOKE \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} TO "group:automation@example.com"`)
+  .postOps(ctx => `REVOKE \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} FROM "sqlanvil_reader"`)
 ```
 
 **Parameters:**
@@ -267,9 +265,9 @@ Example:
 ```js
 // definitions/file.js
 publish("example")
-  .preOps(ctx => `GRANT \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} TO "group:automation@example.com"`)
+  .preOps(ctx => `GRANT \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} FROM "sqlanvil_reader"`)
   .query(ctx => `SELECT * FROM ${ctx.ref("other_table")}`)
-  .postOps(ctx => `REVOKE \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} TO "group:automation@example.com"`)
+  .postOps(ctx => `REVOKE \`roles/bigquery.dataViewer\` ON TABLE ${ctx.ref("other_table")} FROM "sqlanvil_reader"`)
 ```
 
 **Parameters:**
@@ -324,7 +322,7 @@ ___
 **`deprecated`** Deprecated in favor of
 [IncrementalTableConfig.dataset](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
 
-Sets the schema (BigQuery dataset) in which to create the output of this action.
+Sets the schema (BigQuery dataset / Postgres schema) in which to create the output of this action.
 
 **Parameters:**
 

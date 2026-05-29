@@ -1,39 +1,106 @@
-# sqlanvil
+# SQLAnvil
 
-**sqlanvil** is an open-source SQL workflow tool. Define dependent tables, views, materialized views, incremental tables, assertions, and operations as code — then compile, test, and execute them against your warehouse.
+**SQL workflow tool for BigQuery, Postgres, and Supabase.**
 
-sqlanvil is a hard fork of [Dataform](https://github.com/dataform-co/dataform) (Apache 2.0), renamed and restructured to support **PostgreSQL/Supabase** as a first-class target alongside **BigQuery**.
+SQLAnvil is an open-source fork of [Dataform OSS](https://github.com/dataform-co/dataform) (Apache 2.0), extended with first-class PostgreSQL and Supabase support. Define your data transformations in SQLX, have SQLAnvil compile them to idiomatic SQL, and run them against your warehouse.
 
-## Status
+> **SQLAnvil is not affiliated with or endorsed by Google.** The Dataform name and related marks are trademarks of Google LLC. See [NOTICE](NOTICE) for attribution.
 
-Pre-alpha. Active reintegration of the Postgres adapter is in progress on the
-`restore-postgres-adapter` branch. See `docs/postgres_first_class_design.md`
-for the implementation spec and `docs/rename_checklist.md` for the
-dataform → sqlanvil rename surface.
+---
 
-## Supported warehouses
+## Features
 
-| Warehouse | Status |
-| :--- | :--- |
-| BigQuery | Working (inherited from upstream Dataform) |
-| PostgreSQL | In progress — first-class native adapter |
-| Supabase (PostgreSQL + RLS, Realtime, Wrappers, pgvector) | Planned |
+- **BigQuery** — full support: partitioning, clustering, labels, materialized views, `MERGE`-based incremental upserts
+- **PostgreSQL** — idiomatic DDL: native partitioning, `INSERT ... ON CONFLICT` upserts, btree/gin/gist/brin indexes, tablespaces, fillfactor
+- **Supabase** — extends Postgres with RLS policies, Realtime publications, pgvector indexes, and Supabase Wrappers _(coming soon)_
+- **SQLX + YAML + JS** — three authoring modes: SQL with config blocks, `actions.yaml` bulk definitions, or the JavaScript API
 
-## Quickstart (when published)
+---
+
+## Quick start
 
 ```bash
-npm i -g @sqlanvil/cli
+npm install -g @sqlanvil/cli
 sqlanvil init my-project
 cd my-project
+# edit workflow_settings.yaml to configure your warehouse
 sqlanvil compile
 sqlanvil run
 ```
 
-For now, building from source requires Bazel via Bazelisk
-(`npm i -g @bazel/bazelisk`). See `contributing.md`.
+**`workflow_settings.yaml` example (Postgres):**
 
-## Attribution
+```yaml
+warehouse:
+  kind: postgres
+  host: localhost
+  port: 5432
+  database: analytics
+  user: sqlanvil_writer
+  password: ${PG_PASSWORD}
+  ssl: disable
+  defaultSchema: public
+```
 
-sqlanvil derives from Dataform OSS by Dataform Co (acquired by Google).
-The original code remains under the Apache 2.0 license. See `NOTICE` and
-`LICENSE` for required attribution.
+**First action (`definitions/my_view.sqlx`):**
+
+```sql
+config {
+  type: "view",
+  description: "My first SQLAnvil view."
+}
+
+SELECT 1 AS id, 'hello' AS greeting
+```
+
+---
+
+## Documentation
+
+Full documentation at **[sqlanvil.com](https://sqlanvil.com)**.
+
+- [Getting Started](https://sqlanvil.com/getting-started/)
+- [BigQuery Guide](https://sqlanvil.com/guides/bigquery/)
+- [PostgreSQL Guide](https://sqlanvil.com/guides/postgres/)
+- [Supabase Guide](https://sqlanvil.com/guides/supabase/)
+- [Configs Reference](https://sqlanvil.com/reference/configs/)
+
+---
+
+## Project layout
+
+```
+core/         Compiler + action types (table/view/incremental/assertion/operation/notebook/declaration)
+cli/          CLI entrypoint and per-adapter glue (cli/api/dbadapters/)
+protos/       Protobuf definitions for core/configs/execution/db_adapter
+docs/         Reference docs and design documents
+examples/     Sample SQLAnvil projects
+scripts/      ./scripts/run is the CLI entrypoint wrapper
+```
+
+---
+
+## Building from source
+
+SQLAnvil uses [Bazel](https://bazel.build) (via Bazelisk). The recommended dev path on macOS is the Docker-based build container:
+
+```bash
+# Build the proto layer
+./scripts/docker-bazel build //protos:sqlanvil_proto
+
+# Run the CLI
+./scripts/docker-bazel run //packages/@sqlanvil/cli:bin -- help
+
+# Run tests
+./scripts/docker-bazel test //...
+```
+
+See [contributing.md](contributing.md) for full instructions.
+
+---
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+SQLAnvil is a derivative of Dataform, originally developed by Dataform Co and contributed to by Google LLC, licensed under Apache License 2.0.

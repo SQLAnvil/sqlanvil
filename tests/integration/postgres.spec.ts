@@ -1,9 +1,9 @@
 import { expect } from "chai";
 
-import * as dfapi from "sa/api";
-import * as dbadapters from "sa/api/dbadapters";
-import * as adapters from "sa/core/adapters";
-import { RedshiftAdapter } from "sa/core/adapters/redshift";
+import * as dfapi from "sa/cli/api";
+import * as dbadapters from "sa/cli/api/dbadapters";
+import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
+import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { targetAsReadableString } from "sa/core/targets";
 import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";
@@ -16,17 +16,31 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
   const postgres = new PostgresFixture(5432, before, after);
 
   before("create adapter", async () => {
-    dbadapter = await dbadapters.create(
+    dbadapter = await PostgresDbAdapter.create(
       {
-        username: "postgres",
-        databaseName: "postgres",
-        password: "password",
-        port: 5432,
-        host: PostgresFixture.host
+        host: PostgresFixture.host,
+        port: PostgresFixture.port,
+        database: PostgresFixture.database,
+        user: PostgresFixture.user,
+        password: PostgresFixture.password
       },
-      "postgres",
       { disableSslForTestsOnly: true }
     );
+    // Clear any stale test schemas from previous runs
+    for (const schema of [
+      "df_integration_test_project_e2e",
+      "df_integration_test_dataset_metadata",
+      "df_integration_test_evaluate",
+      "df_integration_test_assertions_project_e2e",
+      "df_integration_test_assertions_evaluate",
+      "df_integration_test_search"
+    ]) {
+      try {
+        await dbadapter.execute(`drop schema if exists "${schema}" cascade`);
+      } catch (e) {
+        // ignore
+      }
+    }
   });
 
   test("run", { timeout: 60000 }, async () => {
@@ -59,7 +73,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     ).to.eql("postgres error: Assertion failed: query returned 1 row(s).");
 
     // Check the data in the incremental table.
-    const adapter = adapters.create(compiledGraph.projectConfig, compiledGraph.sqlanvilCoreVersion);
+    const adapter = new ExecutionSql(compiledGraph.projectConfig, compiledGraph.sqlanvilCoreVersion);
     let incrementalTable = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
       "df_integration_test_project_e2e.example_incremental"
     ];
@@ -307,7 +321,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
         target: { schema: "", name: "", database: "" }
       };
 
-      const adapter = new RedshiftAdapter({ warehouse: "postgres" }, "1.4.8");
+      const adapter = new ExecutionSql({ warehouse: "postgres" }, "1.4.8");
 
       const refresh = adapter.publishTasks(table, { fullRefresh: true }, { fields: [] }).build();
 

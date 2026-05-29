@@ -1,7 +1,7 @@
 import { default as TarjanGraphConstructor, Graph as TarjanGraph } from "tarjan-graph";
 
 import { encode64, unknownToValue, verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
-import { Action, ActionProto, ILegacyTableConfig, TableType } from "sa/core/actions";
+import { Action, ActionProto, ILegacyTableConfig, TableType, RlsPolicy, IRlsPolicyConfig, RealtimePublication, IRealtimePublicationConfig, Wrapper, IWrapperConfig, VectorIndex, IVectorIndexConfig } from "sa/core/actions";
 import { AContextable, Assertion, AssertionContext } from "sa/core/actions/assertion";
 import {
   DataPreparation,
@@ -280,6 +280,34 @@ export class Session {
     return operation;
   }
 
+  public rlsPolicy(config: IRlsPolicyConfig): RlsPolicy {
+    const filename = utils.getCallerFile(this.rootDir);
+    const rlsPolicy = new RlsPolicy(this, { filename, ...config });
+    this.actions.push(rlsPolicy);
+    return rlsPolicy;
+  }
+
+  public realtimePublication(config: IRealtimePublicationConfig): RealtimePublication {
+    const filename = utils.getCallerFile(this.rootDir);
+    const realtimePublication = new RealtimePublication(this, { filename, ...config });
+    this.actions.push(realtimePublication);
+    return realtimePublication;
+  }
+
+  public wrapper(config: IWrapperConfig): Wrapper {
+    const filename = utils.getCallerFile(this.rootDir);
+    const wrapper = new Wrapper(this, { filename, ...config });
+    this.actions.push(wrapper);
+    return wrapper;
+  }
+
+  public vectorIndex(config: IVectorIndexConfig): VectorIndex {
+    const filename = utils.getCallerFile(this.rootDir);
+    const vectorIndex = new VectorIndex(this, { filename, ...config });
+    this.actions.push(vectorIndex);
+    return vectorIndex;
+  }
+
   /**
    * Creates a table, view, or incremental table.
    *
@@ -463,7 +491,14 @@ export class Session {
         )
       ),
       operations: this.compileGraphChunk(
-        this.actions.filter(action => action instanceof Operation)
+        this.actions.filter(
+          action =>
+            action instanceof Operation ||
+            action instanceof RlsPolicy ||
+            action instanceof RealtimePublication ||
+            action instanceof Wrapper ||
+            action instanceof VectorIndex
+        )
       ),
       assertions: this.compileGraphChunk(
         this.actions.filter(action => action instanceof Assertion)

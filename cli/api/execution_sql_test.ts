@@ -112,8 +112,8 @@ suite("ExecutionSql with Postgres/Supabase", () => {
     const tasks = executionSql.publishTasks(baseTable, { fullRefresh: false });
     const statements = tasks.build().map(t => t.statement);
     expect(statements).to.have.lengthOf(2);
-    expect(statements[0]).to.equal('drop table if exists "public"."my_table" cascade');
-    expect(statements[1]).to.equal('create table "public"."my_table" as select 1 as id, \'a\' as field1');
+    expect(statements[0]).to.equal('drop table if exists "my_db"."public"."my_table" cascade');
+    expect(statements[1]).to.equal('create table "my_db"."public"."my_table" as select 1 as id, \'a\' as field1');
   });
 
   test("generates drop and create view", () => {
@@ -125,8 +125,8 @@ suite("ExecutionSql with Postgres/Supabase", () => {
     const tasks = executionSql.publishTasks(viewTable, { fullRefresh: false });
     const statements = tasks.build().map(t => t.statement);
     expect(statements).to.have.lengthOf(2);
-    expect(statements[0]).to.equal('drop view if exists "public"."my_table" cascade');
-    expect(statements[1]).to.equal('create view "public"."my_table" as select 1 as id, \'a\' as field1');
+    expect(statements[0]).to.equal('drop view if exists "my_db"."public"."my_table" cascade');
+    expect(statements[1]).to.equal('create view "my_db"."public"."my_table" as select 1 as id, \'a\' as field1');
   });
 
   test("generates incremental insert (no unique keys)", () => {
