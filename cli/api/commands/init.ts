@@ -82,6 +82,11 @@ export async function init(
   fs.mkdirSync(sourcesDir);
   dirsCreated.push(sourcesDir);
 
+  // Add sources/ecommerce subdirectory
+  const ecommerceDir = path.join(sourcesDir, "ecommerce");
+  fs.mkdirSync(ecommerceDir);
+  dirsCreated.push(ecommerceDir);
+
   const intermediateDir = path.join(definitionsDir, "intermediate");
   fs.mkdirSync(intermediateDir);
   dirsCreated.push(intermediateDir);
@@ -89,6 +94,28 @@ export async function init(
   const outputsDir = path.join(definitionsDir, "outputs");
   fs.mkdirSync(outputsDir);
   dirsCreated.push(outputsDir);
+
+  // Add outputs subdirectories (sales, orders, marketing)
+  const salesDir = path.join(outputsDir, "sales");
+  fs.mkdirSync(salesDir);
+  dirsCreated.push(salesDir);
+
+  const ordersDir = path.join(outputsDir, "orders");
+  fs.mkdirSync(ordersDir);
+  dirsCreated.push(ordersDir);
+
+  const marketingDir = path.join(outputsDir, "marketing");
+  fs.mkdirSync(marketingDir);
+  dirsCreated.push(marketingDir);
+
+  // Add test and extra subdirectories
+  const testDir = path.join(definitionsDir, "test");
+  fs.mkdirSync(testDir);
+  dirsCreated.push(testDir);
+
+  const extraDir = path.join(definitionsDir, "extra");
+  fs.mkdirSync(extraDir);
+  dirsCreated.push(extraDir);
 
   const includesDir = path.join(projectDir, "includes");
   fs.mkdirSync(includesDir);
