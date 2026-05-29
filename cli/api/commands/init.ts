@@ -77,6 +77,19 @@ export async function init(
   fs.mkdirSync(definitionsDir);
   dirsCreated.push(definitionsDir);
 
+  // Create Google's best-practice workflow directories inside definitions
+  const sourcesDir = path.join(definitionsDir, "sources");
+  fs.mkdirSync(sourcesDir);
+  dirsCreated.push(sourcesDir);
+
+  const intermediateDir = path.join(definitionsDir, "intermediate");
+  fs.mkdirSync(intermediateDir);
+  dirsCreated.push(intermediateDir);
+
+  const outputsDir = path.join(definitionsDir, "outputs");
+  fs.mkdirSync(outputsDir);
+  dirsCreated.push(outputsDir);
+
   const includesDir = path.join(projectDir, "includes");
   fs.mkdirSync(includesDir);
   dirsCreated.push(includesDir);
