@@ -7,7 +7,7 @@ Guidance for Claude Code when working in the `sqlanvil/` project.
 **sqlanvil** is Ivan's fork of [`dataform-co/dataform`](https://github.com/dataform-co/dataform), renamed and being repositioned as an open-source SQL workflow tool that runs against **both BigQuery and PostgreSQL/Supabase** (upstream Dataform OSS dropped Postgres support some time ago).
 
 - **Upstream**: `git@github.com:dataform-co/dataform.git` (Google's Dataform OSS — low activity since GA in BigQuery)
-- **Origin**: `git@github.com:ihistand/sqlanvil.git`
+- **Origin**: `git@github.com:sqlanvil/sqlanvil.git`
 - **Marketing site**: sibling repo `../sqlanvil-com/` — static HTML on Vercel (project: `sqlanvil-com`, team `Zlu36JPJdwPqwMeAWAqISllx`)
 
 ## Stack
@@ -27,7 +27,6 @@ protos/       Protobuf definitions for core/configs/execution/db_adapter
 api/          Legacy directory — currently holds restored Postgres adapter files awaiting relocation
 tools/        Bazel rules + the Postgres docker test fixture (tools/postgres/postgres_fixture.ts)
 tests/        Integration specs (bigquery + postgres) against real warehouses
-docs/         Reference + the two new Antigravity design docs (see below)
 examples/     Sample Dataform projects
 scripts/      `./scripts/run` is the CLI entrypoint wrapper
 ```
@@ -85,10 +84,10 @@ Current branch: `restore-postgres-adapter`. Recent commits (Ivan's, on top of up
 2. `fcca60c1` — added `docs/postgres_reintegration_assessment.md` (Antigravity)
 3. `1636e275` — added `docs/hybrid_warehouses_supabase_bigquery.md` (Antigravity)
 
-The two new design docs are Antigravity-authored and **load-bearing for the next sprint**:
+The two new design docs are Antigravity-authored and **load-bearing for the next sprint**. They now live in the separate [`sqlanvil/docs`](https://github.com/sqlanvil/docs) repo (moved out of this monorepo):
 
-- **`docs/postgres_reintegration_assessment.md`** — 5-phase, ~1-2 day plan to make the restored adapter compile and wire into the CLI. Phases: deps (`pg`, `pg-query-stream`) → relocate `api/` → `cli/api/` → align `IDbAdapter` interface (implement `executeRaw`, `deleteTable`, full `ITableMetadata`) → branch CLI on `projectConfig.warehouse === "postgres"` → Bazel/docker fixture verification.
-- **`docs/hybrid_warehouses_supabase_bigquery.md`** — marketing/architecture doc: three patterns for combining Supabase + BigQuery (federated queries, sequential pipeline, Supabase Wrappers / FDW). Reference material, no implementation required.
+- **`postgres_reintegration_assessment.md`** — 5-phase, ~1-2 day plan to make the restored adapter compile and wire into the CLI. Phases: deps (`pg`, `pg-query-stream`) → relocate `api/` → `cli/api/` → align `IDbAdapter` interface (implement `executeRaw`, `deleteTable`, full `ITableMetadata`) → branch CLI on `projectConfig.warehouse === "postgres"` → Bazel/docker fixture verification.
+- **`hybrid_warehouses_supabase_bigquery.md`** — marketing/architecture doc: three patterns for combining Supabase + BigQuery (federated queries, sequential pipeline, Supabase Wrappers / FDW). Reference material, no implementation required.
 
 When working on Postgres reintegration, **follow the assessment doc's phase order** — deps before relocation before interface work — because each phase's tests depend on the previous one passing through Bazel.
 

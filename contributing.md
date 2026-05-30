@@ -6,7 +6,7 @@ Thanks for your interest in SQLAnvil — an open-source SQL workflow tool for Bi
 
 SQLAnvil follows the standard GitHub **fork-and-pull-request** model. You do **not** need to be granted access to contribute — anyone can fork the repo and open a PR.
 
-1. **Fork** [`ihistand/sqlanvil`](https://github.com/ihistand/sqlanvil) to your account.
+1. **Fork** [`sqlanvil/sqlanvil`](https://github.com/sqlanvil/sqlanvil) to your account.
 2. **Clone** your fork and branch off `main`:
    ```bash
    git clone git@github.com:<you>/sqlanvil.git
@@ -14,7 +14,7 @@ SQLAnvil follows the standard GitHub **fork-and-pull-request** model. You do **n
    git checkout -b my-change
    ```
 3. **Make your change**, then build and test (see below).
-4. **Push** to your fork and **open a Pull Request** against `ihistand/sqlanvil` `main`.
+4. **Push** to your fork and **open a Pull Request** against `sqlanvil/sqlanvil` `main`.
 
 For anything larger than a small fix, **open an issue first** to discuss the approach before writing code.
 

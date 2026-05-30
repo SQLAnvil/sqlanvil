@@ -4,17 +4,28 @@
 # Generate documentation for the Javascript API.
 ####################################################################################################
 
+# Docs now live in the separate SQLAnvil/docs repo. Clone it as a sibling of this
+# repo (../docs) before regenerating, or override with DOCS_REPO.
+#   git clone git@github.com:sqlanvil/docs.git ../docs
+DOCS_REPO="${DOCS_REPO:-../docs}"
+REF_DIR="${DOCS_REPO}/reference"
+
+if [ ! -d "${REF_DIR}" ]; then
+  echo "ERROR: ${REF_DIR} not found. Clone the docs repo: git clone git@github.com:sqlanvil/docs.git ${DOCS_REPO}"
+  exit 1
+fi
+
 npx typedoc
 
-mv newdocs/classes/_core_session_.session.md docs/reference/session.md
-mv newdocs/classes/_core_actions_assertion_.assertion.md docs/reference/assertion.md
-mv newdocs/classes/_core_actions_table_.table.md docs/reference/table.md
-mv newdocs/classes/_core_actions_declaration_.declaration.md docs/reference/declaration.md
-mv newdocs/classes/_core_actions_incremental_table_.incrementaltable.md docs/reference/incrementaltable.md
-mv newdocs/classes/_core_actions_notebook_.notebook.md docs/reference/notebook.md
-mv newdocs/classes/_core_actions_operation_.operation.md docs/reference/operation.md
-mv newdocs/classes/_core_actions_test_.test.md docs/reference/test.md
-mv newdocs/classes/_core_actions_view_.view.md docs/reference/view.md
+mv newdocs/classes/_core_session_.session.md "${REF_DIR}/session.md"
+mv newdocs/classes/_core_actions_assertion_.assertion.md "${REF_DIR}/assertion.md"
+mv newdocs/classes/_core_actions_table_.table.md "${REF_DIR}/table.md"
+mv newdocs/classes/_core_actions_declaration_.declaration.md "${REF_DIR}/declaration.md"
+mv newdocs/classes/_core_actions_incremental_table_.incrementaltable.md "${REF_DIR}/incrementaltable.md"
+mv newdocs/classes/_core_actions_notebook_.notebook.md "${REF_DIR}/notebook.md"
+mv newdocs/classes/_core_actions_operation_.operation.md "${REF_DIR}/operation.md"
+mv newdocs/classes/_core_actions_test_.test.md "${REF_DIR}/test.md"
+mv newdocs/classes/_core_actions_view_.view.md "${REF_DIR}/view.md"
 
 rm -rf newdocs
 

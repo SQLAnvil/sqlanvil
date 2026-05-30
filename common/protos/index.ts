@@ -3,8 +3,8 @@ import { util } from "protobufjs";
 import { google } from "sa/protos/ts";
 
 const CONFIGS_PROTO_DOCUMENTATION_URL =
-  "https://github.com/ihistand/sqlanvil/blob/main/docs/reference/configs.md";
-const REPORT_ISSUE_URL = "https://github.com/ihistand/sqlanvil/issues";
+  "https://github.com/sqlanvil/docs/blob/main/reference/configs.md";
+const REPORT_ISSUE_URL = "https://github.com/sqlanvil/sqlanvil/issues";
 
 export interface IProtoClass<IProto, Proto> {
   new (): Proto;

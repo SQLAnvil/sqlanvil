@@ -73,7 +73,6 @@ Full documentation at **[sqlanvil.com](https://sqlanvil.com)**.
 core/         Compiler + action types (table/view/incremental/assertion/operation/notebook/declaration)
 cli/          CLI entrypoint and per-adapter glue (cli/api/dbadapters/)
 protos/       Protobuf definitions for core/configs/execution/db_adapter
-docs/         Reference docs and design documents
 examples/     Sample SQLAnvil projects
 scripts/      ./scripts/run is the CLI entrypoint wrapper
 ```
@@ -96,6 +95,12 @@ SQLAnvil uses [Bazel](https://bazel.build) (via Bazelisk). The recommended dev p
 ```
 
 See [contributing.md](contributing.md) for full instructions.
+
+---
+
+## Documentation
+
+Reference docs and design documents live in the separate [`sqlanvil/docs`](https://github.com/sqlanvil/docs) repo, published at [sqlanvil.com/docs](https://sqlanvil.com/docs/).
 
 ---
 

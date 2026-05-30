@@ -801,7 +801,7 @@ message NotebookRuntimeOptionsConfig {
 
 // =============================================================================
 // Postgres-first-class adapter — additions per
-// docs/postgres_first_class_design.md. Phase 3c.
+// https://github.com/sqlanvil/docs/blob/main/postgres_first_class_design.md. Phase 3c.
 //
 // These messages are declared here for wiring in subsequent phases:
 //   - PostgresOptions / SupabaseOptions      → ActionConfig table-level blocks

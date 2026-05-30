@@ -97,7 +97,7 @@ actions:
     );
 
     expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-      `Unexpected property "fileName", or property value type of "string" is incorrect. See https://github.com/ihistand/sqlanvil/blob/main/docs/reference/configs.md#sqlanvil-ActionConfigs for allowed properties.`
+      `Unexpected property "fileName", or property value type of "string" is incorrect. See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-ActionConfigs for allowed properties.`
     );
   });
 
