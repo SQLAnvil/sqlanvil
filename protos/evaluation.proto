@@ -2,7 +2,7 @@ syntax="proto3";
 
 package sqlanvil;
 
-option go_package = "github.com/ihistand/sqlanvil/protos/sqlanvil";
+option go_package = "github.com/sqlanvil/sqlanvil/protos/sqlanvil";
 
 message QueryEvaluationError {
   string message = 1;

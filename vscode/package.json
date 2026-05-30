@@ -9,7 +9,7 @@
   "version": "0.0.1",
   "icon": "sqlanvil_logo.png",
   "repository": {
-    "url": "https://github.com/ihistand/sqlanvil/tree/main/vscode"
+    "url": "https://github.com/sqlanvil/sqlanvil/tree/main/vscode"
   },
   "engines": {
     "vscode": "^1.48.0"

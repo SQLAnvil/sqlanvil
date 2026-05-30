@@ -52,7 +52,7 @@ nodejs_binary(
 
 load("@bazel_gazelle//:def.bzl", "gazelle")
 
-# gazelle:prefix github.com/ihistand/sqlanvil
+# gazelle:prefix github.com/sqlanvil/sqlanvil
 # gazelle:proto package
 # gazelle:proto_group go_package
 gazelle(name = "gazelle")

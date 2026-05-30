@@ -10,7 +10,7 @@ option java_package = "com.sqlanvil.protos";
 option java_outer_classname = "CoreMeta";
 option java_multiple_files = true;
 
-option go_package = "github.com/ihistand/sqlanvil/protos/sqlanvil";
+option go_package = "github.com/sqlanvil/sqlanvil/protos/sqlanvil";
 
 message ProjectConfig {
   string warehouse = 1;

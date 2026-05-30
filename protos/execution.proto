@@ -6,7 +6,7 @@ import "core.proto";
 import "db_adapter.proto";
 import "google/protobuf/struct.proto";
 
-option go_package = "github.com/ihistand/sqlanvil/protos/sqlanvil";
+option go_package = "github.com/sqlanvil/sqlanvil/protos/sqlanvil";
 
 message RunConfig {
   repeated string actions = 1;

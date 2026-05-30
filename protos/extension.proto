@@ -6,7 +6,7 @@ option java_package = "com.sqlanvil.protos";
 option java_outer_classname = "ExtensionMeta";
 option java_multiple_files = true;
 
-option go_package = "github.com/ihistand/sqlanvil/protos/sqlanvil";
+option go_package = "github.com/sqlanvil/sqlanvil/protos/sqlanvil";
 
 // Execution mode of compilation extension.
 enum ExtensionCompilationMode {
