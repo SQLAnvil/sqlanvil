@@ -1,5 +1,29 @@
 # Contributing to SQLAnvil
 
+Thanks for your interest in SQLAnvil — an open-source SQL workflow tool for BigQuery, PostgreSQL, and Supabase. Contributions of all kinds are welcome: bug reports, docs, adapter improvements, and new features.
+
+## How to contribute (no access request needed)
+
+SQLAnvil follows the standard GitHub **fork-and-pull-request** model. You do **not** need to be granted access to contribute — anyone can fork the repo and open a PR.
+
+1. **Fork** [`ihistand/sqlanvil`](https://github.com/ihistand/sqlanvil) to your account.
+2. **Clone** your fork and branch off `main`:
+   ```bash
+   git clone git@github.com:<you>/sqlanvil.git
+   cd sqlanvil
+   git checkout -b my-change
+   ```
+3. **Make your change**, then build and test (see below).
+4. **Push** to your fork and **open a Pull Request** against `ihistand/sqlanvil` `main`.
+
+For anything larger than a small fix, **open an issue first** to discuss the approach before writing code.
+
+### Want push access?
+
+There is no self-serve access request — that is by design. The fork-and-PR flow above is the contribution path. If you become a regular contributor and want direct push access, open an issue asking, and reference your merged PRs.
+
+## Build and test
+
 SQLAnvil uses [Bazel](https://bazel.build) for all build and test targets. There are no `npm run` scripts — everything goes through Bazel.
 
 ## Prerequisites
@@ -70,11 +94,19 @@ All packages are scoped under `@sqlanvil/`:
 - `@sqlanvil/cli` — command-line interface
 - `@sqlanvil/sample-extension` — example extension package
 
+## Pull request guidelines
+
+- **One logical change per PR.** Keep diffs focused and reviewable.
+- **Clear description** — what changed and why; link the related issue.
+- **Match existing style** (see Code style above). Add or update tests for behavior changes.
+- **Adapters generate idiomatic SQL.** The Postgres adapter is not a BigQuery adapter with translated SQL — it emits native Postgres DDL/DML (`INSERT ... ON CONFLICT`, native `CREATE INDEX`, `PARTITION BY RANGE/LIST/HASH`). Don't leak BigQuery quirks (`OPTIONS(...)`, `CLUSTER BY`, `NOT ENFORCED`) into Postgres output.
+- **Keep the rename clean.** Don't reintroduce `@dataform/*` package names, `dataform.*` proto packages, or `dataform.json` config in new code.
+
 ## Branch strategy
 
-Three sequential PRs against `restore-postgres-adapter`:
+Feature branches target `main`. Postgres/Supabase adapter work proceeds in sequence:
 
-1. `rename/dataform-to-sqlanvil` — rename sweep (already complete)
+1. `rename/dataform-to-sqlanvil` — rename sweep (complete)
 2. `adapter/postgres-first-class` — Postgres adapter, SQL generator, proto changes
 3. `adapter/supabase-variant` — Supabase adapter and new action types
 
