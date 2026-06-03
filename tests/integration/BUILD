@@ -73,10 +73,13 @@ ts_test_suite(
     name = "supabase_tests",
     srcs = [
         "supabase.spec.ts",
+        "supabase_rls.spec.ts",
     ],
     data = [
         "//tests/integration/supabase_project:files",
         "//tests/integration/supabase_project:node_modules",
+        "//tests/integration/supabase_rls_project:files",
+        "//tests/integration/supabase_rls_project:node_modules",
     ],
     tags = ["integration"],
     deps = [
@@ -91,6 +94,8 @@ ts_test_suite(
         "@npm//@types/chai",
         "@npm//@types/long",
         "@npm//@types/node",
+        "@npm//@types/pg",
         "@npm//chai",
+        "@npm//pg",
     ],
 )

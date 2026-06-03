@@ -28,3 +28,6 @@ test_credentials/bigquery.json
 
 # Locally-built npm package tarballs (see docs npm_publishing.md)
 *.tgz
+
+# Local Supabase CLI stack state (run-supabase-stack.sh)
+tools/supabase/.supabase-stack/

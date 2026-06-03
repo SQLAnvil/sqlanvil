@@ -1,0 +1,3 @@
+warehouse: supabase
+defaultDataset: sa_integration_test
+defaultAssertionDataset: sa_integration_test_assertions

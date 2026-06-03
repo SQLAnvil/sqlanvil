@@ -1,0 +1,6 @@
+config {
+  type: "table"
+}
+SELECT '00000000-0000-0000-0000-00000000000a'::uuid AS owner, 'doc-a' AS title
+UNION ALL
+SELECT '00000000-0000-0000-0000-00000000000b'::uuid AS owner, 'doc-b' AS title
