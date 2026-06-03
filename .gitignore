@@ -25,3 +25,6 @@ tmp/
 # Credentials & Keys
 keys/
 test_credentials/bigquery.json
+
+# Locally-built npm package tarballs (see docs npm_publishing.md)
+*.tgz
