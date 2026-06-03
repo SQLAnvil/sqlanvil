@@ -1,5 +1,5 @@
 config {
-    schema: "df_integration_test",
+    schema: "sa_integration_test",
     type: "view",
     hermetic: false
 }

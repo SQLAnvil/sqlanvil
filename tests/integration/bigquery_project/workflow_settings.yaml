@@ -1,6 +1,6 @@
 defaultProject: your-bigquery-project
 defaultLocation: us
-defaultDataset: df_integration_test
-defaultAssertionDataset: df_integration_test_assertions
+defaultDataset: sa_integration_test
+defaultAssertionDataset: sa_integration_test_assertions
 vars:
   fooVar: bar

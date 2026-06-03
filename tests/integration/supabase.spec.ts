@@ -28,8 +28,8 @@ suite("@sqlanvil/integration/supabase", { parallel: true }, ({ before, after }) 
     );
     // Clear any stale test schemas from previous runs
     for (const schema of [
-      "df_integration_test",
-      "df_integration_test_assertions"
+      "sa_integration_test",
+      "sa_integration_test_assertions"
     ]) {
       try {
         await dbadapter.execute(`drop schema if exists "${schema}" cascade`);
@@ -72,20 +72,20 @@ suite("@sqlanvil/integration/supabase", { parallel: true }, ({ before, after }) 
         .join("\n")
     );
 
-    expect(actionMap["df_integration_test.users"]).to.exist;
-    expect(actionMap["df_integration_test.users"].status).equals(
+    expect(actionMap["sa_integration_test.users"]).to.exist;
+    expect(actionMap["sa_integration_test.users"].status).equals(
       sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL
     );
 
     // Verify RLS Policy action executed successfully!
-    expect(actionMap["df_integration_test.users_policy_select_policy"]).to.exist;
-    expect(actionMap["df_integration_test.users_policy_select_policy"].status).equals(
+    expect(actionMap["sa_integration_test.users_policy_select_policy"]).to.exist;
+    expect(actionMap["sa_integration_test.users_policy_select_policy"].status).equals(
       sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL
     );
 
     // Verify Realtime Publication action executed successfully!
-    expect(actionMap["df_integration_test.users_realtime_supabase_realtime"]).to.exist;
-    expect(actionMap["df_integration_test.users_realtime_supabase_realtime"].status).equals(
+    expect(actionMap["sa_integration_test.users_realtime_supabase_realtime"]).to.exist;
+    expect(actionMap["sa_integration_test.users_realtime_supabase_realtime"].status).equals(
       sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL
     );
   });

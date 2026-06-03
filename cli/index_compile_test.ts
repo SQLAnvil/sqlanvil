@@ -46,8 +46,8 @@ suite("compile command", ({ afterEach }) => {
     fs.writeFileSync(
       path.join(projectDir, "workflow_settings.yaml"),
       `defaultProject: tada-analytics
-defaultDataset: df_integration_test
-defaultAssertionDataset: df_integration_test_assertions
+defaultDataset: sa_integration_test
+defaultAssertionDataset: sa_integration_test_assertions
 defaultLocation: "${DEFAULT_LOCATION}"
 `
     );

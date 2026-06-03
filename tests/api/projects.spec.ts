@@ -91,7 +91,7 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_js_blocks"
               )
           );
@@ -105,7 +105,7 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_incremental"
               )
           );
@@ -114,11 +114,11 @@ suite("examples", () => {
           expect(exampleIncremental.where.trim()).equals(
             `ts > (select max(ts) from \`${dotJoined(
               databaseWithSuffix("tada-analytics"),
-              schemaWithSuffix("df_integration_test"),
+              schemaWithSuffix("sa_integration_test"),
               "example_incremental"
             )}\`) or (select max(ts) from \`${dotJoined(
               databaseWithSuffix("tada-analytics"),
-              schemaWithSuffix("df_integration_test"),
+              schemaWithSuffix("sa_integration_test"),
               "example_incremental"
             )}\`) is null`
           );
@@ -128,7 +128,7 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_is_incremental"
               )
           )[0];
@@ -140,11 +140,11 @@ suite("examples", () => {
               `select * from (select current_timestamp() as ts)
            where ts > (select max(ts) from \`${dotJoined(
              databaseWithSuffix("tada-analytics"),
-             schemaWithSuffix("df_integration_test"),
+             schemaWithSuffix("sa_integration_test"),
              "example_is_incremental"
            )}\`) or (select max(ts) from \`${dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_is_incremental"
               )}\`) is null`
             )
@@ -163,7 +163,7 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_ignore"
               )
           );
@@ -175,15 +175,15 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_backticks"
               )
           );
           expect(cleanSql(exampleBackticks.query)).equals(
-            "select * from `tada-analytics.df_integration_test.sample_data`"
+            "select * from `tada-analytics.sa_integration_test.sample_data`"
           );
           expect(exampleBackticks.preOps).to.eql([
-            '\n    GRANT SELECT ON `tada-analytics.df_integration_test.sample_data` TO GROUP "allusers@example.com"\n'
+            '\n    GRANT SELECT ON `tada-analytics.sa_integration_test.sample_data` TO GROUP "allusers@example.com"\n'
           ]);
           expect(exampleBackticks.postOps).to.eql([]);
 
@@ -193,7 +193,7 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_deferred"
               )
           );
@@ -205,7 +205,7 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_view"
               )
           );
@@ -214,7 +214,7 @@ suite("examples", () => {
           expect(exampleView.query.trim()).equals(
             `select * from \`${dotJoined(
               databaseWithSuffix("tada-analytics"),
-              schemaWithSuffix("df_integration_test"),
+              schemaWithSuffix("sa_integration_test"),
               "sample_data"
             )}\`\n` +
               `inner join select * from \`${dotJoined(
@@ -224,28 +224,28 @@ suite("examples", () => {
               )}\`\n` +
               `inner join select * from \`${dotJoined(
                 databaseWithSuffix("override_database"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "override_database_example"
               )}\``
           );
           expect(exampleView.target).deep.equals(
             sqlanvil.Target.create({
               database: databaseWithSuffix("tada-analytics"),
-              schema: schemaWithSuffix("df_integration_test"),
+              schema: schemaWithSuffix("sa_integration_test"),
               name: "example_view"
             })
           );
           expect(exampleView.canonicalTarget).deep.equals(
             sqlanvil.Target.create({
               database: "tada-analytics",
-              schema: "df_integration_test",
+              schema: "sa_integration_test",
               name: "example_view"
             })
           );
           expect(exampleView.dependencyTargets).eql([
             sqlanvil.Target.create({
               database: databaseWithSuffix("tada-analytics"),
-              schema: schemaWithSuffix("df_integration_test"),
+              schema: schemaWithSuffix("sa_integration_test"),
               name: "sample_data"
             }),
             sqlanvil.Target.create({
@@ -255,7 +255,7 @@ suite("examples", () => {
             }),
             sqlanvil.Target.create({
               database: databaseWithSuffix("override_database"),
-              schema: schemaWithSuffix("df_integration_test"),
+              schema: schemaWithSuffix("sa_integration_test"),
               name: "override_database_example"
             })
           ]);
@@ -267,7 +267,7 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_materialized_view"
               )
           );
@@ -277,28 +277,28 @@ suite("examples", () => {
           expect(exampleMaterializedView.query.trim()).equals(
             `select * from \`${dotJoined(
               databaseWithSuffix("tada-analytics"),
-              schemaWithSuffix("df_integration_test"),
+              schemaWithSuffix("sa_integration_test"),
               "sample_data"
             )}\`\n` + `group by 1`
           );
           expect(exampleMaterializedView.target).deep.equals(
             sqlanvil.Target.create({
               database: databaseWithSuffix("tada-analytics"),
-              schema: schemaWithSuffix("df_integration_test"),
+              schema: schemaWithSuffix("sa_integration_test"),
               name: "example_materialized_view"
             })
           );
           expect(exampleMaterializedView.canonicalTarget).deep.equals(
             sqlanvil.Target.create({
               database: "tada-analytics",
-              schema: "df_integration_test",
+              schema: "sa_integration_test",
               name: "example_materialized_view"
             })
           );
           expect(exampleMaterializedView.dependencyTargets).eql([
             sqlanvil.Target.create({
               database: databaseWithSuffix("tada-analytics"),
-              schema: schemaWithSuffix("df_integration_test"),
+              schema: schemaWithSuffix("sa_integration_test"),
               name: "sample_data"
             })
           ]);
@@ -310,7 +310,7 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_table"
               )
           );
@@ -319,14 +319,14 @@ suite("examples", () => {
           expect(exampleTable.query.trim()).equals(
             `select * from \`${dotJoined(
               databaseWithSuffix("tada-analytics"),
-              schemaWithSuffix("df_integration_test"),
+              schemaWithSuffix("sa_integration_test"),
               "sample_data"
             )}\`\n\n-- here \${"is"} a \`comment\n\n/* \${"another"} \` backtick \` containing \`\`\`comment */`
           );
           expect(exampleTable.dependencyTargets).eql([
             sqlanvil.Target.create({
               database: databaseWithSuffix("tada-analytics"),
-              schema: schemaWithSuffix("df_integration_test"),
+              schema: schemaWithSuffix("sa_integration_test"),
               name: "sample_data"
             })
           ]);
@@ -334,12 +334,12 @@ suite("examples", () => {
           expect(exampleTable.postOps).to.eql([
             `\n    GRANT SELECT ON \`${dotJoined(
               databaseWithSuffix("tada-analytics"),
-              schemaWithSuffix("df_integration_test"),
+              schemaWithSuffix("sa_integration_test"),
               "example_table"
             )}\` TO GROUP "allusers@example.com"\n`,
             `\n    GRANT SELECT ON \`${dotJoined(
               databaseWithSuffix("tada-analytics"),
-              schemaWithSuffix("df_integration_test"),
+              schemaWithSuffix("sa_integration_test"),
               "example_table"
             )}\` TO GROUP "otherusers@example.com"\n`
           ]);
@@ -351,7 +351,7 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_table_with_tags"
               )
           );
@@ -364,22 +364,22 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test_assertions"),
-                "df_integration_test_example_table_with_tags_assertions_uniqueKey_0"
+                schemaWithSuffix("sa_integration_test_assertions"),
+                "sa_integration_test_example_table_with_tags_assertions_uniqueKey_0"
               )
           )[0];
           expect(exampleTableWithTagsUniqueKeyAssertion.disabled).eql(true);
           expect(cleanSql(exampleTableWithTagsUniqueKeyAssertion.query)).equals(
             `select * from (select sample, count(1) as index_row_count from \`${dotJoined(
               databaseWithSuffix("tada-analytics"),
-              schemaWithSuffix("df_integration_test"),
+              schemaWithSuffix("sa_integration_test"),
               "example_table_with_tags"
             )}\` group by sample) as data where index_row_count > 1`
           );
           expect(exampleTableWithTagsUniqueKeyAssertion.dependencyTargets).eql([
             sqlanvil.Target.create({
               database: databaseWithSuffix("tada-analytics"),
-              schema: schemaWithSuffix("df_integration_test"),
+              schema: schemaWithSuffix("sa_integration_test"),
               name: "example_table_with_tags"
             })
           ]);
@@ -391,22 +391,22 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test_assertions"),
-                "df_integration_test_example_table_with_tags_assertions_rowConditions"
+                schemaWithSuffix("sa_integration_test_assertions"),
+                "sa_integration_test_example_table_with_tags_assertions_rowConditions"
               )
           )[0];
           expect(exampleTableWithTagsRowConditionsAssertion.disabled).eql(true);
           expect(cleanSql(exampleTableWithTagsRowConditionsAssertion.query)).equals(
             `select 'sample is not null' as failing_row_condition, * from \`${dotJoined(
               databaseWithSuffix("tada-analytics"),
-              schemaWithSuffix("df_integration_test"),
+              schemaWithSuffix("sa_integration_test"),
               "example_table_with_tags"
             )}\` where not (sample is not null)`
           );
           expect(exampleTableWithTagsRowConditionsAssertion.dependencyTargets).eql([
             sqlanvil.Target.create({
               database: databaseWithSuffix("tada-analytics"),
-              schema: schemaWithSuffix("df_integration_test"),
+              schema: schemaWithSuffix("sa_integration_test"),
               name: "example_table_with_tags"
             })
           ]);
@@ -417,7 +417,7 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "sample_data"
               )
           );
@@ -446,7 +446,7 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("override_database"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "override_database_example"
               )
           );
@@ -486,13 +486,13 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "override_schema_example_unchanged"
               )
           );
 
           expect(exampleUsingOverriddenSchemaUnchanged.target.schema).equals(
-            schemaWithSuffix("df_integration_test")
+            schemaWithSuffix("sa_integration_test")
           );
           expect(exampleUsingOverriddenSchemaUnchanged.type).equals("view");
           expect(exampleUsingOverriddenSchemaUnchanged.enumType).equals(sqlanvil.TableType.VIEW);
@@ -514,14 +514,14 @@ suite("examples", () => {
           expect(exampleAssertion.query.trim()).equals(
             `select * from \`${dotJoined(
               databaseWithSuffix("tada-analytics"),
-              schemaWithSuffix("df_integration_test"),
+              schemaWithSuffix("sa_integration_test"),
               "sample_data"
             )}\` where sample = 100`
           );
           expect(exampleAssertion.dependencyTargets).eql([
             sqlanvil.Target.create({
               database: databaseWithSuffix("tada-analytics"),
-              schema: schemaWithSuffix("df_integration_test"),
+              schema: schemaWithSuffix("sa_integration_test"),
               name: "sample_data"
             })
           ]);
@@ -538,12 +538,12 @@ suite("examples", () => {
               targetAsReadableString(a.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test_assertions"),
+                schemaWithSuffix("sa_integration_test_assertions"),
                 "example_assertion_with_tags"
               )
           );
           expect(exampleAssertionWithTags.target.schema).equals(
-            schemaWithSuffix("df_integration_test_assertions")
+            schemaWithSuffix("sa_integration_test_assertions")
           );
           expect(exampleAssertionWithTags.tags).to.eql(["tag1", "tag2"]);
 
@@ -553,7 +553,7 @@ suite("examples", () => {
               targetAsReadableString(o.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_operations"
               )
           );
@@ -567,7 +567,7 @@ suite("examples", () => {
             )}\`\n`,
             `\nDROP VIEW IF EXISTS \`${dotJoined(
               databaseWithSuffix("override_database"),
-              schemaWithSuffix("df_integration_test"),
+              schemaWithSuffix("sa_integration_test"),
               "override_database_example"
             )}\`\n`
           ]);
@@ -579,7 +579,7 @@ suite("examples", () => {
             }),
             sqlanvil.Target.create({
               database: databaseWithSuffix("override_database"),
-              schema: schemaWithSuffix("df_integration_test"),
+              schema: schemaWithSuffix("sa_integration_test"),
               name: "override_database_example"
             })
           ]);
@@ -591,18 +591,18 @@ suite("examples", () => {
               targetAsReadableString(o.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_operation_with_output"
               )
           );
           expect(exampleOperationWithOutput.target.schema).equals(
-            schemaWithSuffix("df_integration_test")
+            schemaWithSuffix("sa_integration_test")
           );
           expect(exampleOperationWithOutput.target.name).equals("example_operation_with_output");
           expect(exampleOperationWithOutput.queries).to.eql([
             `\nCREATE OR REPLACE VIEW \`${dotJoined(
               databaseWithSuffix("tada-analytics"),
-              schemaWithSuffix("df_integration_test"),
+              schemaWithSuffix("sa_integration_test"),
               "example_operation_with_output"
             )}\` AS (SELECT * FROM \`some_database_name.some_external_schema_name.very_important_external_table\`)`
           ]);
@@ -631,7 +631,7 @@ suite("examples", () => {
               targetAsReadableString(o.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_operations_with_tags"
               )
           );
@@ -677,7 +677,7 @@ suite("examples", () => {
               targetAsReadableString(t.target) ===
               dotJoined(
                 databaseWithSuffix("tada-analytics"),
-                schemaWithSuffix("df_integration_test"),
+                schemaWithSuffix("sa_integration_test"),
                 "example_double_backslash"
               )
           );

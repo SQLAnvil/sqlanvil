@@ -201,7 +201,7 @@ from (${query}) as insertions`;
 
     const emptyTempTableTarget = {
       ...table.target,
-      name: `${table.target.name}_df_temp_${uniqueId}_empty`
+      name: `${table.target.name}_sa_temp_${uniqueId}_empty`
     };
 
     const procedureName = this.createProcedureName(table.target, uniqueId);
@@ -228,7 +228,7 @@ END;`;
   private createProcedureName(target: sqlanvil.ITarget, uniqueId: string): string {
     return this.resolveTarget({
       ...target,
-      name: `df_osc_${uniqueId}`
+      name: `sa_osc_${uniqueId}`
     });
   }
 

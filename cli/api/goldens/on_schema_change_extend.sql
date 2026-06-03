@@ -1,9 +1,9 @@
-CREATE OR REPLACE PROCEDURE `project-id.dataset-id.df_osc_test_uuid`()
+CREATE OR REPLACE PROCEDURE `project-id.dataset-id.sa_osc_test_uuid`()
 OPTIONS(strict_mode=false)
 BEGIN
 
 -- Create empty table to extract schema of new query.
-CREATE OR REPLACE TABLE `project-id.dataset-id.incremental_on_schema_change_df_temp_test_uuid_empty` AS (
+CREATE OR REPLACE TABLE `project-id.dataset-id.incremental_on_schema_change_sa_temp_test_uuid_empty` AS (
   SELECT * FROM (select 1 as id, 'a' as field1, 'new' as field2) AS insertions LIMIT 0
 );
 
@@ -23,7 +23,7 @@ SET sqlanvil_columns = (
 SET temp_table_columns = (
   SELECT IFNULL(ARRAY_AGG(STRUCT(column_name, data_type)), [])
   FROM `project-id.dataset-id.INFORMATION_SCHEMA.COLUMNS`
-  WHERE table_name = 'incremental_on_schema_change_df_temp_test_uuid_empty'
+  WHERE table_name = 'incremental_on_schema_change_sa_temp_test_uuid_empty'
 );
 
 SET columns_added = (
@@ -59,18 +59,18 @@ END IF;
 
 
 -- Cleanup temporary tables.
-DROP TABLE IF EXISTS `project-id.dataset-id.incremental_on_schema_change_df_temp_test_uuid_empty`;
+DROP TABLE IF EXISTS `project-id.dataset-id.incremental_on_schema_change_sa_temp_test_uuid_empty`;
     
 END
 ;
 BEGIN
-  CALL `project-id.dataset-id.df_osc_test_uuid`();
+  CALL `project-id.dataset-id.sa_osc_test_uuid`();
 EXCEPTION WHEN ERROR THEN
-  DROP TABLE IF EXISTS `project-id.dataset-id.incremental_on_schema_change_df_temp_test_uuid_empty`;
-  DROP PROCEDURE IF EXISTS `project-id.dataset-id.df_osc_test_uuid`;
+  DROP TABLE IF EXISTS `project-id.dataset-id.incremental_on_schema_change_sa_temp_test_uuid_empty`;
+  DROP PROCEDURE IF EXISTS `project-id.dataset-id.sa_osc_test_uuid`;
   RAISE;
 END;
-DROP PROCEDURE IF EXISTS `project-id.dataset-id.df_osc_test_uuid`
+DROP PROCEDURE IF EXISTS `project-id.dataset-id.sa_osc_test_uuid`
 ;
 insert into `project-id.dataset-id.incremental_on_schema_change`	
 (`id`,`field1`)	

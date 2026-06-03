@@ -28,12 +28,12 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     );
     // Clear any stale test schemas from previous runs
     for (const schema of [
-      "df_integration_test_project_e2e",
-      "df_integration_test_dataset_metadata",
-      "df_integration_test_evaluate",
-      "df_integration_test_assertions_project_e2e",
-      "df_integration_test_assertions_evaluate",
-      "df_integration_test_search"
+      "sa_integration_test_project_e2e",
+      "sa_integration_test_dataset_metadata",
+      "sa_integration_test_evaluate",
+      "sa_integration_test_assertions_project_e2e",
+      "sa_integration_test_assertions_evaluate",
+      "sa_integration_test_search"
     ]) {
       try {
         await dbadapter.execute(`drop schema if exists "${schema}" cascade`);
@@ -55,7 +55,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
 
     // Check the status of action execution.
     const expectedFailedActions = [
-      "df_integration_test_assertions_project_e2e.example_assertion_fail"
+      "sa_integration_test_assertions_project_e2e.example_assertion_fail"
     ];
     for (const actionName of Object.keys(actionMap)) {
       const expectedResult = expectedFailedActions.includes(actionName)
@@ -68,21 +68,21 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     }
 
     expect(
-      actionMap["df_integration_test_assertions_project_e2e.example_assertion_fail"].tasks[2]
+      actionMap["sa_integration_test_assertions_project_e2e.example_assertion_fail"].tasks[2]
         .errorMessage
     ).to.eql("postgres error: Assertion failed: query returned 1 row(s).");
 
     // Check the data in the incremental table.
     const adapter = new ExecutionSql(compiledGraph.projectConfig, compiledGraph.sqlanvilCoreVersion);
     let incrementalTable = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
-      "df_integration_test_project_e2e.example_incremental"
+      "sa_integration_test_project_e2e.example_incremental"
     ];
     let incrementalRows = await getTableRows(incrementalTable.target, adapter, dbadapter);
     expect(incrementalRows.length).equals(3);
 
     // Check the data in the incremental merge table.
     incrementalTable = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
-      "df_integration_test_project_e2e.example_incremental_merge"
+      "sa_integration_test_project_e2e.example_incremental_merge"
     ];
     incrementalRows = await getTableRows(incrementalTable.target, adapter, dbadapter);
     expect(incrementalRows.length).equals(2);
@@ -110,14 +110,14 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
 
     // Check there are the expected number of extra rows in the incremental table.
     incrementalTable = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
-      "df_integration_test_project_e2e.example_incremental"
+      "sa_integration_test_project_e2e.example_incremental"
     ];
     incrementalRows = await getTableRows(incrementalTable.target, adapter, dbadapter);
     expect(incrementalRows.length).equals(5);
 
     // Check there are the expected number of extra rows in the incremental merge table.
     incrementalTable = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
-      "df_integration_test_project_e2e.example_incremental_merge"
+      "sa_integration_test_project_e2e.example_incremental_merge"
     ];
     incrementalRows = await getTableRows(incrementalTable.target, adapter, dbadapter);
     expect(incrementalRows.length).equals(2);
@@ -144,7 +144,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     for (const expectedMetadata of [
       {
         target: {
-          schema: "df_integration_test_dataset_metadata",
+          schema: "sa_integration_test_dataset_metadata",
           name: "example_incremental"
         },
         expectedDescription: "An incremental 'table'",
@@ -163,7 +163,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       },
       {
         target: {
-          schema: "df_integration_test_dataset_metadata",
+          schema: "sa_integration_test_dataset_metadata",
           name: "example_view"
         },
         expectedDescription: "An example view",
@@ -251,7 +251,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       await dfapi.run(dbadapter, executionGraph).result();
 
       const view = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
-        "df_integration_test_evaluate.example_view"
+        "sa_integration_test_evaluate.example_view"
       ];
       let evaluations = await dbadapter.evaluate(sqlanvil.Table.create(view));
       expect(evaluations.length).to.equal(1);
@@ -260,7 +260,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       );
 
       const table = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
-        "df_integration_test_evaluate.example_table"
+        "sa_integration_test_evaluate.example_table"
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Table.create(table));
       expect(evaluations.length).to.equal(1);
@@ -269,7 +269,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       );
 
       const assertion = keyBy(compiledGraph.assertions, t => targetAsReadableString(t.target))[
-        "df_integration_test_assertions_evaluate.example_assertion_pass"
+        "sa_integration_test_assertions_evaluate.example_assertion_pass"
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Assertion.create(assertion));
       expect(evaluations.length).to.equal(1);
@@ -278,7 +278,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       );
 
       const incremental = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
-        "df_integration_test_evaluate.example_incremental"
+        "sa_integration_test_evaluate.example_incremental"
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Table.create(incremental));
       expect(evaluations.length).to.equal(2);
@@ -296,7 +296,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
           enumType: sqlanvil.TableType.TABLE,
           query: "thisisillegal",
           target: {
-            schema: "df_integration_test",
+            schema: "sa_integration_test",
             name: "example_illegal_table",
             database: "sqlanvil-integration-tests"
           }
@@ -357,7 +357,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     );
 
     const [fullSearch, partialSearch, columnSearch] = await Promise.all([
-      dbadapter.search("df_integration_test_search"),
+      dbadapter.search("sa_integration_test_search"),
       dbadapter.search("test_sear"),
       dbadapter.search("val")
     ]);

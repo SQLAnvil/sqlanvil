@@ -19,7 +19,7 @@ const foo =
 }
 
 select 
-1 from \${ref({ schema: "df_integration_test", name: "sample_data" })}
+1 from \${ref({ schema: "sa_integration_test", name: "sample_data" })}
 `;
       fs.writeFileSync(filePath, fileContents);
       expect(await formatFile(filePath)).eql(`config {
@@ -37,7 +37,7 @@ SELECT
 FROM
   \${
     ref({
-      schema: "df_integration_test",
+      schema: "sa_integration_test",
       name: "sample_data"
     })
   }
