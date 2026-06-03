@@ -1,6 +1,6 @@
 import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
 import { ActionBuilder } from "sa/core/actions";
-import { IActionContext, Resolvable } from "sa/core/contextables";
+import { IActionContext, JitContextable, Resolvable } from "sa/core/contextables";
 import * as Path from "sa/core/path";
 import { Session } from "sa/core/session";
 import {
@@ -31,6 +31,9 @@ interface ILegacyAssertionConfig extends sqlanvil.ActionConfig.AssertionConfig {
 
 /** @hidden */
 export type AContextable<T> = T | ((ctx: AssertionContext) => T);
+
+/** JiT compilation stage result for assertions. */
+export type JitAssertionResult = string;
 
 /**
  * An assertion is a data quality test query that finds rows that violate one or more conditions
@@ -89,6 +92,9 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
 
   /** @hidden We delay contextification until the final compile step, so hold these here for now. */
   private contextableQuery: AContextable<string>;
+
+  /** @hidden */
+  private contextableJitCode: JitContextable<AssertionContext, JitAssertionResult> | undefined;
 
   /** @hidden */
   constructor(session?: Session, unverifiedConfig?: any, configPath?: string) {
@@ -163,6 +169,15 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
    */
   public query(query: AContextable<string>) {
     this.contextableQuery = query;
+    return this;
+  }
+
+  public jitCode(jitCode: JitContextable<AssertionContext, JitAssertionResult>) {
+    if (!this.proto.actionDescriptor) {
+      this.proto.actionDescriptor = {};
+    }
+    this.proto.actionDescriptor.compilationMode = sqlanvil.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
+    this.contextableJitCode = jitCode;
     return this;
   }
 
@@ -293,8 +308,24 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
   public compile() {
     const context = new AssertionContext(this);
 
-    this.proto.query = context.apply(this.contextableQuery);
-    validateQueryString(this.session, this.proto.query, this.proto.fileName);
+    if (this.contextableJitCode && this.contextableQuery) {
+      this.session.compileError(
+        new Error("Assertion may set either .jitCode() or .query(), but not both."),
+        this.proto.fileName,
+        this.proto.target
+      );
+      return this.proto;
+    }
+
+    if (this.contextableJitCode) {
+      if (!this.proto.actionDescriptor) {
+        this.proto.actionDescriptor = {};
+      }
+      this.proto.jitCode = this.contextableJitCode.toString();
+    } else {
+      this.proto.query = context.apply(this.contextableQuery);
+      validateQueryString(this.session, this.proto.query, this.proto.fileName);
+    }
 
     return verifyObjectMatchesProto(
       sqlanvil.Assertion,

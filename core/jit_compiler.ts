@@ -1,5 +1,6 @@
 import * as $protobuf from "protobufjs";
 
+import { JitAssertionResult } from "sa/core/actions/assertion";
 import { JitOperationResult } from "sa/core/actions/operation";
 import { JitTableResult } from "sa/core/actions/table";
 import { IActionContext, ITableContext, JitContext } from "sa/core/contextables";
@@ -63,6 +64,18 @@ function jitCompileTable(
   return mainBody(jctx).then(makeJitTableResult);
 }
 
+function jitCompileAssertion(
+  request: sqlanvil.IJitCompilationRequest,
+  adapter: sqlanvil.DbAdapter,
+): Promise<sqlanvil.IJitAssertionResult> {
+  const mainBody = makeMainBody<IActionContext, JitAssertionResult>(request.jitCode);
+
+  const jctx: JitContext<IActionContext> = new SqlActionJitContext(
+    adapter, request,
+  );
+  return mainBody(jctx).then(query => sqlanvil.JitAssertionResult.create({ query }));
+}
+
 function jitCompileIncrementalTable(
   request: sqlanvil.IJitCompilationRequest,
   adapter: sqlanvil.DbAdapter,
@@ -110,6 +123,9 @@ export function jitCompile(request: sqlanvil.IJitCompilationRequest, rpcCallback
     case sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_INCREMENTAL_TABLE:
       return jitCompileIncrementalTable(request, dbAdapter).then(
         incrementalTable => sqlanvil.JitCompilationResponse.create({ incrementalTable }));
+    case sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_ASSERTION:
+      return jitCompileAssertion(request, dbAdapter).then(
+        assertion => sqlanvil.JitCompilationResponse.create({ assertion }));
     default:
       throw new Error(`Unrecognized compilation target type: ${request.compilationTargetType}`);
   }

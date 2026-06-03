@@ -53,6 +53,26 @@ export class ExecutionSql implements IExecutionSql {
     return this.delegate.publishTasks(table, runConfig, tableMetadata);
   }
 
+  public createTableTasks(
+    table: sqlanvil.ITable,
+    runConfig: sqlanvil.IRunConfig,
+    tableMetadata?: sqlanvil.ITableMetadata
+  ): sqlanvil.IExecutionTask[] {
+    return table.disabled ? [] : this.publishTasks(table, runConfig, tableMetadata).build();
+  }
+
+  public createOperationTasks(operation: sqlanvil.IOperation): sqlanvil.IExecutionTask[] {
+    return operation.disabled
+      ? []
+      : operation.queries.map(statement =>
+          sqlanvil.ExecutionTask.create({ type: "statement", statement })
+        );
+  }
+
+  public createAssertionTasks(assertion: sqlanvil.IAssertion): sqlanvil.IExecutionTask[] {
+    return assertion.disabled ? [] : this.assertTasks(assertion, this.project).build();
+  }
+
   public assertTasks(
     assertion: sqlanvil.IAssertion,
     projectConfig: sqlanvil.IProjectConfig
