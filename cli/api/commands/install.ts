@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
 
-import { readsqlanvilCoreVersionFromWorkflowSettings } from "sa/cli/api/utils";
+import { readSqlanvilCoreVersionFromWorkflowSettings } from "sa/cli/api/utils";
 
 export const MISSING_CORE_VERSION_ERROR =
   "sqlanvilCoreVersion must be specified either in workflow_settings.yaml or via a package.json";
@@ -14,7 +14,7 @@ export async function install(projectPath: string) {
 
   // Core's readWorkflowSettings method cannot be used for this because Core assumes that
   // `require` can read YAML files directly.
-  const sqlanvilCoreVersion = readsqlanvilCoreVersionFromWorkflowSettings(resolvedProjectPath);
+  const sqlanvilCoreVersion = readSqlanvilCoreVersionFromWorkflowSettings(resolvedProjectPath);
   if (sqlanvilCoreVersion) {
     throw new Error(
       "No installation is needed when using workflow_settings.yaml, as packages are installed at " +
