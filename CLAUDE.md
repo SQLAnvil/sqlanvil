@@ -15,18 +15,17 @@ Guidance for Claude Code when working in the `sqlanvil/` project.
 - **Language**: TypeScript
 - **Build**: Bazel (via Bazelisk) — old-style `WORKSPACE`, not `MODULE.bazel`
 - **Protos**: protobuf (`protos/*.proto`) for core/configs/db_adapter/etc.
-- **Target warehouses**: BigQuery (working), PostgreSQL (being reintegrated)
+- **Target warehouses**: BigQuery, PostgreSQL, and Supabase — all three adapters landed on `main` and integration-verified
 - **No npm `scripts`** in `package.json` — everything runs through Bazel.
 
 ## Layout
 
 ```
 core/         Compiler + action types (table/view/incremental/assertion/operation/notebook/declaration)
-cli/          CLI entrypoint (cli/index.ts) and per-adapter glue (cli/api/dbadapters/)
+cli/          CLI entrypoint (cli/index.ts) and per-adapter glue (cli/api/dbadapters/ — bigquery, postgres, supabase)
 protos/       Protobuf definitions for core/configs/execution/db_adapter
-api/          Legacy directory — currently holds restored Postgres adapter files awaiting relocation
-tools/        Bazel rules + the Postgres docker test fixture (tools/postgres/postgres_fixture.ts)
-tests/        Integration specs (bigquery + postgres) against real warehouses
+tools/        Bazel rules + Postgres/Supabase docker test fixtures (tools/postgres/, tools/supabase/)
+tests/        Integration specs (bigquery + postgres + supabase) against real warehouses
 examples/     Sample SQLAnvil projects
 scripts/      `./scripts/run` is the CLI entrypoint wrapper
 ```
@@ -74,20 +73,29 @@ Implications for the Antigravity reintegration doc: Phase 3 ("Interface Alignmen
 - A separate Postgres SQL generator path in `core/compilation_sql/` rather than reusing BigQuery's.
 - Config schema additions in `protos/configs.proto` for both variants.
 
-## Active Work — Postgres Reintegration
+## Status — Postgres & Supabase Adapters (landed + integration-verified)
 
-Current branch: `restore-postgres-adapter`. Recent commits (Ivan's, on top of upstream):
+Both adapters are merged to `main` and **integration-verified** (2026-06-03): `//tests/integration:postgres.spec` and `:supabase.spec` pass against a local Docker Postgres + pgvector container. In place:
 
-1. `a220e2ed` — restored the Postgres adapter files from git history into `api/dbadapters/postgres.ts` and `api/utils/postgres.ts` (won't compile as-is)
-2. `fcca60c1` — added `docs/postgres_reintegration_assessment.md` (Antigravity)
-3. `1636e275` — added `docs/hybrid_warehouses_supabase_bigquery.md` (Antigravity)
+- **Adapters:** `cli/api/dbadapters/{postgres,supabase}.ts` + `{postgres,supabase}_execution_sql.ts` (Supabase extends Postgres). SQL gen so far: `create table`, `INSERT … ON CONFLICT` upsert, assertions.
+- **Supabase action types** (`core/actions/`): `rls_policy`, `realtime_publication`, `wrapper`, `vector_index` — emit real DDL (`CREATE POLICY`, `ALTER PUBLICATION`, `CREATE FOREIGN TABLE`, vector index), unit-tested in `supabase_actions_test.ts`.
+- **Config protos:** `PostgresOptions`, `SupabaseOptions`, and the nested `WarehouseConfig` / `{Postgres,Supabase,BigQuery}Connection` union in `protos/configs.proto`.
+- **CLI:** `cli/index.ts` branches the adapter on `projectConfig.warehouse ∈ {bigquery, postgres, supabase}`; `credentials.ts` validates `PostgresConnection`.
 
-The two new design docs are Antigravity-authored and **load-bearing for the next sprint**. They now live in the separate [`sqlanvil/docs`](https://github.com/sqlanvil/docs) repo (moved out of this monorepo):
+**Remaining work** (authoritative plan: `postgres_first_class_design.md` in the [`sqlanvil/docs`](https://github.com/sqlanvil/docs) repo, §6):
 
-- **`postgres_reintegration_assessment.md`** — 5-phase, ~1-2 day plan to make the restored adapter compile and wire into the CLI. Phases: deps (`pg`, `pg-query-stream`) → relocate `api/` → `cli/api/` → align `IDbAdapter` interface (implement `executeRaw`, `deleteTable`, full `ITableMetadata`) → branch CLI on `projectConfig.warehouse === "postgres"` → Bazel/docker fixture verification.
-- **`hybrid_warehouses_supabase_bigquery.md`** — marketing/architecture doc: three patterns for combining Supabase + BigQuery (federated queries, sequential pipeline, Supabase Wrappers / FDW). Reference material, no implementation required.
+1. **`PostgresOptions` DDL is defined but not generated** — partitioning (RANGE/LIST/HASH), indexes (btree/gin/gist/brin), materialized views, tablespace/fillfactor/unlogged exist in the proto + TS surface but `postgres_execution_sql.ts` ignores them. This is the main feature gap.
+2. **Nested `warehouse:` config (§8.2) parser not wired** — the proto union and the credentials file use it, but `workflow_settings.yaml` parsing is still flat (`warehouse:` string + `defaultProject`/`defaultDataset`).
+3. **Generator location drift** — SQL gen lives in `cli/api/dbadapters/*_execution_sql.ts`, not `core/compilation_sql/postgres/` as the design doc specifies; reconcile doc or relocate.
 
-When working on Postgres reintegration, **follow the assessment doc's phase order** — deps before relocation before interface work — because each phase's tests depend on the previous one passing through Bazel.
+**Run the integration tests** — `./tools/postgres/run-postgres-db.sh` boots a Postgres+pgvector container; tests run *inside* the `docker-bazel` container so connect via `host.docker.internal` and pass env with `--test_env` (the `:postgres.spec`/`:supabase.spec` targets are runnable; the `*_tests` suffixes are compile-only macros):
+
+```bash
+PG_HOST=host.docker.internal PG_PORT=5432 PG_USER=postgres PG_PASSWORD=password PG_DATABASE=postgres \
+  ./scripts/docker-bazel test //tests/integration:postgres.spec \
+  --test_env=PG_HOST --test_env=PG_PORT --test_env=PG_USER --test_env=PG_PASSWORD --test_env=PG_DATABASE \
+  --jobs=2 --local_ram_resources=2048
+```
 
 ## Fork Hygiene
 
@@ -96,6 +104,6 @@ When working on Postgres reintegration, **follow the assessment doc's phase orde
 
 ## Things To Know
 
-- The `api/` directory at the repo root is **legacy**. The active CLI/adapter layout lives under `cli/api/`. Restored Postgres files are in the legacy location and need to move (see Phase 2 of the assessment doc).
-- Integration tests need real warehouses: BigQuery creds in `test_credentials/bigquery.json`, Postgres via Docker container started by `tools/postgres/postgres_fixture.ts` inside the Bazel sandbox.
+- The legacy root `api/` directory is **gone** — all adapter code lives under `cli/api/dbadapters/`. (The old reintegration assessment doc references `api/`; that relocation is done.)
+- Integration tests need real warehouses: BigQuery creds in `test_credentials/bigquery.json` (a `{projectId, location, credentials}` wrapper, not a raw key — see contributing.md); Postgres/Supabase via the Docker container from `./tools/postgres/run-postgres-db.sh`, reached as `host.docker.internal` from inside `docker-bazel`.
 - Rename audit (performed via grep): No active `@dataform/*` imports or `dataform.*` proto usages remain in code. All critical paths use `sqlanvil`. Remaining mentions are docs/comments/links.
