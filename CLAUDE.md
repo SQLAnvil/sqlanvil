@@ -75,10 +75,10 @@ Implications for the Antigravity reintegration doc: Phase 3 ("Interface Alignmen
 
 ## Status — Postgres & Supabase Adapters (landed + integration-verified)
 
-Both adapters are merged to `main` and **integration-verified** (2026-06-03): `//tests/integration:postgres.spec` and `:supabase.spec` pass against a local Docker Postgres + pgvector container. In place:
+Both adapters are merged to `main` and **integration-verified** (2026-06-03): `//tests/integration:postgres.spec`, `:supabase.spec`, and `:supabase_rls.spec` pass against a local Docker Postgres + pgvector container — the last proves RLS is actually **enforced** (rows filtered for the `authenticated` role), not merely created. In place:
 
 - **Adapters:** `cli/api/dbadapters/{postgres,supabase}.ts` + `{postgres,supabase}_execution_sql.ts` (Supabase extends Postgres). SQL gen so far: `create table`, `INSERT … ON CONFLICT` upsert, assertions.
-- **Supabase action types** (`core/actions/`): `rls_policy`, `realtime_publication`, `wrapper`, `vector_index` — emit real DDL (`CREATE POLICY`, `ALTER PUBLICATION`, `CREATE FOREIGN TABLE`, vector index), unit-tested in `supabase_actions_test.ts`.
+- **Supabase action types** (`core/actions/`): `rls_policy`, `realtime_publication`, `wrapper`, `vector_index` — emit real DDL (`CREATE POLICY`, `ALTER PUBLICATION`, `CREATE FOREIGN TABLE`, vector index), unit-tested in `supabase_actions_test.ts`. RLS **enforcement** (a policy actually filtering rows by `auth.uid()`) is verified end-to-end in `tests/integration/supabase_rls.spec.ts`.
 - **Config protos:** `PostgresOptions`, `SupabaseOptions`, and the nested `WarehouseConfig` / `{Postgres,Supabase,BigQuery}Connection` union in `protos/configs.proto`.
 - **CLI:** `cli/index.ts` branches the adapter on `projectConfig.warehouse ∈ {bigquery, postgres, supabase}`; `credentials.ts` validates `PostgresConnection`.
 
@@ -96,6 +96,8 @@ PG_HOST=host.docker.internal PG_PORT=5432 PG_USER=postgres PG_PASSWORD=password 
   --test_env=PG_HOST --test_env=PG_PORT --test_env=PG_USER --test_env=PG_PASSWORD --test_env=PG_DATABASE \
   --jobs=2 --local_ram_resources=2048
 ```
+
+The same pattern runs `:supabase.spec` / `:supabase_rls.spec` with `SUPABASE_*` env (the bare-PG container is enough — the RLS spec seeds the auth primitives itself). For high-fidelity Supabase testing (real `anon`/`authenticated`/`service_role`, `auth` schema, Realtime), `./tools/supabase/run-supabase-stack.sh` boots the full local Supabase stack via the Supabase CLI on port 54322 and prints the matching test command.
 
 ## Fork Hygiene
 
