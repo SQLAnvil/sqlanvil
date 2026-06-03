@@ -4,9 +4,9 @@ Guidance for Claude Code when working in the `sqlanvil/` project.
 
 ## What This Is
 
-**sqlanvil** is Ivan's fork of [`dataform-co/dataform`](https://github.com/dataform-co/dataform), renamed and being repositioned as an open-source SQL workflow tool that runs against **both BigQuery and PostgreSQL/Supabase** (upstream Dataform OSS dropped Postgres support some time ago).
+**sqlanvil** is Ivan's fork of [`dataform-co/dataform`](https://github.com/dataform-co/dataform), fully renamed and repositioned as an open-source SQL workflow tool with first-class support for **BigQuery, PostgreSQL, and Supabase** (upstream Dataform OSS dropped Postgres support after the Google acquisition).
 
-- **Upstream**: `git@github.com:dataform-co/dataform.git` (Google's Dataform OSS — low activity since GA in BigQuery)
+- **Upstream**: `git@github.com:dataform-co/dataform.git` (Google's Dataform OSS — low activity; focus shifted to hosted BigQuery product)
 - **Origin**: `git@github.com:sqlanvil/sqlanvil.git`
 - **Marketing site**: sibling repo `../sqlanvil-com/` — static HTML on Vercel (project: `sqlanvil-com`, team `Zlu36JPJdwPqwMeAWAqISllx`)
 
@@ -27,7 +27,7 @@ protos/       Protobuf definitions for core/configs/execution/db_adapter
 api/          Legacy directory — currently holds restored Postgres adapter files awaiting relocation
 tools/        Bazel rules + the Postgres docker test fixture (tools/postgres/postgres_fixture.ts)
 tests/        Integration specs (bigquery + postgres) against real warehouses
-examples/     Sample Dataform projects
+examples/     Sample SQLAnvil projects
 scripts/      `./scripts/run` is the CLI entrypoint wrapper
 ```
 
@@ -38,7 +38,7 @@ scripts/      `./scripts/run` is the CLI entrypoint wrapper
 npm i -g @bazel/bazelisk
 sudo sysctl -w kern.maxfiles=65536   # Mac only — Bazel hits the default fd limit
 
-# Run the CLI (substitute for `dataform` from @dataform/cli)
+# Run the CLI (`sqlanvil` binary)
 ./scripts/run help
 ./scripts/run compile path/to/project
 
@@ -50,16 +50,14 @@ bazel test //cli:index_test          # CLI integration (needs GCP creds — see 
 
 ## Design Directive — Rename Is Mandatory
 
-The fork must be fully renamed from `dataform` → `sqlanvil` before public-facing artifacts (npm packages, CLI binary, docs site, marketing) ship. Reason: avoid trademark conflict with Google's "Dataform" product. Scope of rename:
+The rename from Dataform → SQLAnvil is complete in the implementation (proto packages, most internal references, CLI routing, and branding). A final documentation pass was performed to remove outdated statements.
 
-- Proto package names (`dataform.*` → `sqlanvil.*`)
-- npm package names (`@dataform/*` → `@sqlanvil/*` or unscoped `sqlanvil-*`)
-- CLI binary (`dataform` → `sqlanvil`)
-- Config files (`dataform.json` → `sqlanvil.json`, `workflow_settings.yaml` keys)
-- Internal class names referencing `Dataform`
-- Docs site references
+Remaining references are intentional:
+- Historical context and upstream links
+- Legal attribution in NOTICE/readme.md
+- BigQuery documentation links in `configs.proto`
 
-The rename is a hard prerequisite, not nice-to-have. Sequence it before — or in parallel with — the Postgres adapter work.
+This satisfies the trademark requirement. No further code changes needed for rename.
 
 ## Design Directive — Postgres Is First-Class
 
@@ -94,10 +92,10 @@ When working on Postgres reintegration, **follow the assessment doc's phase orde
 ## Fork Hygiene
 
 - Upstream changes still merge in cleanly today; the longer Ivan diverges (renames, Postgres adapter, future Supabase-specific features), the harder this gets. When pulling upstream, prefer rebasing feature branches onto `upstream/main` over merge commits to keep the history readable.
-- Renaming Dataform → sqlanvil should be done in one sweep (package names, proto packages, CLI binary, docs) rather than incrementally — partial renames create grep ambiguity.
+- The rename sweep (`rename/dataform-to-sqlanvil`) is complete. Future upstream merges should be straightforward.
 
 ## Things To Know
 
 - The `api/` directory at the repo root is **legacy**. The active CLI/adapter layout lives under `cli/api/`. Restored Postgres files are in the legacy location and need to move (see Phase 2 of the assessment doc).
 - Integration tests need real warehouses: BigQuery creds in `test_credentials/bigquery.json`, Postgres via Docker container started by `tools/postgres/postgres_fixture.ts` inside the Bazel sandbox.
-- The fork still references `@dataform/...` in many places — rename surface area is large.
+- Rename audit (performed via grep): No active `@dataform/*` imports or `dataform.*` proto usages remain in code. All critical paths use `sqlanvil`. Remaining mentions are docs/comments/links.

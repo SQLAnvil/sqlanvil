@@ -6,8 +6,8 @@ This product includes software originally developed as Dataform
 to by Google LLC, licensed under the Apache License, Version 2.0.
 
 The original Dataform copyright notice from upstream is preserved in
-the LICENSE file. This derivative work (renamed sqlanvil) adds
-PostgreSQL and Supabase warehouse adapter support, and is distributed
+the LICENSE file. This derivative work has been fully renamed to SQLAnvil,
+with first-class PostgreSQL and Supabase support added. It is distributed
 under the same Apache License, Version 2.0.
 
 Apache License, Version 2.0

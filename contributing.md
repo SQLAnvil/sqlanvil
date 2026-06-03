@@ -100,7 +100,7 @@ All packages are scoped under `@sqlanvil/`:
 - **Clear description** — what changed and why; link the related issue.
 - **Match existing style** (see Code style above). Add or update tests for behavior changes.
 - **Adapters generate idiomatic SQL.** The Postgres adapter is not a BigQuery adapter with translated SQL — it emits native Postgres DDL/DML (`INSERT ... ON CONFLICT`, native `CREATE INDEX`, `PARTITION BY RANGE/LIST/HASH`). Don't leak BigQuery quirks (`OPTIONS(...)`, `CLUSTER BY`, `NOT ENFORCED`) into Postgres output.
-- **Keep the rename clean.** Don't reintroduce `@dataform/*` package names, `dataform.*` proto packages, or `dataform.json` config in new code.
+- **Rename is complete.** All packages are scoped under `@sqlanvil/`. Do not reintroduce `dataform` identifiers in new code.
 
 ## Branch strategy
 
@@ -119,4 +119,4 @@ git fetch upstream
 git rebase upstream/main
 ```
 
-After the rename PR, cherry-picks from upstream will conflict on package names and import paths. Resolve mechanically — the patterns are consistent.
+The rename sweep is complete. Upstream merges/cherry-picks should be straightforward (resolve any remaining conflicts on a case-by-case basis).

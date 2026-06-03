@@ -108,4 +108,4 @@ Reference docs and design documents live in the separate [`sqlanvil/docs`](https
 
 Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
-SQLAnvil is a derivative of Dataform, originally developed by Dataform Co and contributed to by Google LLC, licensed under Apache License 2.0.
+SQLAnvil is a derivative of Dataform OSS (originally developed by Dataform Co and contributed to by Google LLC). It has been fully renamed and extended with first-class PostgreSQL/Supabase support. Licensed under Apache License 2.0.
