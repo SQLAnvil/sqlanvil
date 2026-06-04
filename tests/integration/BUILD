@@ -49,6 +49,8 @@ ts_test_suite(
         "postgres.spec.ts",
     ],
     data = [
+        "//tests/integration/postgres_assertion_project:files",
+        "//tests/integration/postgres_assertion_project:node_modules",
         "//tests/integration/postgres_project:files",
         "//tests/integration/postgres_project:node_modules",
     ],

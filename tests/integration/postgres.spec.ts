@@ -719,4 +719,39 @@ $$`
 
     await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
   });
+
+  test("auto-generated uniqueKey assertions detect duplicates on Postgres (single/multi/multiple keys)", { timeout: 60000 }, async () => {
+    for (const s of ["sa_integration_test_assert", "sa_integration_test_assertions_assert"]) {
+      await dbadapter.execute(`drop schema if exists "${s}" cascade`).catch(() => undefined);
+    }
+
+    const compiledGraph = await compile("tests/integration/postgres_assertion_project", "assert");
+
+    // The compiler auto-creates one assertion per uniqueKey — single column
+    // (dup_table), and multiple keys incl. a multi-column one (unique_table).
+    const names = compiledGraph.assertions.map(a => targetAsReadableString(a.target));
+    expect(names.some(n => n.includes("dup_table") && n.includes("uniqueKey"))).to.equal(true);
+    expect(names.filter(n => n.includes("unique_table") && n.includes("uniqueKey")).length).to.equal(2);
+
+    const executionGraph = await dfapi.build(compiledGraph, {}, dbadapter);
+    const executed = await dfapi.run(dbadapter, executionGraph).result();
+    const assertionsMatching = (pred: (name: string) => boolean) =>
+      executed.actions.filter(a => pred(targetAsReadableString(a.target)));
+
+    // Single-column uniqueKey over duplicate data -> assertion FAILS (catches it).
+    const dup = assertionsMatching(n => n.includes("dup_table") && n.includes("uniqueKey"));
+    expect(dup.length).to.equal(1);
+    expect(dup[0].status).to.equal(sqlanvil.ActionResult.ExecutionStatus.FAILED);
+
+    // Multi-column (a,b) + single-column (c) uniqueKeys over unique data -> both PASS.
+    const unique = assertionsMatching(n => n.includes("unique_table") && n.includes("uniqueKey"));
+    expect(unique.length).to.equal(2);
+    unique.forEach(a =>
+      expect(a.status).to.equal(sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL)
+    );
+
+    for (const s of ["sa_integration_test_assert", "sa_integration_test_assertions_assert"]) {
+      await dbadapter.execute(`drop schema if exists "${s}" cascade`).catch(() => undefined);
+    }
+  });
 });

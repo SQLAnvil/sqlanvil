@@ -1,0 +1,11 @@
+config {
+  type: "table",
+  assertions: {
+    uniqueKey: ["id"]
+  }
+}
+-- Two rows share id=1, so the auto-generated single-column uniqueKey assertion
+-- must FAIL (detect the duplicate).
+SELECT 1 AS id, 'a' AS label
+UNION ALL
+SELECT 1 AS id, 'b' AS label

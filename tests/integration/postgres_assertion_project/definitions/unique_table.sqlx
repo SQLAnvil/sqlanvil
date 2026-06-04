@@ -1,0 +1,11 @@
+config {
+  type: "table",
+  assertions: {
+    uniqueKeys: [["a", "b"], ["c"]]
+  }
+}
+-- Two unique keys: a multi-column (a, b) and a single-column (c). Both are
+-- unique across the rows below, so both auto-generated assertions must PASS.
+SELECT 1 AS a, 10 AS b, 100 AS c
+UNION ALL
+SELECT 1 AS a, 20 AS b, 200 AS c
