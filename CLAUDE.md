@@ -103,6 +103,10 @@ PG_HOST=host.docker.internal PG_PORT=5432 PG_USER=postgres PG_PASSWORD=password 
 
 The same pattern runs `:supabase.spec` / `:supabase_rls.spec` with `SUPABASE_*` env (the bare-PG container is enough — the RLS spec seeds the auth primitives itself). For high-fidelity Supabase testing (real `anon`/`authenticated`/`service_role`, `auth` schema, Realtime), `./tools/supabase/run-supabase-stack.sh` boots the full local Supabase stack via the Supabase CLI on port 54322 and prints the matching test command.
 
+## Nice-to-haves / roadmap
+
+- **Pre-run SQL validation (`sqlanvil validate` / Postgres-wired `--dry-run`).** The Postgres adapter's `evaluate()` already validates a query via `EXPLAIN` (parses + plans → catches syntax *and* missing tables/columns, without executing) and is tested — but it isn't exposed as a "validate the whole project" command, and `--dry-run` only wires BigQuery's dry-run today (a Postgres `--dry-run` doesn't EXPLAIN-validate). Easy win: a command that walks actions in dependency order and `EXPLAIN`s each. Hard part (the reason upstream never solved it): downstream models reference tables that don't exist yet at validation time, so true full-DAG validation needs a shadow schema built `WITH NO DATA` / stubbed in topological order.
+
 ## Fork Hygiene
 
 - Upstream changes still merge in cleanly today; the longer Ivan diverges (renames, Postgres adapter, future Supabase-specific features), the harder this gets. When pulling upstream, prefer rebasing feature branches onto `upstream/main` over merge commits to keep the history readable.
