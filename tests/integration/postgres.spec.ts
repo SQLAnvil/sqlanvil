@@ -667,4 +667,56 @@ $$`
 
     await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
   });
+
+  test("metadata: table description + column comments applied and read back", { timeout: 60000 }, async () => {
+    const schema = "sa_integration_test_meta";
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    await dbadapter.execute(`create schema "${schema}"`);
+    await dbadapter.execute(`create table "${schema}"."t" (id int, label text)`);
+
+    await dbadapter.setMetadata({
+      target: { schema, name: "t" },
+      tableType: "table",
+      actionDescriptor: {
+        description: "a table's \"desc\" with 'quotes'",
+        columns: [
+          { path: ["id"], description: "the id" },
+          { path: ["label"], description: "the label" }
+        ]
+      }
+    });
+
+    const meta = await dbadapter.table({ schema, name: "t" });
+    expect(meta.description).to.equal("a table's \"desc\" with 'quotes'");
+    const byName = keyBy(meta.fields, f => f.name);
+    expect(byName["id"].description).to.equal("the id");
+    expect(byName["label"].description).to.equal("the label");
+
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+  });
+
+  test("metadata: materialized view description + column comments applied and read back", { timeout: 60000 }, async () => {
+    const schema = "sa_integration_test_metamv";
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    await dbadapter.execute(`create schema "${schema}"`);
+    await dbadapter.execute(`create materialized view "${schema}"."mv" as select 1 as id, 'a'::text as label`);
+
+    // A matview action carries tableType "view"; setMetadata must use
+    // COMMENT ON MATERIALIZED VIEW (not COMMENT ON VIEW, which errors).
+    await dbadapter.setMetadata({
+      target: { schema, name: "mv" },
+      tableType: "view",
+      actionDescriptor: {
+        description: "an example matview",
+        columns: [{ path: ["id"], description: "the id" }]
+      }
+    });
+
+    const meta = await dbadapter.table({ schema, name: "mv" });
+    expect(meta.type).to.equal(sqlanvil.TableMetadata.Type.MATERIALIZED_VIEW);
+    expect(meta.description).to.equal("an example matview");
+    expect(keyBy(meta.fields, f => f.name)["id"].description).to.equal("the id");
+
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+  });
 });

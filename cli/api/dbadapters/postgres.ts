@@ -316,11 +316,20 @@ export class PostgresDbAdapter implements IDbAdapter {
       return;
     }
 
+    // Materialized views need COMMENT ON MATERIALIZED VIEW (a matview action
+    // still carries tableType "view"); detect via the resolved metadata type.
+    const relationKind =
+      actualMetadata.type === sqlanvil.TableMetadata.Type.MATERIALIZED_VIEW
+        ? "materialized view"
+        : tableType === "view"
+        ? "view"
+        : "table";
+
     const queries: Array<Promise<unknown>> = [];
     if (actionDescriptor?.description) {
       queries.push(
         this.execute(
-          `comment on ${tableType === "view" ? "view" : "table"} "${target.schema}"."${
+          `comment on ${relationKind} "${target.schema}"."${
             target.name
           }" is '${actionDescriptor.description.replace(/'/g, "''")}'`
         )
