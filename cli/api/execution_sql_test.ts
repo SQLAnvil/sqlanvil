@@ -234,5 +234,23 @@ suite("ExecutionSql with Postgres/Supabase", () => {
       'create index "ix_inc" on "my_db"."public"."my_table" using brin ("id")'
     );
   });
+
+  test("materialized view emits CREATE MATERIALIZED VIEW", () => {
+    const mvTable: sqlanvil.ITable = {
+      ...baseTable,
+      type: "view",
+      enumType: sqlanvil.TableType.VIEW,
+      materialized: true
+    };
+    const tasks = executionSql.publishTasks(mvTable, { fullRefresh: false });
+    const statements = tasks.build().map(t => t.statement);
+    expect(statements).to.have.lengthOf(2);
+    expect(statements[0]).to.equal(
+      'drop materialized view if exists "my_db"."public"."my_table" cascade'
+    );
+    expect(statements[1]).to.equal(
+      'create materialized view "my_db"."public"."my_table" as select 1 as id, \'a\' as field1'
+    );
+  });
 });
 

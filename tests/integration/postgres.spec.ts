@@ -423,4 +423,35 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
 
     await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
   });
+
+  test("materialized view is created as a populated matview on real Postgres", { timeout: 60000 }, async () => {
+    const schema = "sa_integration_test_mv";
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    await dbadapter.execute(`create schema "${schema}"`);
+
+    const mv: sqlanvil.ITable = {
+      type: "view",
+      enumType: sqlanvil.TableType.VIEW,
+      materialized: true,
+      target: { schema, name: "mv_orders" },
+      query: "select 1 as id, 100 as amount union all select 2 as id, 200 as amount"
+    };
+
+    const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+    for (const task of adapter.publishTasks(mv, { fullRefresh: true }, { fields: [] }).build()) {
+      await dbadapter.execute(task.statement);
+    }
+
+    // It's a real materialized view (in pg_matviews, not pg_views).
+    const matviews = await dbadapter.execute(
+      `select matviewname from pg_matviews where schemaname = '${schema}'`
+    );
+    expect(matviews.rows.map((r: { matviewname: string }) => r.matviewname)).to.include("mv_orders");
+
+    // WITH DATA by default -> populated and queryable.
+    const counted = await dbadapter.execute(`select count(*)::int as n from "${schema}"."mv_orders"`);
+    expect(counted.rows[0].n).to.equal(2);
+
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+  });
 });

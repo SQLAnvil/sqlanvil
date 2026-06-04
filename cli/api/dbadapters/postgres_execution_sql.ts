@@ -143,9 +143,21 @@ export class PostgresExecutionSql implements IExecutionSql {
         }
       }
     } else if (table.enumType === sqlanvil.TableType.VIEW) {
-      // Views in Postgres are dropped and re-created to allow safe column modifications
-      tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.VIEW)));
-      tasks.add(Task.statement(this.createView(table)));
+      if (table.materialized) {
+        // Postgres materialized view: drop + recreate (each run rebuilds with fresh
+        // data). REFRESH-on-rerun is a future optimization.
+        tasks.add(
+          Task.statement(
+            `drop materialized view if exists ${this.resolveTarget(table.target)} cascade`
+          )
+        );
+        tasks.add(Task.statement(this.createMaterializedView(table)));
+        this.createIndexes(table).forEach(statement => tasks.add(Task.statement(statement)));
+      } else {
+        // Views in Postgres are dropped and re-created to allow safe column modifications
+        tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.VIEW)));
+        tasks.add(Task.statement(this.createView(table)));
+      }
     } else {
       // Standard Table: Drop if exists and create table fresh
       tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
@@ -231,6 +243,12 @@ export class PostgresExecutionSql implements IExecutionSql {
     // Postgres dialect: CREATE VIEW target AS query
     const target = this.resolveTarget(table.target);
     return `create view ${target} as ${table.query}`;
+  }
+
+  private createMaterializedView(table: sqlanvil.ITable) {
+    // Postgres dialect: CREATE MATERIALIZED VIEW target AS query (WITH DATA by default).
+    const target = this.resolveTarget(table.target);
+    return `create materialized view ${target} as ${table.query}`;
   }
 
   private insertInto(table: sqlanvil.ITable, tableMetadata?: sqlanvil.ITableMetadata) {
