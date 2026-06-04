@@ -2,6 +2,12 @@
 
 Guidance for Claude Code when working in the `sqlanvil/` project.
 
+> **Writing a sqlanvil data *project*** (`.sqlx`, `workflow_settings.yaml`, `.df-credentials.json`
+> for Postgres/Supabase) rather than hacking on this codebase? Follow [`AGENTS.md`](./AGENTS.md)
+> (the cross-agent authoring guide) / the `sqlanvil-engineering-fundamentals` skill — it corrects
+> the Dataform/BigQuery priors that otherwise produce broken sqlanvil code. This file is for work
+> on the sqlanvil **codebase** (TypeScript, Bazel, protos).
+
 ## What This Is
 
 **sqlanvil** is Ivan's fork of [`dataform-co/dataform`](https://github.com/dataform-co/dataform), fully renamed and repositioned as an open-source SQL workflow tool with first-class support for **BigQuery, PostgreSQL, and Supabase** (upstream Dataform OSS dropped Postgres support after the Google acquisition).
