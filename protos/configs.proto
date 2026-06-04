@@ -885,10 +885,15 @@ message PostgresOptions {
   }
   repeated Index indexes = 5;
 
-  // Materialized view: WITH DATA vs WITH NO DATA on initial creation.
-  bool with_data = 6;
+  // Materialized view: create WITH NO DATA (empty until first refresh). Default
+  // (false) is WITH DATA. Named for the non-default so proto3's false default
+  // means the sensible WITH DATA.
+  bool no_data = 6;
 
-  // Materialized view refresh policy. "manual" | "on_dependency_change".
+  // Materialized view refresh on re-run: "on_dependency_change" refreshes an
+  // existing matview in place (REFRESH MATERIALIZED VIEW) instead of dropping +
+  // recreating. Default (unset) drops + recreates each run (safe — also picks up
+  // definition changes, which REFRESH does not).
   string refresh_policy = 7;
 }
 

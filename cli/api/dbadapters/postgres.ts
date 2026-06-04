@@ -140,15 +140,25 @@ export class PostgresDbAdapter implements IDbAdapter {
   ): Promise<sqlanvil.ITableMetadata[]> {
     const params: any[] = [];
     let schemaClause = "";
+    let matviewSchemaClause = "";
     if (schema) {
       schemaClause = "and table_schema = $1";
+      matviewSchemaClause = "and schemaname = $1";
       params.push(schema);
     }
+    // information_schema.tables excludes materialized views, so union them in
+    // from pg_matviews — otherwise existing matviews are invisible to the run
+    // pipeline (and would be needlessly recreated instead of refreshed).
     const queryResult = await this.execute(
       `select table_name, table_schema
        from information_schema.tables
        where table_schema not in ('information_schema', 'pg_catalog', 'pg_internal', 'pg_toast')
-       ${schemaClause}`,
+       ${schemaClause}
+       union
+       select matviewname as table_name, schemaname as table_schema
+       from pg_matviews
+       where schemaname not in ('information_schema', 'pg_catalog', 'pg_internal', 'pg_toast')
+       ${matviewSchemaClause}`,
       { params, rowLimit: 10000, includeQueryInError: true }
     );
     const targets = queryResult.rows.map(row => ({
@@ -191,50 +201,85 @@ export class PostgresDbAdapter implements IDbAdapter {
 
   public async table(target: sqlanvil.ITarget): Promise<sqlanvil.ITableMetadata> {
     const params = [target.schema, target.name];
-    const [tableResults, columnResults, descriptionResults] = await Promise.all([
-      this.execute(
-        `select table_type from information_schema.tables where table_schema = $1 and table_name = $2`,
-        { params, includeQueryInError: true }
-      ),
-      this.execute(
-        `select column_name, data_type, is_nullable, ordinal_position
-         from information_schema.columns
-         where table_schema = $1 and table_name = $2`,
-        { params, includeQueryInError: true }
-      ),
-      this.execute(
-        `select objsubid as column_number, description
-         from pg_description
-         where objoid = (
-           select oid from pg_class where relname = $2 and relnamespace = (
-             select oid from pg_namespace where nspname = $1
-           )
-         )`,
-        { params, includeQueryInError: true }
-      )
-    ]);
-    if (tableResults.rows.length === 0) {
-      return null;
+    // information_schema excludes materialized views, so detect them separately
+    // via pg_matviews (existence) + pg_attribute (columns).
+    const [tableResults, columnResults, descriptionResults, matviewResults, matviewColumns] =
+      await Promise.all([
+        this.execute(
+          `select table_type from information_schema.tables where table_schema = $1 and table_name = $2`,
+          { params, includeQueryInError: true }
+        ),
+        this.execute(
+          `select column_name, data_type, is_nullable, ordinal_position
+           from information_schema.columns
+           where table_schema = $1 and table_name = $2`,
+          { params, includeQueryInError: true }
+        ),
+        this.execute(
+          `select objsubid as column_number, description
+           from pg_description
+           where objoid = (
+             select oid from pg_class where relname = $2 and relnamespace = (
+               select oid from pg_namespace where nspname = $1
+             )
+           )`,
+          { params, includeQueryInError: true }
+        ),
+        this.execute(
+          `select 1 from pg_matviews where schemaname = $1 and matviewname = $2`,
+          { params, includeQueryInError: true }
+        ),
+        this.execute(
+          `select a.attname as column_name, format_type(a.atttypid, a.atttypmod) as data_type,
+                  a.attnum as ordinal_position
+           from pg_attribute a
+           join pg_class c on c.oid = a.attrelid
+           join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = $1 and c.relname = $2 and a.attnum > 0 and not a.attisdropped
+           order by a.attnum`,
+          { params, includeQueryInError: true }
+        )
+      ]);
+
+    const findDescription = (columnNumber: number) =>
+      descriptionResults.rows.find(row => row.column_number === columnNumber)?.description;
+
+    if (tableResults.rows.length > 0) {
+      return sqlanvil.TableMetadata.create({
+        target,
+        type:
+          tableResults.rows[0].table_type === "VIEW"
+            ? sqlanvil.TableMetadata.Type.VIEW
+            : sqlanvil.TableMetadata.Type.TABLE,
+        fields: columnResults.rows.map(row =>
+          sqlanvil.Field.create({
+            name: row.column_name,
+            primitive: convertFieldType(row.data_type),
+            description: findDescription(row.ordinal_position)
+          })
+        ),
+        description: findDescription(0)
+      });
     }
-    return sqlanvil.TableMetadata.create({
-      target,
-      type:
-        tableResults.rows[0].table_type === "VIEW"
-          ? sqlanvil.TableMetadata.Type.VIEW
-          : sqlanvil.TableMetadata.Type.TABLE,
-      fields: columnResults.rows.map(row =>
-        sqlanvil.Field.create({
-          name: row.column_name,
-          primitive: convertFieldType(row.data_type),
-          description: descriptionResults.rows.find(
-            descriptionRow => descriptionRow.column_number === row.ordinal_position
-          )?.description
-        })
-      ),
-      description: descriptionResults.rows.find(
-        descriptionRow => descriptionRow.column_number === 0
-      )?.description
-    });
+
+    if (matviewResults.rows.length > 0) {
+      return sqlanvil.TableMetadata.create({
+        target,
+        type: sqlanvil.TableMetadata.Type.MATERIALIZED_VIEW,
+        fields: matviewColumns.rows.map(row =>
+          sqlanvil.Field.create({
+            name: row.column_name,
+            // format_type includes length/precision modifiers (e.g.
+            // "character varying(255)"); strip them for convertFieldType.
+            primitive: convertFieldType(String(row.data_type).replace(/\(.*\)/, "")),
+            description: findDescription(row.ordinal_position)
+          })
+        ),
+        description: findDescription(0)
+      });
+    }
+
+    return null;
   }
 
   public async deleteTable(target: sqlanvil.ITarget): Promise<void> {

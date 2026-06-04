@@ -544,4 +544,86 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
 
     await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
   });
+
+  test("matview: adapter detects it and refreshes in place on rerun", { timeout: 60000 }, async () => {
+    const schema = "sa_integration_test_mvref";
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    await dbadapter.execute(`create schema "${schema}"`);
+    await dbadapter.execute(`create table "${schema}"."src" (id int)`);
+    await dbadapter.execute(`insert into "${schema}"."src" values (1), (2)`);
+
+    const mv: sqlanvil.ITable = {
+      type: "view",
+      enumType: sqlanvil.TableType.VIEW,
+      materialized: true,
+      target: { schema, name: "mv" },
+      query: `select count(*)::int as n from "${schema}"."src"`,
+      postgres: { refreshPolicy: "on_dependency_change" }
+    };
+    const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+
+    // First run: matview doesn't exist -> created.
+    for (const t of adapter.publishTasks(mv, { fullRefresh: false }).build()) {
+      await dbadapter.execute(t.statement);
+    }
+
+    // The adapter now DETECTS the matview (information_schema would miss it).
+    const meta = await dbadapter.table({ schema, name: "mv" });
+    expect(meta, "adapter should find the matview").to.not.equal(null);
+    expect(meta.type).to.equal(sqlanvil.TableMetadata.Type.MATERIALIZED_VIEW);
+    expect(meta.fields.map(f => f.name)).to.include("n");
+    const listed = await dbadapter.tables("", schema);
+    expect(listed.some(t => t.target.name === "mv")).to.equal(true);
+
+    const oidOf = async () =>
+      (
+        await dbadapter.execute(
+          `select c.oid from pg_class c join pg_namespace n on n.oid = c.relnamespace ` +
+            `where n.nspname = '${schema}' and c.relname = 'mv'`
+        )
+      ).rows[0].oid;
+    const oidBefore = await oidOf();
+
+    // Add a row, then RE-RUN with the detected metadata: it should REFRESH in place.
+    await dbadapter.execute(`insert into "${schema}"."src" values (3)`);
+    const rerun = adapter.publishTasks(mv, { fullRefresh: false }, meta).build().map(t => t.statement);
+    expect(rerun).to.eql([`refresh materialized view "${schema}"."mv"`]);
+    for (const stmt of rerun) {
+      await dbadapter.execute(stmt);
+    }
+
+    // Same object (not dropped+recreated), and the data reflects the new row.
+    expect(await oidOf(), "matview should be refreshed, not recreated").to.equal(oidBefore);
+    const val = await dbadapter.execute(`select n from "${schema}"."mv"`);
+    expect(val.rows[0].n).to.equal(3);
+
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+  });
+
+  test("matview WITH NO DATA is created unpopulated", { timeout: 60000 }, async () => {
+    const schema = "sa_integration_test_mvnodata";
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    await dbadapter.execute(`create schema "${schema}"`);
+
+    const mv: sqlanvil.ITable = {
+      type: "view",
+      enumType: sqlanvil.TableType.VIEW,
+      materialized: true,
+      target: { schema, name: "mv" },
+      query: "select 1 as id",
+      postgres: { noData: true }
+    };
+    const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+    for (const t of adapter.publishTasks(mv, { fullRefresh: false }).build()) {
+      await dbadapter.execute(t.statement);
+    }
+
+    const pop = await dbadapter.execute(
+      `select c.relispopulated from pg_class c join pg_namespace n on n.oid = c.relnamespace ` +
+        `where n.nspname = '${schema}' and c.relname = 'mv'`
+    );
+    expect(pop.rows[0].relispopulated).to.equal(false);
+
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+  });
 });

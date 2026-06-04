@@ -299,5 +299,41 @@ suite("ExecutionSql with Postgres/Supabase", () => {
       'drop table if exists "my_db"."public"."my_table__sa_stage" cascade'
     ]);
   });
+
+  test("materialized view honors no_data (WITH NO DATA)", () => {
+    const mvTable: sqlanvil.ITable = {
+      ...baseTable,
+      type: "view",
+      enumType: sqlanvil.TableType.VIEW,
+      materialized: true,
+      postgres: { noData: true }
+    };
+    const statements = executionSql
+      .publishTasks(mvTable, { fullRefresh: false })
+      .build()
+      .map(t => t.statement);
+    expect(statements[1]).to.equal(
+      'create materialized view "my_db"."public"."my_table" as select 1 as id, \'a\' as field1 with no data'
+    );
+  });
+
+  test("materialized view refreshes in place when it exists and refresh_policy is set", () => {
+    const mvTable: sqlanvil.ITable = {
+      ...baseTable,
+      type: "view",
+      enumType: sqlanvil.TableType.VIEW,
+      materialized: true,
+      postgres: { refreshPolicy: "on_dependency_change" }
+    };
+    const existing: sqlanvil.ITableMetadata = {
+      type: sqlanvil.TableMetadata.Type.MATERIALIZED_VIEW,
+      fields: []
+    };
+    const statements = executionSql
+      .publishTasks(mvTable, { fullRefresh: false }, existing)
+      .build()
+      .map(t => t.statement);
+    expect(statements).to.eql(['refresh materialized view "my_db"."public"."my_table"']);
+  });
 });
 

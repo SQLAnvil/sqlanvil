@@ -55,6 +55,7 @@ message TableMetadata {
     UNKNOWN = 0;
     TABLE = 1;
     VIEW = 2;
+    MATERIALIZED_VIEW = 3;
   }
   Type type = 6;
 
