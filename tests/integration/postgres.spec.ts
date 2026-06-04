@@ -366,4 +366,61 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     expect(partialSearch.length).equals(2);
     expect(columnSearch.length).greaterThan(0);
   });
+
+  test("postgres storage options + indexes apply on real Postgres", { timeout: 60000 }, async () => {
+    const schema = "sa_integration_test_options";
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    await dbadapter.execute(`create schema "${schema}"`);
+
+    const table: sqlanvil.ITable = {
+      type: "table",
+      enumType: sqlanvil.TableType.TABLE,
+      target: { schema, name: "indexed_table" },
+      query: "select 1 as id, 'a'::text as label",
+      postgres: {
+        unlogged: true,
+        fillfactor: 70,
+        indexes: [
+          {
+            name: "ix_indexed_table_id",
+            columns: ["id"],
+            method: sqlanvil.PostgresOptions.Index.Method.BTREE
+          },
+          {
+            name: "ix_indexed_table_label",
+            columns: ["label"],
+            method: sqlanvil.PostgresOptions.Index.Method.BTREE,
+            unique: true,
+            where: "label is not null"
+          }
+        ]
+      }
+    };
+
+    // Generate the DDL exactly as a real run does, then execute it.
+    const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+    for (const task of adapter.publishTasks(table, { fullRefresh: true }, { fields: [] }).build()) {
+      await dbadapter.execute(task.statement);
+    }
+
+    // Storage options actually applied: UNLOGGED (relpersistence 'u') + fillfactor=70.
+    const meta = await dbadapter.execute(
+      `select c.relpersistence, c.reloptions from pg_class c ` +
+        `join pg_namespace n on n.oid = c.relnamespace ` +
+        `where n.nspname = '${schema}' and c.relname = 'indexed_table'`
+    );
+    expect(meta.rows[0].relpersistence).to.equal("u");
+    expect(meta.rows[0].reloptions).to.deep.equal(["fillfactor=70"]);
+
+    // Both indexes created, with unique + partial predicate honored by Postgres.
+    const idx = await dbadapter.execute(
+      `select indexname, indexdef from pg_indexes where schemaname = '${schema}'`
+    );
+    const byName = keyBy(idx.rows, (r: { indexname: string }) => r.indexname);
+    expect(byName["ix_indexed_table_id"], "btree index should exist").to.exist;
+    expect(byName["ix_indexed_table_label"].indexdef).to.contain("UNIQUE");
+    expect(byName["ix_indexed_table_label"].indexdef).to.contain("WHERE (label IS NOT NULL)");
+
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+  });
 });
