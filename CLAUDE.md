@@ -84,7 +84,7 @@ Both adapters are merged to `main` and **integration-verified** (2026-06-03): `/
 
 **Remaining work** (authoritative plan: `postgres_first_class_design.md` in the [`sqlanvil/docs`](https://github.com/sqlanvil/docs) repo, §6):
 
-1. **`PostgresOptions` DDL is defined but not generated** — partitioning (RANGE/LIST/HASH), indexes (btree/gin/gist/brin), materialized views, tablespace/fillfactor/unlogged exist in the proto + TS surface but `postgres_execution_sql.ts` ignores them. This is the main feature gap.
+1. **`PostgresOptions` DDL — partially generated.** ✅ Storage options (`unlogged`, `fillfactor`, `tablespace`) and indexes (btree/hash/gin/gist/brin, `unique`, `INCLUDE`, partial `WHERE`) are now emitted by `postgres_execution_sql.ts` for standard + incremental tables (unit-tested in `cli/api/execution_sql_test.ts`; DDL verified against live Postgres). Still TODO: native **partitioning** (needs CTAS rework — `CREATE TABLE AS` can't `PARTITION BY`, and partition bounds aren't in the config yet), **materialized views** (needs an MV action type + `REFRESH` handling), and index **opclasses** (gin/gist on text/jsonb need e.g. `gin_trgm_ops`, not yet expressible).
 2. **Nested `warehouse:` config (§8.2) parser not wired** — the proto union and the credentials file use it, but `workflow_settings.yaml` parsing is still flat (`warehouse:` string + `defaultProject`/`defaultDataset`).
 3. **Generator location drift** — SQL gen lives in `cli/api/dbadapters/*_execution_sql.ts`, not `core/compilation_sql/postgres/` as the design doc specifies; reconcile doc or relocate.
 

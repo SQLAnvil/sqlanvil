@@ -131,6 +131,7 @@ export class PostgresExecutionSql implements IExecutionSql {
             )
           );
         }
+        this.createIndexes(table).forEach(statement => tasks.add(Task.statement(statement)));
       } else {
         // Incremental Load: execute UPSERT or INSERT
         if (table.uniqueKey && table.uniqueKey.length > 0) {
@@ -149,6 +150,7 @@ export class PostgresExecutionSql implements IExecutionSql {
       // Standard Table: Drop if exists and create table fresh
       tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
       tasks.add(Task.statement(this.createTable(table)));
+      this.createIndexes(table).forEach(statement => tasks.add(Task.statement(statement)));
     }
 
     // Run Post-operations
@@ -179,9 +181,50 @@ export class PostgresExecutionSql implements IExecutionSql {
   }
 
   private createTable(table: sqlanvil.ITable) {
-    // Postgres dialect: CREATE TABLE target AS query
+    // Postgres dialect: CREATE [UNLOGGED] TABLE target [WITH (...)] [TABLESPACE ...] AS query
     const target = this.resolveTarget(table.target);
-    return `create table ${target} as ${table.query}`;
+    const opts = table.postgres;
+    const unlogged = opts?.unlogged ? "unlogged " : "";
+    const withClause = opts?.fillfactor ? ` with (fillfactor=${opts.fillfactor})` : "";
+    const tablespace = opts?.tablespace ? ` tablespace "${opts.tablespace}"` : "";
+    return `create ${unlogged}table ${target}${withClause}${tablespace} as ${table.query}`;
+  }
+
+  // Postgres index DDL from the table's `postgres.indexes` config, returned as
+  // separate statements to run after the table is created.
+  private createIndexes(table: sqlanvil.ITable): string[] {
+    const indexes = table.postgres?.indexes;
+    if (!indexes || indexes.length === 0) {
+      return [];
+    }
+    const target = this.resolveTarget(table.target);
+    return indexes.map(index => {
+      const unique = index.unique ? "unique " : "";
+      const method = this.indexMethodAsSql(index.method);
+      const columns = (index.columns || []).map(c => `"${c}"`).join(", ");
+      const include =
+        index.include && index.include.length > 0
+          ? ` include (${index.include.map(c => `"${c}"`).join(", ")})`
+          : "";
+      const where = index.where ? ` where (${index.where})` : "";
+      return `create ${unique}index "${index.name}" on ${target} using ${method} (${columns})${include}${where}`;
+    });
+  }
+
+  private indexMethodAsSql(method?: sqlanvil.PostgresOptions.Index.Method): string {
+    switch (method) {
+      case sqlanvil.PostgresOptions.Index.Method.HASH:
+        return "hash";
+      case sqlanvil.PostgresOptions.Index.Method.GIN:
+        return "gin";
+      case sqlanvil.PostgresOptions.Index.Method.GIST:
+        return "gist";
+      case sqlanvil.PostgresOptions.Index.Method.BRIN:
+        return "brin";
+      case sqlanvil.PostgresOptions.Index.Method.BTREE:
+      default:
+        return "btree";
+    }
   }
 
   private createView(table: sqlanvil.ITable) {

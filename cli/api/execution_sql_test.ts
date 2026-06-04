@@ -171,5 +171,68 @@ suite("ExecutionSql with Postgres/Supabase", () => {
       'insert into "my_db"."public"."my_table" ("id", "field1") select "id", "field1" from (select 1 as id, \'a\' as field1) as insertions on conflict ("id") do update set "field1" = EXCLUDED."field1"'
     );
   });
+
+  test("create table applies postgres storage options (unlogged, fillfactor, tablespace)", () => {
+    const table: sqlanvil.ITable = {
+      ...baseTable,
+      postgres: { unlogged: true, fillfactor: 70, tablespace: "fast_ssd" }
+    };
+    const tasks = executionSql.publishTasks(table, { fullRefresh: false });
+    const statements = tasks.build().map(t => t.statement);
+    expect(statements[1]).to.equal(
+      'create unlogged table "my_db"."public"."my_table" with (fillfactor=70) tablespace "fast_ssd" as select 1 as id, \'a\' as field1'
+    );
+  });
+
+  test("create table emits postgres indexes as separate statements", () => {
+    const table: sqlanvil.ITable = {
+      ...baseTable,
+      postgres: {
+        indexes: [
+          {
+            name: "ix_my_table_id",
+            columns: ["id"],
+            method: sqlanvil.PostgresOptions.Index.Method.BTREE
+          },
+          {
+            name: "ix_my_table_field1",
+            columns: ["field1"],
+            method: sqlanvil.PostgresOptions.Index.Method.GIN,
+            unique: true,
+            include: ["id"],
+            where: "field1 is not null"
+          }
+        ]
+      }
+    };
+    const tasks = executionSql.publishTasks(table, { fullRefresh: false });
+    const statements = tasks.build().map(t => t.statement);
+    expect(statements).to.have.lengthOf(4);
+    expect(statements[2]).to.equal(
+      'create index "ix_my_table_id" on "my_db"."public"."my_table" using btree ("id")'
+    );
+    expect(statements[3]).to.equal(
+      'create unique index "ix_my_table_field1" on "my_db"."public"."my_table" using gin ("field1") include ("id") where (field1 is not null)'
+    );
+  });
+
+  test("incremental fresh-create emits postgres indexes", () => {
+    const incTable: sqlanvil.ITable = {
+      ...baseTable,
+      type: "incremental",
+      enumType: sqlanvil.TableType.INCREMENTAL,
+      postgres: {
+        indexes: [
+          { name: "ix_inc", columns: ["id"], method: sqlanvil.PostgresOptions.Index.Method.BRIN }
+        ]
+      }
+    };
+    // No tableMetadata -> the table doesn't exist yet -> fresh create path.
+    const tasks = executionSql.publishTasks(incTable, { fullRefresh: false });
+    const statements = tasks.build().map(t => t.statement);
+    expect(statements).to.include(
+      'create index "ix_inc" on "my_db"."public"."my_table" using brin ("id")'
+    );
+  });
 });
 
