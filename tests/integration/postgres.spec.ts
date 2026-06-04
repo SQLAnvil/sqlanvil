@@ -454,4 +454,41 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
 
     await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
   });
+
+  test("index operator class applies on real Postgres", { timeout: 60000 }, async () => {
+    const schema = "sa_integration_test_opclass";
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    await dbadapter.execute(`create schema "${schema}"`);
+
+    const table: sqlanvil.ITable = {
+      type: "table",
+      enumType: sqlanvil.TableType.TABLE,
+      target: { schema, name: "docs" },
+      query: `select 1 as id, '{"a":1}'::jsonb as payload`,
+      postgres: {
+        indexes: [
+          {
+            name: "ix_docs_payload",
+            columns: ["payload"],
+            // gin on jsonb requires an opclass; jsonb_path_ops is built-in (no extension).
+            method: sqlanvil.PostgresOptions.Index.Method.GIN,
+            opclass: "jsonb_path_ops"
+          }
+        ]
+      }
+    };
+
+    const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+    for (const task of adapter.publishTasks(table, { fullRefresh: true }, { fields: [] }).build()) {
+      await dbadapter.execute(task.statement);
+    }
+
+    const idx = await dbadapter.execute(
+      `select indexdef from pg_indexes where schemaname = '${schema}' and indexname = 'ix_docs_payload'`
+    );
+    expect(idx.rows.length).to.equal(1);
+    expect(idx.rows[0].indexdef).to.contain("jsonb_path_ops");
+
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+  });
 });

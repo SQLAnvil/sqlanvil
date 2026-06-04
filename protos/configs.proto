@@ -864,6 +864,11 @@ message PostgresOptions {
 
     // INCLUDE non-key columns for covering indexes.
     repeated string include = 6;
+
+    // Operator class applied to each indexed column, e.g. "gin_trgm_ops"
+    // (pg_trgm), "jsonb_path_ops", or "vector_l2_ops" (pgvector). Required for
+    // gin/gist indexes on types without a default opclass.
+    string opclass = 7;
   }
   repeated Index indexes = 5;
 

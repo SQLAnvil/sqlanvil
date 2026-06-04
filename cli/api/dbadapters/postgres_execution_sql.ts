@@ -213,7 +213,8 @@ export class PostgresExecutionSql implements IExecutionSql {
     return indexes.map(index => {
       const unique = index.unique ? "unique " : "";
       const method = this.indexMethodAsSql(index.method);
-      const columns = (index.columns || []).map(c => `"${c}"`).join(", ");
+      const opclass = index.opclass ? ` ${index.opclass}` : "";
+      const columns = (index.columns || []).map(c => `"${c}"${opclass}`).join(", ");
       const include =
         index.include && index.include.length > 0
           ? ` include (${index.include.map(c => `"${c}"`).join(", ")})`

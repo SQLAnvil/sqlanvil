@@ -252,5 +252,26 @@ suite("ExecutionSql with Postgres/Supabase", () => {
       'create materialized view "my_db"."public"."my_table" as select 1 as id, \'a\' as field1'
     );
   });
+
+  test("create index applies a per-column operator class", () => {
+    const table: sqlanvil.ITable = {
+      ...baseTable,
+      postgres: {
+        indexes: [
+          {
+            name: "ix_doc_trgm",
+            columns: ["field1"],
+            method: sqlanvil.PostgresOptions.Index.Method.GIN,
+            opclass: "gin_trgm_ops"
+          }
+        ]
+      }
+    };
+    const tasks = executionSql.publishTasks(table, { fullRefresh: false });
+    const statements = tasks.build().map(t => t.statement);
+    expect(statements[2]).to.equal(
+      'create index "ix_doc_trgm" on "my_db"."public"."my_table" using gin ("field1" gin_trgm_ops)'
+    );
+  });
 });
 
