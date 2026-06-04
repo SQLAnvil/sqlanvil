@@ -1,6 +1,5 @@
 load("//tools:ts_library.bzl", "ts_library")
 load("//tools/common:copy.bzl", "copy_file")
-load("//:version.bzl", "DF_VERSION")
 load("//testing:index.bzl", "ts_test_suite")
 load("//tools:node_modules.bzl", "node_modules")
 

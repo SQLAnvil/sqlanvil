@@ -1,4 +1,4 @@
-load("//:version.bzl", "DF_VERSION")
+load("//:version.bzl", "DF_VERSION", "SQLANVIL_VERSION")
 load("//testing:index.bzl", "ts_test_suite")
 load("//tools:expand_template.bzl", "expand_template")
 load("//tools:node_modules.bzl", "node_modules")
@@ -11,6 +11,7 @@ expand_template(
     out = "version.ts",
     substitutions = {
         "$DF_VERSION": DF_VERSION,
+        "$SQLANVIL_VERSION": SQLANVIL_VERSION,
     },
     template = "version.ts.tmpl",
 )

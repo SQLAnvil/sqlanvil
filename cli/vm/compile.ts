@@ -44,6 +44,14 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
     'return require("@sqlanvil/core").version || "0.0.0"',
     vmIndexFileName
   );
+  // The upstream Dataform release the core is based on. Decoupled sqlanvil cores
+  // export `dataformVersion`; legacy cores (whose `version` tracked the Dataform
+  // release) fall back to `version`. Used only for the old-bundle caller-file shim
+  // below — keyed on the Dataform layout, not sqlanvil's own SemVer.
+  const coreDataformVersion: string = indexGeneratorVm.run(
+    'return require("@sqlanvil/core").dataformVersion || require("@sqlanvil/core").version || "0.0.0"',
+    vmIndexFileName
+  );
 
   const cliVersion = readCliVersion();
   const cliParsed = semver.parse(cliVersion);
@@ -65,7 +73,7 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
       );
     }
   }
-  const needsCallerFileShim = semver.lt(sqlanvilCoreVersion, "3.0.57");
+  const needsCallerFileShim = semver.lt(coreDataformVersion, "3.0.57");
 
   // vm2 strips file paths from V8 CallSite objects inside the sandbox, so
   // getCallerFile() in @sqlanvil/core needs a fallback. Track the currently
@@ -153,7 +161,7 @@ if (require.main === module) {
 }
 
 // Reads the CLI's own version from the package.json baked next to the bundle
-// by pkg_json(version = DF_VERSION). Returns "0.0.0" when unreadable.
+// by pkg_json(version = SQLANVIL_VERSION). Returns "0.0.0" when unreadable.
 function readCliVersion(): string {
   try {
     const pkg = JSON.parse(

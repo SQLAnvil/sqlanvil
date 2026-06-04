@@ -1,8 +1,8 @@
 warehouse: postgres
 defaultDataset: sqlanvil_example
 defaultAssertionDataset: sqlanvil_example_assertions
-# Real projects pin the core version with:
-#   sqlanvilCoreVersion: 3.0.59
+# Real projects pin the sqlanvil core version with:
+#   sqlanvilCoreVersion: 1.0.0
 # (omitted here so this in-repo example compiles against the local @sqlanvil/core)
 vars:
   currency: USD

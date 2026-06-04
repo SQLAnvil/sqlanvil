@@ -1,5 +1,7 @@
 import yargs from "yargs";
 
+import { dataformVersion, version } from "sa/core/version";
+
 export interface ICli {
   commands: ICommand[];
 }
@@ -31,7 +33,7 @@ export function createYargsCli(cli: ICli) {
       }
     );
   }
-  return yargsChain;
+  return yargsChain.version(`sqlanvil ${version} (Dataform core ${dataformVersion})`);
 }
 
 function createOptionsChain(yargsChain: yargs.Argv, command: ICommand) {

@@ -772,12 +772,12 @@ select 1 AS \${sqlanvil.projectConfig.vars.selectVar}`
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
           `
-sqlanvilCoreVersion: 1.0.0
+sqlanvilCoreVersion: 0.0.0
 defaultProject: sqlanvil`
         );
 
         expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-          `Version mismatch: workflow settings specifies version 1.0.0, but ${version} was found`
+          `Version mismatch: workflow settings specifies version 0.0.0, but ${version} was found`
         );
       });
 

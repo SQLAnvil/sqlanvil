@@ -1,6 +1,6 @@
 load("@build_bazel_rules_nodejs//:index.bzl", "npm_package_bin")
 load("@npm//webpack:index.bzl", "webpack")
-load("//:version.bzl", "DF_VERSION")
+load("//:version.bzl", "SQLANVIL_VERSION")
 load("//packages:index.bzl", "add_license_header_to_file", "pkg_bundle_dts", "pkg_json", "pkg_npm_tar")
 load("//tools:ts_library.bzl", "ts_library")
 
@@ -51,7 +51,7 @@ pkg_json(
         "//packages/@sqlanvil:package.layer.json",
     ],
     main = "bundle.js",
-    version = DF_VERSION,
+    version = SQLANVIL_VERSION,
 )
 
 add_license_header_to_file(

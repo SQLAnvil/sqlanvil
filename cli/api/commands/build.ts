@@ -3,6 +3,7 @@ import { state } from "sa/cli/api/commands/state";
 import * as dbadapters from "sa/cli/api/dbadapters";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { targetStringifier } from "sa/core/targets";
+import { dataformVersion } from "sa/core/version";
 import * as utils from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -37,7 +38,11 @@ export class Builder {
   ) {
     this.executionSql = new ExecutionSql(
       prunedGraph.projectConfig,
-      prunedGraph.sqlanvilCoreVersion || "1.0.0"
+      // Capability gating in the SQL generators (e.g. incremental pre/post-ops,
+      // gated at "> 1.4.8") compares against the upstream *Dataform* version, not
+      // sqlanvil's own package SemVer. Pass the Dataform base of the running core
+      // so decoupling the package version (e.g. 1.0.0) doesn't disable those gates.
+      dataformVersion
     );
     prunedGraph.tables.forEach(utils.setOrValidateTableEnumType);
   }
