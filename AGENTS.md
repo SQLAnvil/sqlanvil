@@ -177,6 +177,22 @@ today; on Postgres it does not EXPLAIN-validate SQL (known gap).
 `realtimePublication`, `wrapper`, `vectorIndex`. `enableRls` only flips RLS on — declare policies
 via the `rlsPolicy` action.
 
+### 14. Declaring external sources: `type: "declaration"`
+Reference a pre-existing, externally-managed table so `${ref()}` resolves and the DAG tracks it.
+Two equivalent forms:
+```sqlx
+config { type: "declaration", schema: "raw", name: "orders" }   // one per .sqlx file
+```
+```js
+declare({ schema: "raw", name: "orders" });                     // many per .js file
+declare({ schema: "raw", name: "customers" });
+```
+**Declarations are exempt from `--schema-suffix` / `tablePrefix` / `datasetSuffix` — by design**
+(`session.ts` passes declarations separately from the actions it renames). The suffix is not
+applied to a declaration's own target, and `${ref()}` to a declared source resolves to the real
+(unsuffixed) table even under `--schema-suffix dev` — so a dev run reads true sources while writing
+to suffixed output. A declaration without a suffix is correct; don't "fix" it.
+
 ## Quick reference: Dataform/BigQuery → sqlanvil/Postgres
 
 | You'd reach for (Dataform/BQ) | Use instead (sqlanvil/PG) |
