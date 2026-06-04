@@ -96,7 +96,7 @@ Both adapters are merged to `main` and **integration-verified** (2026-06-03): `/
 
    `#1 is effectively complete.` Minor nice-to-haves only: storage options on partitioned parents, sub-partitioning, opclasses on partitioned indexes.
 2. **Nested `warehouse:` config (§8.2) parser not wired** — the proto union and the credentials file use it, but `workflow_settings.yaml` parsing is still flat (`warehouse:` string + `defaultProject`/`defaultDataset`).
-3. **Generator location drift** — SQL gen lives in `cli/api/dbadapters/*_execution_sql.ts`, not `core/compilation_sql/postgres/` as the design doc specifies; reconcile doc or relocate.
+3. **Generator location — reconciled (✅).** Execution-time SQL gen lives in `cli/api/dbadapters/*_execution_sql.ts` (implementing `IExecutionSql`, parallel to `bigquery_execution_sql.ts`); `core/compilation_sql/` keeps only compile-time/warehouse-agnostic SQL. This is the intended layout — the design doc's earlier `core/compilation_sql/postgres/` location was corrected (see `postgres_first_class_design.md` §2 as-built note); no code relocation needed.
 
 **Run the integration tests** — `./tools/postgres/run-postgres-db.sh` boots a Postgres+pgvector container; tests run *inside* the `docker-bazel` container so connect via `host.docker.internal` and pass env with `--test_env` (the `:postgres.spec`/`:supabase.spec` targets are runnable; the `*_tests` suffixes are compile-only macros):
 
