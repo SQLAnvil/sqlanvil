@@ -159,9 +159,18 @@ export class PostgresExecutionSql implements IExecutionSql {
         tasks.add(Task.statement(this.createView(table)));
       }
     } else {
-      // Standard Table: Drop if exists and create table fresh
-      tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
-      tasks.add(Task.statement(this.createTable(table)));
+      const partition = table.postgres?.partition;
+      if (partition && (partition.columns || []).length > 0) {
+        // Partitioned table: CREATE TABLE AS can't PARTITION BY, so bridge via a
+        // staging table to learn column types, then build the partitioned parent.
+        this.createPartitionedTableTasks(table).forEach(statement =>
+          tasks.add(Task.statement(statement))
+        );
+      } else {
+        // Standard Table: Drop if exists and create table fresh
+        tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
+        tasks.add(Task.statement(this.createTable(table)));
+      }
       this.createIndexes(table).forEach(statement => tasks.add(Task.statement(statement)));
     }
 
@@ -237,6 +246,51 @@ export class PostgresExecutionSql implements IExecutionSql {
       case sqlanvil.PostgresOptions.Index.Method.BTREE:
       default:
         return "btree";
+    }
+  }
+
+  // Builds a native-partitioned table. Postgres forbids CREATE TABLE AS with
+  // PARTITION BY and needs explicit columns, so we stage the query (WITH NO DATA)
+  // to learn column types, LIKE it into the partitioned parent, create the child
+  // partitions, then INSERT the real query.
+  private createPartitionedTableTasks(table: sqlanvil.ITable): string[] {
+    const partition = table.postgres.partition;
+    const target = this.resolveTarget(table.target);
+    const stage = this.resolveTarget({ ...table.target, name: `${table.target.name}__sa_stage` });
+    const kind = this.partitionKindAsSql(partition.kind);
+    const columns = (partition.columns || []).map(c => `"${c}"`).join(", ");
+
+    const statements = [
+      `drop table if exists ${stage} cascade`,
+      `create unlogged table ${stage} as ${table.query} with no data`,
+      `drop table if exists ${target} cascade`,
+      `create table ${target} (like ${stage} including defaults) partition by ${kind} (${columns})`
+    ];
+    for (const bound of partition.partitions || []) {
+      const child = this.resolveTarget({
+        ...table.target,
+        name: `${table.target.name}__${bound.name}`
+      });
+      statements.push(`create table ${child} partition of ${target} for values ${bound.values}`);
+    }
+    if (partition.includeDefault) {
+      const def = this.resolveTarget({ ...table.target, name: `${table.target.name}__default` });
+      statements.push(`create table ${def} partition of ${target} default`);
+    }
+    statements.push(`insert into ${target} select * from (${table.query}) as q`);
+    statements.push(`drop table if exists ${stage} cascade`);
+    return statements;
+  }
+
+  private partitionKindAsSql(kind?: sqlanvil.PostgresOptions.Partition.Kind): string {
+    switch (kind) {
+      case sqlanvil.PostgresOptions.Partition.Kind.LIST:
+        return "list";
+      case sqlanvil.PostgresOptions.Partition.Kind.HASH:
+        return "hash";
+      case sqlanvil.PostgresOptions.Partition.Kind.RANGE:
+      default:
+        return "range";
     }
   }
 

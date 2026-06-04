@@ -491,4 +491,57 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
 
     await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
   });
+
+  test("native range-partitioned table builds and routes rows on real Postgres", { timeout: 60000 }, async () => {
+    const schema = "sa_integration_test_part";
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    await dbadapter.execute(`create schema "${schema}"`);
+
+    const table: sqlanvil.ITable = {
+      type: "table",
+      enumType: sqlanvil.TableType.TABLE,
+      target: { schema, name: "events" },
+      query: "select 5 as id, 'low' as label union all select 150 as id, 'high' as label",
+      postgres: {
+        partition: {
+          kind: sqlanvil.PostgresOptions.Partition.Kind.RANGE,
+          columns: ["id"],
+          partitions: [
+            { name: "p_lo", values: "FROM (0) TO (100)" },
+            { name: "p_hi", values: "FROM (100) TO (1000)" }
+          ],
+          includeDefault: true
+        }
+      }
+    };
+
+    const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+    for (const task of adapter.publishTasks(table, { fullRefresh: true }, { fields: [] }).build()) {
+      await dbadapter.execute(task.statement);
+    }
+
+    // Parent is a partitioned table (relkind 'p').
+    const parent = await dbadapter.execute(
+      `select c.relkind from pg_class c join pg_namespace n on n.oid = c.relnamespace ` +
+        `where n.nspname = '${schema}' and c.relname = 'events'`
+    );
+    expect(parent.rows[0].relkind).to.equal("p");
+
+    // Rows inserted and routed to the right child: id=5 -> p_lo [0,100), id=150 -> p_hi [100,1000).
+    const total = await dbadapter.execute(`select count(*)::int as n from "${schema}"."events"`);
+    expect(total.rows[0].n).to.equal(2);
+    const lo = await dbadapter.execute(`select count(*)::int as n from "${schema}"."events__p_lo"`);
+    expect(lo.rows[0].n).to.equal(1);
+    const hi = await dbadapter.execute(`select count(*)::int as n from "${schema}"."events__p_hi"`);
+    expect(hi.rows[0].n).to.equal(1);
+
+    // Staging table was cleaned up.
+    const stage = await dbadapter.execute(
+      `select count(*)::int as n from information_schema.tables ` +
+        `where table_schema = '${schema}' and table_name = 'events__sa_stage'`
+    );
+    expect(stage.rows[0].n).to.equal(0);
+
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+  });
 });

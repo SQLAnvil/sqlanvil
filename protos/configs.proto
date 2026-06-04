@@ -840,6 +840,19 @@ message PostgresOptions {
     }
     Kind kind = 1;
     repeated string columns = 2;
+
+    // Child partitions. `values` is the raw FOR VALUES clause body matching the
+    // kind, e.g. "FROM ('2024-01-01') TO ('2025-01-01')" (range),
+    // "IN ('us', 'ca')" (list), or "WITH (MODULUS 4, REMAINDER 0)" (hash).
+    message Bound {
+      string name = 1;
+      string values = 2;
+    }
+    repeated Bound partitions = 3;
+
+    // Also create a catch-all DEFAULT partition so rows outside every bound
+    // still insert (recommended for declarative full-refresh loads).
+    bool include_default = 4;
   }
   Partition partition = 4;
 

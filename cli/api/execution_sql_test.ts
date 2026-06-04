@@ -273,5 +273,31 @@ suite("ExecutionSql with Postgres/Supabase", () => {
       'create index "ix_doc_trgm" on "my_db"."public"."my_table" using gin ("field1" gin_trgm_ops)'
     );
   });
+
+  test("partitioned table builds via a staging table + child partitions", () => {
+    const table: sqlanvil.ITable = {
+      ...baseTable,
+      postgres: {
+        partition: {
+          kind: sqlanvil.PostgresOptions.Partition.Kind.RANGE,
+          columns: ["id"],
+          partitions: [{ name: "p0", values: "FROM (0) TO (100)" }],
+          includeDefault: true
+        }
+      }
+    };
+    const tasks = executionSql.publishTasks(table, { fullRefresh: false });
+    const statements = tasks.build().map(t => t.statement);
+    expect(statements).to.eql([
+      'drop table if exists "my_db"."public"."my_table__sa_stage" cascade',
+      'create unlogged table "my_db"."public"."my_table__sa_stage" as select 1 as id, \'a\' as field1 with no data',
+      'drop table if exists "my_db"."public"."my_table" cascade',
+      'create table "my_db"."public"."my_table" (like "my_db"."public"."my_table__sa_stage" including defaults) partition by range ("id")',
+      'create table "my_db"."public"."my_table__p0" partition of "my_db"."public"."my_table" for values FROM (0) TO (100)',
+      'create table "my_db"."public"."my_table__default" partition of "my_db"."public"."my_table" default',
+      'insert into "my_db"."public"."my_table" select * from (select 1 as id, \'a\' as field1) as q',
+      'drop table if exists "my_db"."public"."my_table__sa_stage" cascade'
+    ]);
+  });
 });
 
