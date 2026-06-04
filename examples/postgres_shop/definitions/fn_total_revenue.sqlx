@@ -1,0 +1,14 @@
+config {
+  type: "operations",
+  hasOutput: false,
+  description: "Define and call a SQL function. Statements split on '---'; the $$ body keeps its semicolons."
+}
+
+CREATE OR REPLACE FUNCTION sqlanvil_example.total_revenue_cents()
+RETURNS bigint
+LANGUAGE sql
+AS $$
+  SELECT COALESCE(SUM(revenue_cents), 0) FROM ${ref("fct_daily_revenue")};
+$$
+---
+SELECT sqlanvil_example.total_revenue_cents()

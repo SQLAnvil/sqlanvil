@@ -1,0 +1,13 @@
+config {
+  type: "table",
+  description: "Orders enriched with customer attributes."
+}
+
+SELECT
+  o.order_id,
+  o.customer_id,
+  c.name AS customer_name,
+  o.order_date,
+  o.amount_cents
+FROM ${ref("raw_orders")} o
+JOIN ${ref("dim_customers")} c USING (customer_id)

@@ -9,7 +9,7 @@ import { getProcessResult, nodePath, suite, test } from "sa/testing";
 suite("examples", { parallel: true }, () => {
   const cliEntryPointPath = "examples/node_modules/@sqlanvil/cli/bundle.js";
 
-  ["stackoverflow_reporter", "extreme_weather_programming"].forEach(exampleProject => {
+  ["stackoverflow_reporter", "extreme_weather_programming", "postgres_shop"].forEach(exampleProject => {
     test(`${exampleProject} runs`, async () => {
       // compile() calls realpath on projectDir, which would jump out of bazel's
       // symlinked runfiles tree and leave the project without its sibling

@@ -1,0 +1,14 @@
+config {
+  type: "view",
+  materialized: true,
+  description: "Materialized daily-revenue rollup. Refreshes in place on re-run.",
+  postgres: {
+    refreshPolicy: "on_dependency_change",
+    indexes: [
+      { name: "idx_mv_revenue_rollup_day", columns: ["order_date"], unique: true }
+    ]
+  }
+}
+
+SELECT order_date, revenue_cents
+FROM ${ref("fct_daily_revenue")}

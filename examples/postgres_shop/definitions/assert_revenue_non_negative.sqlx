@@ -1,0 +1,8 @@
+config {
+  type: "assertion",
+  description: "Daily revenue must never be negative. Passes iff this query returns zero rows."
+}
+
+SELECT order_date, revenue_cents
+FROM ${ref("fct_daily_revenue")}
+WHERE revenue_cents < 0

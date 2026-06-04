@@ -1,0 +1,12 @@
+config {
+  type: "view",
+  description: "Customers ranked by total spend."
+}
+
+SELECT
+  customer_id,
+  customer_name,
+  SUM(amount_cents) AS spend_cents
+FROM ${ref("stg_orders")}
+GROUP BY customer_id, customer_name
+ORDER BY spend_cents DESC

@@ -1,0 +1,17 @@
+config {
+  type: "table",
+  description: "Seed order data (stands in for a raw source so the example runs on a bare Postgres).",
+  postgres: {
+    fillfactor: 90,
+    indexes: [
+      { name: "idx_raw_orders_customer", columns: ["customer_id"] }
+    ]
+  }
+}
+
+SELECT * FROM (
+  VALUES
+    (1, 101, DATE '2024-01-01', 1000),
+    (2, 102, DATE '2024-01-01', 2500),
+    (3, 101, DATE '2024-01-02', 1500)
+) AS t(order_id, customer_id, order_date, amount_cents)
