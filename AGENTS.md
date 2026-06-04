@@ -162,6 +162,7 @@ double-quoted identifiers.
 
 ### 12. CLI: `./scripts/run <verb>` (no global `dataform`, no `npm run`)
 ```bash
+./scripts/run init    <projectDir> --warehouse postgres   # or supabase — scaffolds workflow_settings.yaml + a .df-credentials.json template (BigQuery is the default; it needs a GCP project + location)
 ./scripts/run compile <projectDir>
 ./scripts/run run     <projectDir> --credentials <projectDir>/.df-credentials.json
 ./scripts/run run     <projectDir> --credentials ... --full-refresh
