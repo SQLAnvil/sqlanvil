@@ -1,0 +1,9 @@
+config {
+  type: "table",
+  description: "a 'described' table",
+  columns: {
+    id: "the identifier",
+    label: "the label's text"
+  }
+}
+SELECT 1 AS id, 'a' AS label

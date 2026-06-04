@@ -754,4 +754,23 @@ $$`
       await dbadapter.execute(`drop schema if exists "${s}" cascade`).catch(() => undefined);
     }
   });
+
+  test("metadata: columns string-shorthand (col: \"desc\") compiles and applies on Postgres", { timeout: 60000 }, async () => {
+    const schema = "sa_integration_test_meta2";
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+
+    // described_table uses the string shorthand: description + columns { col: "desc" }
+    // on a plain `type: "table"` — the acuantia authoring style.
+    const compiledGraph = await compile("tests/integration/postgres_assertion_project", "meta2");
+    const executionGraph = await dfapi.build(compiledGraph, { actions: ["described_table"] }, dbadapter);
+    await dfapi.run(dbadapter, executionGraph).result();
+
+    const meta = await dbadapter.table({ schema, name: "described_table" });
+    expect(meta.description).to.equal("a 'described' table");
+    const byName = keyBy(meta.fields, f => f.name);
+    expect(byName["id"].description).to.equal("the identifier");
+    expect(byName["label"].description).to.equal("the label's text");
+
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+  });
 });
