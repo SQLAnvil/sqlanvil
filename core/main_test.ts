@@ -79,6 +79,51 @@ suite("@sqlanvil/core", ({ afterEach }) => {
       });
     });
 
+    test("schema suffix is not applied to declarations; refs to a declaration resolve unsuffixed", () => {
+      const projectConfig = {
+        ...WorkflowSettingsTemplates.bigqueryWithDatasetSuffix,
+        defaultProject: "defaultProject"
+      };
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        dumpYaml(sqlanvil.WorkflowSettings.create(projectConfig))
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/ext.sqlx"),
+        `config { type: "declaration", schema: "raw", name: "ext_table" }`
+      );
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/consumer.sqlx"),
+        `config { type: "view" }\nSELECT * FROM \${ref("ext_table")}`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+
+      // The declaration's own target is NOT suffixed — it points at a fixed external table.
+      expect(asPlainObject(result.compile.compiledGraph.declarations[0].target)).deep.equals({
+        database: "defaultProject",
+        schema: "raw",
+        name: "ext_table"
+      });
+
+      // The consuming view IS suffixed.
+      const consumer = result.compile.compiledGraph.tables[0];
+      expect(consumer.target.schema).equals("defaultDataset_suffix");
+
+      // A ref to the declaration resolves to the UNSUFFIXED declaration target, even under suffix.
+      expect(asPlainObject(consumer.dependencyTargets[0])).deep.equals({
+        database: "defaultProject",
+        schema: "raw",
+        name: "ext_table"
+      });
+      expect(consumer.query).to.contain("defaultProject.raw.ext_table");
+      expect(consumer.query).to.not.contain("raw_suffix");
+    });
+
     suite("resolve with legacy dependencies", () => {
       [
         "assertion",
