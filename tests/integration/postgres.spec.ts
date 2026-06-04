@@ -626,4 +626,45 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
 
     await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
   });
+
+  test("operations run a stored PROCEDURE with a $$ body on Postgres", { timeout: 60000 }, async () => {
+    const schema = "sa_integration_test_ops";
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    await dbadapter.execute(`create schema "${schema}"`);
+    await dbadapter.execute(`create table "${schema}"."log" (n int)`);
+
+    const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+
+    // A PROCEDURE whose $$-quoted body contains internal semicolons (a loop) —
+    // the case that would break naive ;-based statement splitting. sqlx splits
+    // operations on `---`, so the whole body stays one statement.
+    const createProc: sqlanvil.IOperation = {
+      target: { schema, name: "create_proc" },
+      queries: [
+        `create procedure "${schema}"."seed"(cnt int) language plpgsql as $$
+begin
+  for i in 1..cnt loop
+    insert into "${schema}"."log" values (i);
+  end loop;
+end;
+$$`
+      ]
+    };
+    const callProc: sqlanvil.IOperation = {
+      target: { schema, name: "call_proc" },
+      queries: [`call "${schema}"."seed"(3)`]
+    };
+
+    for (const op of [createProc, callProc]) {
+      for (const task of adapter.createOperationTasks(op)) {
+        await dbadapter.execute(task.statement);
+      }
+    }
+
+    // The procedure was created, CALLed, and its side effect happened.
+    const res = await dbadapter.execute(`select count(*)::int as n from "${schema}"."log"`);
+    expect(res.rows[0].n).to.equal(3);
+
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+  });
 });

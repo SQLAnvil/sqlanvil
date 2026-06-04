@@ -110,6 +110,7 @@ The same pattern runs `:supabase.spec` / `:supabase_rls.spec` with `SUPABASE_*` 
 
 ## Things To Know
 
+- **Operations** (`type: "operations"`) run arbitrary SQL and work on Postgres (the task generator is dialect-agnostic) — so stored **procedures/functions** (`CREATE PROCEDURE/FUNCTION`, `CALL`), triggers, `CREATE EXTENSION`, `GRANT`, etc. are all expressible via operations (no dedicated action type). sqlx splits operation statements on `---`, not `;`, so PL/pgSQL `$$ … ; … $$` bodies survive. Verified in `postgres.spec` ("operations run a stored PROCEDURE with a $$ body").
 - The legacy root `api/` directory is **gone** — all adapter code lives under `cli/api/dbadapters/`. (The old reintegration assessment doc references `api/`; that relocation is done.)
 - Integration tests need real warehouses: BigQuery creds in `test_credentials/bigquery.json` (a `{projectId, location, credentials}` wrapper, not a raw key — see contributing.md); Postgres/Supabase via the Docker container from `./tools/postgres/run-postgres-db.sh`, reached as `host.docker.internal` from inside `docker-bazel`.
 - Rename audit (performed via grep): No active `@dataform/*` imports or `dataform.*` proto usages remain in code. All critical paths use `sqlanvil`. Remaining mentions are docs/comments/links.
