@@ -1,0 +1,20 @@
+config {
+  type: "table",
+  description: "Per-product margin, built from the declared external catalog + cost sources.",
+  dependencies: ["seed_raw_sources"],
+  columns: {
+    sku: "Product SKU.",
+    name: "Product display name.",
+    margin_cents: "list_price_cents minus unit_cost_cents."
+  }
+}
+
+-- ${ref()} resolves both declared sources to raw.* (and stays unsuffixed under
+-- --schema-suffix). The explicit dependency on seed_raw_sources guarantees the
+-- (simulated) external tables exist before this model runs.
+SELECT
+  c.sku,
+  c.name,
+  c.list_price_cents - k.unit_cost_cents AS margin_cents
+FROM ${ref("product_catalog")} c
+JOIN ${ref("product_costs")} k USING (sku)

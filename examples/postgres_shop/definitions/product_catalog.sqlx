@@ -1,0 +1,11 @@
+config {
+  type: "declaration",
+  schema: "raw",
+  name: "product_catalog",
+  description: "External product catalog — declared, not managed by sqlanvil. Single-file declaration form (one declaration per .sqlx).",
+  columns: {
+    sku: "Product SKU (primary key).",
+    name: "Product display name.",
+    list_price_cents: "List price in cents."
+  }
+}

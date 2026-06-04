@@ -1,0 +1,26 @@
+config {
+  type: "operations",
+  hasOutput: false,
+  description: "Seeds 'externally-managed' source tables so the declarations resolve on a bare Postgres. In a real project these tables already exist (owned by another team/pipeline) — you would NOT create them, only declare() them. Idempotent, so it's safe on every run."
+}
+
+CREATE SCHEMA IF NOT EXISTS raw
+---
+CREATE TABLE IF NOT EXISTS raw.product_catalog (
+  sku text PRIMARY KEY,
+  name text,
+  list_price_cents integer
+)
+---
+INSERT INTO raw.product_catalog (sku, name, list_price_cents)
+VALUES ('A1', 'Widget', 1000), ('B2', 'Gadget', 2500)
+ON CONFLICT (sku) DO NOTHING
+---
+CREATE TABLE IF NOT EXISTS raw.product_costs (
+  sku text PRIMARY KEY,
+  unit_cost_cents integer
+)
+---
+INSERT INTO raw.product_costs (sku, unit_cost_cents)
+VALUES ('A1', 400), ('B2', 1200)
+ON CONFLICT (sku) DO NOTHING
