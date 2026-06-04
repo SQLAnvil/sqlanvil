@@ -16,6 +16,22 @@ export interface IInitResult {
   dirsCreated: string[];
 }
 
+// A starter PostgresConnection (strict JSON — no comment keys; the credentials parser rejects
+// them). Supabase points at the project's db host with SSL required; plain Postgres at localhost.
+function postgresCredentialsTemplate(warehouse: string): string {
+  const isSupabase = warehouse === "supabase";
+  const template = {
+    host: isSupabase ? "db.<project-ref>.supabase.co" : "localhost",
+    port: 5432,
+    database: "postgres",
+    user: "postgres",
+    password: "",
+    sslMode: isSupabase ? "require" : "disable",
+    defaultSchema: "public"
+  };
+  return `${JSON.stringify(template, null, 2)}\n`;
+}
+
 export async function init(
   projectDir: string,
   projectConfig: sqlanvil.IProjectConfig
@@ -38,15 +54,29 @@ export async function init(
     dirsCreated.push(projectDir);
   }
 
+  const warehouse = projectConfig.warehouse || "bigquery";
+  const isBigQuery = warehouse === "bigquery";
+
   // The order that fields are set here is preserved in the written yaml.
   const workflowSettings: sqlanvil.IWorkflowSettings = {
-    sqlanvilCoreVersion: version,
-    defaultProject: projectConfig.defaultDatabase,
-    defaultLocation: projectConfig.defaultLocation,
-    defaultDataset: projectConfig.defaultSchema || "sqlanvil",
-    defaultAssertionDataset: projectConfig.assertionSchema || "sqlanvil_assertions",
-    defaultIcebergConfig: projectConfig.defaultIcebergConfig,
+    sqlanvilCoreVersion: version
   };
+  // BigQuery is the default and omits the `warehouse:` key; Postgres/Supabase set it explicitly.
+  if (!isBigQuery) {
+    workflowSettings.warehouse = warehouse;
+  }
+  // defaultProject / defaultLocation are BigQuery-only — they have no meaning for Postgres/Supabase.
+  if (isBigQuery) {
+    workflowSettings.defaultProject = projectConfig.defaultDatabase;
+    workflowSettings.defaultLocation = projectConfig.defaultLocation;
+  }
+  workflowSettings.defaultDataset = projectConfig.defaultSchema || "sqlanvil";
+  workflowSettings.defaultAssertionDataset =
+    projectConfig.assertionSchema || "sqlanvil_assertions";
+  // Iceberg is a BigQuery concept.
+  if (isBigQuery && projectConfig.defaultIcebergConfig) {
+    workflowSettings.defaultIcebergConfig = projectConfig.defaultIcebergConfig;
+  }
   if (projectConfig.databaseSuffix) {
     workflowSettings.projectSuffix = projectConfig.databaseSuffix;
   }
@@ -62,15 +92,23 @@ export async function init(
   if (projectConfig.builtinAssertionNamePrefix) {
     workflowSettings.builtinAssertionNamePrefix = projectConfig.builtinAssertionNamePrefix;
   }
-  if(projectConfig.defaultIcebergConfig) {
-    workflowSettings.defaultIcebergConfig = projectConfig.defaultIcebergConfig;
-  }
 
   fs.writeFileSync(workflowSettingsYamlPath, dumpYaml(workflowSettings));
   filesWritten.push(workflowSettingsYamlPath);
 
   fs.writeFileSync(gitignorePath, gitIgnoreContents);
   filesWritten.push(gitignorePath);
+
+  // Postgres/Supabase: scaffold a credentials template (the connection lives in a separate,
+  // gitignored file — not in workflow_settings.yaml). BigQuery credentials come from gcloud / a
+  // BigQuery key, so no template is written for it.
+  if (!isBigQuery) {
+    fs.writeFileSync(
+      path.join(projectDir, CREDENTIALS_FILENAME),
+      postgresCredentialsTemplate(warehouse)
+    );
+    filesWritten.push(path.join(projectDir, CREDENTIALS_FILENAME));
+  }
 
   // Make the default models, includes folders.
   const definitionsDir = path.join(projectDir, "definitions");

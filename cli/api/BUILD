@@ -60,6 +60,7 @@ node_modules(
 ts_test_suite(
     name = "tests",
     srcs = [
+        "commands/init_test.ts",
         "commands/jit/rpc_test.ts",
         "dbadapters/bigquery_test.ts",
         "execution_sql_test.ts",

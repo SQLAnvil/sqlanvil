@@ -226,6 +226,16 @@ const icebergOption: INamedOption<yargs.Options> = {
   },
 };
 
+const warehouseOption: INamedOption<yargs.Options> = {
+  name: "warehouse",
+  option: {
+    describe: "Target warehouse for the new project.",
+    type: "string",
+    choices: ["bigquery", "postgres", "supabase"],
+    default: "bigquery"
+  }
+};
+
 const testConnectionOptionName = "test-connection";
 
 const watchOptionName = "watch";
@@ -259,7 +269,7 @@ export function runCli() {
         format:
           `init [${projectDirOption.name}] [${ProjectConfigOptions.defaultDatabase.name}]` +
           ` [${ProjectConfigOptions.defaultLocation.name}]`,
-        description: "Create a new sqlanvil project.",
+        description: "Create a new sqlanvil project (BigQuery, Postgres, or Supabase).",
         positionalOptions: [
           projectDirOption,
           {
@@ -268,10 +278,11 @@ export function runCli() {
               describe: "The default database to use, equivalent to Google Cloud Project ID."
             },
             check: (argv: yargs.Arguments<any>) => {
-              if (!argv[ProjectConfigOptions.defaultDatabase.name]) {
+              const warehouse = argv[warehouseOption.name] || "bigquery";
+              if (warehouse === "bigquery" && !argv[ProjectConfigOptions.defaultDatabase.name]) {
                 throw new Error(
                   `The ${ProjectConfigOptions.defaultDatabase.name} positional argument is ` +
-                    `required. Use "sqlanvil help init" for more info.`
+                    `required for BigQuery projects. Use "sqlanvil help init" for more info.`
                 );
               }
             }
@@ -284,22 +295,25 @@ export function runCli() {
                 "https://cloud.google.com/bigquery/docs/locations for supported values."
             },
             check: (argv: yargs.Arguments<any>) => {
-              if (!argv[ProjectConfigOptions.defaultLocation.name]) {
+              const warehouse = argv[warehouseOption.name] || "bigquery";
+              if (warehouse === "bigquery" && !argv[ProjectConfigOptions.defaultLocation.name]) {
                 throw new Error(
                   `The ${ProjectConfigOptions.defaultLocation.name} positional argument is ` +
-                    `required. Use "sqlanvil help init" for more info.`
+                    `required for BigQuery projects. Use "sqlanvil help init" for more info.`
                 );
               }
             }
           }
         ],
-        options: [icebergOption],
+        options: [warehouseOption, icebergOption],
         processFn: async argv => {
           const projectDir = argv[projectDirOption.name];
-          const projectConfig: sqlanvil.IProjectConfig = {
-            defaultDatabase: argv[ProjectConfigOptions.defaultDatabase.name],
-            defaultLocation: argv[ProjectConfigOptions.defaultLocation.name],
-          };
+          const warehouse = argv[warehouseOption.name] || "bigquery";
+          const projectConfig: sqlanvil.IProjectConfig = { warehouse };
+          if (warehouse === "bigquery") {
+            projectConfig.defaultDatabase = argv[ProjectConfigOptions.defaultDatabase.name];
+            projectConfig.defaultLocation = argv[ProjectConfigOptions.defaultLocation.name];
+          }
 
           if (argv[icebergOption.name]) {
             const icebergConfig = promptForIcebergConfig();
