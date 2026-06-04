@@ -5,6 +5,7 @@ import { dump as dumpYaml } from "js-yaml";
 import * as path from "path";
 
 import { version } from "sa/core/version";
+import { workflowSettingsAsProjectConfig } from "sa/core/workflow_settings";
 import { sqlanvil, google } from "sa/protos/ts";
 import { asPlainObject, suite, test } from "sa/testing";
 import { TmpDirFixture } from "sa/testing/fixtures";
@@ -122,6 +123,32 @@ suite("@sqlanvil/core", ({ afterEach }) => {
       });
       expect(consumer.query).to.contain("defaultProject.raw.ext_table");
       expect(consumer.query).to.not.contain("raw_suffix");
+    });
+
+    suite("warehouse config", () => {
+      ["bigquery", "postgres", "supabase"].forEach(warehouse => {
+        test(`accepts warehouse "${warehouse}"`, () => {
+          const projectConfig = workflowSettingsAsProjectConfig(
+            sqlanvil.WorkflowSettings.create({ warehouse, defaultDataset: "d" })
+          );
+          expect(projectConfig.warehouse).equals(warehouse);
+        });
+      });
+
+      test("defaults to bigquery when warehouse is unset", () => {
+        const projectConfig = workflowSettingsAsProjectConfig(
+          sqlanvil.WorkflowSettings.create({ defaultDataset: "d" })
+        );
+        expect(projectConfig.warehouse).equals("bigquery");
+      });
+
+      test("rejects an unknown warehouse instead of silently defaulting", () => {
+        expect(() =>
+          workflowSettingsAsProjectConfig(
+            sqlanvil.WorkflowSettings.create({ warehouse: "mysql", defaultDataset: "d" })
+          )
+        ).to.throw(/Unsupported warehouse "mysql"/);
+      });
     });
 
     suite("resolve with legacy dependencies", () => {

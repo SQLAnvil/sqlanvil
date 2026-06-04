@@ -155,6 +155,13 @@ export function workflowSettingsAsProjectConfig(
   }
 
   if (workflowSettings.warehouse) {
+    const supportedWarehouses = ["bigquery", "postgres", "supabase"];
+    if (!supportedWarehouses.includes(workflowSettings.warehouse)) {
+      throw new Error(
+        `Unsupported warehouse "${workflowSettings.warehouse}". ` +
+          `Supported warehouses: ${supportedWarehouses.join(", ")}.`
+      );
+    }
     projectConfig.warehouse = workflowSettings.warehouse;
   } else {
     projectConfig.warehouse = "bigquery";
