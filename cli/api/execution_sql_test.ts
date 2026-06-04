@@ -335,5 +335,44 @@ suite("ExecutionSql with Postgres/Supabase", () => {
       .map(t => t.statement);
     expect(statements).to.eql(['refresh materialized view "my_db"."public"."my_table"']);
   });
+
+  test("incremental post-ops: one-time DDL runs on create, not on incremental append", () => {
+    const incTable: sqlanvil.ITable = {
+      type: "incremental",
+      enumType: sqlanvil.TableType.INCREMENTAL,
+      target: { schema: "public", name: "my_table" },
+      query: "select 1 as id",
+      incrementalQuery: "select 1 as id",
+      uniqueKey: ["id"],
+      preOps: ["create-time preop"],
+      postOps: ["alter table add primary key (id)"], // one-time DDL
+      incrementalPreOps: ["append preop"],
+      incrementalPostOps: ["append postop"]
+    };
+    const tableMetadata: sqlanvil.ITableMetadata = {
+      type: sqlanvil.TableMetadata.Type.TABLE,
+      fields: [{ name: "id", primitive: sqlanvil.Field.Primitive.INTEGER }]
+    };
+
+    // Create / full-refresh (no existing table): plain preOps/postOps run, so the
+    // ADD PRIMARY KEY happens exactly once when the table is built.
+    const created = executionSql
+      .publishTasks(incTable, { fullRefresh: false })
+      .build()
+      .map(t => t.statement);
+    expect(created).to.include("create-time preop");
+    expect(created).to.include("alter table add primary key (id)");
+    expect(created).to.not.include("append postop");
+
+    // Incremental append (table already exists): incremental*Ops run, and the
+    // one-time ADD PRIMARY KEY is NOT re-issued (which would error).
+    const appended = executionSql
+      .publishTasks(incTable, { fullRefresh: false }, tableMetadata)
+      .build()
+      .map(t => t.statement);
+    expect(appended).to.include("append preop");
+    expect(appended).to.include("append postop");
+    expect(appended).to.not.include("alter table add primary key (id)");
+  });
 });
 
