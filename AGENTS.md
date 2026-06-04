@@ -96,10 +96,20 @@ postgres: {
 
 ### 5. Materialized views: `type: "view", materialized: true`
 Emits `CREATE MATERIALIZED VIEW`. Default = **drop + recreate every run** (also picks up
-definition changes). **Known limitation:** `ViewConfig` has no `postgres: {}` block, so you cannot
-set `refreshPolicy`/`noData` from a view's `config` today — `postgres: {...}` in a view config
-won't parse. For in-place `REFRESH MATERIALIZED VIEW`, add a `type: "operations"` action running
-`refresh materialized view ${ref("mv_name")}` that depends on the matview.
+definition changes). Set Postgres options directly in the view config via `postgres: {}`:
+```sqlx
+config {
+  type: "view",
+  materialized: true,
+  postgres: {
+    refreshPolicy: "on_dependency_change",   // in-place REFRESH instead of drop+recreate
+    noData: true,                            // WITH NO DATA (empty until first refresh)
+    indexes: [{ name: "idx_mv_id", columns: ["id"], unique: true }]
+  }
+}
+```
+`refreshPolicy: "on_dependency_change"` runs `REFRESH MATERIALIZED VIEW` in place — but in-place
+refresh does **not** pick up definition (SQL) changes; omit it for the safe drop+recreate default.
 
 ### 6. Statement separator is `---`, never `;`
 Three dashes on their own line separate statements in `operations`/`pre_operations`/
@@ -126,11 +136,18 @@ CALL marts.recalc()
 
 Independent; can coexist.
 
-### 9. Primary keys / one-time DDL on incrementals → `post_operations`
-Plain `pre_operations`/`post_operations` run only on **create + `--full-refresh`**;
-`incrementalPre/PostOps` run on appends. So `ALTER TABLE ${self()} ADD PRIMARY KEY (...)` goes in
-`post_operations` and won't re-run/error on every append. Matview post-ops re-run every build —
-keep them idempotent (matviews can't have PKs anyway).
+### 9. Primary keys / one-time DDL on incrementals → wrap in `when(!incremental())`
+An **unwrapped** `pre_operations`/`post_operations` block runs on **every** run of an incremental —
+the create *and* every append (it compiles into both the create-path and incremental-path ops). A
+bare `ALTER TABLE ... ADD PRIMARY KEY` errors on the second run (`multiple primary keys`). Wrap
+one-time DDL so it runs only on create + `--full-refresh`:
+```sqlx
+post_operations {
+  ${when(!incremental(), `ALTER TABLE ${self()} ADD PRIMARY KEY (order_date)`)}
+}
+```
+(The PK also gives the incremental upsert its `ON CONFLICT` target.) Matview post-ops re-run every
+build — keep them idempotent (matviews can't have PKs anyway).
 
 ### 10. Metadata + assertions (same as Dataform, works on PG)
 - `description:` (table) + `columns: { col: "..." }` (per-column) → `COMMENT ON
@@ -173,13 +190,14 @@ via the `rlsPolicy` action.
 | `;` between statements | `---` |
 | `CREATE PROCEDURE` + run separately | `type: "operations"` |
 | creds `{postgres:{username,databaseName,ssl}}` | flat `{host,port,database,user,password,sslMode,defaultSchema}` |
-| matview `refreshPolicy` in view config | not supported — use `operations` REFRESH |
+| in-place matview refresh | `postgres: { refreshPolicy: "on_dependency_change" }` in the view config (else drop+recreate) |
 | `dataform run` / `npm run` | `./scripts/run run ... --credentials` |
 
 ## Red flags — you're reverting to BigQuery priors
 
 `dataform.json` · `defaultProject` · `bigquery: {` · `partitionBy` · `clusterBy` · `OPTIONS(` ·
 `method: "` (string) · `CREATE INDEX`/`SET (fillfactor` in `post_operations` · `;` between
-statements · `postgres: {` inside a `type: "view"` · a bare `dataform`/`npm run` command.
+statements · `ADD PRIMARY KEY`/`ADD CONSTRAINT` in an incremental `post_operations` without
+`when(!incremental())` · a bare `dataform`/`npm run` command.
 
 When unsure of a `postgres:` field name or enum value, read `protos/configs.proto`.
