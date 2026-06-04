@@ -199,6 +199,9 @@ export class View extends ActionBuilder<sqlanvil.Table> {
     if (config.materialized) {
       this.materialized(config.materialized);
     }
+    if (config.postgres) {
+      this.postgres(config.postgres);
+    }
     if (config.preOperations) {
       this.preOps(config.preOperations);
     }
@@ -334,6 +337,15 @@ export class View extends ActionBuilder<sqlanvil.Table> {
    */
   public materialized(materialized: boolean) {
     this.proto.materialized = materialized;
+  }
+
+  /**
+   * @hidden Sets Postgres-native options for the action (materialized-view
+   * refresh policy / WITH NO DATA, indexes, storage). Mirrors
+   * [ViewConfig.postgres](configs#sqlanvil-ActionConfig-ViewConfig).
+   */
+  public postgres(postgres: sqlanvil.IPostgresOptions) {
+    this.proto.postgres = sqlanvil.PostgresOptions.create(postgres);
   }
 
   /**

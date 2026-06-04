@@ -375,6 +375,12 @@ message ActionConfig {
     // If unset, the value from workflow_settings.yaml is used. If neither is set, default BigQuery behavior applies.
     // sqlanvil CLI only (GCP sqlanvil support pending).
     string reservation = 21;
+
+    // Postgres-native options. For a materialized view (materialized: true),
+    // `no_data` (CREATE ... WITH NO DATA) and `refresh_policy`
+    // ("on_dependency_change" → in-place REFRESH instead of drop+recreate)
+    // apply; indexes also apply to materialized views.
+    PostgresOptions postgres = 22;
   }
 
   enum OnSchemaChange {

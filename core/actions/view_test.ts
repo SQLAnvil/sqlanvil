@@ -382,5 +382,33 @@ ${exampleBuiltInAssertionsAsYaml.inputActionConfigBlock}
       expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).greaterThan(0);
       expect(result.compile.compiledGraph.graphErrors.compilationErrors.some(e => e.message.includes("Cannot mix AoT and JiT compilation"))).equals(true);
     });
+
+    test("materialized view postgres options (refreshPolicy, noData) compile through view config", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), VALID_WORKFLOW_SETTINGS_YAML);
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/mv.sqlx"),
+        `
+config {
+  type: "view",
+  materialized: true,
+  postgres: {
+    refreshPolicy: "on_dependency_change",
+    noData: true
+  }
+}
+SELECT 1 AS id`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      expect(result.compile.compiledGraph.tables[0].materialized).equals(true);
+      expect(asPlainObject(result.compile.compiledGraph.tables[0].postgres)).deep.equals({
+        refreshPolicy: "on_dependency_change",
+        noData: true
+      });
+    });
   });
 });
