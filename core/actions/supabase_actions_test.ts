@@ -109,4 +109,40 @@ warehouse: postgres`
       'create index "user_embeddings_idx" on "defaultProject"."defaultDataset"."users" using hnsw ("embedding" vector_cosine_ops) with (m = 16)'
     ]);
   });
+
+  test("wrapper with bigquery provider emits correct FDW + server DDL", () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(projectDir, "workflow_settings.yaml"),
+      `defaultProject: defaultProject
+defaultDataset: defaultDataset
+warehouse: supabase`
+    );
+    fs.mkdirSync(path.join(projectDir, "definitions"));
+    fs.writeFileSync(
+      path.join(projectDir, "definitions/bq.js"),
+      `
+      wrapper({
+        name: "bq_setup",
+        provider: "bigquery",
+        server: "bq_server",
+        serverOptions: { project_id: "bigquery-public-data", dataset_id: "geo_us_boundaries" },
+        credential: { saKeyId: "00000000-0000-0000-0000-000000000000" }
+      });
+      `
+    );
+
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+    const operations = asPlainObject(result.compile.compiledGraph.operations);
+    const setup = operations.find((op) => op.target.name === "bq_setup");
+    expect(setup).to.exist;
+    expect(setup.queries).deep.equals([
+      'create extension if not exists "wrappers" cascade',
+      `do $$ begin if not exists (select 1 from pg_foreign_data_wrapper where fdwname = 'bigquery_wrapper') then create foreign data wrapper bigquery_wrapper handler big_query_fdw_handler validator big_query_fdw_validator; end if; end $$`,
+      'drop server if exists "bq_server" cascade',
+      `create server "bq_server" foreign data wrapper "bigquery_wrapper" options (project_id 'bigquery-public-data', dataset_id 'geo_us_boundaries', sa_key_id '00000000-0000-0000-0000-000000000000')`
+    ]);
+  });
 });
