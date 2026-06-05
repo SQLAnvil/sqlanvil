@@ -1,0 +1,9 @@
+config {
+  type: "table",
+  schema: "public",
+  description: "Final mailing list, ordered by proximity to the target ZIP."
+}
+
+SELECT customer_id, email, zip, distance_miles
+FROM ${ref("mailing_list_candidates")}
+ORDER BY distance_miles ASC

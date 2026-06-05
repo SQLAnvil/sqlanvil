@@ -1,0 +1,6 @@
+config {
+  type: "assertion",
+  schema: "sqlanvil_assertions"
+}
+
+SELECT * FROM ${ref("mailing_list")} WHERE distance_miles < 0

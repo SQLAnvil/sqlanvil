@@ -1,0 +1,34 @@
+config {
+  type: "view",
+  schema: "public",
+  description: "Customers who purchased recently AND live within radius of the target ZIP."
+}
+
+WITH target AS (
+  SELECT lat, lon
+  FROM ${ref("zip_codes_cache")}
+  WHERE zip_code = '${dataform.projectConfig.vars.target_zip}'
+),
+recent_customers AS (
+  SELECT DISTINCT c.customer_id, c.email, c.zip
+  FROM ${ref("customers")} AS c
+  JOIN ${ref("sales_orders")} AS o ON o.customer_id = c.customer_id
+  WHERE o.order_date >= CURRENT_DATE - INTERVAL '${dataform.projectConfig.vars.purchased_since_days} days'
+)
+SELECT
+  rc.customer_id,
+  rc.email,
+  rc.zip,
+  ROUND(
+    (ST_Distance(
+      ST_MakePoint(t.lon, t.lat)::geography,
+      ST_MakePoint(z.lon, z.lat)::geography
+    ) / 1609.34)::numeric, 1
+  ) AS distance_miles
+FROM recent_customers AS rc
+JOIN ${ref("zip_codes_cache")} AS z ON z.zip_code = rc.zip
+CROSS JOIN target AS t
+WHERE ST_Distance(
+        ST_MakePoint(t.lon, t.lat)::geography,
+        ST_MakePoint(z.lon, z.lat)::geography
+      ) <= ${dataform.projectConfig.vars.radius_miles}::float8 * 1609.34
