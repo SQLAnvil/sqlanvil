@@ -106,6 +106,24 @@ pkg_bundle_dts(
     ],
 )
 
+copy_file(
+    name = "readme",
+    src = "//:README.md",
+    out = "README.md",
+)
+
+copy_file(
+    name = "license",
+    src = "//:LICENSE",
+    out = "LICENSE",
+)
+
+copy_file(
+    name = "notice",
+    src = "//:NOTICE",
+    out = "NOTICE",
+)
+
 pkg_npm_tar(
     name = "package",
     deps = [
@@ -116,7 +134,10 @@ pkg_npm_tar(
         ":db_adapter_proto_with_license",
         ":jit_proto_with_license",
         ":extension_proto_with_license",
+        ":license",
+        ":notice",
         ":package.json",
+        ":readme",
         "//:version.bzl",
     ],
 )

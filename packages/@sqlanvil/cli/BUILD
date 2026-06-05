@@ -1,6 +1,7 @@
 load("//tools:ts_library.bzl", "ts_library")
 load("//:version.bzl", "SQLANVIL_VERSION")
 load("//packages:index.bzl", "LICENSE_HEADER", "add_license_header_to_file", "pkg_bundle", "pkg_json", "pkg_npm_tar")
+load("//tools/common:copy.bzl", "copy_file")
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 
 package(default_visibility = ["//visibility:public"])
@@ -89,11 +90,32 @@ pkg_bundle(
     ],
 )
 
+copy_file(
+    name = "readme",
+    src = "//:README.md",
+    out = "README.md",
+)
+
+copy_file(
+    name = "license",
+    src = "//:LICENSE",
+    out = "LICENSE",
+)
+
+copy_file(
+    name = "notice",
+    src = "//:NOTICE",
+    out = "NOTICE",
+)
+
 pkg_npm_tar(
     name = "package",
     deps = [
         ":bundle",
+        ":license",
+        ":notice",
         ":package.json",
+        ":readme",
         ":worker_bundle",
     ],
 )

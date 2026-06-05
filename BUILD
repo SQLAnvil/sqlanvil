@@ -6,6 +6,8 @@ exports_files([
     "tsconfig.json",
     "package.json",
     "README.md",
+    "LICENSE",
+    "NOTICE",
     "version.bzl",
 ])
 
