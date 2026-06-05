@@ -43,6 +43,28 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     }
   });
 
+  test("create() fails fast with a clear error on bad credentials", { timeout: 30000 }, async () => {
+    let err: Error | undefined;
+    try {
+      await PostgresDbAdapter.create(
+        {
+          host: PostgresFixture.host,
+          port: PostgresFixture.port,
+          database: PostgresFixture.database,
+          user: PostgresFixture.user,
+          password: "definitely-the-wrong-password"
+        },
+        { disableSslForTestsOnly: true }
+      );
+    } catch (e) {
+      err = e;
+    }
+    expect(err, "create() should reject when credentials are bad").to.be.an("error");
+    expect(err.message.toLowerCase()).to.match(
+      /password authentication failed|could not connect|authentication/
+    );
+  });
+
   test("run", { timeout: 60000 }, async () => {
     const compiledGraph = await compile("tests/integration/postgres_project", "project_e2e");
 

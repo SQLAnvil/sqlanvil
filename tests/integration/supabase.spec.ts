@@ -46,6 +46,28 @@ suite("@sqlanvil/integration/supabase", { parallel: true }, ({ before, after }) 
     }
   });
 
+  test("create() fails fast with a clear error on bad credentials", { timeout: 30000 }, async () => {
+    let err: Error | undefined;
+    try {
+      await SupabaseDbAdapter.create(
+        {
+          host: SupabaseFixture.host,
+          port: SupabaseFixture.port,
+          database: SupabaseFixture.database,
+          user: SupabaseFixture.user,
+          password: "definitely-the-wrong-password"
+        },
+        { disableSslForTestsOnly: true }
+      );
+    } catch (e) {
+      err = e;
+    }
+    expect(err, "create() should reject when credentials are bad").to.be.an("error");
+    expect(err.message.toLowerCase()).to.match(
+      /password authentication failed|could not connect|authentication/
+    );
+  });
+
   test("run supabase native actions", { timeout: 60000 }, async () => {
     // 1. Compile the Supabase integration project
     const compiledGraph = await compile("tests/integration/supabase_project", "");

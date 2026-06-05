@@ -39,6 +39,19 @@ export class PostgresDbAdapter implements IDbAdapter {
         : false
     };
     const queryExecutor = new PgPoolExecutor(clientConfig, options);
+    // Fail fast on a single connection before any command fans out, so a bad
+    // credential/host yields one clean error instead of N parallel auth failures
+    // (which trip Supabase's pooler circuit breaker).
+    try {
+      await queryExecutor.verifyConnection();
+    } catch (e) {
+      await queryExecutor.close().catch(() => undefined);
+      throw new ErrorWithCause(
+        `Could not connect to Postgres at ${credentials.host}:${credentials.port} ` +
+          `as "${credentials.user}": ${e.message}`,
+        e
+      );
+    }
     return new PostgresDbAdapter(queryExecutor);
   }
 

@@ -34,6 +34,23 @@ export class PgPoolExecutor {
     });
   }
 
+  /**
+   * Acquire a single connection and run a trivial query, to verify the
+   * credentials/host before any real work fans out. Connecting is where auth
+   * happens, so a bad password/host fails here with a single connection attempt
+   * — important because the executor otherwise opens many connections in
+   * parallel (Promise.all), and N simultaneous auth failures trip Supabase's
+   * pooler circuit breaker.
+   */
+  public async verifyConnection(): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("select 1");
+    } finally {
+      client.release();
+    }
+  }
+
   public async withClientLock<T>(
     callback: (client: {
       execute(
