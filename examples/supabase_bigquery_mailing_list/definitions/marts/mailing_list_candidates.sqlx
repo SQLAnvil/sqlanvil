@@ -7,13 +7,13 @@ config {
 WITH target AS (
   SELECT lat, lon
   FROM ${ref("zip_codes_cache")}
-  WHERE zip_code = '${dataform.projectConfig.vars.target_zip}'
+  WHERE zip_code = '${sqlanvil.projectConfig.vars.target_zip}'
 ),
 recent_customers AS (
   SELECT DISTINCT c.customer_id, c.email, c.zip
   FROM ${ref("customers")} AS c
   JOIN ${ref("sales_orders")} AS o ON o.customer_id = c.customer_id
-  WHERE o.order_date >= CURRENT_DATE - INTERVAL '${dataform.projectConfig.vars.purchased_since_days} days'
+  WHERE o.order_date >= CURRENT_DATE - INTERVAL '${sqlanvil.projectConfig.vars.purchased_since_days} days'
 )
 SELECT
   rc.customer_id,
@@ -31,4 +31,4 @@ CROSS JOIN target AS t
 WHERE ST_Distance(
         ST_MakePoint(t.lon, t.lat)::geography,
         ST_MakePoint(z.lon, z.lat)::geography
-      ) <= ${dataform.projectConfig.vars.radius_miles}::float8 * 1609.34
+      ) <= ${sqlanvil.projectConfig.vars.radius_miles}::float8 * 1609.34

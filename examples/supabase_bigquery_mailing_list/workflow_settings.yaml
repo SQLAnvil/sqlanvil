@@ -1,7 +1,9 @@
 warehouse: supabase
 defaultDataset: public
 defaultAssertionDataset: sqlanvil_assertions
-sqlanvilCoreVersion: 1.0.2
+# Real projects pin the sqlanvil core version with:
+#   sqlanvilCoreVersion: 1.0.3   # the release that ships the foreign_wrapper provider
+# (omitted here so this in-repo example compiles against the local @sqlanvil/core)
 vars:
   target_zip: "94110"
   radius_miles: "25"

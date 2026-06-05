@@ -11,7 +11,7 @@ wrapper({
   },
   // saKeyId points at a Vault secret you create once (see README). It is a
   // non-secret pointer; the service-account JSON never lives in this repo.
-  credential: { saKeyId: dataform.projectConfig.vars.bq_sa_key_id },
+  credential: { saKeyId: sqlanvil.projectConfig.vars.bq_sa_key_id },
   foreignTables: [
     {
       name: "zip_codes",
