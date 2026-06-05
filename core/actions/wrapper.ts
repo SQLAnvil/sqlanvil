@@ -14,6 +14,7 @@ export interface IWrapperCredential {
   // Supabase: id of a pre-existing Vault secret holding the SA key JSON (a
   // non-secret pointer). The key JSON itself is never handled by SQLAnvil.
   saKeyId?: string;
+  // Reserved for plain-Postgres CREATE USER MAPPING; not yet emitted.
   user?: string;
   password?: string;
 }
@@ -26,8 +27,11 @@ export interface IWrapperConfig {
   validator?: string;
   server: string;
   serverOptions?: { [key: string]: string };
+  /** @deprecated Use `serverOptions` instead. Retained for back-compat. */
   options?: { [key: string]: string };
   credential?: IWrapperCredential;
+  // Foreign tables to expose via this server. Expanded into ref-able ForeignTable
+  // actions by session.wrapper(); not emitted by this action's compile().
   foreignTables?: IForeignTableConfigEntry[];
   filename?: string;
 }
@@ -117,7 +121,9 @@ export class Wrapper extends ActionBuilder<sqlanvil.Operation> {
     if (this.config.credential && this.config.credential.saKeyId) {
       serverOptionsMap.sa_key_id = this.config.credential.saKeyId;
     }
-    const optionsArray = Object.entries(serverOptionsMap).map(([k, v]) => `${k} '${v}'`);
+    const optionsArray = Object.entries(serverOptionsMap).map(
+      ([k, v]) => `${k} '${String(v).replace(/'/g, "''")}'`
+    );
     const optionsStr = optionsArray.length > 0 ? ` options (${optionsArray.join(", ")})` : "";
 
     const queries = [`create extension if not exists "${resolved.extension}" cascade`];

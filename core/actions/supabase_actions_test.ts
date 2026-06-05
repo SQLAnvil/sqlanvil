@@ -110,6 +110,36 @@ warehouse: postgres`
     ]);
   });
 
+  test("wrapper still accepts the legacy options field for server options", () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(projectDir, "workflow_settings.yaml"),
+      `defaultProject: defaultProject
+defaultDataset: defaultDataset
+warehouse: supabase`
+    );
+    fs.mkdirSync(path.join(projectDir, "definitions"));
+    fs.writeFileSync(
+      path.join(projectDir, "definitions/bq.js"),
+      `
+      wrapper({
+        name: "bq_legacy",
+        provider: "bigquery",
+        server: "bq_legacy_server",
+        options: { project_id: "my-gcp-project" }
+      });
+      `
+    );
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+    const operations = asPlainObject(result.compile.compiledGraph.operations);
+    const setup = operations.find((op) => op.target.name === "bq_legacy");
+    expect(setup).to.exist;
+    expect(setup.queries[3]).equals(
+      `create server "bq_legacy_server" foreign data wrapper "bigquery_wrapper" options (project_id 'my-gcp-project')`
+    );
+  });
+
   test("wrapper with bigquery provider emits correct FDW + server DDL", () => {
     const projectDir = tmpDirFixture.createNewTmpDir();
     fs.writeFileSync(
