@@ -134,9 +134,12 @@ warehouse: supabase`
     const operations = asPlainObject(result.compile.compiledGraph.operations);
     const setup = operations.find((op) => op.target.name === "bq_legacy");
     expect(setup).to.exist;
-    expect(setup.queries[3]).equals(
+    expect(setup.queries).deep.equals([
+      'create extension if not exists "wrappers" cascade',
+      `do $$ begin if not exists (select 1 from pg_foreign_data_wrapper where fdwname = 'bigquery_wrapper') then create foreign data wrapper bigquery_wrapper handler big_query_fdw_handler validator big_query_fdw_validator; end if; end $$`,
+      'drop server if exists "bq_legacy_server" cascade',
       `create server "bq_legacy_server" foreign data wrapper "bigquery_wrapper" options (project_id 'my-gcp-project')`
-    );
+    ]);
   });
 
   test("wrapper with bigquery provider emits correct FDW + server DDL", () => {

@@ -30,6 +30,10 @@ single `wrapper()` call: it enables the `wrappers` extension, registers the BigQ
 FDW + server, and exposes `zip_codes` as a `ref()`-able foreign table. Everything
 downstream is plain Supabase/Postgres SQL.
 
+BigQuery-sourced objects (`zip_codes`, `stg_zip_codes`) live in a dedicated `bq_ext`
+schema to keep the external/foreign surface separate from your operational `public`
+tables; the materialized cache and marts land in `public`.
+
 ## Prerequisites
 
 - A **Supabase project** with the `wrappers` and `postgis` extensions enabled

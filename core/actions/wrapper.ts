@@ -14,7 +14,8 @@ export interface IWrapperCredential {
   // Supabase: id of a pre-existing Vault secret holding the SA key JSON (a
   // non-secret pointer). The key JSON itself is never handled by SQLAnvil.
   saKeyId?: string;
-  // Reserved for plain-Postgres CREATE USER MAPPING; not yet emitted.
+  // Reserved for plain-Postgres CREATE USER MAPPING. NOT YET IMPLEMENTED —
+  // these are currently ignored; only the Supabase Vault `saKeyId` path emits credentials.
   user?: string;
   password?: string;
 }
