@@ -1,0 +1,9 @@
+warehouse: supabase
+defaultDataset: public
+defaultAssertionDataset: sqlanvil_assertions
+sqlanvilCoreVersion: 1.0.2
+vars:
+  target_zip: "94110"
+  radius_miles: "25"
+  purchased_since_days: "365"
+  bq_sa_key_id: "REPLACE_WITH_VAULT_SECRET_ID"
