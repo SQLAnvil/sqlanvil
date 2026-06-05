@@ -32,6 +32,7 @@ ts_library(
         "actions/rls_policy.ts",
         "actions/realtime_publication.ts",
         "actions/wrapper.ts",
+        "actions/foreign_table.ts",
         "actions/vector_index.ts",
         "actions/base.ts",
         "column_descriptors.ts",

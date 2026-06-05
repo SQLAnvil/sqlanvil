@@ -1,7 +1,7 @@
 import { default as TarjanGraphConstructor, Graph as TarjanGraph } from "tarjan-graph";
 
 import { encode64, unknownToValue, verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
-import { Action, ActionProto, ILegacyTableConfig, TableType, RlsPolicy, IRlsPolicyConfig, RealtimePublication, IRealtimePublicationConfig, Wrapper, IWrapperConfig, VectorIndex, IVectorIndexConfig } from "sa/core/actions";
+import { Action, ActionProto, ILegacyTableConfig, TableType, RlsPolicy, IRlsPolicyConfig, RealtimePublication, IRealtimePublicationConfig, Wrapper, IWrapperConfig, ForeignTable, IForeignTableConfig, VectorIndex, IVectorIndexConfig } from "sa/core/actions";
 import { AContextable, Assertion, AssertionContext } from "sa/core/actions/assertion";
 import {
   DataPreparation,
@@ -298,6 +298,18 @@ export class Session {
     const filename = utils.getCallerFile(this.rootDir);
     const wrapper = new Wrapper(this, { filename, ...config });
     this.actions.push(wrapper);
+    (config.foreignTables || []).forEach(ft => {
+      const foreignTable = new ForeignTable(this, {
+        filename,
+        name: ft.name,
+        schema: ft.schema,
+        server: config.server,
+        options: ft.options,
+        columns: ft.columns,
+        dependsOn: config.name
+      });
+      this.actions.push(foreignTable);
+    });
     return wrapper;
   }
 
@@ -497,6 +509,7 @@ export class Session {
             action instanceof RlsPolicy ||
             action instanceof RealtimePublication ||
             action instanceof Wrapper ||
+            action instanceof ForeignTable ||
             action instanceof VectorIndex
         )
       ),

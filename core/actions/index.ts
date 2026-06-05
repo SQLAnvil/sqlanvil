@@ -10,6 +10,7 @@ import { View } from "sa/core/actions/view";
 import { RlsPolicy } from "sa/core/actions/rls_policy";
 import { RealtimePublication } from "sa/core/actions/realtime_publication";
 import { Wrapper } from "sa/core/actions/wrapper";
+import { ForeignTable } from "sa/core/actions/foreign_table";
 import { VectorIndex } from "sa/core/actions/vector_index";
 import { IColumnsDescriptor } from "sa/core/column_descriptors";
 import { Resolvable } from "sa/core/contextables";
@@ -19,6 +20,7 @@ import { sqlanvil } from "sa/protos/ts";
 export { RlsPolicy, IRlsPolicyConfig } from "sa/core/actions/rls_policy";
 export { RealtimePublication, IRealtimePublicationConfig } from "sa/core/actions/realtime_publication";
 export { Wrapper, IWrapperConfig } from "sa/core/actions/wrapper";
+export { ForeignTable, IForeignTableConfig } from "sa/core/actions/foreign_table";
 export { VectorIndex, IVectorIndexConfig } from "sa/core/actions/vector_index";
 
 export type Action =
@@ -34,6 +36,7 @@ export type Action =
   | RlsPolicy
   | RealtimePublication
   | Wrapper
+  | ForeignTable
   | VectorIndex;
 
 export type ActionProto =
