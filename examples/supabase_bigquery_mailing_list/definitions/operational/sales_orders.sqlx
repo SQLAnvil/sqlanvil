@@ -1,0 +1,14 @@
+config {
+  type: "table",
+  schema: "public",
+  description: "Sample sales orders; order_date drives the recency filter."
+}
+
+SELECT * FROM (
+  VALUES
+    (101, 1, DATE '2026-03-01'),
+    (102, 2, DATE '2026-05-15'),
+    (103, 3, DATE '2025-12-20'),
+    (104, 4, DATE '2026-04-10'),
+    (105, 5, DATE '2024-01-05')
+) AS t(order_id, customer_id, order_date)

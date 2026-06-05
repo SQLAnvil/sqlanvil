@@ -1,0 +1,14 @@
+config {
+  type: "table",
+  schema: "public",
+  description: "Sample customers with mailing ZIP codes."
+}
+
+SELECT * FROM (
+  VALUES
+    (1, 'amy@example.com',   '94110'),
+    (2, 'ben@example.com',   '94103'),
+    (3, 'cara@example.com',  '95014'),
+    (4, 'dan@example.com',   '10001'),
+    (5, 'erin@example.com',  '94609')
+) AS t(customer_id, email, zip)
