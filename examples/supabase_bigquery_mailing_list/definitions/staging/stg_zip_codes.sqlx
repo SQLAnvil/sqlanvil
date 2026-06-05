@@ -1,0 +1,13 @@
+config {
+  type: "view",
+  schema: "bq_ext",
+  description: "Shaped view over the live BigQuery zip_codes foreign table."
+}
+
+SELECT
+  zip_code,
+  internal_point_lat AS lat,
+  internal_point_lon AS lon
+FROM ${ref("zip_codes")}
+WHERE internal_point_lat IS NOT NULL
+  AND internal_point_lon IS NOT NULL

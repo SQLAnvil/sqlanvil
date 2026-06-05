@@ -1,0 +1,8 @@
+config {
+  type: "table",
+  schema: "public",
+  description: "Materializes BigQuery zip centroids into Supabase so downstream joins don't re-hit BigQuery."
+}
+
+SELECT zip_code, lat, lon
+FROM ${ref("stg_zip_codes")}
