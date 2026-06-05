@@ -59,7 +59,7 @@ The rename from Dataform → SQLAnvil is complete in the implementation (proto p
 
 Remaining references are intentional:
 - Historical context and upstream links
-- Legal attribution in NOTICE/readme.md
+- Legal attribution in NOTICE/README.md
 - BigQuery documentation links in `configs.proto`
 
 This satisfies the trademark requirement. No further code changes needed for rename.

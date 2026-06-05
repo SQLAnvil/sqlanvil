@@ -94,6 +94,6 @@ ts_test_suite(
 
 copy_file(
     name = "readme",
-    src = "//:readme.md",
-    out = "readme.md",
+    src = "//:README.md",
+    out = "README.md",
 )
