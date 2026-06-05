@@ -14,7 +14,7 @@ Guidance for Claude Code when working in the `sqlanvil/` project.
 
 - **Upstream**: `git@github.com:dataform-co/dataform.git` (Google's Dataform OSS — low activity; focus shifted to hosted BigQuery product)
 - **Origin**: `git@github.com:sqlanvil/sqlanvil.git`
-- **Marketing site**: sibling repo `../sqlanvil-com/` — static HTML on Vercel (project: `sqlanvil-com`, team `Zlu36JPJdwPqwMeAWAqISllx`)
+- **Marketing site**: sibling repo `../sqlanvil-com/` — static HTML on Vercel. (Vercel project/team IDs are in the gitignored `CLAUDE.local.md`.)
 
 ## Stack
 

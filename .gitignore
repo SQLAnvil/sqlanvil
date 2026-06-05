@@ -26,6 +26,11 @@ tmp/
 keys/
 test_credentials/bigquery.json
 
+# Local-only agent context (internal infra IDs, private notes) — never committed
+CLAUDE.local.md
+GEMINI.local.md
+AGENTS.local.md
+
 # Locally-built npm package tarballs (see docs npm_publishing.md)
 *.tgz
 
