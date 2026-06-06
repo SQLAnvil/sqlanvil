@@ -75,7 +75,7 @@ Set `vars.bq_sa_key_id` in `workflow_settings.yaml` to the Vault secret id from 
 ## Run
 
 ```bash
-sqlanvil run examples/supabase_bigquery_mailing_list --credentials examples/supabase_bigquery_mailing_list/.df-credentials.json
+sqlanvil run examples/supabase_bigquery_mailing_list
 ```
 
 This creates the FDW bridge, materializes the zip centroids, seeds the sample
