@@ -942,6 +942,49 @@ select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`
     });
   });
 
+    test("connections are parsed into projectConfig and warehouse can name one", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `defaultDataset: analytics
+warehouse: my_supabase
+connections:
+  my_supabase:
+    platform: supabase
+    defaultSchema: public
+  bigquery_public:
+    platform: bigquery
+    project: bigquery-public-data
+    dataset: geo_us_boundaries
+    saKeyId: vault-123`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      const pc = asPlainObject(result.compile.compiledGraph.projectConfig);
+      expect(pc.warehouse).equals("supabase");
+      expect(pc.warehouseConnection).equals("my_supabase");
+      expect(pc.connections.bigquery_public.platform).equals("bigquery");
+      expect(pc.connections.bigquery_public.saKeyId).equals("vault-123");
+      expect(pc.connections.my_supabase.platform).equals("supabase");
+    });
+
+    test("legacy flat warehouse string still works with no connections", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `defaultDataset: analytics\nwarehouse: postgres`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      const pc = asPlainObject(result.compile.compiledGraph.projectConfig);
+      expect(pc.warehouse).equals("postgres");
+    });
+
+  
   suite("action configs", () => {
     test(`fails when file is not found`, () => {
       const projectDir = tmpDirFixture.createNewTmpDir();

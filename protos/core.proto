@@ -40,6 +40,8 @@ message ProjectConfig {
 
   map<string, ConnectionConfig> connections = 23;
 
+  string warehouse_connection = 24;
+
   reserved 3, 4, 6, 8, 10, 12, 13;
 }
 

@@ -154,15 +154,25 @@ export function workflowSettingsAsProjectConfig(
     projectConfig.includeTestsInCompiledGraph = workflowSettings.includeTestsInCompiledGraph;
   }
 
+  if (workflowSettings.connections) {
+    projectConfig.connections = workflowSettings.connections;
+  }
+
+  const supportedWarehouses = ["bigquery", "postgres", "supabase"];
   if (workflowSettings.warehouse) {
-    const supportedWarehouses = ["bigquery", "postgres", "supabase"];
-    if (!supportedWarehouses.includes(workflowSettings.warehouse)) {
+    const named = workflowSettings.connections?.[workflowSettings.warehouse];
+    // `warehouse:` may name a connection; otherwise it's a legacy platform string.
+    const platform = named ? named.platform : workflowSettings.warehouse;
+    if (!supportedWarehouses.includes(platform)) {
       throw new Error(
         `Unsupported warehouse "${workflowSettings.warehouse}". ` +
           `Supported warehouses: ${supportedWarehouses.join(", ")}.`
       );
     }
-    projectConfig.warehouse = workflowSettings.warehouse;
+    projectConfig.warehouse = platform;
+    if (named) {
+      projectConfig.warehouseConnection = workflowSettings.warehouse;
+    }
   } else {
     projectConfig.warehouse = "bigquery";
   }
