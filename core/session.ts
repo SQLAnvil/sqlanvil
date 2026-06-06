@@ -517,6 +517,8 @@ export class Session {
         dependsOn: serverName
       })
     );
+    // The ForeignTable (above) is the ref-able stand-in for this source; the
+    // `declaration` constructed earlier is intentionally NOT pushed in the bridge path.
     return declaration;
   }
 
