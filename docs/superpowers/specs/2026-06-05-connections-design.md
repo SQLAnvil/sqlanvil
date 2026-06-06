@@ -25,8 +25,10 @@ developers rarely hand-write column definitions.
 - **Secrets stay out of committed config.** Connection *definitions* (non-secret)
   live in `workflow_settings.yaml`; *credentials* live in the gitignored
   `.df-credentials.json`. Consistent with the flat-config decision.
-- **`compile` stays offline/deterministic.** Only `introspect` (and `run`) touch the
-  network.
+- **`compile` stays offline/deterministic and never reads `.df-credentials.json`.**
+  Only `introspect` and `run` touch credentials/network. Therefore **generated DDL
+  may use only non-secret values** — anything secret is provisioned by a one-time
+  setup step, never baked into the compiled graph.
 - **Additive / back-compatible.** The existing flat `warehouse: <platform>` +
   single-object `.df-credentials.json` keeps working unchanged as an implicit
   single connection. `connections:` is opt-in.
@@ -67,10 +69,10 @@ sources). The rest ship as documentation with clear "planned" markers.
 
 ## Per-pair requirements
 
-| Pair | Mechanism | Prerequisites | SQLAnvil generates |
-|---|---|---|---|
-| PG/Supabase → BigQuery | FDW | `wrappers` ext (Supabase preinstalled; self-managed PG must install), GCP service-account key in Vault (`saKeyId`), billing-enabled GCP project | `create extension wrappers` + FDW + server + foreign table |
-| PG/Supabase → Postgres | FDW | `postgres_fdw` (core PG ext), source host/port/db/user/password, network reachability | `create extension postgres_fdw` + server + user mapping + foreign table |
+| Pair | Mechanism | Prerequisites | SQLAnvil generates (compile) | One-time setup (user/run) |
+|---|---|---|---|---|
+| PG/Supabase → BigQuery | FDW | `wrappers` ext (Supabase preinstalled; self-managed PG must install), billing-enabled GCP project | `create extension wrappers` + FDW + server (`sa_key_id` from the non-secret connection def) + foreign table | `vault.create_secret(<SA key JSON>)` once → its id is the connection's `saKeyId` |
+| PG/Supabase → Postgres | FDW | `postgres_fdw` (core PG ext), network reachability | `create extension postgres_fdw` + server (host/port/db from the def) + foreign table | `CREATE USER MAPPING … OPTIONS(user, password)` once (the only secret-bearing DDL — never generated/committed) |
 | BigQuery → Cloud SQL/AlloyDB *(future)* | `EXTERNAL_QUERY` | a BigQuery Connection resource, IAM grants | `EXTERNAL_QUERY('conn','…')` in ref resolution |
 | BigQuery → Supabase/non-GCP PG *(future)* | extract-load | source driver, staging schema | staged copy + read |
 
@@ -92,22 +94,33 @@ connections:
     platform: bigquery
     project: bigquery-public-data
     dataset: geo_us_boundaries
+    saKeyId: <vault-secret-id>     # non-secret Vault pointer; used in generated server DDL
 ```
 
 - `connections` is a map of name → `{ platform, ... platform-specific non-secret defaults }`.
+  This includes the BigQuery `saKeyId` (a non-secret Vault pointer) and Postgres
+  `host`/`port`/`database` — everything the generated server DDL needs at compile.
 - `warehouse:` may now be either (a) a legacy platform string (`supabase`/`postgres`/`bigquery`) — unchanged behavior, OR (b) the **name of a connection** in `connections`. Resolution: if the value matches a connection name, use that connection; else treat it as a legacy platform string.
 
 ### `.df-credentials.json` (gitignored)
 
-Back-compat: a single connection object (today's shape) still works. With named
-connections, it becomes a map keyed by connection name:
+Holds **secrets only**, used by `run` (the warehouse) and `introspect` (sources) —
+never by `compile`. Back-compat: a single connection object (today's shape) still
+works. With named connections, it becomes a map keyed by connection name:
 
 ```json
 {
-  "my_supabase":    { "host": "...", "port": 5432, "database": "postgres", "user": "postgres.<ref>", "password": "...", "sslMode": "require" },
-  "bigquery_public": { "saKeyId": "<vault-secret-id>" }
+  "my_supabase":     { "host": "...", "port": 5432, "database": "postgres", "user": "postgres.<ref>", "password": "...", "sslMode": "require" },
+  "bigquery_public": { "credentials": "<service-account-key-JSON-or-path>" }
 }
 ```
+
+- `my_supabase` is the warehouse (its password is used by `run`).
+- `bigquery_public`'s real service-account key lives here too, but is used **only by
+  `introspect`** to read the source schema directly via the BigQuery API. It is *not*
+  used in any generated DDL (the server DDL references the non-secret `saKeyId` from
+  the connection def instead). For a Postgres source, its `user`/`password` here are
+  used by `introspect` and to create the one-time user mapping.
 
 Resolution rule: if the JSON has a key matching a connection name, use it; otherwise
 treat the whole object as the single (legacy) connection's credentials.
@@ -141,10 +154,13 @@ When the compiler encounters a declaration whose `connection` differs from the
 warehouse connection and the warehouse engine is Postgres/Supabase:
 
 1. Emit the FDW scaffolding for that connection's `platform` (reusing the existing
-   `Wrapper`/`ForeignTable` machinery): extension + FDW + server (from the
-   connection's non-secret options + credentials), and a `create foreign table`
-   for the declared table in a derived local schema (e.g. `<connection>_ext`),
-   using the declared `columns`.
+   `Wrapper`/`ForeignTable` machinery) using **only non-secret values from the
+   connection definition**: extension + FDW + server (BigQuery: `sa_key_id` from the
+   def; Postgres: host/port/db from the def), and a `create foreign table` for the
+   declared table in a derived local schema (e.g. `<connection>_ext`), using the
+   declared `columns`. The secret-bearing credential step (the Vault secret for
+   BigQuery, the `CREATE USER MAPPING` for Postgres) is a documented one-time setup —
+   **never generated into the compiled graph**.
 2. Rewrite `ref("<name>")` for that declaration to the local foreign-table handle.
 3. Wire dependency edges (`model → foreign table → server setup`) so ordering is
    correct — exactly as the current `wrapper({foreignTables})` does. The
