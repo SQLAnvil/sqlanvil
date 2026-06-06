@@ -43,12 +43,16 @@ export function main(coreExecutionRequest: Uint8Array | string): Uint8Array | st
   // Read the workflow settings from the root of the project.
   let projectConfig = readWorkflowSettings(failIfMissing);
 
-  // Merge in project config overrides.
+  // Merge in project config overrides. `vars` and `connections` are map fields and
+  // must be set explicitly: spreading a protobufjs message instance (`...projectConfig`)
+  // does not reliably carry map fields once the core bundle is minified, which silently
+  // dropped `connections` from the published package (it worked unminified in tests).
   const projectConfigOverride = compileRequest.compileConfig.projectConfigOverride ?? {};
   projectConfig = sqlanvil.ProjectConfig.create({
     ...projectConfig,
     ...projectConfigOverride,
-    vars: { ...projectConfig.vars, ...projectConfigOverride.vars }
+    vars: { ...projectConfig.vars, ...projectConfigOverride.vars },
+    connections: { ...projectConfig.connections, ...projectConfigOverride.connections }
   });
 
   // Initialize the compilation session.
