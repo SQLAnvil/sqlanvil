@@ -353,4 +353,27 @@ warehouse: supabase`
       `create foreign table "legacy_ext"."orders" ("id" bigint) server "legacy_srv" options (schema_name 'public', table_name 'orders')`
     );
   });
+
+  test("sqlx declaration with a connection generates the FDW bridge", () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(projectDir, "workflow_settings.yaml"),
+      `defaultProject: p\ndefaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  bq:\n    platform: bigquery\n    project: bigquery-public-data\n    dataset: geo_us_boundaries\n    saKeyId: vault-1`
+    );
+    fs.mkdirSync(path.join(projectDir, "definitions"));
+    // SQLX declaration (NOT the JS API) with a connection + columnTypes:
+    fs.writeFileSync(
+      path.join(projectDir, "definitions/zip_codes.sqlx"),
+      `config {\n  type: "declaration",\n  connection: "bq",\n  name: "zip_codes",\n  columnTypes: { zip_code: "text" }\n}`
+    );
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+    const ops = asPlainObject(result.compile.compiledGraph.operations);
+    const ft = ops.find((op) => op.target.name === "zip_codes");
+    expect(ft).to.exist;
+    expect(ft.target.schema).equals("bq_ext");
+    expect(ft.hasOutput).equals(true);
+    const server = ops.find((op) => op.target.name === "bq_srv");
+    expect(server).to.exist;
+  });
 });

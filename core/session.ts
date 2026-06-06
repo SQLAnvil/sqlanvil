@@ -206,8 +206,7 @@ export class Session {
         this.actions.push(new Operation(this, sqlxConfig).queries(actionOptions.sqlContextable));
         break;
       case "declaration":
-        const declaration = new Declaration(this, sqlxConfig, sqlxConfig.filename);
-        this.actions.push(declaration);
+        this.declare(sqlxConfig);
         break;
       case "test":
         const testCase = this.test(sqlxConfig.name)
@@ -417,7 +416,7 @@ export class Session {
       // without breaking typescript consumers of sqlanvil.
       | any
   ): Declaration {
-    const filename = utils.getCallerFile(this.rootDir);
+    const filename = config.filename || utils.getCallerFile(this.rootDir);
     const connectionName = config.connection;
     const warehouseConnection = this.projectConfig.warehouseConnection;
 

@@ -162,7 +162,10 @@ export function workflowSettingsAsProjectConfig(
     // source connection fails at compile time rather than at run time.
     Object.keys(workflowSettings.connections).forEach(name => {
       const connection = workflowSettings.connections[name];
-      if (connection.platform && !supportedWarehouses.includes(connection.platform)) {
+      if (!connection.platform) {
+        throw new Error(`Connection "${name}" is missing required field "platform".`);
+      }
+      if (!supportedWarehouses.includes(connection.platform)) {
         throw new Error(
           `Connection "${name}" has unsupported platform "${connection.platform}". ` +
             `Supported platforms: ${supportedWarehouses.join(", ")}.`

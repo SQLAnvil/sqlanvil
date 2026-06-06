@@ -130,12 +130,16 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
             )
           );
         } else if (actionConfig.declaration) {
-          session.actions.push(
-            new Declaration(
-              session,
-              sqlanvil.ActionConfig.DeclarationConfig.create(actionConfig.declaration)
-            )
-          );
+          const declConfig = sqlanvil.ActionConfig.DeclarationConfig.create(actionConfig.declaration);
+          if (declConfig.connection) {
+            // Route through declare() so the FDW bridge is generated.
+            if (!declConfig.filename) {
+              declConfig.filename = actionConfigsPath;
+            }
+            session.declare(declConfig);
+          } else {
+            session.actions.push(new Declaration(session, declConfig));
+          }
         } else if (actionConfig.notebook) {
           session.actions.push(
             new Notebook(

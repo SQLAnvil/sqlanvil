@@ -987,6 +987,18 @@ connections:
       expect(pc.warehouse).equals("postgres");
       expect(pc.warehouseConnection).to.be.undefined;
     });
+
+    test("connection without a platform errors", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `defaultDataset: analytics\nwarehouse: postgres\nconnections:\n  bad:\n    project: some-project`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
+        /Connection "bad".*platform/
+      );
+    });
   });
 
   suite("action configs", () => {
