@@ -140,6 +140,20 @@ suite("introspect connection resolution", ({ afterEach }) => {
 suite("introspect orchestrator", ({ afterEach }) => {
   const tmp2 = new TmpDirFixture(afterEach);
 
+  test("rejects when no source schema can be resolved", () => {
+    const dir = tmp2.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(dir, "workflow_settings.yaml"),
+      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  bare:\n    platform: postgres\n    host: h`
+    );
+    fs.writeFileSync(path.join(dir, ".df-credentials.json"), JSON.stringify({ wh: {}, bare: { user: "u" } }));
+    const reader = function() { return Promise.resolve([]); };
+    return introspectToSqlx(dir, "bare", "orders", { reader: reader }).then(
+      function() { throw new Error("expected rejection"); },
+      function(e) { expect(e.message).to.match(/Could not determine the source schema/); }
+    );
+  });
+
   test("maps source columns and renders sqlx via an injected reader", async () => {
     const dir = tmp2.createNewTmpDir();
     fs.writeFileSync(

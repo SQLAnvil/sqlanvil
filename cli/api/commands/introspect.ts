@@ -144,11 +144,13 @@ export const readPostgresSchema: SchemaReader = function(resolved, sourceSchema,
     .connect()
     .then(function() {
       return client.query(
-        `select c.column_name, c.data_type,
-                col_description(format('%I.%I', c.table_schema, c.table_name)::regclass::oid, c.ordinal_position) as description
-         from information_schema.columns c
-         where c.table_schema = $1 and c.table_name = $2
-         order by c.ordinal_position`,
+        `select a.attname as column_name,
+                format_type(a.atttypid, a.atttypmod) as data_type,
+                col_description(a.attrelid, a.attnum) as description
+         from pg_attribute a
+         where a.attrelid = format('%I.%I', $1::text, $2::text)::regclass
+           and a.attnum > 0 and not a.attisdropped
+         order by a.attnum`,
         [sourceSchema, table]
       );
     })
@@ -164,9 +166,10 @@ export const readPostgresSchema: SchemaReader = function(resolved, sourceSchema,
         });
       },
       function(err) {
-        return client.end().then(function() {
-          throw err;
-        });
+        return client.end().then(
+          function() { throw err; },
+          function() { throw err; }
+        );
       }
     );
 };
@@ -223,6 +226,12 @@ export function introspectToSqlx(
   const reader = opts.reader || defaultReaderFor(resolved.definition.platform);
   const sourceSchema =
     parts.schema || resolved.definition.dataset || resolved.definition.defaultSchema;
+  if (!sourceSchema) {
+    return Promise.reject(new Error(
+      `Could not determine the source schema for "${tableRef}" on connection "${connectionName}". ` +
+        `Pass it as "schema.table", or set "dataset"/"defaultSchema" on the connection.`
+    ));
+  }
   const mapType = resolved.definition.platform === "bigquery" ? mapBigQueryType : mapPostgresType;
   return reader(resolved, sourceSchema, parts.table).then(function(rawColumns) {
     if (rawColumns.length === 0) {
