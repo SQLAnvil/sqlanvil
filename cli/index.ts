@@ -232,7 +232,7 @@ const warehouseOption: INamedOption<yargs.Options> = {
     describe: "Target warehouse for the new project.",
     type: "string",
     choices: ["bigquery", "postgres", "supabase"],
-    default: "bigquery"
+    default: "supabase"
   }
 };
 

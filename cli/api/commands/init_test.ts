@@ -53,15 +53,26 @@ suite("init", ({ afterEach }) => {
     expect(creds.sslMode).equals("require");
   });
 
-  test("bigquery project (default) keeps defaultProject/defaultLocation and writes no creds file", async () => {
+  test("bigquery project (explicit) keeps defaultProject/defaultLocation and writes no creds file", async () => {
     const projectDir = tmpDirFixture.createNewTmpDir();
 
-    await init(projectDir, { defaultDatabase: "my-proj", defaultLocation: "US" });
+    await init(projectDir, { warehouse: "bigquery", defaultDatabase: "my-proj", defaultLocation: "US" });
 
     const settings = readSettings(projectDir);
     expect(settings.defaultProject).equals("my-proj");
     expect(settings.defaultLocation).equals("US");
     expect(settings.warehouse ?? "bigquery").equals("bigquery");
     expect(fs.existsSync(credentialsPath(projectDir))).equals(false);
+  });
+
+  test("project with no warehouse defaults to supabase", async () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+
+    await init(projectDir, {});
+
+    const settings = readSettings(projectDir);
+    expect(settings.warehouse).equals("supabase");
+    expect(settings).to.not.have.property("defaultProject");
+    expect(fs.existsSync(credentialsPath(projectDir))).equals(true);
   });
 });

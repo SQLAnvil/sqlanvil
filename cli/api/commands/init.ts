@@ -54,14 +54,15 @@ export async function init(
     dirsCreated.push(projectDir);
   }
 
-  const warehouse = projectConfig.warehouse || "bigquery";
+  const warehouse = projectConfig.warehouse || "supabase";
   const isBigQuery = warehouse === "bigquery";
 
   // The order that fields are set here is preserved in the written yaml.
   const workflowSettings: sqlanvil.IWorkflowSettings = {
     sqlanvilCoreVersion: version
   };
-  // BigQuery is the default and omits the `warehouse:` key; Postgres/Supabase set it explicitly.
+  // BigQuery is core's implicit warehouse when the key is omitted, so it's the only
+  // one we leave out; Supabase (the init default) and Postgres set `warehouse:` explicitly.
   if (!isBigQuery) {
     workflowSettings.warehouse = warehouse;
   }
