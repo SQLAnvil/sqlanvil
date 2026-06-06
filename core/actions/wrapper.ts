@@ -50,6 +50,12 @@ export const WRAPPER_PROVIDERS: { [name: string]: IProviderPreset } = {
     wrapper: "bigquery_wrapper",
     handler: "big_query_fdw_handler",
     validator: "big_query_fdw_validator"
+  },
+  postgres_fdw: {
+    extension: "postgres_fdw",
+    wrapper: "postgres_fdw",
+    handler: "",
+    validator: ""
   }
 };
 

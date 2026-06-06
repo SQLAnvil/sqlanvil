@@ -49,6 +49,7 @@ export class Session {
   public canonicalProjectConfig: sqlanvil.ProjectConfig;
 
   public actions: Action[];
+  public foreignServers: Set<string>;
   public indexedActions: ResolvableMap<Action>;
 
   // Tests need to be resolved after config is applied, which is why we keep them separate from other actions.
@@ -82,6 +83,7 @@ export class Session {
       sqlanvil.ProjectConfig.create(originalProjectConfig || projectConfig || DEFAULT_CONFIG)
     );
     this.actions = [];
+    this.foreignServers = new Set();
     this.tests = [];
     this.graphErrors = { compilationErrors: [] };
     this.jitContextData = new google.protobuf.Struct();
@@ -417,7 +419,7 @@ export class Session {
   ): Declaration {
     const filename = utils.getCallerFile(this.rootDir);
     const connectionName = config.connection;
-    const warehouseConnection = (this.projectConfig as any).warehouseConnection;
+    const warehouseConnection = this.projectConfig.warehouseConnection;
 
     // No connection, or it points at the warehouse itself => plain declaration.
     if (!connectionName || connectionName === warehouseConnection) {
@@ -426,7 +428,7 @@ export class Session {
       return declaration;
     }
 
-    const connections = (this.projectConfig.connections as { [key: string]: any }) || {};
+    const connections = this.projectConfig.connections || {};
     const connection = connections[connectionName];
     const declaration = new Declaration(this, config, filename);
     if (!connection) {
@@ -453,16 +455,68 @@ export class Session {
       return declaration;
     }
 
-    // Bridge generation is implemented in the next task; surface unsupported for now.
-    this.compileError(
-      new Error(
-        `Reading connection "${connectionName}" (${connection.platform}) from a ` +
-          `${this.projectConfig.warehouse} warehouse is not yet supported.`
-      ),
-      filename,
-      declaration.getTarget()
+    if (this.projectConfig.warehouse !== "postgres" && this.projectConfig.warehouse !== "supabase") {
+      this.compileError(
+        new Error(
+          `Reading connection "${connectionName}" from a ${this.projectConfig.warehouse} ` +
+            "warehouse is not yet supported."
+        ),
+        filename,
+        declaration.getTarget()
+      );
+      this.actions.push(declaration);
+      return declaration;
+    }
+
+    const serverName = `${connectionName}_srv`;
+    const extSchema = `${connectionName}_ext`;
+
+    if (!this.foreignServers.has(connectionName)) {
+      this.foreignServers.add(connectionName);
+      if (connection.platform === "bigquery") {
+        this.actions.push(
+          new Wrapper(this, {
+            filename,
+            name: serverName,
+            provider: "bigquery",
+            server: serverName,
+            serverOptions: { project_id: connection.project, dataset_id: connection.dataset },
+            credential: { saKeyId: connection.saKeyId }
+          })
+        );
+      } else {
+        this.actions.push(
+          new Wrapper(this, {
+            filename,
+            name: serverName,
+            provider: "postgres_fdw",
+            server: serverName,
+            serverOptions: {
+              host: connection.host,
+              port: String(connection.port || 5432),
+              dbname: connection.database
+            }
+          })
+        );
+      }
+    }
+
+    const ftOptions =
+      connection.platform === "bigquery"
+        ? { table: config.name }
+        : { schema_name: config.schema || connection.defaultSchema || "public", table_name: config.name };
+
+    this.actions.push(
+      new ForeignTable(this, {
+        filename,
+        name: config.name,
+        schema: extSchema,
+        server: serverName,
+        options: ftOptions,
+        columns: config.columnTypes,
+        dependsOn: serverName
+      })
     );
-    this.actions.push(declaration);
     return declaration;
   }
 

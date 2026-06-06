@@ -293,4 +293,35 @@ warehouse: supabase`
     const errs = result.compile.compiledGraph.graphErrors.compilationErrors.map((e) => e.message);
     expect(errs.join("\n")).to.match(/Unknown connection "nope"/);
   });
+
+  test("declaration on a bigquery connection generates a ref-able FDW bridge", () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(projectDir, "workflow_settings.yaml"),
+      `defaultProject: p\ndefaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  bq:\n    platform: bigquery\n    project: bigquery-public-data\n    dataset: geo_us_boundaries\n    saKeyId: vault-1`
+    );
+    fs.mkdirSync(path.join(projectDir, "definitions"));
+    fs.writeFileSync(
+      path.join(projectDir, "definitions/zip.js"),
+      `declare({ connection: "bq", name: "zip_codes", columnTypes: { zip_code: "text", lat: "float8" } });`
+    );
+    fs.writeFileSync(
+      path.join(projectDir, "definitions/use.sqlx"),
+      `config { type: "view", schema: "public" }\nSELECT zip_code FROM \${ref("zip_codes")}`
+    );
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+    const ops = asPlainObject(result.compile.compiledGraph.operations);
+    const ft = ops.find((op) => op.target.name === "zip_codes");
+    expect(ft).to.exist;
+    expect(ft.target.schema).equals("bq_ext");
+    expect(ft.hasOutput).equals(true);
+    expect(ft.queries[1]).equals(
+      `create foreign table "bq_ext"."zip_codes" ("zip_code" text, "lat" float8) server "bq_srv" options (table 'zip_codes')`
+    );
+    const server = ops.find((op) => op.target.name === "bq_srv");
+    expect(server.queries[0]).equals('create extension if not exists "wrappers" cascade');
+    const view = asPlainObject(result.compile.compiledGraph.tables).find((t) => t.target.name === "use");
+    expect(view.dependencyTargets.map((t) => t.name)).deep.equals(["zip_codes"]);
+  });
 });
