@@ -1,3 +1,8 @@
+import * as fs from "fs-extra";
+import * as path from "path";
+
+import { readConfigFromWorkflowSettings } from "sa/cli/api/utils";
+
 export interface NormalizedColumn {
   name: string;
   type: string;
@@ -81,4 +86,36 @@ export function renderDeclarationSqlx(opts: RenderDeclarationOptions): string {
 
   lines.push("}");
   return lines.join("\n") + "\n";
+}
+
+export interface ResolvedConnection {
+  name: string;
+  definition: any; // ConnectionConfig: { platform, project, dataset, saKeyId, host, port, database, defaultSchema }
+  credentials: any; // secrets from .df-credentials.json for this connection
+}
+
+export function resolveConnection(projectDir: string, connectionName: string): ResolvedConnection {
+  const workflowSettings = readConfigFromWorkflowSettings(path.resolve(projectDir));
+  const definition =
+    workflowSettings && workflowSettings.connections
+      ? workflowSettings.connections[connectionName]
+      : undefined;
+  if (!definition) {
+    throw new Error(
+      `Unknown connection "${connectionName}". Define it under \`connections:\` in workflow_settings.yaml.`
+    );
+  }
+  const credsPath = path.join(path.resolve(projectDir), ".df-credentials.json");
+  if (!fs.existsSync(credsPath)) {
+    throw new Error(`Missing .df-credentials.json in ${projectDir}.`);
+  }
+  const allCreds = JSON.parse(fs.readFileSync(credsPath, "utf8"));
+  const credentials = allCreds[connectionName];
+  if (!credentials) {
+    throw new Error(
+      `No credentials for connection "${connectionName}" in .df-credentials.json ` +
+        `(expected a top-level "${connectionName}" key).`
+    );
+  }
+  return { name: connectionName, definition, credentials };
 }

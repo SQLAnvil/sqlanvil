@@ -1,7 +1,10 @@
 import { expect } from "chai";
+import * as fs from "fs-extra";
+import * as path from "path";
 
 import { suite, test } from "sa/testing";
-import { mapBigQueryType, mapPostgresType, renderDeclarationSqlx } from "sa/cli/api/commands/introspect";
+import { TmpDirFixture } from "sa/testing/fixtures";
+import { mapBigQueryType, mapPostgresType, renderDeclarationSqlx, resolveConnection } from "sa/cli/api/commands/introspect";
 
 suite("introspect type mapping", () => {
   test("maps common BigQuery types to Postgres types", () => {
@@ -90,5 +93,46 @@ suite("introspect codegen", () => {
     });
     expect(out).to.contain(`"weird-name": "text"`);
     expect(out).to.contain(`"weird-name": "has \\"quote\\""`);
+  });
+});
+
+suite("introspect connection resolution", ({ afterEach }) => {
+  const tmp = new TmpDirFixture(afterEach);
+
+  test("resolves a connection's definition and credentials", () => {
+    const dir = tmp.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(dir, "workflow_settings.yaml"),
+      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  legacy:\n    platform: postgres\n    host: db.example.com\n    port: 5432\n    database: legacy`
+    );
+    fs.writeFileSync(
+      path.join(dir, ".df-credentials.json"),
+      JSON.stringify({ wh: { password: "x" }, legacy: { user: "u", password: "p" } })
+    );
+    const resolved = resolveConnection(dir, "legacy");
+    expect(resolved.definition.platform).equals("postgres");
+    expect(resolved.definition.host).equals("db.example.com");
+    expect(resolved.credentials.user).equals("u");
+    expect(resolved.credentials.password).equals("p");
+  });
+
+  test("errors on unknown connection", () => {
+    const dir = tmp.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(dir, "workflow_settings.yaml"),
+      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase`
+    );
+    fs.writeFileSync(path.join(dir, ".df-credentials.json"), JSON.stringify({ wh: {} }));
+    expect(() => resolveConnection(dir, "nope")).to.throw(/Unknown connection "nope"/);
+  });
+
+  test("errors when credentials for the connection are missing", () => {
+    const dir = tmp.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(dir, "workflow_settings.yaml"),
+      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  legacy:\n    platform: postgres`
+    );
+    fs.writeFileSync(path.join(dir, ".df-credentials.json"), JSON.stringify({ wh: {} }));
+    expect(() => resolveConnection(dir, "legacy")).to.throw(/No credentials for connection "legacy"/);
   });
 });
