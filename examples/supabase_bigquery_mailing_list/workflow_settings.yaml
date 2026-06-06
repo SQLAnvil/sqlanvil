@@ -2,7 +2,8 @@ warehouse: supabase
 defaultDataset: public
 defaultAssertionDataset: sqlanvil_assertions
 # Real projects pin the sqlanvil core version with:
-#   sqlanvilCoreVersion: 1.1.0   # the release that ships named connections
+#   sqlanvilCoreVersion: 1.1.1   # 1.1.0 shipped named connections but dropped them
+#                                # in the published package; pin 1.1.1 or newer
 # (omitted here so this in-repo example compiles against the local @sqlanvil/core)
 connections:
   # Read-only source: Google's public ZIP geo data in BigQuery. A declaration
