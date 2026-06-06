@@ -2,10 +2,18 @@ warehouse: supabase
 defaultDataset: public
 defaultAssertionDataset: sqlanvil_assertions
 # Real projects pin the sqlanvil core version with:
-#   sqlanvilCoreVersion: 1.0.3   # the release that ships the foreign_wrapper provider
+#   sqlanvilCoreVersion: 1.1.0   # the release that ships named connections
 # (omitted here so this in-repo example compiles against the local @sqlanvil/core)
+connections:
+  # Read-only source: Google's public ZIP geo data in BigQuery. A declaration
+  # tagged `connection: "bigquery_public"` (definitions/sources/zip_codes.sqlx)
+  # auto-generates the read-only FDW bridge — no hand-written wrapper() needed.
+  bigquery_public:
+    platform: bigquery
+    project: bigquery-public-data
+    dataset: geo_us_boundaries
+    saKeyId: "REPLACE_WITH_VAULT_SECRET_ID"   # non-secret Vault pointer (see README)
 vars:
   target_zip: "94110"
   radius_miles: "25"
   purchased_since_days: "365"
-  bq_sa_key_id: "REPLACE_WITH_VAULT_SECRET_ID"
