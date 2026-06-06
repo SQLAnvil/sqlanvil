@@ -154,19 +154,34 @@ export function workflowSettingsAsProjectConfig(
     projectConfig.includeTestsInCompiledGraph = workflowSettings.includeTestsInCompiledGraph;
   }
 
+  const supportedWarehouses = ["bigquery", "postgres", "supabase"];
+
   if (workflowSettings.connections) {
     projectConfig.connections = workflowSettings.connections;
+    // Validate every connection's platform (not just the warehouse's) so a typo in a
+    // source connection fails at compile time rather than at run time.
+    Object.keys(workflowSettings.connections).forEach(name => {
+      const connection = workflowSettings.connections[name];
+      if (connection.platform && !supportedWarehouses.includes(connection.platform)) {
+        throw new Error(
+          `Connection "${name}" has unsupported platform "${connection.platform}". ` +
+            `Supported platforms: ${supportedWarehouses.join(", ")}.`
+        );
+      }
+    });
   }
 
-  const supportedWarehouses = ["bigquery", "postgres", "supabase"];
   if (workflowSettings.warehouse) {
     const named = workflowSettings.connections?.[workflowSettings.warehouse];
     // `warehouse:` may name a connection; otherwise it's a legacy platform string.
     const platform = named ? named.platform : workflowSettings.warehouse;
     if (!supportedWarehouses.includes(platform)) {
       throw new Error(
-        `Unsupported warehouse "${workflowSettings.warehouse}". ` +
-          `Supported warehouses: ${supportedWarehouses.join(", ")}.`
+        named
+          ? `Connection "${workflowSettings.warehouse}" has unsupported platform "${platform}". ` +
+              `Supported platforms: ${supportedWarehouses.join(", ")}.`
+          : `Unsupported warehouse "${workflowSettings.warehouse}". ` +
+              `Supported warehouses: ${supportedWarehouses.join(", ")}.`
       );
     }
     projectConfig.warehouse = platform;

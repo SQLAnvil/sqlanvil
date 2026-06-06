@@ -942,6 +942,9 @@ select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`
     });
   });
 
+  suite("connections", ({ afterEach }) => {
+    const tmpDirFixture = new TmpDirFixture(afterEach);
+
     test("connections are parsed into projectConfig and warehouse can name one", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
@@ -982,9 +985,10 @@ connections:
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
       const pc = asPlainObject(result.compile.compiledGraph.projectConfig);
       expect(pc.warehouse).equals("postgres");
+      expect(pc.warehouseConnection).to.be.undefined;
     });
+  });
 
-  
   suite("action configs", () => {
     test(`fails when file is not found`, () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
