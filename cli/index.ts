@@ -5,7 +5,7 @@ import parseDuration from "parse-duration";
 import * as path from "path";
 import yargs from "yargs";
 
-import { build, compile, credentials, init, install, run, test } from "sa/cli/api";
+import { build, compile, credentials, init, install, introspectToSqlx, run, test } from "sa/cli/api";
 import { CREDENTIALS_FILENAME } from "sa/cli/api/commands/credentials";
 import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
 import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
@@ -819,6 +819,42 @@ export function runCli() {
             printSuccess("All files are formatted correctly!");
           }
 
+          return 0;
+        }
+      },
+      {
+        format: `introspect <connection> <tableRef> [${projectDirOption.name}]`,
+        description:
+          "Read a source table's schema from a connection and write a declaration .sqlx with columnTypes.",
+        positionalOptions: [
+          {
+            name: "connection",
+            option: { describe: "Connection name (from workflow_settings.yaml connections)." }
+          },
+          {
+            name: "tableRef",
+            option: { describe: "Source table as schema.table (or just table)." }
+          },
+          projectDirOption
+        ],
+        options: [
+          {
+            name: "output",
+            option: {
+              describe: "File to write the declaration .sqlx to. Prints to stdout if omitted.",
+              type: "string"
+            }
+          }
+        ],
+        processFn: async argv => {
+          const projectDir = argv[projectDirOption.name] as string;
+          const sqlx = await introspectToSqlx(projectDir, argv.connection as string, argv.tableRef as string);
+          if (argv.output) {
+            fs.writeFileSync(argv.output as string, sqlx);
+            printSuccess(`Wrote declaration to ${argv.output}`);
+          } else {
+            print(sqlx);
+          }
           return 0;
         }
       }
