@@ -415,7 +415,53 @@ export class Session {
       // without breaking typescript consumers of sqlanvil.
       | any
   ): Declaration {
-    const declaration = new Declaration(this, config, utils.getCallerFile(this.rootDir));
+    const filename = utils.getCallerFile(this.rootDir);
+    const connectionName = config.connection;
+    const warehouseConnection = (this.projectConfig as any).warehouseConnection;
+
+    // No connection, or it points at the warehouse itself => plain declaration.
+    if (!connectionName || connectionName === warehouseConnection) {
+      const declaration = new Declaration(this, config, filename);
+      this.actions.push(declaration);
+      return declaration;
+    }
+
+    const connections = (this.projectConfig.connections as { [key: string]: any }) || {};
+    const connection = connections[connectionName];
+    const declaration = new Declaration(this, config, filename);
+    if (!connection) {
+      this.compileError(
+        new Error(`Unknown connection "${connectionName}" on declaration "${config.name}".`),
+        filename,
+        declaration.getTarget()
+      );
+      this.actions.push(declaration);
+      return declaration;
+    }
+    const columnTypes = config.columnTypes || {};
+    if (Object.keys(columnTypes).length === 0) {
+      this.compileError(
+        new Error(
+          `Declaration "${config.name}" on connection "${connectionName}" requires ` +
+            "`columnTypes`; run `sqlanvil introspect " +
+            `${connectionName} ${config.schema || ""}.${config.name}\`.`
+        ),
+        filename,
+        declaration.getTarget()
+      );
+      this.actions.push(declaration);
+      return declaration;
+    }
+
+    // Bridge generation is implemented in the next task; surface unsupported for now.
+    this.compileError(
+      new Error(
+        `Reading connection "${connectionName}" (${connection.platform}) from a ` +
+          `${this.projectConfig.warehouse} warehouse is not yet supported.`
+      ),
+      filename,
+      declaration.getTarget()
+    );
     this.actions.push(declaration);
     return declaration;
   }

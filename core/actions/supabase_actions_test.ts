@@ -261,4 +261,36 @@ warehouse: supabase`
     const errors = result.compile.compiledGraph.graphErrors.compilationErrors.map((e) => e.message);
     expect(errors.join("\n")).to.match(/must also set "handler" and "validator"/);
   });
+
+  test("connection-tagged declaration requires columnTypes", () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(projectDir, "workflow_settings.yaml"),
+      `defaultProject: p\ndefaultDataset: d\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  bq:\n    platform: bigquery\n    project: bigquery-public-data\n    dataset: geo_us_boundaries\n    saKeyId: vault-1`
+    );
+    fs.mkdirSync(path.join(projectDir, "definitions"));
+    fs.writeFileSync(
+      path.join(projectDir, "definitions/zip.js"),
+      `declare({ connection: "bq", schema: "geo_us_boundaries", name: "zip_codes" });`
+    );
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+    const errs = result.compile.compiledGraph.graphErrors.compilationErrors.map((e) => e.message);
+    expect(errs.join("\n")).to.match(/requires .?columnTypes/);
+  });
+
+  test("declaration on an unknown connection errors", () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(projectDir, "workflow_settings.yaml"),
+      `defaultProject: p\ndefaultDataset: d\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase`
+    );
+    fs.mkdirSync(path.join(projectDir, "definitions"));
+    fs.writeFileSync(
+      path.join(projectDir, "definitions/zip.js"),
+      `declare({ connection: "nope", schema: "s", name: "t", columnTypes: { a: "text" } });`
+    );
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+    const errs = result.compile.compiledGraph.graphErrors.compilationErrors.map((e) => e.message);
+    expect(errs.join("\n")).to.match(/Unknown connection "nope"/);
+  });
 });
