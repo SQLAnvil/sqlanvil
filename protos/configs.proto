@@ -70,6 +70,26 @@ message WorkflowSettings {
 
   // Optional. The database warehouse to use, e.g. "bigquery", "postgres", "supabase".
   string warehouse = 17;
+
+  // Optional. Named connections (warehouse + read-only sources).
+  map<string, ConnectionConfig> connections = 18;
+}
+
+// A named connection: the warehouse (read/write target) or a read-only source.
+message ConnectionConfig {
+  // "bigquery" | "postgres" | "supabase".
+  string platform = 1;
+  // BigQuery source defaults.
+  string project = 2;
+  string dataset = 3;
+  // Non-secret Vault secret id used in generated BigQuery FDW server DDL.
+  string sa_key_id = 4;
+  // Postgres source connection params (non-secret; password lives in .df-credentials.json).
+  string host = 5;
+  int32 port = 6;
+  string database = 7;
+  // Postgres/Supabase default schema.
+  string default_schema = 8;
 }
 
 message DefaultIcebergConfig {
@@ -620,6 +640,14 @@ message ActionConfig {
 
     // A list of user-defined tags with which the action should be labeled.
     repeated string tags = 7;
+
+    // Optional. Name of a connection (from WorkflowSettings.connections) that this
+    // declaration reads from. Only valid on declarations.
+    string connection = 8;
+
+    // Optional. Column name -> SQL type, used to generate the foreign table when
+    // `connection` bridges via FDW. Distinct from `columns` (descriptions).
+    map<string, string> column_types = 9;
   }
 
   message NotebookConfig {
