@@ -63,6 +63,7 @@ ts_test_suite(
         "index_init_test.ts",
         "index_project_test.ts",
         "index_compile_test.ts",
+        "index_connections_test.ts",
         "index_run_e2e_test.ts",
         "util_test.ts"
     ],
