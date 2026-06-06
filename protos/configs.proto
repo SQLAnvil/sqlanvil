@@ -77,18 +77,21 @@ message WorkflowSettings {
 
 // A named connection: the warehouse (read/write target) or a read-only source.
 message ConnectionConfig {
-  // "bigquery" | "postgres" | "supabase".
+  // Optional. One of "bigquery", "postgres", "supabase".
   string platform = 1;
-  // BigQuery source defaults.
+  // Optional. BigQuery source default project.
   string project = 2;
+  // Optional. BigQuery source default dataset.
   string dataset = 3;
-  // Non-secret Vault secret id used in generated BigQuery FDW server DDL.
+  // Optional. Non-secret Vault secret id used in generated BigQuery FDW server DDL.
   string sa_key_id = 4;
-  // Postgres source connection params (non-secret; password lives in .df-credentials.json).
+  // Optional. Postgres source host (non-secret; password lives in .df-credentials.json).
   string host = 5;
-  int32 port = 6;
+  // Optional. Postgres source port.
+  uint32 port = 6;
+  // Optional. Postgres source database name.
   string database = 7;
-  // Postgres/Supabase default schema.
+  // Optional. Postgres/Supabase default schema.
   string default_schema = 8;
 }
 
