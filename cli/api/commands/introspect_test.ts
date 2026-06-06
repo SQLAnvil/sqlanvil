@@ -154,6 +154,20 @@ suite("introspect orchestrator", ({ afterEach }) => {
     );
   });
 
+  test("rejects when the source table has no columns", () => {
+    const dir = tmp2.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(dir, "workflow_settings.yaml"),
+      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  bq:\n    platform: bigquery\n    project: p\n    dataset: d\n    saKeyId: v`
+    );
+    fs.writeFileSync(path.join(dir, ".df-credentials.json"), JSON.stringify({ wh: {}, bq: { credentials: "{}" } }));
+    const empty = function() { return Promise.resolve([]); };
+    return introspectToSqlx(dir, "bq", "d.t", { reader: empty }).then(
+      function() { throw new Error("expected rejection"); },
+      function(e) { expect(e.message).to.match(/no columns/); }
+    );
+  });
+
   test("maps source columns and renders sqlx via an injected reader", async () => {
     const dir = tmp2.createNewTmpDir();
     fs.writeFileSync(
