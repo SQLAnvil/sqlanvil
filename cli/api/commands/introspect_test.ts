@@ -1,7 +1,7 @@
 import { expect } from "chai";
 
 import { suite, test } from "sa/testing";
-import { mapBigQueryType, mapPostgresType } from "sa/cli/api/commands/introspect";
+import { mapBigQueryType, mapPostgresType, renderDeclarationSqlx } from "sa/cli/api/commands/introspect";
 
 suite("introspect type mapping", () => {
   test("maps common BigQuery types to Postgres types", () => {
@@ -30,5 +30,65 @@ suite("introspect type mapping", () => {
     expect(mapPostgresType("text")).equals("text");
     expect(mapPostgresType("  BIGINT ")).equals("bigint");
     expect(mapPostgresType("double precision")).equals("double precision");
+  });
+});
+
+suite("introspect codegen", () => {
+  test("renders a declaration with columnTypes and descriptions", () => {
+    const out = renderDeclarationSqlx({
+      connection: "bq",
+      schema: "geo_us_boundaries",
+      name: "zip_codes",
+      columns: [
+        { name: "zip_code", type: "text", description: "5-digit ZIP" },
+        { name: "internal_point_lat", type: "float8" }
+      ]
+    });
+    expect(out).equals(
+      `config {
+  type: "declaration",
+  connection: "bq",
+  schema: "geo_us_boundaries",
+  name: "zip_codes",
+  columnTypes: {
+    zip_code: "text",
+    internal_point_lat: "float8"
+  },
+  columns: {
+    zip_code: "5-digit ZIP"
+  }
+}
+`
+    );
+  });
+
+  test("omits the columns block when there are no descriptions", () => {
+    const out = renderDeclarationSqlx({
+      connection: "bq",
+      name: "t",
+      columns: [{ name: "id", type: "bigint" }]
+    });
+    expect(out).equals(
+      `config {
+  type: "declaration",
+  connection: "bq",
+  name: "t",
+  columnTypes: {
+    id: "bigint"
+  }
+}
+`
+    );
+    expect(out).not.to.match(/columns:/);
+  });
+
+  test("quotes non-identifier column names and escapes quotes in descriptions", () => {
+    const out = renderDeclarationSqlx({
+      connection: "c",
+      name: "t",
+      columns: [{ name: "weird-name", type: "text", description: `has "quote"` }]
+    });
+    expect(out).to.contain(`"weird-name": "text"`);
+    expect(out).to.contain(`"weird-name": "has \\"quote\\""`);
   });
 });
