@@ -350,7 +350,7 @@ git commit -m "feat(connections): validate connection-tagged declarations (unkno
     expect(ft.target.schema).equals("bq_ext");
     expect(ft.hasOutput).equals(true);
     expect(ft.queries[1]).equals(
-      `create foreign table "bq_ext"."zip_codes" ("zip_code" text, "lat" float8) server "bq_srv" options (table 'zip_codes', location 'geo_us_boundaries')`
+      `create foreign table "bq_ext"."zip_codes" ("zip_code" text, "lat" float8) server "bq_srv" options (table 'zip_codes')`
     );
     const server = ops.find((op) => op.target.name === "bq_srv");
     expect(server.queries[0]).equals('create extension if not exists "wrappers" cascade');
@@ -420,7 +420,7 @@ Replace the "unsupported pair" block at the end of `declare()` with:
 
     const ftOptions =
       connection.platform === "bigquery"
-        ? { table: config.name, location: config.schema || connection.dataset }
+        ? { table: config.name } // dataset is on the server (dataset_id from the connection)
         : { schema_name: config.schema || connection.defaultSchema || "public", table_name: config.name };
 
     this.actions.push(
