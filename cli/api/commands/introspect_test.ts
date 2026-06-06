@@ -4,7 +4,7 @@ import * as path from "path";
 
 import { suite, test } from "sa/testing";
 import { TmpDirFixture } from "sa/testing/fixtures";
-import { mapBigQueryType, mapPostgresType, renderDeclarationSqlx, resolveConnection } from "sa/cli/api/commands/introspect";
+import { mapBigQueryType, mapPostgresType, renderDeclarationSqlx, resolveConnection, introspectToSqlx } from "sa/cli/api/commands/introspect";
 
 suite("introspect type mapping", () => {
   test("maps common BigQuery types to Postgres types", () => {
@@ -134,5 +134,30 @@ suite("introspect connection resolution", ({ afterEach }) => {
     );
     fs.writeFileSync(path.join(dir, ".df-credentials.json"), JSON.stringify({ wh: {} }));
     expect(() => resolveConnection(dir, "legacy")).to.throw(/No credentials for connection "legacy"/);
+  });
+});
+
+suite("introspect orchestrator", ({ afterEach }) => {
+  const tmp2 = new TmpDirFixture(afterEach);
+
+  test("maps source columns and renders sqlx via an injected reader", async () => {
+    const dir = tmp2.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(dir, "workflow_settings.yaml"),
+      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  bq:\n    platform: bigquery\n    project: bigquery-public-data\n    dataset: geo_us_boundaries\n    saKeyId: vault-1`
+    );
+    fs.writeFileSync(path.join(dir, ".df-credentials.json"), JSON.stringify({ wh: {}, bq: { credentials: "{}" } }));
+
+    const fakeReader = function() {
+      return Promise.resolve([
+        { name: "zip_code", type: "STRING", description: "5-digit ZIP" },
+        { name: "internal_point_lat", type: "FLOAT64" }
+      ]);
+    };
+    const sqlx = await introspectToSqlx(dir, "bq", "geo_us_boundaries.zip_codes", { reader: fakeReader });
+    expect(sqlx).to.contain(`connection: "bq"`);
+    expect(sqlx).to.contain(`zip_code: "text"`);
+    expect(sqlx).to.contain(`internal_point_lat: "float8"`);
+    expect(sqlx).to.contain(`zip_code: "5-digit ZIP"`);
   });
 });

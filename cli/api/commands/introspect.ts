@@ -1,6 +1,9 @@
 import * as fs from "fs-extra";
 import * as path from "path";
 
+import * as pg from "pg";
+import { BigQuery } from "@google-cloud/bigquery";
+
 import { readConfigFromWorkflowSettings } from "sa/cli/api/utils";
 
 export interface NormalizedColumn {
@@ -118,4 +121,123 @@ export function resolveConnection(projectDir: string, connectionName: string): R
     );
   }
   return { name: connectionName, definition, credentials };
+}
+
+// A reader returns the source table's columns with RAW source-platform type names.
+export type SchemaReader = (
+  resolved: ResolvedConnection,
+  sourceSchema: string,
+  table: string
+) => Promise<NormalizedColumn[]>;
+
+export const readPostgresSchema: SchemaReader = function(resolved, sourceSchema, table) {
+  const c = resolved.credentials;
+  const client = new pg.Client({
+    host: c.host || resolved.definition.host,
+    port: Number(c.port || resolved.definition.port || 5432),
+    database: c.database || resolved.definition.database,
+    user: c.user,
+    password: c.password,
+    ssl: c.sslMode && c.sslMode !== "disable" ? { rejectUnauthorized: false } : undefined
+  });
+  return client
+    .connect()
+    .then(function() {
+      return client.query(
+        `select c.column_name, c.data_type,
+                col_description(format('%I.%I', c.table_schema, c.table_name)::regclass::oid, c.ordinal_position) as description
+         from information_schema.columns c
+         where c.table_schema = $1 and c.table_name = $2
+         order by c.ordinal_position`,
+        [sourceSchema, table]
+      );
+    })
+    .then(function(res) {
+      return res.rows.map(function(r: any) {
+        return { name: r.column_name, type: r.data_type, description: r.description || undefined };
+      });
+    })
+    .then(
+      function(cols) {
+        return client.end().then(function() {
+          return cols;
+        });
+      },
+      function(err) {
+        return client.end().then(function() {
+          throw err;
+        });
+      }
+    );
+};
+
+export const readBigQuerySchema: SchemaReader = function(resolved, sourceSchema, table) {
+  const keyJson = resolved.credentials.credentials;
+  const bq = new BigQuery({
+    projectId: resolved.definition.project,
+    credentials: typeof keyJson === "string" ? JSON.parse(keyJson) : keyJson
+  });
+  return bq
+    .dataset(sourceSchema)
+    .table(table)
+    .getMetadata()
+    .then(function(result: any) {
+      const metadata = result[0];
+      const fields: any[] = (metadata && metadata.schema && metadata.schema.fields) || [];
+      return fields.map(function(f) {
+        return { name: f.name, type: f.type, description: f.description || undefined };
+      });
+    });
+};
+
+function defaultReaderFor(platform: string): SchemaReader {
+  if (platform === "bigquery") {
+    return readBigQuerySchema;
+  }
+  if (platform === "postgres" || platform === "supabase") {
+    return readPostgresSchema;
+  }
+  throw new Error(`introspect does not support source platform "${platform}".`);
+}
+
+function splitTableRef(tableRef: string): { schema?: string; table: string } {
+  const dot = tableRef.indexOf(".");
+  return dot === -1
+    ? { table: tableRef }
+    : { schema: tableRef.slice(0, dot), table: tableRef.slice(dot + 1) };
+}
+
+export interface IntrospectOptions {
+  reader?: SchemaReader;
+}
+
+export function introspectToSqlx(
+  projectDir: string,
+  connectionName: string,
+  tableRef: string,
+  options?: IntrospectOptions
+): Promise<string> {
+  const opts = options || {};
+  const resolved = resolveConnection(projectDir, connectionName);
+  const parts = splitTableRef(tableRef);
+  const reader = opts.reader || defaultReaderFor(resolved.definition.platform);
+  const sourceSchema =
+    parts.schema || resolved.definition.dataset || resolved.definition.defaultSchema;
+  const mapType = resolved.definition.platform === "bigquery" ? mapBigQueryType : mapPostgresType;
+  return reader(resolved, sourceSchema, parts.table).then(function(rawColumns) {
+    if (rawColumns.length === 0) {
+      throw new Error(
+        `Source table "${tableRef}" on connection "${connectionName}" has no columns (does it exist?).`
+      );
+    }
+    const columns = rawColumns.map(function(col) {
+      return { name: col.name, type: mapType(col.type), description: col.description };
+    });
+    return renderDeclarationSqlx({
+      connection: connectionName,
+      schema: parts.schema,
+      name: parts.table,
+      columns
+    });
+  });
 }
