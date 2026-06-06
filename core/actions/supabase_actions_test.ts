@@ -324,4 +324,33 @@ warehouse: supabase`
     const view = asPlainObject(result.compile.compiledGraph.tables).find((t) => t.target.name === "use");
     expect(view.dependencyTargets.map((t) => t.name)).deep.equals(["zip_codes"]);
   });
+
+  test("declaration on a postgres connection generates a postgres_fdw bridge, server deduped", () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(projectDir, "workflow_settings.yaml"),
+      `defaultProject: p\ndefaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  legacy:\n    platform: postgres\n    host: db.example.com\n    port: 5432\n    database: legacy\n    defaultSchema: public`
+    );
+    fs.mkdirSync(path.join(projectDir, "definitions"));
+    fs.writeFileSync(
+      path.join(projectDir, "definitions/src.js"),
+      `declare({ connection: "legacy", name: "orders", columnTypes: { id: "bigint" } });\n` +
+        `declare({ connection: "legacy", name: "customers", columnTypes: { id: "bigint" } });`
+    );
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+    const ops = asPlainObject(result.compile.compiledGraph.operations);
+    // exactly one server setup despite two declarations on the same connection
+    expect(ops.filter((op) => op.target.name === "legacy_srv").length).equals(1);
+    const server = ops.find((op) => op.target.name === "legacy_srv");
+    expect(server.queries).deep.equals([
+      'create extension if not exists "postgres_fdw" cascade',
+      'drop server if exists "legacy_srv" cascade',
+      `create server "legacy_srv" foreign data wrapper "postgres_fdw" options (host 'db.example.com', port '5432', dbname 'legacy')`
+    ]);
+    const orders = ops.find((op) => op.target.name === "orders");
+    expect(orders.queries[1]).equals(
+      `create foreign table "legacy_ext"."orders" ("id" bigint) server "legacy_srv" options (schema_name 'public', table_name 'orders')`
+    );
+  });
 });
