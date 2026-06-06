@@ -134,19 +134,28 @@ config {
   connection: "bigquery_public",
   schema: "geo_us_boundaries",
   name: "zip_codes",
-  columns: {
+  columnTypes: {                 // name → SQL type; drives CREATE FOREIGN TABLE
     zip_code: "text",
     internal_point_lat: "float8",
     internal_point_lon: "float8"
+  },
+  columns: {                     // existing: name → description (optional metadata)
+    zip_code: "5-digit US ZIP code"
   }
 }
 ```
 
-- `connection` is a new optional field on `DeclarationConfig`, **rejected on all other
-  action types** (compile error if set on table/view/incremental/etc.).
-- **Columns rule (conditional):** plain declarations (no `connection`) keep columns
-  **optional** — unchanged. A declaration with `connection` that bridges via FDW
-  **requires** `columns` (compile error if missing, pointing at `introspect`).
+- `connection` is a new optional field on `DeclarationConfig`. It is **only valid on
+  declarations** — other action types' config protos have no `connection` field, so
+  setting it on a table/view/incremental is rejected by proto validation.
+- `columnTypes` is a new `map<string,string>` (column name → SQL type) on
+  `DeclarationConfig`, used to generate `CREATE FOREIGN TABLE`. The existing
+  `columns` field keeps its current meaning — **column descriptions** (descriptors),
+  optional everywhere, unchanged.
+- **Conditional rule:** plain declarations (no `connection`) are unchanged —
+  `columnTypes` and `columns` both optional. A declaration with `connection` that
+  bridges via FDW **requires `columnTypes`** (compile error if missing, pointing at
+  `introspect`). `columns` (descriptions) stays optional.
 
 ## Bridge compilation (v1: Postgres/Supabase warehouse, FDW)
 
@@ -158,7 +167,7 @@ warehouse connection and the warehouse engine is Postgres/Supabase:
    connection definition**: extension + FDW + server (BigQuery: `sa_key_id` from the
    def; Postgres: host/port/db from the def), and a `create foreign table` for the
    declared table in a derived local schema (e.g. `<connection>_ext`), using the
-   declared `columns`. The secret-bearing credential step (the Vault secret for
+   declared `columnTypes`. The secret-bearing credential step (the Vault secret for
    BigQuery, the `CREATE USER MAPPING` for Postgres) is a documented one-time setup —
    **never generated into the compiled graph**.
 2. Rewrite `ref("<name>")` for that declaration to the local foreign-table handle.
@@ -184,17 +193,17 @@ sqlanvil introspect <connection> <schema>.<table> [--output definitions/sources/
   `BOOL→boolean`, `TIMESTAMP→timestamptz`, `DATE→date`, `BYTES→bytea`,
   `JSON→jsonb`, `GEOGRAPHY→text` (WKT). Unmapped types → error listing the type.
 - Writes (or updates) a `declaration` `.sqlx` with `connection`, `schema`, `name`,
-  the filled `columns: {}`, and source descriptions carried into the column
-  descriptors.
+  the filled `columnTypes: {}` (name → mapped SQL type), and — when the source has
+  column comments — `columns: {}` descriptions.
 - **Network-touching and explicit** — never invoked by `compile`/`run`. Run it once
   when adding or changing a source.
 
 ## Error handling
 
-- `connection` on a non-declaration action → compile error ("`connection` is only
-  valid on declarations").
-- `connection`-tagged declaration missing `columns` (FDW bridge) → compile error
-  ("declaration '<name>' on connection '<c>' requires `columns`; run `sqlanvil
+- `connection` on a non-declaration action → rejected by proto validation (no
+  `connection` field on those configs).
+- `connection`-tagged declaration missing `columnTypes` (FDW bridge) → compile error
+  ("declaration '<name>' on connection '<c>' requires `columnTypes`; run `sqlanvil
   introspect <c> <schema>.<table>`").
 - Unknown `connection` name (not in `connections`) → compile error.
 - Unsupported warehouse→source pair (e.g. BigQuery→Supabase in v1) → compile error
@@ -205,7 +214,7 @@ sqlanvil introspect <connection> <schema>.<table> [--output definitions/sources/
 
 - **Core (unit, TDD):** connection config parsing + back-compat (flat string and
   single-object creds still resolve); `connection` rejected on non-declarations;
-  conditional columns rule (optional without connection, required with FDW
+  conditional `columnTypes` rule (optional without connection, required with FDW
   connection); bridge compilation emits correct FDW DDL + ref rewrite + dependency
   edges for a BigQuery and a Postgres source; unknown-connection and unsupported-pair
   errors.
