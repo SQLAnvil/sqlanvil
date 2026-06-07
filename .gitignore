@@ -31,6 +31,9 @@ CLAUDE.local.md
 GEMINI.local.md
 AGENTS.local.md
 
+# Superpowers planning artifacts (brainstorm specs + plans) — kept in sqlanvil-private
+docs/superpowers/
+
 # Locally-built npm package tarballs (see docs npm_publishing.md)
 *.tgz
 
