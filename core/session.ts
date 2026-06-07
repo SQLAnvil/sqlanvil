@@ -494,7 +494,10 @@ export class Session {
               host: connection.host,
               port: String(connection.port || 5432),
               dbname: connection.database
-            }
+            },
+            // Emit a CREATE USER MAPPING; user/password are injected at run time
+            // from .df-credentials.json's `connections` map (see run-time substitution).
+            userMappingConnection: connectionName
           })
         );
       }

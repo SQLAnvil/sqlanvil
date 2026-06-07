@@ -178,6 +178,47 @@ warehouse: supabase`
     ]);
   });
 
+  test("declare() postgres source emits a postgres_fdw bridge with a credential-injected user mapping", () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(projectDir, "workflow_settings.yaml"),
+      `defaultProject: defaultProject
+defaultDataset: public
+warehouse: supabase
+connections:
+  pg_src:
+    platform: postgres
+    host: remote.example.com
+    port: 5432
+    database: remotedb`
+    );
+    fs.mkdirSync(path.join(projectDir, "definitions"));
+    fs.writeFileSync(
+      path.join(projectDir, "definitions/orders.sqlx"),
+      `config {
+  type: "declaration",
+  connection: "pg_src",
+  name: "orders",
+  columnTypes: { id: "bigint" }
+}`
+    );
+
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+    const operations = asPlainObject(result.compile.compiledGraph.operations);
+    const srv = operations.find((op) => op.target.name === "pg_src_srv");
+    expect(srv, "expected a pg_src_srv bridge operation").to.exist;
+    expect(srv.queries).deep.equals([
+      'create extension if not exists "postgres_fdw" cascade',
+      'drop server if exists "pg_src_srv" cascade',
+      `create server "pg_src_srv" foreign data wrapper "postgres_fdw" options (host 'remote.example.com', port '5432', dbname 'remotedb')`,
+      // Credentials are non-secret placeholders, injected at run time from
+      // .df-credentials.json's `connections` map — never baked into the graph.
+      `create user mapping for current_user server "pg_src_srv" options (user '\${SA_CONN:pg_src:user}', password '\${SA_CONN:pg_src:password}')`
+    ]);
+  });
+
   test("foreignTable emits ref-able create foreign table depending on the server", () => {
     const projectDir = tmpDirFixture.createNewTmpDir();
     fs.writeFileSync(
@@ -346,7 +387,8 @@ warehouse: supabase`
     expect(server.queries).deep.equals([
       'create extension if not exists "postgres_fdw" cascade',
       'drop server if exists "legacy_srv" cascade',
-      `create server "legacy_srv" foreign data wrapper "postgres_fdw" options (host 'db.example.com', port '5432', dbname 'legacy')`
+      `create server "legacy_srv" foreign data wrapper "postgres_fdw" options (host 'db.example.com', port '5432', dbname 'legacy')`,
+      `create user mapping for current_user server "legacy_srv" options (user '\${SA_CONN:legacy:user}', password '\${SA_CONN:legacy:password}')`
     ]);
     const orders = ops.find((op) => op.target.name === "orders");
     expect(orders.queries[1]).equals(
