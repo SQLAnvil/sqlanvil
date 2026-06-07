@@ -113,11 +113,13 @@ export function resolveConnection(projectDir: string, connectionName: string): R
     throw new Error(`Missing .df-credentials.json in ${projectDir}.`);
   }
   const allCreds = JSON.parse(fs.readFileSync(credsPath, "utf8"));
-  const credentials = allCreds[connectionName];
+  // Source-connection credentials live under the `connections` map (keyed by name),
+  // so the warehouse credentials can stay flat at the top level for `run` to read.
+  const credentials = allCreds.connections && allCreds.connections[connectionName];
   if (!credentials) {
     throw new Error(
       `No credentials for connection "${connectionName}" in .df-credentials.json ` +
-        `(expected a top-level "${connectionName}" key).`
+        `(expected a "connections.${connectionName}" entry).`
     );
   }
   return { name: connectionName, definition, credentials };
