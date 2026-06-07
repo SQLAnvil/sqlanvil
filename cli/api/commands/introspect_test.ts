@@ -5,7 +5,7 @@ import * as path from "path";
 import { suite, test } from "sa/testing";
 import { TmpDirFixture } from "sa/testing/fixtures";
 import { mapBigQueryType, mapPostgresType, renderDeclarationSqlx, resolveConnection, introspectToSqlx } from "sa/cli/api/commands/introspect";
-import { read as readCredentials } from "sa/cli/api/commands/credentials";
+import { read as readCredentials, readConnections } from "sa/cli/api/commands/credentials";
 
 suite("introspect type mapping", () => {
   test("maps common BigQuery types to Postgres types", () => {
@@ -222,5 +222,21 @@ suite("credentials coexistence: run + introspect share one .df-credentials.json"
     // `introspect` path: the source credentials resolve from `connections.<name>`.
     const resolved = resolveConnection(dir, "bq");
     expect(resolved.credentials.credentials).equals("{}");
+  });
+
+  test("readConnections returns the connections map, or {} when absent", () => {
+    const dir = tmp3.createNewTmpDir();
+    const credsPath = path.join(dir, ".df-credentials.json");
+    // No file → {}
+    expect(readConnections(credsPath)).to.deep.equal({});
+    // Flat warehouse creds, no connections key → {}
+    fs.writeFileSync(credsPath, JSON.stringify({ host: "h", user: "u", password: "p" }));
+    expect(readConnections(credsPath)).to.deep.equal({});
+    // With a connections map → returned verbatim
+    fs.writeFileSync(
+      credsPath,
+      JSON.stringify({ host: "h", connections: { pg_src: { user: "ro", password: "secret" } } })
+    );
+    expect(readConnections(credsPath)).to.deep.equal({ pg_src: { user: "ro", password: "secret" } });
   });
 });
