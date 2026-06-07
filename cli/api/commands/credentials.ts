@@ -37,6 +37,26 @@ export function read(credentialsPath: string, warehouse: string = "bigquery"): a
   }
 }
 
+/**
+ * Returns the `connections` map from `.df-credentials.json` (source-connection
+ * credentials, keyed by connection name), or `{}` if the file or key is absent.
+ * Used by the run path to inject `${SA_CONN:<conn>:user|password}` placeholders
+ * emitted in the FDW bridge. Distinct from `read()`, which returns the flat
+ * write-warehouse credentials and ignores `connections`.
+ */
+export function readConnections(credentialsPath: string): { [name: string]: any } {
+  if (!fs.existsSync(credentialsPath)) {
+    return {};
+  }
+  let credentialsAsJson: { [key: string]: any };
+  try {
+    credentialsAsJson = JSON.parse(fs.readFileSync(credentialsPath, "utf8"));
+  } catch (e) {
+    throw new Error(`Error reading credentials file: ${e.message}`);
+  }
+  return credentialsAsJson.connections || {};
+}
+
 export enum TestResultStatus {
   SUCCESSFUL,
   TIMED_OUT,

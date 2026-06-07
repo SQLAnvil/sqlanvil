@@ -31,6 +31,11 @@ export interface IWrapperConfig {
   /** @deprecated Use `serverOptions` instead. Retained for back-compat. */
   options?: { [key: string]: string };
   credential?: IWrapperCredential;
+  // When set, emit a `CREATE USER MAPPING` for this connection. The user/password
+  // are non-secret placeholders (`${SA_CONN:<conn>:user|password}`) substituted at
+  // run time from `.df-credentials.json`'s `connections` map — secrets never enter
+  // the compiled graph. Used by session.declare() for postgres/supabase sources.
+  userMappingConnection?: string;
   // Foreign tables to expose via this server. Expanded into ref-able ForeignTable
   // actions by session.wrapper(); not emitted by this action's compile().
   foreignTables?: IForeignTableConfigEntry[];
@@ -143,6 +148,18 @@ export class Wrapper extends ActionBuilder<sqlanvil.Operation> {
     queries.push(
       `create server "${this.config.server}" foreign data wrapper "${resolved.wrapper}"${optionsStr}`
     );
+
+    if (this.config.userMappingConnection) {
+      // Non-secret placeholders; the run path substitutes them from the `connections`
+      // map in .df-credentials.json before executing (secrets stay out of the graph).
+      const conn = this.config.userMappingConnection;
+      const userToken = "${SA_CONN:" + conn + ":user}";
+      const passwordToken = "${SA_CONN:" + conn + ":password}";
+      queries.push(
+        `create user mapping for current_user server "${this.config.server}" ` +
+          `options (user '${userToken}', password '${passwordToken}')`
+      );
+    }
 
     this.proto.queries = queries;
 

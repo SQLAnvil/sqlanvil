@@ -60,6 +60,7 @@ node_modules(
 ts_test_suite(
     name = "tests",
     srcs = [
+        "commands/connection_credentials_test.ts",
         "commands/init_test.ts",
         "commands/introspect_test.ts",
         "commands/jit/rpc_test.ts",

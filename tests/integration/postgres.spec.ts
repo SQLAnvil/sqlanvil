@@ -8,6 +8,7 @@ import { targetAsReadableString } from "sa/core/targets";
 import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";
 import { compile, getTableRows, keyBy } from "sa/tests/integration/utils";
+import { substituteConnectionCredentials } from "sa/cli/api/commands/connection_credentials";
 import { PostgresFixture } from "sa/tools/postgres/postgres_fixture";
 
 suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) => {
@@ -795,4 +796,58 @@ $$`
 
     await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
   });
+
+  test(
+    "postgres_fdw source: user mapping authenticates with run-time-injected credentials",
+    { timeout: 60000 },
+    async () => {
+      const conn = "fdw_test";
+      const server = `${conn}_srv`;
+      const extSchema = `${conn}_ext`;
+      const remoteSchema = "fdw_remote_src";
+
+      await dbadapter.execute(`drop schema if exists "${extSchema}" cascade`).catch(() => undefined);
+      await dbadapter.execute(`drop schema if exists "${remoteSchema}" cascade`).catch(() => undefined);
+
+      // Seed a "remote" source table. Loopback FDW (same instance, separate schema):
+      // enough to exercise postgres_fdw + the user mapping's authentication.
+      await dbadapter.execute(`create schema "${remoteSchema}"`);
+      await dbadapter.execute(`create table "${remoteSchema}"."orders" (id int, amount numeric)`);
+      await dbadapter.execute(`insert into "${remoteSchema}"."orders" values (1, 10.5), (2, 20)`);
+
+      // The FDW bridge DDL exactly as core/actions/wrapper.ts emits it for a postgres
+      // source — credentials are non-secret ${SA_CONN:...} placeholders.
+      const userToken = "${SA_CONN:" + conn + ":user}";
+      const passwordToken = "${SA_CONN:" + conn + ":password}";
+      const bridge = [
+        `create extension if not exists "postgres_fdw" cascade`,
+        `drop server if exists "${server}" cascade`,
+        `create server "${server}" foreign data wrapper "postgres_fdw" ` +
+          `options (host 'localhost', port '5432', dbname '${PostgresFixture.database}')`,
+        `create user mapping for current_user server "${server}" ` +
+          `options (user '${userToken}', password '${passwordToken}')`,
+        `create schema "${extSchema}"`,
+        `create foreign table "${extSchema}"."orders" ("id" int, "amount" numeric) ` +
+          `server "${server}" options (schema_name '${remoteSchema}', table_name 'orders')`
+      ];
+
+      // Inject the source credentials exactly as the run path does, then execute.
+      const connections = {
+        [conn]: { user: PostgresFixture.user, password: PostgresFixture.password }
+      };
+      for (const stmt of bridge) {
+        await dbadapter.execute(substituteConnectionCredentials(stmt, connections));
+      }
+
+      // Reading through the foreign table proves the user mapping authenticated with
+      // the injected credentials.
+      const { rows } = await dbadapter.execute(
+        `select id, amount from "${extSchema}"."orders" order by id`
+      );
+      expect(rows.map((r: any) => Number(r.id))).deep.equals([1, 2]);
+
+      await dbadapter.execute(`drop schema if exists "${extSchema}" cascade`).catch(() => undefined);
+      await dbadapter.execute(`drop schema if exists "${remoteSchema}" cascade`).catch(() => undefined);
+    }
+  );
 });

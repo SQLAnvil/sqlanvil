@@ -2,6 +2,7 @@ import EventEmitter from "events";
 import Long from "long";
 
 import * as dbadapters from "sa/cli/api/dbadapters";
+import { substituteConnectionCredentials } from "sa/cli/api/commands/connection_credentials";
 import { IBigQueryExecutionOptions } from "sa/cli/api/dbadapters/bigquery";
 import { Flags } from "sa/common/flags";
 import { retry } from "sa/common/promises";
@@ -30,6 +31,11 @@ export interface IExecutionOptions {
     dryRun?: boolean;
     labels?: { [label: string]: string };
   };
+  // Source-connection credentials (from .df-credentials.json's `connections` map) used
+  // to substitute `${SA_CONN:<conn>:user|password}` placeholders in FDW-bridge statements
+  // at execution time. Secrets are applied only to the string sent to the warehouse — the
+  // in-memory execution graph keeps the placeholders.
+  connectionCredentials?: { [name: string]: any };
 }
 
 export function run(
@@ -429,9 +435,14 @@ export class Runner {
     else {
       try {
         // Retry this function a given number of times, configurable by user
+        // Inject source-connection credentials into FDW-bridge statements at the last
+        // moment (placeholders stay in the in-memory graph; secrets only reach the DB).
+        const statement = this.executionOptions.connectionCredentials
+          ? substituteConnectionCredentials(task.statement, this.executionOptions.connectionCredentials)
+          : task.statement;
         const { rows, metadata } = await retry(
           () =>
-            client.execute(task.statement, {
+            client.execute(statement, {
               onCancel: handleCancel => this.eEmitter.on(CANCEL_EVENT, handleCancel),
               rowLimit: 1,
               bigquery: options.bigquery

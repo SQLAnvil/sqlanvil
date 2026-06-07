@@ -7,6 +7,7 @@ import yargs from "yargs";
 
 import { build, compile, credentials, init, install, introspectToSqlx, run, test } from "sa/cli/api";
 import { CREDENTIALS_FILENAME } from "sa/cli/api/commands/credentials";
+import { assertConnectionCredentialsAvailable } from "sa/cli/api/commands/connection_credentials";
 import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
 import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
 import { SupabaseDbAdapter } from "sa/cli/api/dbadapters/supabase";
@@ -696,13 +697,23 @@ export function runCli() {
             return 0;
           }
 
+          // Source-connection creds for FDW-bridge user mappings. Read here (not in the
+          // --dry-run --json path above) and validated fail-fast before anything executes.
+          const connectionCredentials = credentials.readConnections(
+            getCredentialsPath(argv[projectDirOption.name], argv[credentialsOption.name])
+          );
+          assertConnectionCredentialsAvailable(executionGraph, connectionCredentials);
+
           if (argv[dryRunOptionName]) {
             print("Dry running (no changes to the warehouse will be applied)...");
           } else {
             print("Running...\n");
           }
 
-          const runner = run(dbadapter, executionGraph, { bigquery: bigqueryOptions });
+          const runner = run(dbadapter, executionGraph, {
+            bigquery: bigqueryOptions,
+            connectionCredentials
+          });
           process.on("SIGINT", () => {
             runner.cancel();
           });
