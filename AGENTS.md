@@ -160,15 +160,16 @@ No `bigquery: {}`, `partitionBy`, `clusterBy`, `OPTIONS(...)`, `bigqueryPolicyTa
 `` `project.dataset.table` ``, or `CREATE ... NOT ENFORCED`. Use the `postgres:` equivalents and
 double-quoted identifiers.
 
-### 12. CLI: `./scripts/run <verb>` (no global `dataform`, no `npm run`)
+### 12. CLI: `sqlanvil <verb>` (the installed CLI — no global `dataform`, no `npm run`)
 ```bash
-./scripts/run init    <projectDir> --warehouse postgres   # or supabase — scaffolds workflow_settings.yaml + a .df-credentials.json template (BigQuery is the default; it needs a GCP project + location)
-./scripts/run compile <projectDir>
-./scripts/run run     <projectDir> --credentials <projectDir>/.df-credentials.json
-./scripts/run run     <projectDir> --credentials ... --full-refresh
-./scripts/run run     <projectDir> --credentials ... --actions <name> --include-deps
-./scripts/run test    <projectDir> --credentials ...
+sqlanvil init    <projectDir> --warehouse postgres   # or supabase — scaffolds workflow_settings.yaml + a .df-credentials.json template (BigQuery is the default; it needs a GCP project + location)
+sqlanvil compile <projectDir>
+sqlanvil run     <projectDir> --credentials <projectDir>/.df-credentials.json
+sqlanvil run     <projectDir> --credentials ... --full-refresh
+sqlanvil run     <projectDir> --credentials ... --actions <name> --include-deps
+sqlanvil test    <projectDir> --credentials ...
 ```
+Install with `npm i -g @sqlanvil/cli`. (Working from a sqlanvil repo checkout instead of the installed CLI? Use `./scripts/run <verb>` in place of `sqlanvil <verb>`.)
 Boot a local PG with `./tools/postgres/run-postgres-db.sh`. `--dry-run` only validates BigQuery
 today; on Postgres it does not EXPLAIN-validate SQL (known gap).
 
@@ -208,7 +209,7 @@ to suffixed output. A declaration without a suffix is correct; don't "fix" it.
 | `CREATE PROCEDURE` + run separately | `type: "operations"` |
 | creds `{postgres:{username,databaseName,ssl}}` | flat `{host,port,database,user,password,sslMode,defaultSchema}` |
 | in-place matview refresh | `postgres: { refreshPolicy: "on_dependency_change" }` in the view config (else drop+recreate) |
-| `dataform run` / `npm run` | `./scripts/run run ... --credentials` |
+| `dataform run` / `npm run` | `sqlanvil run ... --credentials` |
 
 ## Red flags — you're reverting to BigQuery priors
 
