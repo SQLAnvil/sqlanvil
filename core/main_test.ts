@@ -264,6 +264,112 @@ publish("b", {"schema": "foo"}).dependencies("a")`
       ]);
     });
 
+    test("ambiguous resolve prefers the action in the default schema", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        VALID_WORKFLOW_SETTINGS_YAML
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/file.js"),
+        `
+publish("a", {"schema": "foo"})
+publish("a")`
+      );
+      fs.writeFileSync(path.join(projectDir, "definitions/file.sqlx"), "${resolve('a')}");
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+      expect(
+        asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors)
+      ).deep.equals([]);
+      expect(asPlainObject(result.compile.compiledGraph.operations[0].queries[0])).deep.equals(
+        "`defaultProject.defaultDataset.a`"
+      );
+    });
+
+    test("ambiguous resolve prefers the action in the default database", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        VALID_WORKFLOW_SETTINGS_YAML
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/file.js"),
+        `
+publish("a", {"database": "otherProject"})
+publish("a")`
+      );
+      fs.writeFileSync(path.join(projectDir, "definitions/file.sqlx"), "${resolve('a')}");
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+      expect(
+        asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors)
+      ).deep.equals([]);
+      expect(asPlainObject(result.compile.compiledGraph.operations[0].queries[0])).deep.equals(
+        "`defaultProject.defaultDataset.a`"
+      );
+    });
+
+    test("ambiguous dependency prefers the action in the default schema", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        VALID_WORKFLOW_SETTINGS_YAML
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/file.js"),
+        `
+publish("a", {"schema": "foo"})
+publish("a")
+publish("b", {"schema": "foo"}).dependencies("a")`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+      expect(
+        asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors)
+      ).deep.equals([]);
+      const tableB = result.compile.compiledGraph.tables.find(
+        table => table.target.name === "b"
+      );
+      expect(asPlainObject(tableB.dependencyTargets)).deep.equals([
+        {
+          database: "defaultProject",
+          schema: "defaultDataset",
+          name: "a"
+        }
+      ]);
+    });
+
+    test("still fails when no ambiguous candidate matches the defaults", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        VALID_WORKFLOW_SETTINGS_YAML
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/file.js"),
+        `
+publish("a", {"database": "projectFoo"})
+publish("a", {"database": "projectBar"})`
+      );
+      fs.writeFileSync(path.join(projectDir, "definitions/file.sqlx"), "${resolve('a')}");
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+      const errorMessages = result.compile.compiledGraph.graphErrors.compilationErrors?.map(
+        error => error.message
+      );
+      expect(errorMessages.length).equals(1);
+      expect(errorMessages[0]).to.match(/^Ambiguous Action name/);
+    });
+
     suite("context methods", () => {
       [
         WorkflowSettingsTemplates.bigqueryWithDefaultProjectAndDataset,

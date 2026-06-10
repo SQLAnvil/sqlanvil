@@ -221,9 +221,40 @@ export class Session {
     }
   }
 
+  /**
+   * Finds actions matching a (possibly partially-qualified) reference. When the reference is
+   * ambiguous, prefers the single candidate in the default database/schema (for qualification
+   * levels the reference omits); if no single candidate stands out, returns all matches so the
+   * ambiguity error can list them.
+   */
+  private findActions(refTarget: sqlanvil.ITarget): Action[] {
+    const found = this.indexedActions.find(refTarget);
+    if (found.length <= 1) {
+      return found;
+    }
+    let candidates = found;
+    if (!refTarget.database && this.projectConfig.defaultDatabase) {
+      const inDefaultDatabase = candidates.filter(
+        action => action.getTarget().database === this.projectConfig.defaultDatabase
+      );
+      if (inDefaultDatabase.length > 0) {
+        candidates = inDefaultDatabase;
+      }
+    }
+    if (!refTarget.schema && this.projectConfig.defaultSchema) {
+      const inDefaultSchema = candidates.filter(
+        action => action.getTarget().schema === this.projectConfig.defaultSchema
+      );
+      if (inDefaultSchema.length > 0) {
+        candidates = inDefaultSchema;
+      }
+    }
+    return candidates.length === 1 ? candidates : found;
+  }
+
   public resolve(ref: Resolvable | string[], ...rest: string[]): string {
     ref = toResolvable(ref, rest);
-    const allResolved = this.indexedActions.find(utils.resolvableAsTarget(ref));
+    const allResolved = this.findActions(utils.resolvableAsTarget(ref));
     if (allResolved.length > 1) {
       this.compileError(new Error(utils.ambiguousActionNameMsg(ref, allResolved)));
       return "";
@@ -736,7 +767,7 @@ export class Session {
         return;
       }
       for (const dependency of action.dependencyTargets) {
-        const possibleDeps = this.indexedActions.find(dependency);
+        const possibleDeps = this.findActions(dependency);
         if (possibleDeps.length === 0) {
           // We couldn't find a matching target.
           this.compileError(
