@@ -12,14 +12,19 @@ async function runTest(
   dbadapter: dbadapters.IDbAdapter,
   testCase: sqlanvil.ITest
 ): Promise<sqlanvil.ITestResult> {
-  // TODO: Test results are currently limited to 1MB.
-  // We should paginate test results to remove this limit.
+  // Test result sets must be compared in full. An explicit (empty) options object
+  // opts out of the adapter's default row/byte caps (1000 rows / 1MB) — those
+  // defaults only apply when `execute` is called with no options argument at all.
+  // Do NOT drop this argument: without it the caps return and rows past the limit
+  // are silently truncated and never compared, so a test could pass or fail on a
+  // partial result. See SQLAnvil/sqlanvil#19.
+  const noLimit = {};
   let actualResults;
   let expectedResults;
   try {
     [actualResults, expectedResults] = await Promise.all([
-      dbadapter.execute(testCase.testQuery, { byteLimit: 1024 * 1024 }),
-      dbadapter.execute(testCase.expectedOutputQuery, { byteLimit: 1024 * 1024 })
+      dbadapter.execute(testCase.testQuery, noLimit),
+      dbadapter.execute(testCase.expectedOutputQuery, noLimit)
     ]);
   } catch (e) {
     return {

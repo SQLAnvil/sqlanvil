@@ -63,6 +63,7 @@ ts_test_suite(
         "commands/connection_credentials_test.ts",
         "commands/init_test.ts",
         "commands/introspect_test.ts",
+        "commands/test_test.ts",
         "commands/jit/rpc_test.ts",
         "dbadapters/bigquery_test.ts",
         "execution_sql_test.ts",
@@ -76,6 +77,7 @@ ts_test_suite(
     ] + glob(["goldens/**"]),
     deps = [
         ":api",
+        "//cli/api/utils",
         "//core",
         "//protos:ts",
         "//testing",
