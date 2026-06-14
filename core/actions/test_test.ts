@@ -433,7 +433,7 @@ SELECT 1 AS a, 2 AS b`);
       );
     });
 
-    test(`test with incremental table`, () => { 
+    test(`test on an incremental dataset uses the non-incremental (create) query`, () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
       const definitionsDir = path.join(projectDir, "definitions");
@@ -443,11 +443,14 @@ SELECT 1 AS a, 2 AS b`);
       fs.writeFileSync(workflowSettingsPath, VALID_WORKFLOW_SETTINGS_YAML);
       fs.mkdirSync(definitionsDir);
 
+      // The incremental-only WHERE clause must be excluded from the test query: a
+      // unit test exercises the full-refresh (create) form, so `when(incremental())`
+      // resolves to its false branch.
       fs.writeFileSync(actionSqlxPath, `
 config {
   type: "incremental",
 }
-SELECT 1 AS a
+SELECT 1 AS a\${when(incremental(), \` WHERE 1 = 0\`)}
     `);
       fs.writeFileSync(actionTestSqlxPath, `
 config {
@@ -458,10 +461,13 @@ SELECT 1 AS a`);
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
-      expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).equals(1);
-      expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains(
-        `Running tests on incremental datasets is not yet supported.`
-      );
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      const tests = result.compile.compiledGraph.tests;
+      expect(tests.length).equals(1);
+      expect(tests[0].name).equals("action_test");
+      expect(tests[0].testQuery).to.contain("SELECT 1 AS a");
+      expect(tests[0].testQuery).to.not.contain("WHERE 1 = 0");
+      expect(tests[0].expectedOutputQuery).to.contain("SELECT 1 AS a");
     });
 
     test(`test with includeTestsInCompiledGraph set`, () => { 

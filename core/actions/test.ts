@@ -211,13 +211,11 @@ export class Test extends ActionBuilder<sqlanvil.Test> {
           this.proto.fileName
         );
         return this.proto;
-      } else if (dataset instanceof IncrementalTable) {
-        this.session.compileError(
-          new Error("Running tests on incremental datasets is not yet supported."),
-          this.proto.fileName
-        );
-        return this.proto;
       } else {
+        // For incremental tables this exercises the non-incremental (create) form of the
+        // query: RefReplacingContext.incremental() returns false, so `when(incremental())`
+        // clauses resolve to their false branch — a unit test verifies the full-refresh
+        // SELECT logic, with ref()/resolve() replaced by the provided inputs.
         const refReplacingContext = new RefReplacingContext(testContext);
         this.proto.testQuery = refReplacingContext.apply(dataset.contextableQuery);
       }
