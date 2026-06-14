@@ -300,6 +300,60 @@ suite("ExecutionSql with Postgres/Supabase", () => {
     ]);
   });
 
+  test("partitioned parent honors tablespace", () => {
+    const table: sqlanvil.ITable = {
+      ...baseTable,
+      postgres: {
+        tablespace: "fast_ssd",
+        partition: {
+          kind: sqlanvil.PostgresOptions.Partition.Kind.RANGE,
+          columns: ["id"],
+          partitions: [{ name: "p0", values: "FROM (0) TO (100)" }]
+        }
+      }
+    };
+    const statements = executionSql
+      .publishTasks(table, { fullRefresh: false })
+      .build()
+      .map(t => t.statement);
+    expect(statements).to.include(
+      'create table "my_db"."public"."my_table" (like "my_db"."public"."my_table__sa_stage" including defaults) partition by range ("id") tablespace "fast_ssd"'
+    );
+  });
+
+  test("sub-partitioned child emits a nested PARTITION BY and its sub-partitions", () => {
+    const table: sqlanvil.ITable = {
+      ...baseTable,
+      postgres: {
+        partition: {
+          kind: sqlanvil.PostgresOptions.Partition.Kind.RANGE,
+          columns: ["id"],
+          partitions: [
+            {
+              name: "p0",
+              values: "FROM (0) TO (100)",
+              subPartition: {
+                kind: sqlanvil.PostgresOptions.Partition.Kind.LIST,
+                columns: ["field1"],
+                partitions: [{ name: "us", values: "IN ('a')" }]
+              }
+            }
+          ]
+        }
+      }
+    };
+    const statements = executionSql
+      .publishTasks(table, { fullRefresh: false })
+      .build()
+      .map(t => t.statement);
+    expect(statements).to.include(
+      'create table "my_db"."public"."my_table__p0" partition of "my_db"."public"."my_table" for values FROM (0) TO (100) partition by list ("field1")'
+    );
+    expect(statements).to.include(
+      'create table "my_db"."public"."my_table__p0__us" partition of "my_db"."public"."my_table__p0" for values IN (\'a\')'
+    );
+  });
+
   test("materialized view honors no_data (WITH NO DATA)", () => {
     const mvTable: sqlanvil.ITable = {
       ...baseTable,

@@ -270,26 +270,53 @@ export class PostgresExecutionSql implements IExecutionSql {
     const stage = this.resolveTarget({ ...table.target, name: `${table.target.name}__sa_stage` });
     const kind = this.partitionKindAsSql(partition.kind);
     const columns = (partition.columns || []).map(c => `"${c}"`).join(", ");
+    // Tablespace on a partitioned parent sets the default placement inherited by
+    // its child partitions (the parent itself stores no rows).
+    const tablespace = table.postgres?.tablespace ? ` tablespace "${table.postgres.tablespace}"` : "";
 
     const statements = [
       `drop table if exists ${stage} cascade`,
       `create unlogged table ${stage} as ${table.query} with no data`,
       `drop table if exists ${target} cascade`,
-      `create table ${target} (like ${stage} including defaults) partition by ${kind} (${columns})`
+      `create table ${target} (like ${stage} including defaults) partition by ${kind} (${columns})${tablespace}`
     ];
-    for (const bound of partition.partitions || []) {
-      const child = this.resolveTarget({
-        ...table.target,
-        name: `${table.target.name}__${bound.name}`
-      });
-      statements.push(`create table ${child} partition of ${target} for values ${bound.values}`);
-    }
-    if (partition.includeDefault) {
-      const def = this.resolveTarget({ ...table.target, name: `${table.target.name}__default` });
-      statements.push(`create table ${def} partition of ${target} default`);
-    }
+    // The single INSERT into the parent cascades through every level of the
+    // partition hierarchy, so only leaf partitions need to exist beforehand.
+    statements.push(...this.createChildPartitions(table.target, table.target.name, target, partition));
     statements.push(`insert into ${target} select * from (${table.query}) as q`);
     statements.push(`drop table if exists ${stage} cascade`);
+    return statements;
+  }
+
+  // Emits CREATE TABLE statements for each child partition of `parentSql`. A child
+  // carrying its own `subPartition` becomes a partitioned table (PARTITION BY ...)
+  // and recurses to create its sub-partitions; a leaf child holds rows directly.
+  private createChildPartitions(
+    baseTarget: sqlanvil.ITarget,
+    parentName: string,
+    parentSql: string,
+    partition: sqlanvil.PostgresOptions.IPartition
+  ): string[] {
+    const statements: string[] = [];
+    for (const bound of partition.partitions || []) {
+      const childName = `${parentName}__${bound.name}`;
+      const childSql = this.resolveTarget({ ...baseTarget, name: childName });
+      const sub = bound.subPartition;
+      if (sub && (sub.columns || []).length > 0) {
+        const subKind = this.partitionKindAsSql(sub.kind);
+        const subColumns = (sub.columns || []).map(c => `"${c}"`).join(", ");
+        statements.push(
+          `create table ${childSql} partition of ${parentSql} for values ${bound.values} partition by ${subKind} (${subColumns})`
+        );
+        statements.push(...this.createChildPartitions(baseTarget, childName, childSql, sub));
+      } else {
+        statements.push(`create table ${childSql} partition of ${parentSql} for values ${bound.values}`);
+      }
+    }
+    if (partition.includeDefault) {
+      const def = this.resolveTarget({ ...baseTarget, name: `${parentName}__default` });
+      statements.push(`create table ${def} partition of ${parentSql} default`);
+    }
     return statements;
   }
 

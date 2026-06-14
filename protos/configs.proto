@@ -884,6 +884,11 @@ message PostgresOptions {
     message Bound {
       string name = 1;
       string values = 2;
+
+      // Sub-partitioning: make this child a partitioned table in its own right
+      // (PARTITION BY ...), with its own nested `partitions`. Omit for a leaf
+      // child that holds rows directly.
+      Partition sub_partition = 3;
     }
     repeated Bound partitions = 3;
 
