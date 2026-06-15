@@ -8,6 +8,7 @@ import yargs from "yargs";
 import { build, compile, credentials, init, install, introspectToSqlx, run, test } from "sa/cli/api";
 import { CREDENTIALS_FILENAME } from "sa/cli/api/commands/credentials";
 import { assertConnectionCredentialsAvailable } from "sa/cli/api/commands/connection_credentials";
+import { IDbAdapter } from "sa/cli/api/dbadapters";
 import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
 import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
 import { SupabaseDbAdapter } from "sa/cli/api/dbadapters/supabase";
@@ -33,31 +34,117 @@ import {
   compiledGraphHasErrors,
   promptForIcebergConfig,
 } from "sa/cli/util";
-import { createYargsCli, INamedOption } from "sa/cli/yargswrapper";
+import { createYargsCli, option, positionalOption } from "sa/cli/yargswrapper";
 import { targetAsReadableString } from "sa/core/targets";
 import { sqlanvil } from "sa/protos/ts";
 import { formatFile } from "sa/sqlx/format";
 
 const RECOMPILE_DELAY = 500;
 
-process.on("unhandledRejection", async (reason: any) => {
-  printError(`Unhandled promise rejection: ${reason?.stack || reason}`);
+process.on("unhandledRejection", async (reason: unknown) => {
+  printError(`Unhandled promise rejection: ${(reason as Error)?.stack || reason}`);
 });
 
-// TODO: Since yargs launched an actually well typed API in version 12, let's use it as this file is currently not type checked.
+// Per-command argv interfaces. yargs gained a well-typed API in v12; rather than
+// rewrite the data-driven command builder onto the fluent chain, each command's
+// handler is annotated with the interface describing exactly the args it reads.
+// The `option`/`positionalOption` factories (yargswrapper) capture each flag name
+// as a string literal, so `argv[someOption.name]` indexes these interfaces by the
+// exact key. Types reflect post-`coerce` values (e.g. timeout: number, project-dir:
+// string). Optional members marked `?` are either non-defaulted flags or — noted
+// inline — flags a handler reads without declaring (undefined at runtime today).
 
-const projectDirOption: INamedOption<yargs.PositionalOptions> = {
-  name: "project-dir",
-  option: {
-    describe: "The sqlanvil project directory.",
-    default: ".",
-    coerce: actuallyResolve
-  }
-};
+/** The shared `ProjectConfigOptions.allYargsOptions`, all optional overrides. */
+interface ProjectConfigArgv {
+  "default-database"?: string;
+  "default-schema"?: string;
+  "default-location"?: string;
+  "assertion-schema"?: string;
+  vars?: { [key: string]: string };
+  "database-suffix"?: string;
+  "schema-suffix"?: string;
+  "table-prefix"?: string;
+  "disable-assertions"?: boolean;
+  "default-reservation"?: string;
+}
+
+interface InitArgv {
+  "project-dir": string;
+  "default-database"?: string;
+  "default-location"?: string;
+  warehouse: string;
+  iceberg: boolean;
+}
+
+interface InstallArgv {
+  "project-dir": string;
+}
+
+interface InitCredsArgv {
+  "project-dir": string;
+  "test-connection": boolean;
+}
+
+interface CompileArgv extends ProjectConfigArgv {
+  "project-dir": string;
+  watch: boolean;
+  json: boolean;
+  dot: boolean;
+  timeout: number | null;
+  quiet: boolean;
+  verbose: boolean;
+}
+
+interface TestArgv extends ProjectConfigArgv {
+  "project-dir": string;
+  credentials: string;
+  timeout: number | null;
+  json: boolean;
+  // Read via printCompiledGraphErrors but not declared on `test` (undefined at runtime).
+  quiet?: boolean;
+}
+
+interface RunArgv extends ProjectConfigArgv {
+  "project-dir": string;
+  "dry-run"?: boolean;
+  "run-tests"?: boolean;
+  "action-retry-limit": number;
+  actions?: string[];
+  credentials: string;
+  "full-refresh": boolean;
+  "include-deps"?: boolean;
+  "include-dependents"?: boolean;
+  json: boolean;
+  timeout: number | null;
+  tags?: string[];
+  "job-labels"?: { [key: string]: string };
+  // Read but not declared on `run` (undefined at runtime today).
+  quiet?: boolean;
+  "job-prefix"?: string;
+}
+
+interface FormatArgv {
+  "project-dir": string;
+  actions?: string[];
+  check: boolean;
+}
+
+interface IntrospectArgv {
+  connection: string;
+  tableRef: string;
+  "project-dir": string;
+  output?: string;
+}
+
+const projectDirOption = positionalOption("project-dir", {
+  describe: "The sqlanvil project directory.",
+  default: ".",
+  coerce: actuallyResolve
+});
 
 const projectDirMustExistOption = {
   ...projectDirOption,
-  check: (argv: yargs.Arguments<any>) => {
+  check: (argv: { "project-dir": string }) => {
     assertPathExists(argv[projectDirOption.name]);
     const workflowSettingsYamlPath = path.resolve(
       argv[projectDirOption.name],
@@ -73,57 +160,48 @@ const projectDirMustExistOption = {
   }
 };
 
-const fullRefreshOption: INamedOption<yargs.Options> = {
-  name: "full-refresh",
-  option: {
-    describe: "Forces incremental tables to be rebuilt from scratch.",
-    type: "boolean",
-    default: false
-  }
-};
+const fullRefreshOption = option("full-refresh", {
+  describe: "Forces incremental tables to be rebuilt from scratch.",
+  type: "boolean",
+  default: false
+});
 
-const actionsOption: INamedOption<yargs.Options> = {
-  name: "actions",
-  option: {
-    describe: "A list of action names or patterns to run. Can include '*' wildcards.",
-    type: "array",
-    coerce: (rawActions: string[] | null) => rawActions.map(actions => actions.split(",")).flat()
-  }
-};
+const actionsOption = option("actions", {
+  describe: "A list of action names or patterns to run. Can include '*' wildcards.",
+  type: "array",
+  coerce: (rawActions: string[] | null) => rawActions.map(actions => actions.split(",")).flat()
+});
 
-const tagsOption: INamedOption<yargs.Options> = {
-  name: "tags",
-  option: {
-    describe: "A list of tags to filter the actions to run.",
-    type: "array",
-    coerce: (rawTags: string[] | null) => rawTags.map(tags => tags.split(",")).flat()
-  }
-};
+const tagsOption = option("tags", {
+  describe: "A list of tags to filter the actions to run.",
+  type: "array",
+  coerce: (rawTags: string[] | null) => rawTags.map(tags => tags.split(",")).flat()
+});
 
-const includeDepsOption: INamedOption<yargs.Options> = {
-  name: "include-deps",
-  option: {
+const includeDepsOption = option(
+  "include-deps",
+  {
     describe: "If set, dependencies for selected actions will also be run.",
     type: "boolean"
   },
   // It would be nice to use yargs' "implies" to implement this, but it doesn't work for some reason.
-  check: (argv: yargs.Arguments) => {
+  (argv: Pick<RunArgv, "include-deps" | "actions" | "tags">) => {
     if (argv[includeDepsOption.name] && !(argv[actionsOption.name] || argv[tagsOption.name])) {
       throw new Error(
         `The --${includeDepsOption.name} flag should only be supplied along with --${actionsOption.name} or --${tagsOption.name}.`
       );
     }
   }
-};
+);
 
-const includeDependentsOption: INamedOption<yargs.Options> = {
-  name: "include-dependents",
-  option: {
+const includeDependentsOption = option(
+  "include-dependents",
+  {
     describe: "If set, dependents (downstream) for selected actions will also be run.",
     type: "boolean"
   },
   // It would be nice to use yargs' "implies" to implement this, but it doesn't work for some reason.
-  check: (argv: yargs.Arguments) => {
+  (argv: Pick<RunArgv, "include-dependents" | "actions" | "tags">) => {
     if (
       argv[includeDependentsOption.name] &&
       !(argv[actionsOption.name] || argv[tagsOption.name])
@@ -133,109 +211,87 @@ const includeDependentsOption: INamedOption<yargs.Options> = {
       );
     }
   }
-};
+);
 
-const credentialsOption: INamedOption<yargs.Options> = {
-  name: "credentials",
-  option: {
+const credentialsOption = option(
+  "credentials",
+  {
     describe: "The location of the credentials JSON file to use.",
     default: CREDENTIALS_FILENAME
   },
-  check: (argv: yargs.Arguments<any>) =>
-    getCredentialsPath(argv[projectDirOption.name], argv[credentialsOption.name])
-};
-
-const jsonOutputOption: INamedOption<yargs.Options> = {
-  name: "json",
-  option: {
-    describe: "Outputs a JSON representation of the compiled project or test results.",
-    type: "boolean",
-    default: false
+  (argv: { "project-dir": string; credentials: string }) => {
+    getCredentialsPath(argv[projectDirOption.name], argv.credentials);
   }
-};
+);
 
-const dotOutputOption: INamedOption<yargs.Options> = {
-  name: "dot",
-  option: {
+const jsonOutputOption = option("json", {
+  describe: "Outputs a JSON representation of the compiled project or test results.",
+  type: "boolean",
+  default: false
+});
+
+const dotOutputOption = option(
+  "dot",
+  {
     describe: "Outputs a dot representation of the compiled project.",
     type: "boolean",
-    default: false,
-  },
-    check: (argv: yargs.Arguments<any>) => {
-      if (argv.json && argv.dot) {
-        throw new Error("Arguments --json and --dot are mutually exclusive.");
-      }
-    }
-  
-};
-
-const timeoutOption: INamedOption<yargs.Options> = {
-  name: "timeout",
-  option: {
-    describe: "Duration to allow project compilation to complete. Examples: '1s', '10m', etc.",
-    type: "string",
-    default: null,
-    coerce: (rawTimeoutString: string | null) =>
-      rawTimeoutString ? parseDuration(rawTimeoutString) : null
-  }
-};
-
-const jobPrefixOption: INamedOption<yargs.Options> = {
-  name: "job-prefix",
-  option: {
-    describe: "Adds an additional prefix in the form of `sqlanvil-${jobPrefix}-`.",
-    type: "string",
-    default: null
-  }
-};
-
-const bigqueryJobLabelsOption: INamedOption<yargs.Options> = {
-  name: "job-labels",
-  option: {
-    describe:
-      "Comma-separated list of labels to add to BigQuery jobs, e.g. 'key1=val1,key2=val2'.",
-    type: "string",
-    coerce: (raw: string | null) => {
-      const labels: { [key: string]: string } = {};
-      raw?.split(",").forEach(kv => {
-        if (!kv) {
-          return;
-        }
-        const [key, ...rest] = kv.split("=");
-        labels[key] = rest.join("=") || "";
-      });
-      return labels;
-    }
-  }
-};
-
-const quietCompileOption: INamedOption<yargs.Options> = {
-  name: "quiet",
-  option: {
-    describe: "Less verbose compilation output. Example usage: 'sqlanvil compile --quiet'",
-    type: "boolean",
     default: false
-  }
-};
-
-const icebergOption: INamedOption<yargs.Options> = {
-  name: "iceberg",
-  option: {
-    describe: "Initialize the project with workflow-level Iceberg tables configuration.",
-    type: "boolean",
-    default: false,
   },
-};
-
-const warehouseOption: INamedOption<yargs.Options> = {
-  name: "warehouse",
-  option: {
-    describe: "Target warehouse for the new project.",
-    type: "string",
-    choices: ["bigquery", "postgres", "supabase"],
-    default: "supabase"
+  (argv: { json?: boolean; dot?: boolean }) => {
+    if (argv.json && argv.dot) {
+      throw new Error("Arguments --json and --dot are mutually exclusive.");
+    }
   }
-};
+);
+
+const timeoutOption = option("timeout", {
+  describe: "Duration to allow project compilation to complete. Examples: '1s', '10m', etc.",
+  type: "string",
+  default: null,
+  coerce: (rawTimeoutString: string | null) =>
+    rawTimeoutString ? parseDuration(rawTimeoutString) : null
+});
+
+const jobPrefixOption = option("job-prefix", {
+  describe: "Adds an additional prefix in the form of `sqlanvil-${jobPrefix}-`.",
+  type: "string",
+  default: null
+});
+
+const bigqueryJobLabelsOption = option("job-labels", {
+  describe: "Comma-separated list of labels to add to BigQuery jobs, e.g. 'key1=val1,key2=val2'.",
+  type: "string",
+  coerce: (raw: string | null) => {
+    const labels: { [key: string]: string } = {};
+    raw?.split(",").forEach(kv => {
+      if (!kv) {
+        return;
+      }
+      const [key, ...rest] = kv.split("=");
+      labels[key] = rest.join("=") || "";
+    });
+    return labels;
+  }
+});
+
+const quietCompileOption = option("quiet", {
+  describe: "Less verbose compilation output. Example usage: 'sqlanvil compile --quiet'",
+  type: "boolean",
+  default: false
+});
+
+const icebergOption = option("iceberg", {
+  describe: "Initialize the project with workflow-level Iceberg tables configuration.",
+  type: "boolean",
+  default: false
+});
+
+const warehouseOption = option("warehouse", {
+  describe: "Target warehouse for the new project.",
+  type: "string",
+  choices: ["bigquery", "postgres", "supabase"],
+  default: "supabase"
+});
 
 const testConnectionOptionName = "test-connection";
 
@@ -262,7 +318,7 @@ export function runCli() {
         description: "Show help. If [command] is specified, the help is for the given command.",
         positionalOptions: [],
         options: [],
-        processFn: async argv => {
+        processFn: async () => {
           return 0;
         }
       },
@@ -273,12 +329,12 @@ export function runCli() {
         description: "Create a new sqlanvil project (BigQuery, Postgres, or Supabase).",
         positionalOptions: [
           projectDirOption,
-          {
-            name: ProjectConfigOptions.defaultDatabase.name,
-            option: {
+          positionalOption(
+            ProjectConfigOptions.defaultDatabase.name,
+            {
               describe: "The default database to use, equivalent to Google Cloud Project ID."
             },
-            check: (argv: yargs.Arguments<any>) => {
+            (argv: InitArgv) => {
               const warehouse = argv[warehouseOption.name] || "bigquery";
               if (warehouse === "bigquery" && !argv[ProjectConfigOptions.defaultDatabase.name]) {
                 throw new Error(
@@ -287,15 +343,15 @@ export function runCli() {
                 );
               }
             }
-          },
-          {
-            name: ProjectConfigOptions.defaultLocation.name,
-            option: {
+          ),
+          positionalOption(
+            ProjectConfigOptions.defaultLocation.name,
+            {
               describe:
                 "The default location to use. See " +
                 "https://cloud.google.com/bigquery/docs/locations for supported values."
             },
-            check: (argv: yargs.Arguments<any>) => {
+            (argv: InitArgv) => {
               const warehouse = argv[warehouseOption.name] || "bigquery";
               if (warehouse === "bigquery" && !argv[ProjectConfigOptions.defaultLocation.name]) {
                 throw new Error(
@@ -304,10 +360,10 @@ export function runCli() {
                 );
               }
             }
-          }
+          )
         ],
         options: [warehouseOption, icebergOption],
-        processFn: async argv => {
+        processFn: async (argv: InitArgv) => {
           const projectDir = argv[projectDirOption.name];
           const warehouse = argv[warehouseOption.name] || "bigquery";
           const projectConfig: sqlanvil.IProjectConfig = { warehouse };
@@ -335,7 +391,7 @@ export function runCli() {
         description: "Install a project's NPM dependencies.",
         positionalOptions: [projectDirMustExistOption],
         options: [],
-        processFn: async argv => {
+        processFn: async (argv: InstallArgv) => {
           print("Installing NPM dependencies...\n");
           await install(argv[projectDirMustExistOption.name]);
           printSuccess("Project dependencies successfully installed.");
@@ -349,16 +405,13 @@ export function runCli() {
           `accessing BigQuery.`,
         positionalOptions: [projectDirMustExistOption],
         options: [
-          {
-            name: testConnectionOptionName,
-            option: {
-              describe: "If true, a test query will be run using your final credentials.",
-              type: "boolean",
-              default: true
-            }
-          }
+          option(testConnectionOptionName, {
+            describe: "If true, a test query will be run using your final credentials.",
+            type: "boolean",
+            default: true
+          })
         ],
-        processFn: async argv => {
+        processFn: async (argv: InitCredsArgv) => {
           const finalCredentials = getBigQueryCredentials();
           if (argv[testConnectionOptionName]) {
             print("\nRunning connection test...");
@@ -397,34 +450,32 @@ export function runCli() {
           "Compile the sqlanvil project. Produces JSON output describing the non-executable graph.",
         positionalOptions: [projectDirMustExistOption],
         options: [
-          {
-            name: watchOptionName,
-            option: {
-              describe: "Whether to watch the changes in the project directory.",
-              type: "boolean",
-              default: false
-            }
-          },
+          option(watchOptionName, {
+            describe: "Whether to watch the changes in the project directory.",
+            type: "boolean",
+            default: false
+          }),
           jsonOutputOption,
           dotOutputOption,
           timeoutOption,
           quietCompileOption,
-          {
-            name: verboseOptionName,
-            option: {
-              describe: "Enable verbose compilation output. Example usage: 'sqlanvil compile --verbose'",
+          option(
+            verboseOptionName,
+            {
+              describe:
+                "Enable verbose compilation output. Example usage: 'sqlanvil compile --verbose'",
               type: "boolean",
               default: false
             },
-            check: (argv: yargs.Arguments) => {
+            (argv: { quiet?: boolean; verbose?: boolean }) => {
               if (argv.quiet && argv.verbose) {
                 throw new Error("Arguments --verbose and --quiet are mutually exclusive.");
               }
             }
-          },
+          ),
           ...ProjectConfigOptions.allYargsOptions
         ],
-        processFn: async argv => {
+        processFn: async (argv: CompileArgv) => {
           const projectDir = argv[projectDirMustExistOption.name];
 
           async function compileAndPrint() {
@@ -520,10 +571,10 @@ export function runCli() {
         description: "Run the sqlanvil project's unit tests.",
         positionalOptions: [projectDirMustExistOption],
         options: [credentialsOption, timeoutOption, jsonOutputOption, ...ProjectConfigOptions.allYargsOptions],
-        processFn: async argv => {
+        processFn: async (argv: TestArgv) => {
           if (!argv[jsonOutputOption.name]) {
             print("Compiling...\n");
-          }          
+          }
           const compiledGraph = await compile({
             projectDir: argv[projectDirMustExistOption.name],
             projectConfigOverride: ProjectConfigOptions.constructProjectConfigOverride(argv),
@@ -550,7 +601,7 @@ export function runCli() {
           if (!argv[jsonOutputOption.name]) {
             print(`Running ${compiledGraph.tests.length} unit tests...\n`);
           }
-          let dbadapter: any;
+          let dbadapter: IDbAdapter;
           if (warehouse.toLowerCase() === "supabase") {
             dbadapter = await SupabaseDbAdapter.create(readCredentials);
           } else if (warehouse.toLowerCase() === "postgres") {
@@ -573,30 +624,21 @@ export function runCli() {
         description: "Run the sqlanvil project.",
         positionalOptions: [projectDirMustExistOption],
         options: [
-          {
-            name: dryRunOptionName,
-            option: {
-              describe:
-                "If set, BigQuery will validate the run SQL without applying changes to the warehouse.",
-              type: "boolean"
-            }
-          },
-          {
-            name: runTestsOptionName,
-            option: {
-              describe:
-                "If set, the project's unit tests are required to pass before running the project.",
-              type: "boolean"
-            }
-          },
-          {
-            name: actionRetryLimitName,
-            option: {
-              describe: "If set, idempotent actions will be retried up to the limit.",
-              type: "number",
-              default: 0
-            }
-          },
+          option(dryRunOptionName, {
+            describe:
+              "If set, BigQuery will validate the run SQL without applying changes to the warehouse.",
+            type: "boolean"
+          }),
+          option(runTestsOptionName, {
+            describe:
+              "If set, the project's unit tests are required to pass before running the project.",
+            type: "boolean"
+          }),
+          option(actionRetryLimitName, {
+            describe: "If set, idempotent actions will be retried up to the limit.",
+            type: "number",
+            default: 0
+          }),
           actionsOption,
           credentialsOption,
           fullRefreshOption,
@@ -609,7 +651,7 @@ export function runCli() {
           bigqueryJobLabelsOption,
           ...ProjectConfigOptions.allYargsOptions
         ],
-        processFn: async argv => {
+        processFn: async (argv: RunArgv) => {
           if (argv[jsonOutputOption.name] && !argv[dryRunOptionName]) {
             print(
               `For execution, the --${jsonOutputOption.name} option is only supported if the ` +
@@ -638,7 +680,7 @@ export function runCli() {
             warehouse
           );
 
-          let dbadapter: any;
+          let dbadapter: IDbAdapter;
           if (warehouse.toLowerCase() === "supabase") {
             dbadapter = await SupabaseDbAdapter.create(readCredentials);
           } else if (warehouse.toLowerCase() === "postgres") {
@@ -752,16 +794,13 @@ export function runCli() {
         positionalOptions: [projectDirMustExistOption],
         options: [
           actionsOption,
-          {
-            name: checkOptionName,
-            option: {
-              describe: "Check if files are formatted correctly without modifying them.",
-              type: "boolean",
-              default: false
-            }
-          }
+          option(checkOptionName, {
+            describe: "Check if files are formatted correctly without modifying them.",
+            type: "boolean",
+            default: false
+          })
         ],
-        processFn: async argv => {
+        processFn: async (argv: FormatArgv) => {
           let actions = ["{definitions,includes}/**/*.{js,sqlx}"];
           if (actionsOption.name in argv && argv[actionsOption.name].length > 0) {
             actions = argv[actionsOption.name];
@@ -838,30 +877,25 @@ export function runCli() {
         description:
           "Read a source table's schema from a connection and write a declaration .sqlx with columnTypes.",
         positionalOptions: [
-          {
-            name: "connection",
-            option: { describe: "Connection name (from workflow_settings.yaml connections)." }
-          },
-          {
-            name: "tableRef",
-            option: { describe: "Source table as schema.table (or just table)." }
-          },
+          positionalOption("connection", {
+            describe: "Connection name (from workflow_settings.yaml connections)."
+          }),
+          positionalOption("tableRef", {
+            describe: "Source table as schema.table (or just table)."
+          }),
           projectDirOption
         ],
         options: [
-          {
-            name: "output",
-            option: {
-              describe: "File to write the declaration .sqlx to. Prints to stdout if omitted.",
-              type: "string"
-            }
-          }
+          option("output", {
+            describe: "File to write the declaration .sqlx to. Prints to stdout if omitted.",
+            type: "string"
+          })
         ],
-        processFn: async argv => {
-          const projectDir = argv[projectDirOption.name] as string;
-          const sqlx = await introspectToSqlx(projectDir, argv.connection as string, argv.tableRef as string);
+        processFn: async (argv: IntrospectArgv) => {
+          const projectDir = argv[projectDirOption.name];
+          const sqlx = await introspectToSqlx(projectDir, argv.connection, argv.tableRef);
           if (argv.output) {
-            fs.writeFileSync(argv.output as string, sqlx);
+            fs.writeFileSync(argv.output, sqlx);
             printSuccess(`Wrote declaration to ${argv.output}`);
           } else {
             print(sqlx);
@@ -875,7 +909,7 @@ export function runCli() {
     .strict()
     .wrap(null)
     .recommendCommands()
-    .fail(async (msg: string, err: any) => {
+    .fail(async (msg: string, err: Error) => {
       if (!!err && err.name === "VMError" && err.message.includes("Cannot find module")) {
         printError("Could not find NPM dependencies. Have you run 'sqlanvil install'?");
       } else {
@@ -895,75 +929,57 @@ export function runCli() {
 }
 
 class ProjectConfigOptions {
-  public static defaultDatabase: INamedOption<yargs.Options> = {
-    name: "default-database",
-    option: {
-      describe:
-        "The default database to use, equivalent to Google Cloud Project ID. If unset, " +
-        "the value from workflow_settings.yaml is used.",
-      type: "string"
-    }
-  };
+  public static defaultDatabase = option("default-database", {
+    describe:
+      "The default database to use, equivalent to Google Cloud Project ID. If unset, " +
+      "the value from workflow_settings.yaml is used.",
+    type: "string"
+  });
 
-  public static defaultSchema: INamedOption<yargs.Options> = {
-    name: "default-schema",
-    option: {
-      describe:
-        "Override for the default schema name. If unset, the value from workflow_settings.yaml is used."
-    }
-  };
+  public static defaultSchema = option("default-schema", {
+    describe:
+      "Override for the default schema name. If unset, the value from workflow_settings.yaml is used."
+  });
 
-  public static defaultLocation: INamedOption<yargs.Options> = {
-    name: "default-location",
-    option: {
-      describe:
-        "The default location to use. See " +
-        "https://cloud.google.com/bigquery/docs/locations for supported values. If unset, the " +
-        "value from workflow_settings.yaml is used."
-    }
-  };
+  public static defaultLocation = option("default-location", {
+    describe:
+      "The default location to use. See " +
+      "https://cloud.google.com/bigquery/docs/locations for supported values. If unset, the " +
+      "value from workflow_settings.yaml is used."
+  });
 
-  public static assertionSchema: INamedOption<yargs.Options> = {
-    name: "assertion-schema",
-    option: {
-      describe: "Default assertion schema. If unset, the value from workflow_settings.yaml is used."
-    }
-  };
+  public static assertionSchema = option("assertion-schema", {
+    describe: "Default assertion schema. If unset, the value from workflow_settings.yaml is used."
+  });
 
-  public static databaseSuffix: INamedOption<yargs.Options> = {
-    name: "database-suffix",
-    option: {
-      describe: "Default assertion schema. If unset, the value from workflow_settings.yaml is used."
-    }
-  };
+  public static databaseSuffix = option("database-suffix", {
+    describe: "Default assertion schema. If unset, the value from workflow_settings.yaml is used."
+  });
 
-  public static vars: INamedOption<yargs.Options> = {
-    name: "vars",
-    option: {
-      describe:
-        "Override for variables to inject via '--vars=someKey=someValue,a=b', referenced by " +
-        "`sqlanvil.projectConfig.vars.someValue`.  If unset, the value from workflow_settings.yaml is used.",
-      type: "string",
-      default: null,
-      coerce: (rawVarsString: string | null) => {
-        const variables: { [key: string]: string } = {};
-        rawVarsString?.split(",").forEach(keyValueStr => {
-          const [key, value] = keyValueStr.split("=");
-          variables[key] = value;
-        });
-        return variables;
-      }
+  public static vars = option("vars", {
+    describe:
+      "Override for variables to inject via '--vars=someKey=someValue,a=b', referenced by " +
+      "`sqlanvil.projectConfig.vars.someValue`.  If unset, the value from workflow_settings.yaml is used.",
+    type: "string",
+    default: null,
+    coerce: (rawVarsString: string | null) => {
+      const variables: { [key: string]: string } = {};
+      rawVarsString?.split(",").forEach(keyValueStr => {
+        const [key, value] = keyValueStr.split("=");
+        variables[key] = value;
+      });
+      return variables;
     }
-  };
+  });
 
-  public static schemaSuffix: INamedOption<yargs.Options> = {
-    name: "schema-suffix",
-    option: {
+  public static schemaSuffix = option(
+    "schema-suffix",
+    {
       describe:
         "A suffix to be appended to output schema names. If unset, the value from workflow_settings.yaml " +
         "is used."
     },
-    check: (argv: yargs.Arguments<any>) => {
+    (argv: Pick<ProjectConfigArgv, "schema-suffix">) => {
       if (
         argv[ProjectConfigOptions.schemaSuffix.name] &&
         !/^[a-zA-Z_0-9]+$/.test(argv[ProjectConfigOptions.schemaSuffix.name])
@@ -974,35 +990,26 @@ class ProjectConfigOptions {
         );
       }
     }
-  };
+  );
 
-  public static tablePrefix: INamedOption<yargs.Options> = {
-    name: "table-prefix",
-    option: {
-      describe:
-        "Adds a prefix for all table names. If unset, the value from workflow_settings.yaml is used."
-    }
-  };
+  public static tablePrefix = option("table-prefix", {
+    describe:
+      "Adds a prefix for all table names. If unset, the value from workflow_settings.yaml is used."
+  });
 
-  public static disableAssertions: INamedOption<yargs.Options> = {
-    name: "disable-assertions",
-    option: {
-      describe:
-        "Disables all assertions including built-in assertions (uniqueKey, nonNull, rowConditions) and manual assertions (type: assertion).",
-      type: "boolean",
-      default: false
-    }
-  };
+  public static disableAssertions = option("disable-assertions", {
+    describe:
+      "Disables all assertions including built-in assertions (uniqueKey, nonNull, rowConditions) and manual assertions (type: assertion).",
+    type: "boolean",
+    default: false
+  });
 
-  public static defaultReservation: INamedOption<yargs.Options> = {
-    name: "default-reservation",
-    option: {
-      describe:
-        "The default BigQuery reservation to use for execution. If unset, the value from " +
-        "workflow_settings.yaml is used. If neither is set, default BigQuery behavior applies.",
-      type: "string"
-    }
-  };
+  public static defaultReservation = option("default-reservation", {
+    describe:
+      "The default BigQuery reservation to use for execution. If unset, the value from " +
+      "workflow_settings.yaml is used. If neither is set, default BigQuery behavior applies.",
+    type: "string"
+  });
 
   public static allYargsOptions = [
     ProjectConfigOptions.defaultDatabase,
@@ -1018,7 +1025,7 @@ class ProjectConfigOptions {
   ];
 
   public static constructProjectConfigOverride(
-    argv: yargs.Arguments<any>
+    argv: ProjectConfigArgv
   ): sqlanvil.IProjectConfig {
     const projectConfigOptions: sqlanvil.IProjectConfig = {};
 
