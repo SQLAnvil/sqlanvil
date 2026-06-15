@@ -34,6 +34,8 @@ suite("init command", ({ afterEach }) => {
         cliEntryPointPath,
         "init",
         projectDir,
+        // init defaults to the supabase warehouse; this case verifies a BigQuery project.
+        "--warehouse=bigquery",
         "--default-database=sqlanvil-database",
         "--default-location=us-central1"
       ])
@@ -65,6 +67,8 @@ defaultAssertionDataset: sqlanvil_assertions
           projectDir,
           "sqlanvil-iceberg-test",
           "us-central1",
+          // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
+          "--warehouse=bigquery",
           "--iceberg"
         ], {
           // Inject test inputs via environment variable
@@ -107,6 +111,8 @@ defaultAssertionDataset: sqlanvil_assertions
           projectDir,
           "sqlanvil-iceberg-partial",
           "us-east1",
+          // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
+          "--warehouse=bigquery",
           "--iceberg"
         ], {
           // Inject test inputs via environment variable
@@ -153,6 +159,8 @@ defaultAssertionDataset: sqlanvil_assertions
           projectDir,
           "sqlanvil-iceberg-partial",
           "us-east1",
+          // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
+          "--warehouse=bigquery",
           "--iceberg"
         ], {
           // Inject test inputs via environment variable
@@ -199,6 +207,8 @@ defaultAssertionDataset: sqlanvil_assertions
           projectDir,
           "sqlanvil-iceberg-partial",
           "us-east1",
+          // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
+          "--warehouse=bigquery",
           "--iceberg"
         ], {
           // Inject test inputs via environment variable
@@ -245,6 +255,8 @@ defaultAssertionDataset: sqlanvil_assertions
           projectDir,
           "sqlanvil-iceberg-partial",
           "us-east1",
+          // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
+          "--warehouse=bigquery",
           "--iceberg"
         ], {
           // Inject test inputs via environment variable

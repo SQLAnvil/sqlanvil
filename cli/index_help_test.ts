@@ -23,7 +23,7 @@ suite("help command", () => {
     const result = await getProcessResult(execFile(nodePath, [cliEntryPointPath, "help", "init"]));
     expect(result.exitCode).equals(0);
     const output = result.stdout;
-    expect(output).to.include("Create a new sqlanvil project.");
+    expect(output).to.include("Create a new sqlanvil project");
     expect(output).to.include("--iceberg");
     expect(output).to.include("Initialize the project with workflow-level Iceberg tables configuration.");
   });

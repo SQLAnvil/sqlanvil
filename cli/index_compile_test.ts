@@ -174,7 +174,15 @@ suite("disable-assertions flag (compilation)", ({ afterEach, beforeEach }) => {
     const packageJsonPath = path.join(projectDir, "package.json");
 
     await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION])
+      execFile(nodePath, [
+        cliEntryPointPath,
+        "init",
+        projectDir,
+        // This suite asserts BigQuery compile output; init now defaults to supabase.
+        "--warehouse=bigquery",
+        DEFAULT_DATABASE,
+        DEFAULT_LOCATION
+      ])
     );
 
     const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
