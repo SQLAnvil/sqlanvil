@@ -54,6 +54,12 @@ suite("help command", () => {
     expect(output).to.include("--watch");
     expect(output).to.include("--json");
     expect(output).to.include("--quiet");
+    expect(output).to.include("--actions");
+    expect(output).to.include("--tags");
+    expect(output).to.include("--include-deps");
+    expect(output).to.include("--include-dependents");
+    // Compile-specific wording: filters output rather than executing actions.
+    expect(output).to.include("include in the output");
   });
 
   test("shows help for 'test' command", async () => {

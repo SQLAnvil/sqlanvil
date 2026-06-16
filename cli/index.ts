@@ -217,6 +217,39 @@ const includeDependentsOption = option(
   }
 );
 
+// `compile` reuses the same selection flags as `run`, but it filters the printed
+// graph rather than executing actions -- so it gets output-focused help text.
+// Same flag names (so argv indexing and the shared validation still apply); only
+// the describe strings differ.
+const compileActionsOption = {
+  ...actionsOption,
+  option: {
+    ...actionsOption.option,
+    describe: "A list of action names or patterns to include in the output. Can include '*' wildcards."
+  }
+};
+
+const compileTagsOption = {
+  ...tagsOption,
+  option: { ...tagsOption.option, describe: "A list of tags to filter the output to." }
+};
+
+const compileIncludeDepsOption = {
+  ...includeDepsOption,
+  option: {
+    ...includeDepsOption.option,
+    describe: "If set, dependencies of selected actions are also included in the output."
+  }
+};
+
+const compileIncludeDependentsOption = {
+  ...includeDependentsOption,
+  option: {
+    ...includeDependentsOption.option,
+    describe: "If set, dependents (downstream) of selected actions are also included in the output."
+  }
+};
+
 const credentialsOption = option(
   "credentials",
   {
@@ -463,10 +496,10 @@ export function runCli() {
           dotOutputOption,
           timeoutOption,
           quietCompileOption,
-          actionsOption,
-          tagsOption,
-          includeDepsOption,
-          includeDependentsOption,
+          compileActionsOption,
+          compileTagsOption,
+          compileIncludeDepsOption,
+          compileIncludeDependentsOption,
           option(
             verboseOptionName,
             {
