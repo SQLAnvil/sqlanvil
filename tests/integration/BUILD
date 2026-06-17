@@ -72,6 +72,32 @@ ts_test_suite(
 )
 
 ts_test_suite(
+    name = "mysql_tests",
+    srcs = [
+        "mysql.spec.ts",
+    ],
+    data = [
+        "//tests/integration/mysql_project:files",
+        "//tests/integration/mysql_project:node_modules",
+    ],
+    tags = ["integration"],
+    deps = [
+        ":utils",
+        "//cli/api",
+        "//cli/api/utils",
+        "//common/promises",
+        "//core",
+        "//protos:ts",
+        "//testing",
+        "//tools/mysql",
+        "@npm//@types/chai",
+        "@npm//@types/long",
+        "@npm//@types/node",
+        "@npm//chai",
+    ],
+)
+
+ts_test_suite(
     name = "supabase_tests",
     srcs = [
         "supabase.spec.ts",

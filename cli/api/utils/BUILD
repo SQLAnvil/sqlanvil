@@ -12,6 +12,7 @@ ts_library(
         "//protos:ts",
         "@npm//@types/node",
         "@npm//@types/pg",
+        "@npm//mysql2",
         "@npm//object-sizeof",
         "@npm//pg",
         "@npm//pg-query-stream",

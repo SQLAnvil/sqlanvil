@@ -1,0 +1,14 @@
+config {
+  type: "incremental"
+}
+
+WITH example_data AS (
+  SELECT 1502920304 AS user_timestamp, 3940  AS user_id UNION ALL
+  SELECT 1502930293 AS user_timestamp, 20492 AS user_id UNION ALL
+  SELECT 1502940292 AS user_timestamp, 30920 AS user_id
+)
+
+SELECT user_timestamp, user_id
+FROM example_data
+
+${ when(incremental(), `WHERE user_timestamp > (SELECT MIN(user_timestamp) FROM example_data)`) }

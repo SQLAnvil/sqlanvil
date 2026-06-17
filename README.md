@@ -1,8 +1,8 @@
 # SQLAnvil
 
-**SQL workflow tool for BigQuery, Postgres, and Supabase.**
+**SQL workflow tool for BigQuery, Postgres, Supabase, and MySQL/MariaDB.**
 
-SQLAnvil is an open-source fork of [Dataform OSS](https://github.com/dataform-co/dataform) (Apache 2.0), extended with first-class PostgreSQL and Supabase support. Define your data transformations in SQLX, have SQLAnvil compile them to idiomatic SQL, and run them against your warehouse.
+SQLAnvil is an open-source fork of [Dataform OSS](https://github.com/dataform-co/dataform) (Apache 2.0), extended with first-class PostgreSQL, Supabase, and MySQL/MariaDB support. Define your data transformations in SQLX, have SQLAnvil compile them to idiomatic SQL, and run them against your warehouse.
 
 > **SQLAnvil is not affiliated with or endorsed by Google.** The Dataform name and related marks are trademarks of Google LLC. See [NOTICE](NOTICE) for attribution.
 
@@ -13,6 +13,7 @@ SQLAnvil is an open-source fork of [Dataform OSS](https://github.com/dataform-co
 - **BigQuery** — full support: partitioning, clustering, labels, materialized views, `MERGE`-based incremental upserts
 - **PostgreSQL** — idiomatic DDL: native partitioning, `INSERT ... ON CONFLICT` upserts, btree/gin/gist/brin indexes, tablespaces, fillfactor
 - **Supabase** — extends Postgres with RLS policies, Realtime publications, pgvector indexes, and Supabase Wrappers _(coming soon)_
+- **MySQL / MariaDB** — portable MySQL DDL: CTAS tables, `CREATE OR REPLACE VIEW`, `ON DUPLICATE KEY UPDATE` incremental upserts (one adapter, validated against both engines)
 - **SQLX + YAML + JS** — three authoring modes: SQL with config blocks, `actions.yaml` bulk definitions, or the JavaScript API
 
 ---

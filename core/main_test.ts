@@ -126,7 +126,7 @@ suite("@sqlanvil/core", ({ afterEach }) => {
     });
 
     suite("warehouse config", () => {
-      ["bigquery", "postgres", "supabase"].forEach(warehouse => {
+      ["bigquery", "postgres", "supabase", "mysql"].forEach(warehouse => {
         test(`accepts warehouse "${warehouse}"`, () => {
           const projectConfig = workflowSettingsAsProjectConfig(
             sqlanvil.WorkflowSettings.create({ warehouse, defaultDataset: "d" })
@@ -145,9 +145,9 @@ suite("@sqlanvil/core", ({ afterEach }) => {
       test("rejects an unknown warehouse instead of silently defaulting", () => {
         expect(() =>
           workflowSettingsAsProjectConfig(
-            sqlanvil.WorkflowSettings.create({ warehouse: "mysql", defaultDataset: "d" })
+            sqlanvil.WorkflowSettings.create({ warehouse: "snowflake", defaultDataset: "d" })
           )
-        ).to.throw(/Unsupported warehouse "mysql"/);
+        ).to.throw(/Unsupported warehouse "snowflake"/);
       });
     });
 

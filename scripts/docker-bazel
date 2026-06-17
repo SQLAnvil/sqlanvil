@@ -48,6 +48,11 @@ docker run --rm "${TTY_FLAGS[@]}" \
   -e SUPABASE_PASSWORD \
   -e SUPABASE_DATABASE \
   -e SUPABASE_CONNECTION_STRING \
+  -e MYSQL_HOST \
+  -e MYSQL_PORT \
+  -e MYSQL_USER \
+  -e MYSQL_PASSWORD \
+  -e MYSQL_DATABASE \
   -v "$REPO_ROOT:/workspace" \
   -v sqlanvil-bazel-cache:/root/.cache/bazel \
   -v sqlanvil-bazel-disk:/root/.cache/bazel-disk \

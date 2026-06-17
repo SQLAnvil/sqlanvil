@@ -38,6 +38,7 @@ externals = [
     "js-beautify",
     "js-yaml",
     "moo",
+    "mysql2",
     "object-sizeof",
     "parse-duration",
     "pg",
@@ -53,6 +54,11 @@ externals = [
     "vm2",
     "yargs",
 ]
+
+# Rollup matches import specifiers exactly, so the mysql2 promise subpath must be
+# listed too (the adapter imports "mysql2/promise"); package.json only carries the
+# real package name "mysql2".
+bundle_externals = externals + ["mysql2/promise"]
 
 pkg_json(
     name = "json",
@@ -73,7 +79,7 @@ pkg_bundle(
     allow_node_builtins = True,
     args = ["--banner='#!/usr/bin/env node\n" + LICENSE_HEADER + "'"],
     entry_point = "index.ts",
-    externals = externals,
+    externals = bundle_externals,
     deps = [
         ":cli",
     ],
@@ -84,7 +90,7 @@ pkg_bundle(
     allow_node_builtins = True,
     args = ["--banner='#!/usr/bin/env node\n" + LICENSE_HEADER + "'"],
     entry_point = "worker.ts",
-    externals = externals,
+    externals = bundle_externals,
     deps = [
         ":cli",
     ],

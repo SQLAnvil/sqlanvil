@@ -21,6 +21,13 @@ export function read(credentialsPath: string, warehouse: string = "bigquery"): a
   // map in workflow_settings.yaml). It is not part of the write-warehouse
   // connection, so exclude it from the strict warehouse-credentials validation.
   const { connections, ...warehouseCredentials } = credentialsAsJson;
+  if (warehouse.toLowerCase() === "mysql") {
+    const credentials = verifyObjectMatchesProto(sqlanvil.MysqlConnection, warehouseCredentials);
+    if (!credentials.host) {
+      throw new Error(`Error reading credentials file: the host field is required`);
+    }
+    return credentials;
+  }
   const isPostgres = warehouse.toLowerCase() === "postgres" || warehouse.toLowerCase() === "supabase";
   if (isPostgres) {
     const credentials = verifyObjectMatchesProto(sqlanvil.PostgresConnection, warehouseCredentials);

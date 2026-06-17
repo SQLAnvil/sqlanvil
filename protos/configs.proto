@@ -1028,6 +1028,17 @@ message SupabaseConnection {
   string connection_string = 4;
 }
 
+message MysqlConnection {
+  string host = 1;
+  uint32 port = 2;
+  string database = 3;
+  string user = 4;
+  string password = 5;
+
+  // SSL mode: "disable" | "require". MySQL/MariaDB over TLS.
+  string ssl_mode = 6;
+}
+
 // WarehouseConfig — discriminated union over connection variants. The
 // `kind:` YAML tag selects which `oneof` arm is unmarshalled.
 //
@@ -1046,5 +1057,6 @@ message WarehouseConfig {
     BigQueryConnection bigquery = 1;
     PostgresConnection postgres = 2;
     SupabaseConnection supabase = 3;
+    MysqlConnection mysql = 4;
   }
 }

@@ -10,6 +10,7 @@ import { CREDENTIALS_FILENAME } from "sa/cli/api/commands/credentials";
 import { assertConnectionCredentialsAvailable } from "sa/cli/api/commands/connection_credentials";
 import { IDbAdapter } from "sa/cli/api/dbadapters";
 import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
+import { MySqlDbAdapter } from "sa/cli/api/dbadapters/mysql";
 import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
 import { SupabaseDbAdapter } from "sa/cli/api/dbadapters/supabase";
 import { prettyJsonStringify } from "sa/cli/api/utils";
@@ -326,7 +327,7 @@ const icebergOption = option("iceberg", {
 const warehouseOption = option("warehouse", {
   describe: "Target warehouse for the new project.",
   type: "string",
-  choices: ["bigquery", "postgres", "supabase"],
+  choices: ["bigquery", "postgres", "supabase", "mysql"],
   default: "supabase"
 });
 
@@ -664,6 +665,8 @@ export function runCli() {
             dbadapter = await SupabaseDbAdapter.create(readCredentials);
           } else if (warehouse.toLowerCase() === "postgres") {
             dbadapter = await PostgresDbAdapter.create(readCredentials);
+          } else if (warehouse.toLowerCase() === "mysql") {
+            dbadapter = await MySqlDbAdapter.create(readCredentials);
           } else {
             dbadapter = new BigQueryDbAdapter(readCredentials);
           }
@@ -743,6 +746,8 @@ export function runCli() {
             dbadapter = await SupabaseDbAdapter.create(readCredentials);
           } else if (warehouse.toLowerCase() === "postgres") {
             dbadapter = await PostgresDbAdapter.create(readCredentials);
+          } else if (warehouse.toLowerCase() === "mysql") {
+            dbadapter = await MySqlDbAdapter.create(readCredentials);
           } else {
             dbadapter = new BigQueryDbAdapter(readCredentials);
           }

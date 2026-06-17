@@ -45,9 +45,24 @@ suite("CompilationSql", () => {
         defaultSchema: "public"
       });
       const compiler = new CompilationSql(config, "3.0.0");
-      
+
       expect(compiler.resolveTarget({ schema: "public", name: "my_table" }))
         .to.equal('"public"."my_table"');
+    });
+
+    test("MySQL: should format with backticks as `schema`.`name`", () => {
+      const config = sqlanvil.ProjectConfig.create({
+        warehouse: "mysql",
+        defaultSchema: "my_db"
+      });
+      const compiler = new CompilationSql(config, "3.0.0");
+
+      expect(compiler.resolveTarget({ schema: "my_db", name: "my_table" }))
+        .to.equal("`my_db`.`my_table`");
+
+      // MySQL has no catalog level, so any database is ignored.
+      expect(compiler.resolveTarget({ database: "ignored", schema: "my_db", name: "my_table" }))
+        .to.equal("`my_db`.`my_table`");
     });
   });
 
@@ -62,6 +77,12 @@ suite("CompilationSql", () => {
       const config = sqlanvil.ProjectConfig.create({ warehouse: "postgres" });
       const compiler = new CompilationSql(config, "3.0.0");
       expect(compiler.sqlString("it's a \\test")).to.equal("'it''s a \\test'");
+    });
+
+    test("MySQL: escapes using backslashes", () => {
+      const config = sqlanvil.ProjectConfig.create({ warehouse: "mysql" });
+      const compiler = new CompilationSql(config, "3.0.0");
+      expect(compiler.sqlString("it's a \\test")).to.equal("'it\\'s a \\\\test'");
     });
   });
 
@@ -80,6 +101,14 @@ suite("CompilationSql", () => {
       const result = compiler.indexAssertion('"my_schema"."my_table"', ["col1", "col2"]);
       expect(result).to.contain('"col1", "col2"');
       expect(result).to.contain('FROM "my_schema"."my_table"');
+    });
+
+    test("MySQL: columns are backtick-quoted", () => {
+      const config = sqlanvil.ProjectConfig.create({ warehouse: "mysql" });
+      const compiler = new CompilationSql(config, "3.0.0");
+      const result = compiler.indexAssertion("`my_db`.`my_table`", ["col1", "col2"]);
+      expect(result).to.contain("`col1`, `col2`");
+      expect(result).to.contain("FROM `my_db`.`my_table`");
     });
   });
 });
