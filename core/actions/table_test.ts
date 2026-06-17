@@ -1174,6 +1174,47 @@ SELECT 1`
         publishToRealtime: true
       });
     });
+
+    test("mysql action config can be parsed and compiled", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `
+defaultProject: defaultProject
+defaultDataset: defaultDataset
+defaultLocation: US
+`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/table.sqlx"),
+        `
+config {
+  type: "table",
+  mysql: {
+    engine: "InnoDB",
+    charset: "utf8mb4",
+    indexes: [
+      { name: "ix_label", columns: ["label"] },
+      { columns: ["id"], unique: true }
+    ]
+  }
+}
+SELECT 1 AS id, 'a' AS label`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      expect(asPlainObject(result.compile.compiledGraph.tables[0].mysql)).deep.equals({
+        engine: "InnoDB",
+        charset: "utf8mb4",
+        indexes: [
+          { name: "ix_label", columns: ["label"] },
+          { columns: ["id"], unique: true }
+        ]
+      });
+    });
   });
 });
 

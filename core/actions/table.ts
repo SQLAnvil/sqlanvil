@@ -220,6 +220,9 @@ export class Table extends ActionBuilder<sqlanvil.Table> {
     if (config.supabase) {
       this.supabase(config.supabase);
     }
+    if (config.mysql) {
+      this.mysql(config.mysql);
+    }
 
     if (config.reservation) {
       if (!this.proto.actionDescriptor) {
@@ -366,6 +369,11 @@ export class Table extends ActionBuilder<sqlanvil.Table> {
 
   public postgres(postgres: sqlanvil.IPostgresOptions) {
     this.proto.postgres = sqlanvil.PostgresOptions.create(postgres);
+    return this;
+  }
+
+  public mysql(mysql: sqlanvil.IMysqlOptions) {
+    this.proto.mysql = sqlanvil.MysqlOptions.create(mysql);
     return this;
   }
 
