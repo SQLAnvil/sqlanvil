@@ -31,8 +31,8 @@ below before authoring a `warehouse: mysql` project.
 ```yaml
 warehouse: postgres            # flat string ("postgres" or "supabase") — NOT nested
 defaultDataset: public         # the Postgres SCHEMA
-defaultAssertionDataset: dataform_assertions
-dataformCoreVersion: 3.0.x
+defaultAssertionDataset: sqlanvil_assertions
+sqlanvilCoreVersion: 1.1.1     # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); 1.1.1+ for named connections
 vars:
   someVar: value
 ```
@@ -238,6 +238,7 @@ deltas above **invert**.
 | creds `{postgres:{username,databaseName,ssl}}` | flat `{host,port,database,user,password,sslMode,defaultSchema}` |
 | in-place matview refresh | `postgres: { refreshPolicy: "on_dependency_change" }` in the view config (else drop+recreate) |
 | `dataform run` / `npm run` | `sqlanvil run ... --credentials` |
+| `dataformCoreVersion:` | `sqlanvilCoreVersion:` (sqlanvil's own SemVer line) |
 
 ## Red flags — you're reverting to BigQuery priors
 
