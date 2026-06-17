@@ -1,4 +1,5 @@
 import { BigQueryExecutionSql } from "sa/cli/api/dbadapters/bigquery_execution_sql";
+import { MysqlExecutionSql } from "sa/cli/api/dbadapters/mysql_execution_sql";
 import { PostgresExecutionSql } from "sa/cli/api/dbadapters/postgres_execution_sql";
 import { concatenateQueries, Tasks } from "sa/cli/api/dbadapters/tasks";
 import { ErrorWithCause } from "sa/common/errors/errors";
@@ -36,6 +37,8 @@ export class ExecutionSql implements IExecutionSql {
     const warehouse = (project.warehouse || "bigquery").toLowerCase();
     if (warehouse === "postgres" || warehouse === "supabase") {
       this.delegate = new PostgresExecutionSql(project, sqlanvilCoreVersion, uniqueIdGenerator);
+    } else if (warehouse === "mysql") {
+      this.delegate = new MysqlExecutionSql(project, sqlanvilCoreVersion, uniqueIdGenerator);
     } else {
       this.delegate = new BigQueryExecutionSql(project, sqlanvilCoreVersion, uniqueIdGenerator);
     }

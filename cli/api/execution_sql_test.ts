@@ -456,3 +456,77 @@ suite("ExecutionSql with Postgres/Supabase", () => {
   });
 });
 
+suite("mysql execution sql", () => {
+  const project: sqlanvil.IProjectConfig = { warehouse: "mysql" };
+  const sql = new ExecutionSql(project, "1.5.0");
+  const baseTable = (over: Partial<sqlanvil.ITable> = {}): sqlanvil.ITable => ({
+    target: { schema: "db", name: "t" },
+    query: "select 1 as id",
+    enumType: sqlanvil.TableType.TABLE,
+    ...over
+  });
+
+  test("table: drop + CTAS with backticks", () => {
+    const stmts = sql
+      .publishTasks(baseTable(), { fullRefresh: false })
+      .build()
+      .map(t => t.statement);
+    expect(stmts).to.include("drop table if exists `db`.`t`");
+    expect(stmts).to.include("create table `db`.`t` as select 1 as id");
+  });
+
+  test("view: CREATE OR REPLACE VIEW", () => {
+    const stmts = sql
+      .publishTasks(baseTable({ enumType: sqlanvil.TableType.VIEW }), { fullRefresh: false })
+      .build()
+      .map(t => t.statement);
+    expect(stmts).to.include("create or replace view `db`.`t` as select 1 as id");
+  });
+
+  test("incremental fresh-create adds a unique index on the uniqueKey", () => {
+    const stmts = sql
+      .publishTasks(
+        baseTable({ enumType: sqlanvil.TableType.INCREMENTAL, uniqueKey: ["id"] }),
+        { fullRefresh: true }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(stmts.some(s => /alter table `db`\.`t` add unique index .* \(`id`\)/.test(s))).to.equal(
+      true
+    );
+  });
+
+  test("incremental append upserts via ON DUPLICATE KEY UPDATE", () => {
+    const stmts = sql
+      .publishTasks(
+        baseTable({
+          enumType: sqlanvil.TableType.INCREMENTAL,
+          uniqueKey: ["id"],
+          incrementalQuery: "select 1 as id"
+        }),
+        { fullRefresh: false },
+        {
+          target: { schema: "db", name: "t" },
+          type: sqlanvil.TableMetadata.Type.TABLE,
+          fields: [{ name: "id" }, { name: "v" }]
+        }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(
+      stmts.some(s => s.includes("on duplicate key update") && s.includes("`v` = values(`v`)"))
+    ).to.equal(true);
+  });
+
+  test("materialized view is rejected on mysql", () => {
+    expect(() =>
+      sql
+        .publishTasks(
+          baseTable({ enumType: sqlanvil.TableType.VIEW, materialized: true }),
+          { fullRefresh: false }
+        )
+        .build()
+    ).to.throw(/materialized views are not supported on mysql/i);
+  });
+});
+
