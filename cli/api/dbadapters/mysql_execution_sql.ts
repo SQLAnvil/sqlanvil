@@ -56,21 +56,23 @@ export class MysqlExecutionSql implements IExecutionSql {
         // Full refresh or first build: drop + CTAS, then add the unique index that
         // ON DUPLICATE KEY UPDATE relies on for subsequent incremental appends.
         tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
-        tasks.add(Task.statement(`create table ${target} as ${table.query}`));
+        tasks.add(Task.statement(`create table ${target}${this.tableOptions(table)} as ${table.query}`));
         if (table.uniqueKey && table.uniqueKey.length > 0) {
           const idx = `uq_${table.target.schema}_${table.target.name}`.slice(0, 63);
           const cols = table.uniqueKey.map(k => `\`${k}\``).join(", ");
           tasks.add(Task.statement(`alter table ${target} add unique index \`${idx}\` (${cols})`));
         }
+        this.createIndexes(table).forEach(stmt => tasks.add(Task.statement(stmt)));
       } else {
         tasks.add(Task.statement(this.upsertInto(table, tableMetadata)));
       }
       return tasks;
     }
 
-    // Plain table: drop + CTAS.
+    // Plain table: drop + CTAS (with table options) + secondary indexes.
     tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
-    tasks.add(Task.statement(`create table ${target} as ${table.query}`));
+    tasks.add(Task.statement(`create table ${target}${this.tableOptions(table)} as ${table.query}`));
+    this.createIndexes(table).forEach(stmt => tasks.add(Task.statement(stmt)));
     return tasks;
   }
 
@@ -136,5 +138,52 @@ export class MysqlExecutionSql implements IExecutionSql {
     return `insert into ${target} (${backticked.join(", ")}) select ${backticked.join(
       ", "
     )} from (${query}) as insertions${tail}`;
+  }
+
+  // Table-options suffix for a CTAS create path, e.g. " engine=InnoDB default
+  // charset=utf8mb4 collate=utf8mb4_unicode_ci". Emitted verbatim (author-trusted,
+  // same trust model as the Postgres adapter's tablespace/fillfactor).
+  private tableOptions(table: sqlanvil.ITable): string {
+    const opts = table.mysql;
+    if (!opts) {
+      return "";
+    }
+    let suffix = "";
+    if (opts.engine) {
+      suffix += ` engine=${opts.engine}`;
+    }
+    if (opts.charset) {
+      suffix += ` default charset=${opts.charset}`;
+    }
+    if (opts.collation) {
+      suffix += ` collate=${opts.collation}`;
+    }
+    return suffix;
+  }
+
+  // One `ALTER TABLE ... ADD [UNIQUE] INDEX` per declared index (same form as the
+  // uniqueKey index in publishTasks). Returned as separate statements to run after
+  // the table is created.
+  private createIndexes(table: sqlanvil.ITable): string[] {
+    const indexes = table.mysql?.indexes;
+    if (!indexes || indexes.length === 0) {
+      return [];
+    }
+    const target = this.resolveTarget(table.target);
+    return indexes.map(index => {
+      const unique = index.unique ? "unique " : "";
+      const cols = (index.columns || []).map(c => `\`${c}\``).join(", ");
+      const name =
+        index.name || this.defaultIndexName(table.target.name, index.columns, !!index.unique);
+      return `alter table ${target} add ${unique}index \`${name}\` (${cols})`;
+    });
+  }
+
+  // Derive an index name from table + columns (mirrors the Postgres helper and the
+  // uq_ uniqueKey convention): <table>_<cols>_idx (or _key if unique), 63-char cap.
+  private defaultIndexName(tableName: string, columns: string[], unique: boolean): string {
+    const parts = [tableName, ...(columns || [])].filter(Boolean);
+    const suffix = unique ? "_key" : "_idx";
+    return `${parts.join("_")}${suffix}`.slice(0, 63);
   }
 }
