@@ -23,6 +23,12 @@ export class CompilationSql {
       return `"${database}"."${schema}"."${name}"`;
     }
 
+    if (this.warehouse === "mysql") {
+      // MySQL/MariaDB backtick dialect. MySQL has no catalog level, so the schema
+      // is the database: `schema`.`name`. Any `database` is ignored.
+      return `\`${schema}\`.\`${name}\``;
+    }
+
     // Default to BigQuery backtick dialect: `database.schema.name`
     if (!database) {
       return `\`${schema}.${name}\``;
@@ -35,7 +41,8 @@ export class CompilationSql {
       // Postgres/ANSI SQL standard single quote escaping (doubling up single quotes)
       return `'${stringContents.replace(/'/g, "''")}'`;
     }
-    // BigQuery backslash-based single quote escaping
+    // BigQuery and MySQL/MariaDB both treat backslash as an escape char by default,
+    // so escape backslashes then single quotes.
     return `'${stringContents.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
   }
 
@@ -44,6 +51,10 @@ export class CompilationSql {
       if (this.warehouse === "postgres" || this.warehouse === "supabase") {
         // Double quote columns to handle case sensitivity and reserved SQL keywords
         return `"${col.replace(/"/g, '""')}"`;
+      }
+      if (this.warehouse === "mysql") {
+        // MySQL/MariaDB backtick-quote columns; escape embedded backticks by doubling.
+        return `\`${col.replace(/`/g, "``")}\``;
       }
       return col;
     };

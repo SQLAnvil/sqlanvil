@@ -154,7 +154,7 @@ export function workflowSettingsAsProjectConfig(
     projectConfig.includeTestsInCompiledGraph = workflowSettings.includeTestsInCompiledGraph;
   }
 
-  const supportedWarehouses = ["bigquery", "postgres", "supabase"];
+  const supportedWarehouses = ["bigquery", "postgres", "supabase", "mysql"];
 
   if (workflowSettings.connections) {
     projectConfig.connections = workflowSettings.connections;
