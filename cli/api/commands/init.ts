@@ -32,6 +32,20 @@ function postgresCredentialsTemplate(warehouse: string): string {
   return `${JSON.stringify(template, null, 2)}\n`;
 }
 
+// A starter MysqlConnection (strict JSON — no comment keys). Points at a local
+// MySQL/MariaDB instance with SSL disabled by default.
+function mysqlCredentialsTemplate(): string {
+  const template = {
+    host: "localhost",
+    port: 3306,
+    database: "sqlanvil",
+    user: "root",
+    password: "",
+    sslMode: "disable"
+  };
+  return `${JSON.stringify(template, null, 2)}\n`;
+}
+
 export async function init(
   projectDir: string,
   projectConfig: sqlanvil.IProjectConfig
@@ -100,13 +114,13 @@ export async function init(
   fs.writeFileSync(gitignorePath, gitIgnoreContents);
   filesWritten.push(gitignorePath);
 
-  // Postgres/Supabase: scaffold a credentials template (the connection lives in a separate,
+  // Postgres/Supabase/MySQL: scaffold a credentials template (the connection lives in a separate,
   // gitignored file — not in workflow_settings.yaml). BigQuery credentials come from gcloud / a
   // BigQuery key, so no template is written for it.
   if (!isBigQuery) {
     fs.writeFileSync(
       path.join(projectDir, CREDENTIALS_FILENAME),
-      postgresCredentialsTemplate(warehouse)
+      warehouse === "mysql" ? mysqlCredentialsTemplate() : postgresCredentialsTemplate(warehouse)
     );
     filesWritten.push(path.join(projectDir, CREDENTIALS_FILENAME));
   }
