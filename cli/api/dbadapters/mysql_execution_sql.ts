@@ -116,10 +116,17 @@ export class MysqlExecutionSql implements IExecutionSql {
       return `insert into ${target} select * from (${query}) as insertions`;
     }
     const backticked = columns.map(c => `\`${c}\``);
-    const updates = columns
-      .filter(c => !(table.uniqueKey || []).includes(c))
-      .map(c => `\`${c}\` = values(\`${c}\`)`)
-      .join(", ");
+    // Only an upsert when a uniqueKey exists — the unique index created on first
+    // build is what ON DUPLICATE KEY UPDATE matches against. Without it this is a
+    // plain append (the inert clause would never fire anyway).
+    const uniqueKey = table.uniqueKey || [];
+    const updates =
+      uniqueKey.length > 0
+        ? columns
+            .filter(c => !uniqueKey.includes(c))
+            .map(c => `\`${c}\` = values(\`${c}\`)`)
+            .join(", ")
+        : "";
     const tail = updates.length > 0 ? ` on duplicate key update ${updates}` : "";
     return `insert into ${target} (${backticked.join(", ")}) select ${backticked.join(
       ", "
