@@ -310,6 +310,9 @@ message ActionConfig {
     // Postgres and Supabase specific options.
     PostgresOptions postgres = 25;
     SupabaseOptions supabase = 26;
+
+    // MySQL/MariaDB specific options (engine/charset/collation + indexes).
+    MysqlOptions mysql = 27;
   }
 
   message Metadata {
@@ -525,6 +528,9 @@ message ActionConfig {
     // Postgres and Supabase specific options.
     PostgresOptions postgres = 28;
     SupabaseOptions supabase = 29;
+
+    // MySQL/MariaDB specific options (engine/charset/collation + indexes).
+    MysqlOptions mysql = 30;
   }
 
   message AssertionConfig {
@@ -937,6 +943,28 @@ message PostgresOptions {
   // recreating. Default (unset) drops + recreates each run (safe — also picks up
   // definition changes, which REFRESH does not).
   string refresh_policy = 7;
+}
+
+// MySQL/MariaDB table options + secondary indexes. First cut: engine/charset/
+// collation and plain/unique secondary indexes. (No partitioning, FULLTEXT/
+// SPATIAL/prefix indexes, or row_format yet — those are later follow-ups.)
+message MysqlOptions {
+  // Storage engine, emitted as ENGINE=<engine> (e.g. "InnoDB", "MyISAM").
+  // Omit to use the server default.
+  string engine = 1;
+  // Default character set, emitted as DEFAULT CHARSET=<charset> (e.g. "utf8mb4").
+  string charset = 2;
+  // Default collation, emitted as COLLATE=<collation> (e.g. "utf8mb4_unicode_ci").
+  string collation = 3;
+
+  message Index {
+    // Optional; when omitted, derived as <table>_<cols>_idx (or _key if unique),
+    // capped at 63 chars.
+    string name = 1;
+    repeated string columns = 2;
+    bool unique = 3;
+  }
+  repeated Index indexes = 4;
 }
 
 // SupabaseOptions — Supabase-specific platform features layered on top of

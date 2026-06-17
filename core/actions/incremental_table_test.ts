@@ -986,5 +986,32 @@ select \${incremental()} as is_incremental`
       expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).greaterThan(0);
       expect(result.compile.compiledGraph.graphErrors.compilationErrors.some(e => e.message.includes("Cannot mix AoT and JiT compilation"))).equals(true);
     });
+
+    test("mysql action config can be parsed and compiled", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), VALID_WORKFLOW_SETTINGS_YAML);
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/incremental.sqlx"),
+        `
+config {
+  type: "incremental",
+  uniqueKey: ["id"],
+  mysql: {
+    engine: "InnoDB",
+    indexes: [{ columns: ["id"], unique: true }]
+  }
+}
+SELECT 1 AS id`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      expect(asPlainObject(result.compile.compiledGraph.tables[0].mysql)).deep.equals({
+        engine: "InnoDB",
+        indexes: [{ columns: ["id"], unique: true }]
+      });
+    });
   });
 });

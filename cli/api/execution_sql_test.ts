@@ -528,5 +528,58 @@ suite("mysql execution sql", () => {
         .build()
     ).to.throw(/materialized views are not supported on mysql/i);
   });
+
+  test("table options: engine + charset land in the CTAS", () => {
+    const stmts = sql
+      .publishTasks(baseTable({ mysql: { engine: "InnoDB", charset: "utf8mb4" } }), {
+        fullRefresh: false
+      })
+      .build()
+      .map(t => t.statement);
+    expect(
+      stmts.some(s => /create table `db`\.`t` engine=InnoDB default charset=utf8mb4 as /.test(s))
+    ).to.equal(true);
+  });
+
+  test("indexes emit ALTER TABLE ADD INDEX after the CTAS", () => {
+    const stmts = sql
+      .publishTasks(
+        baseTable({ mysql: { indexes: [{ name: "ix_label", columns: ["label"] }] } }),
+        { fullRefresh: false }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(stmts).to.include("alter table `db`.`t` add index `ix_label` (`label`)");
+  });
+
+  test("unique index emits ADD UNIQUE INDEX with a derived name when unnamed", () => {
+    const stmts = sql
+      .publishTasks(baseTable({ mysql: { indexes: [{ columns: ["id"], unique: true }] } }), {
+        fullRefresh: false
+      })
+      .build()
+      .map(t => t.statement);
+    expect(stmts).to.include("alter table `db`.`t` add unique index `t_id_key` (`id`)");
+  });
+
+  test("incremental fresh-create carries table options and user indexes alongside the uniqueKey index", () => {
+    const stmts = sql
+      .publishTasks(
+        baseTable({
+          enumType: sqlanvil.TableType.INCREMENTAL,
+          uniqueKey: ["id"],
+          mysql: { engine: "InnoDB", indexes: [{ name: "ix_label", columns: ["label"] }] }
+        }),
+        { fullRefresh: true }
+      )
+      .build()
+      .map(t => t.statement);
+    // CTAS on the fresh-create path carries the engine option.
+    expect(stmts.some(s => /create table `db`\.`t` engine=InnoDB as /.test(s))).to.equal(true);
+    // The auto uniqueKey unique index is still emitted.
+    expect(stmts.some(s => /add unique index `uq_db_t` \(`id`\)/.test(s))).to.equal(true);
+    // The user-declared index is additive.
+    expect(stmts).to.include("alter table `db`.`t` add index `ix_label` (`label`)");
+  });
 });
 
