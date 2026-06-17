@@ -561,5 +561,25 @@ suite("mysql execution sql", () => {
       .map(t => t.statement);
     expect(stmts).to.include("alter table `db`.`t` add unique index `t_id_key` (`id`)");
   });
+
+  test("incremental fresh-create carries table options and user indexes alongside the uniqueKey index", () => {
+    const stmts = sql
+      .publishTasks(
+        baseTable({
+          enumType: sqlanvil.TableType.INCREMENTAL,
+          uniqueKey: ["id"],
+          mysql: { engine: "InnoDB", indexes: [{ name: "ix_label", columns: ["label"] }] }
+        }),
+        { fullRefresh: true }
+      )
+      .build()
+      .map(t => t.statement);
+    // CTAS on the fresh-create path carries the engine option.
+    expect(stmts.some(s => /create table `db`\.`t` engine=InnoDB as /.test(s))).to.equal(true);
+    // The auto uniqueKey unique index is still emitted.
+    expect(stmts.some(s => /add unique index `uq_db_t` \(`id`\)/.test(s))).to.equal(true);
+    // The user-declared index is additive.
+    expect(stmts).to.include("alter table `db`.`t` add index `ix_label` (`label`)");
+  });
 });
 
