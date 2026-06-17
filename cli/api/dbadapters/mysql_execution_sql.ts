@@ -113,6 +113,11 @@ export class MysqlExecutionSql implements IExecutionSql {
     const columns = (tableMetadata?.fields || []).map(f => f.name);
     const query = this.getIncrementalQuery(table);
     if (columns.length === 0) {
+      // No known columns means no tableMetadata — but this path only runs when
+      // shouldWriteIncrementally() already required tableMetadata, so columns are
+      // populated in practice. The bare insert is a defensive fallback; with a
+      // uniqueKey present it could hit the unique index, so it's intentionally
+      // never the upsert path.
       return `insert into ${target} select * from (${query}) as insertions`;
     }
     const backticked = columns.map(c => `\`${c}\``);

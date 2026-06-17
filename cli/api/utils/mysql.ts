@@ -60,6 +60,9 @@ export class MySqlPoolExecutor {
         ): Promise<any[]> => {
           const [rows] = await conn.query(statement, options.params || []);
           const arr = Array.isArray(rows) ? (rows as any[]) : [];
+          // mysql2 buffers the full result set (no streaming cursor), so rowLimit
+          // is applied client-side after the fetch. byteLimit is not enforced here
+          // — unlike the Postgres adapter's streaming LimitedResultSet.
           return options.rowLimit && arr.length > options.rowLimit
             ? arr.slice(0, options.rowLimit)
             : arr;
@@ -91,6 +94,7 @@ export function convertFieldType(type: string) {
     case "INTEGER":
     case "BIGINT":
     case "YEAR":
+    case "BIT":
       return sqlanvil.Field.Primitive.INTEGER;
     case "DECIMAL":
     case "DEC":
@@ -108,12 +112,16 @@ export function convertFieldType(type: string) {
     case "LONGTEXT":
     case "ENUM":
     case "SET":
+    case "JSON":
+    case "TIME":
       return sqlanvil.Field.Primitive.STRING;
     case "DATE":
       return sqlanvil.Field.Primitive.DATE;
     case "DATETIME":
     case "TIMESTAMP":
       return sqlanvil.Field.Primitive.TIMESTAMP;
+    // BINARY/VARBINARY, the BLOB family, and GEOMETRY have no field primitive;
+    // they fall through to UNKNOWN (introspection metadata only).
     default:
       return sqlanvil.Field.Primitive.UNKNOWN;
   }
