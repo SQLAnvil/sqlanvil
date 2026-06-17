@@ -66,6 +66,56 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     );
   });
 
+  test("a failing statement rejects with the real error and no double-release noise", async () => {
+    // Capture console.error so we can assert the pg client isn't released twice
+    // (which would print "Release called on client which has already been released").
+    // tslint:disable-next-line: no-console
+    const originalError = console.error;
+    const logged: string[] = [];
+    // tslint:disable-next-line: no-console
+    console.error = (...args: any[]) => logged.push(args.join(" "));
+    let err: Error | undefined;
+    try {
+      await dbadapter.execute("selct 1");
+    } catch (e) {
+      err = e;
+    } finally {
+      // tslint:disable-next-line: no-console
+      console.error = originalError;
+    }
+    expect(err, "a bad statement should reject").to.be.an("error");
+    expect(err.message.toLowerCase()).to.contain("syntax error");
+    expect(
+      logged.join("\n"),
+      "the pg client must be released exactly once"
+    ).to.not.match(/already been released/i);
+  });
+
+  test("a table with an unnamed postgres index creates (derived index name)", async () => {
+    const schema = "sa_integration_test_unnamed_index";
+    try {
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`);
+    } catch (e) {
+      // ignore
+    }
+    await dbadapter.execute(`create schema "${schema}"`);
+    const table: sqlanvil.ITable = {
+      enumType: sqlanvil.TableType.TABLE,
+      target: { schema, name: "with_idx" },
+      query: "select 1 as id",
+      postgres: { indexes: [{ columns: ["id"], unique: true }] }
+    };
+    const adapter = new ExecutionSql({ warehouse: "postgres" }, "1.4.8");
+    for (const task of adapter.publishTasks(table, { fullRefresh: true }).build()) {
+      await dbadapter.execute(task.statement);
+    }
+    const { rows } = await dbadapter.execute(
+      `select indexname from pg_indexes where schemaname = '${schema}' and tablename = 'with_idx'`
+    );
+    expect(rows.map((r: any) => r.indexname)).to.include("with_idx_id_key");
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`);
+  });
+
   test("run", { timeout: 60000 }, async () => {
     const compiledGraph = await compile("tests/integration/postgres_project", "project_e2e");
 

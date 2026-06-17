@@ -216,6 +216,32 @@ suite("ExecutionSql with Postgres/Supabase", () => {
     );
   });
 
+  test("create index without a name derives one (no zero-length identifier)", () => {
+    const table: sqlanvil.ITable = {
+      ...baseTable,
+      postgres: {
+        indexes: [
+          { columns: ["id"] },
+          { columns: ["field1", "id"], unique: true }
+        ]
+      }
+    };
+    const statements = executionSql
+      .publishTasks(table, { fullRefresh: false })
+      .build()
+      .map(t => t.statement);
+    // Names are derived as <table>_<cols>_idx (or _key for unique) -- never "".
+    expect(statements).to.not.include.members([
+      'create index "" on "my_db"."public"."my_table" using btree ("id")'
+    ]);
+    expect(statements[2]).to.equal(
+      'create index "my_table_id_idx" on "my_db"."public"."my_table" using btree ("id")'
+    );
+    expect(statements[3]).to.equal(
+      'create unique index "my_table_field1_id_key" on "my_db"."public"."my_table" using btree ("field1", "id")'
+    );
+  });
+
   test("incremental fresh-create emits postgres indexes", () => {
     const incTable: sqlanvil.ITable = {
       ...baseTable,

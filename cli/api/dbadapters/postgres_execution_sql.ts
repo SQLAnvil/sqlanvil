@@ -240,8 +240,21 @@ export class PostgresExecutionSql implements IExecutionSql {
           ? ` include (${index.include.map(c => `"${c}"`).join(", ")})`
           : "";
       const where = index.where ? ` where (${index.where})` : "";
-      return `create ${unique}index "${index.name}" on ${target} using ${method} (${columns})${include}${where}`;
+      const indexName =
+        index.name || this.defaultIndexName(table.target.name, index.columns, !!index.unique);
+      return `create ${unique}index "${indexName}" on ${target} using ${method} (${columns})${include}${where}`;
     });
+  }
+
+  // When an index config omits `name`, derive one from the table + columns
+  // (mirroring Postgres's own `<table>_<col>_idx` default), truncated to the
+  // 63-char identifier limit. Without this, an unnamed index emits
+  // `create index "" ...` -> "zero-length delimited identifier".
+  private defaultIndexName(tableName: string, columns: string[], unique: boolean): string {
+    const parts = [tableName, ...(columns || [])].filter(Boolean);
+    const base = parts.join("_");
+    const suffix = unique ? "_key" : "_idx";
+    return `${base}${suffix}`.slice(0, 63);
   }
 
   private indexMethodAsSql(method?: sqlanvil.PostgresOptions.Index.Method): string {

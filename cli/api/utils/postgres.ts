@@ -65,18 +65,32 @@ export class PgPoolExecutor {
     }) => Promise<T>
   ) {
     const client = await this.pool.connect();
+    // The client can be released from several places: the client "error" handler,
+    // the query "error" handler (which passes the error to release() so the bad
+    // connection is closed, not returned to the pool), and the finally block.
+    // Release exactly once -- otherwise pg-pool's throwOnDoubleRelease fires and a
+    // confusing "Release called on client which has already been released" surfaces
+    // ahead of the real error on every failing statement.
+    let released = false;
+    const releaseOnce = (err?: Error) => {
+      if (released) {
+        return;
+      }
+      released = true;
+      try {
+        client.release(err);
+      } catch (e) {
+        // tslint:disable-next-line: no-console
+        console.error("Error thrown when releasing pg.Client", e.message, e.stack);
+      }
+    };
     try {
       client.on("error", err => {
         // tslint:disable-next-line: no-console
         console.error("pg.Client client error", err.message, err.stack);
         // Errored connections cause issues when released back to the pool. Instead, close the connection
         // by passing the error to release(). https://github.com/dataform-co/dataform/issues/914
-        try {
-          client.release(err);
-        } catch (e) {
-          // tslint:disable-next-line: no-console
-          console.error("Error thrown when releasing errored pg.Client", e.message, e.stack);
-        }
+        releaseOnce(err);
       });
 
       return await callback({
@@ -114,12 +128,7 @@ export class PgPoolExecutor {
               // Errors don't cause "end" to fire, additionally errored connections
               // cause issues when released back to the pool. Instead, close the connection
               // by passing the error to release(). https://github.com/dataform-co/dataform/issues/914
-              try {
-                client.release(err);
-              } catch (e) {
-                // tslint:disable-next-line: no-console
-                console.error("Error thrown when releasing errored pg.Query", e.message, e.stack);
-              }
+              releaseOnce(err);
               reject(err);
             });
             query.on("end", () => {
@@ -129,12 +138,7 @@ export class PgPoolExecutor {
         }
       });
     } finally {
-      try {
-        client.release();
-      } catch (e) {
-        // tslint:disable-next-line: no-console
-        console.error("Error thrown when releasing ended pg.Client", e.message, e.stack);
-      }
+      releaseOnce();
     }
   }
 
