@@ -2,7 +2,7 @@
 
 Cross-agent guide (Claude, Antigravity, Gemini, Cursor, Copilot, …) for **authoring sqlanvil
 data projects** (`.sqlx` models, `workflow_settings.yaml`, `.df-credentials.json`) that target
-**PostgreSQL / Supabase**.
+**PostgreSQL / Supabase / MySQL / MariaDB**.
 
 > Working on the sqlanvil **codebase itself** (TypeScript, Bazel, protos)? See `CLAUDE.md`.
 > This file is about writing *projects that sqlanvil compiles and runs.*
@@ -11,14 +11,16 @@ data projects** (`.sqlx` models, `workflow_settings.yaml`, `.df-credentials.json
 
 ## What sqlanvil is
 
-sqlanvil is a fork of Dataform repositioned for PostgreSQL and Supabase. Your Dataform/BigQuery
-instincts are **mostly right** — `.sqlx` files, `config {}`, `${ref()}`, `${self()}`,
-declarations, assertions, tags, incremental tables, `pre_operations`/`post_operations` all work
-the same. **This file is the delta**: where assuming Dataform/BigQuery produces broken sqlanvil
-code.
+sqlanvil is a fork of Dataform repositioned for PostgreSQL, Supabase, and MySQL/MariaDB. Your
+Dataform/BigQuery instincts are **mostly right** — `.sqlx` files, `config {}`, `${ref()}`,
+`${self()}`, declarations, assertions, tags, incremental tables, `pre_operations`/`post_operations`
+all work the same. **This file is the delta**: where assuming Dataform/BigQuery produces broken
+sqlanvil code.
 
 **Core rule:** on Postgres/Supabase, reach for the **`postgres: {}` config block** and idiomatic
-Postgres — never BigQuery options or hand-rolled DDL workarounds.
+Postgres — never BigQuery options or hand-rolled DDL workarounds. **MySQL/MariaDB is different** —
+smaller surface (no options block, no matviews) and several rules invert; see the MySQL section
+below before authoring a `warehouse: mysql` project.
 
 **Source of truth for config fields:** `protos/configs.proto` (`PostgresOptions`,
 `PostgresConnection`, `TableConfig`, `IncrementalTableConfig`, `ViewConfig`). When unsure, read it.
@@ -195,6 +197,32 @@ applied to a declaration's own target, and `${ref()}` to a declared source resol
 (unsuffixed) table even under `--schema-suffix dev` — so a dev run reads true sources while writing
 to suffixed output. A declaration without a suffix is correct; don't "fix" it.
 
+## MySQL / MariaDB (`warehouse: mysql`)
+
+One adapter serves **both MySQL 8 and MariaDB 11** (same `warehouse: mysql`, same generated SQL;
+MariaDB-specific features go through `operations`). Deliberately smaller than Postgres — several
+deltas above **invert**.
+
+- **Config:** `warehouse: mysql`; `defaultDataset` = the MySQL **database** ("schema" *is* the
+  database — no catalog level). `sqlanvilCoreVersion: 1.5.0`+ (MySQL landed in 1.5.0).
+- **Credentials:** flat **`MysqlConnection`** — `host port database user password sslMode`. **No
+  `defaultSchema`** (unlike Postgres). `sslMode`: `"disable"` (local) or `"require"`. Port 3306.
+  Identifiers compile to two-part backticks `` `db`.`table` ``.
+- **No `mysql: {}` block (yet)** — opposite of delta #3: indexes, partitioning, engine/charset, and
+  table options are **raw MySQL DDL in `operations`/`post_operations`** (wrap one-time DDL on
+  incrementals in `when(!incremental())`, delta #9). Don't put a `postgres: {}` block on a mysql model.
+- **Incremental `uniqueKey` is enough** — compiles to `INSERT ... ON DUPLICATE KEY UPDATE` and the
+  adapter auto-creates the unique index (`uq_<db>_<table>`) on first/`--full-refresh`. Don't add
+  your own PK/unique for the merge.
+- **No materialized views** — `materialized: true` errors; use `type: "table"`.
+- **`description:`/`columns:` don't produce DB comments** (no-op on MySQL today; deferred). Assertions work.
+- **No cross-warehouse sources** — a mysql project can't read `connections` (FDW is Postgres-only)
+  and MySQL can't be a source; no `introspect` for/from MySQL.
+- **`---` not `;`** (delta #6); **never `DELIMITER`** (client-only directive — a `CREATE PROCEDURE`
+  body's internal `;` survive between `---` separators). Backtick-quote identifiers in raw DDL.
+- CLI: `sqlanvil init <dir> --warehouse mysql`. Local engines: `./tools/mysql/run-mysql-db.sh`
+  (mysql:8 on 3306, mariadb:11 on 3307).
+
 ## Quick reference: Dataform/BigQuery → sqlanvil/Postgres
 
 | You'd reach for (Dataform/BQ) | Use instead (sqlanvil/PG) |
@@ -217,5 +245,10 @@ to suffixed output. A declaration without a suffix is correct; don't "fix" it.
 `method: "` (string) · `CREATE INDEX`/`SET (fillfactor` in `post_operations` · `;` between
 statements · `ADD PRIMARY KEY`/`ADD CONSTRAINT` in an incremental `post_operations` without
 `when(!incremental())` · a bare `dataform`/`npm run` command.
+
+On **`warehouse: mysql`**: a `postgres: {}`/`bigquery: {}` block · `defaultSchema` in creds ·
+double-quoted identifiers in raw DDL (MySQL uses backticks) · `materialized: true` (errors) · a
+hand-added PK/unique just to make an incremental `uniqueKey` work (auto-created) · `DELIMITER`
+around a procedure body · expecting `description:`/`columns:` to produce DB comments (no-op today).
 
 When unsure of a `postgres:` field name or enum value, read `protos/configs.proto`.
