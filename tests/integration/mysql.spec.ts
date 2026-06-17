@@ -127,6 +127,50 @@ suite("@sqlanvil/integration/mysql", { parallel: false }, ({ before, after }) =>
     await dbadapter.execute(`drop database if exists \`${database}\``);
   });
 
+  test("mysql:{} engine + indexes apply on real MySQL/MariaDB", { timeout: 30000 }, async () => {
+    const database = "sa_integration_test_direct";
+    await dbadapter.execute(`create database if not exists \`${database}\``);
+    const adapter = new ExecutionSql({ warehouse: "mysql" }, "2.0.0");
+
+    const table: sqlanvil.ITable = {
+      enumType: sqlanvil.TableType.TABLE,
+      target: { schema: database, name: "opts_table" },
+      query: "select 1 as id, 'a' as label",
+      mysql: {
+        engine: "InnoDB",
+        charset: "utf8mb4",
+        indexes: [
+          { columns: ["id"], unique: true },
+          { name: "ix_label", columns: ["label"] }
+        ]
+      }
+    };
+    for (const task of adapter.publishTasks(table, { fullRefresh: true }).build()) {
+      await dbadapter.execute(task.statement);
+    }
+
+    // Engine applied.
+    const eng = await dbadapter.execute(
+      `select engine from information_schema.tables where table_schema = '${database}' and table_name = 'opts_table'`
+    );
+    expect(String(eng.rows[0].engine ?? eng.rows[0].ENGINE).toUpperCase()).to.equal("INNODB");
+
+    // Both indexes created, unique flag honored (non_unique = 0 for the unique one).
+    const idx = await dbadapter.execute(
+      `select index_name, non_unique from information_schema.statistics ` +
+        `where table_schema = '${database}' and table_name = 'opts_table' and index_name <> 'PRIMARY' ` +
+        `group by index_name, non_unique`
+    );
+    const byName = keyBy(idx.rows, (r: any) => String(r.index_name ?? r.INDEX_NAME));
+    expect(Object.keys(byName)).to.include("ix_label");
+    expect(byName["opts_table_id_key"], "derived unique index name").to.exist;
+    expect(
+      Number(byName["opts_table_id_key"].non_unique ?? byName["opts_table_id_key"].NON_UNIQUE)
+    ).to.equal(0);
+
+    await dbadapter.execute(`drop database if exists \`${database}\``);
+  });
+
   test("run: full project build, incremental append, assertion pass/fail", { timeout: 120000 }, async () => {
     const compiledGraph = await compile("tests/integration/mysql_project", "project_e2e");
 
