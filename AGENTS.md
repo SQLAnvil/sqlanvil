@@ -208,9 +208,13 @@ deltas above **invert**.
 - **Credentials:** flat **`MysqlConnection`** — `host port database user password sslMode`. **No
   `defaultSchema`** (unlike Postgres). `sslMode`: `"disable"` (local) or `"require"`. Port 3306.
   Identifiers compile to two-part backticks `` `db`.`table` ``.
-- **No `mysql: {}` block (yet)** — opposite of delta #3: indexes, partitioning, engine/charset, and
-  table options are **raw MySQL DDL in `operations`/`post_operations`** (wrap one-time DDL on
-  incrementals in `when(!incremental())`, delta #9). Don't put a `postgres: {}` block on a mysql model.
+- **`mysql: {}` block (indexes + engine/charset/collation).** Declare secondary indexes
+  (`indexes: [{ name?, columns, unique? }]`) and table options (`engine`, `charset`, `collation`)
+  in config — the role `postgres: {}` plays. **Plain B-tree only**; no `WHERE`/`INCLUDE`/`opclass`
+  (those are Postgres-only). **Partitioning, FULLTEXT/SPATIAL/prefix indexes, and `row_format` are
+  NOT in the block yet** — those stay raw MySQL DDL in `operations`/`post_operations` (wrap one-time
+  DDL on incrementals in `when(!incremental())`, delta #9). Use `mysql: {}`, never `postgres: {}`, on
+  a mysql model.
 - **Incremental `uniqueKey` is enough** — compiles to `INSERT ... ON DUPLICATE KEY UPDATE` and the
   adapter auto-creates the unique index (`uq_<db>_<table>`) on first/`--full-refresh`. Don't add
   your own PK/unique for the merge.
