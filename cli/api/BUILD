@@ -42,6 +42,7 @@ ts_library(
         "@npm//google-sql-syntax-ts",
         "@npm//js-beautify",
         "@npm//js-yaml",
+        "@npm//mysql2",
         "@npm//pg",
         "@npm//promise-pool-executor",
         "@npm//protobufjs",
