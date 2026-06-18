@@ -1,3 +1,5 @@
+import * as os from "os";
+
 import { resolveExportUri } from "sa/cli/api/dbadapters/export_uri";
 import { nativeRequire } from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
@@ -142,16 +144,23 @@ function withConnection<T>(fn: (conn: any) => Promise<T>): Promise<T> {
       /* ignore */
     }
   };
-  return fn(conn).then(
-    result => {
-      done();
-      return result;
-    },
-    err => {
-      done();
-      throw err;
-    }
-  );
+  // DuckDB stores its extension cache under $HOME/.duckdb. In sandboxed/minimal
+  // environments HOME may be unset, which breaks INSTALL; point it at a writable dir.
+  const setup = !process.env.HOME
+    ? allAsync(conn, `SET home_directory='${os.tmpdir()}'`)
+    : Promise.resolve([]);
+  return setup
+    .then(() => fn(conn))
+    .then(
+      result => {
+        done();
+        return result;
+      },
+      err => {
+        done();
+        throw err;
+      }
+    );
 }
 
 export interface DuckdbExportArgs {

@@ -1,7 +1,11 @@
 import { expect } from "chai";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 
 import * as dfapi from "sa/cli/api";
 import * as dbadapters from "sa/cli/api/dbadapters";
+import { readViaDuckdb, runDuckdbExport } from "sa/cli/api/dbadapters/duckdb_export";
 import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { targetAsReadableString } from "sa/core/targets";
@@ -900,4 +904,44 @@ $$`
       await dbadapter.execute(`drop schema if exists "${remoteSchema}" cascade`).catch(() => undefined);
     }
   );
+
+  for (const format of ["parquet", "csv", "json"]) {
+    test(`exports a Postgres query to a local ${format} file via DuckDB`, { timeout: 120000 }, async () => {
+      const schema = `sa_integration_test_export_${format}`;
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+      await dbadapter.execute(`create schema "${schema}"`);
+      await dbadapter.execute(
+        `create table "${schema}"."orders" as select 1 as id, 'a' as name union all select 2, 'b'`
+      );
+
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sa-export-"));
+      await runDuckdbExport({
+        spec: sqlanvil.ExportSpec.create({
+          location: `local://${dir}/`,
+          format,
+          filename: "orders"
+        }),
+        selectSql: `select * from "${schema}"."orders" order by id`,
+        pg: {
+          host: PostgresFixture.host,
+          port: PostgresFixture.port,
+          database: PostgresFixture.database,
+          user: PostgresFixture.user,
+          password: PostgresFixture.password
+        },
+        actionName: "orders"
+      });
+
+      const ext = format === "json" ? "jsonl" : format;
+      const rows = (await readViaDuckdb(path.join(dir, `orders.${ext}`), format))
+        .map((r: any) => ({ id: Number(r.id), name: r.name }))
+        .sort((a, b) => a.id - b.id);
+      expect(rows).deep.equals([
+        { id: 1, name: "a" },
+        { id: 2, name: "b" }
+      ]);
+
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    });
+  }
 });
