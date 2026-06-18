@@ -62,6 +62,7 @@ ts_test_suite(
     name = "tests",
     srcs = [
         "commands/connection_credentials_test.ts",
+        "commands/environments_test.ts",
         "commands/init_test.ts",
         "commands/introspect_test.ts",
         "commands/test_test.ts",
