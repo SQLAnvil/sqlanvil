@@ -160,6 +160,9 @@ export function reconstructColumnDef(col: MysqlColumnDef): string {
   }
 
   let def = col.columnType;
+  // information_schema sets COLLATION_NAME only for string types (NULL for
+  // numeric/temporal/binary), so emitting COLLATE iff it is present is faithful —
+  // it never produces `int COLLATE ...`.
   if (col.collationName) {
     def += ` COLLATE ${col.collationName}`;
   }

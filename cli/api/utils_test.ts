@@ -105,6 +105,16 @@ suite("reconstructColumnDef", () => {
   test("numeric default is bare", () => {
     expect(reconstructColumnDef({ ...base, columnDefault: "5" })).to.equal("int NULL DEFAULT 5");
   });
+  test("expression default (non-timestamp) is parenthesized", () => {
+    expect(
+      reconstructColumnDef({
+        ...base,
+        columnType: "char(36)",
+        extra: "DEFAULT_GENERATED",
+        columnDefault: "uuid()"
+      })
+    ).to.equal("char(36) NULL DEFAULT (uuid())");
+  });
   test("expression default (CURRENT_TIMESTAMP) is bare", () => {
     expect(
       reconstructColumnDef({
