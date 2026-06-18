@@ -204,9 +204,36 @@ export class Export extends ActionBuilder<sqlanvil.Export> {
     );
   }
 
-  /** @hidden Scheme/format/warehouse validation. Filled in by the validation task. */
+  /** @hidden Scheme/format/warehouse validation. */
   private validate() {
-    // Intentionally minimal here; validation rules are added in a dedicated task.
+    const fileName = this.proto.fileName;
+    if (!this.proto.location) {
+      this.session.compileError(
+        new Error("Export actions require a `location` in the export config."),
+        fileName
+      );
+      return;
+    }
+    if (!VALID_FORMATS.includes(this.proto.format)) {
+      this.session.compileError(
+        new Error(
+          `Invalid export format "${this.proto.format}". Valid formats: ${VALID_FORMATS.join(
+            ", "
+          )}.`
+        ),
+        fileName
+      );
+    }
+    const warehouse = (this.session.projectConfig.warehouse || "bigquery").toLowerCase();
+    if (warehouse === "bigquery" && !this.proto.location.startsWith("gs://")) {
+      const scheme = this.proto.location.includes("://")
+        ? `${this.proto.location.split("://")[0]}://`
+        : "a local path";
+      this.session.compileError(
+        new Error(`BigQuery exports support only gs:// destinations; got ${scheme}.`),
+        fileName
+      );
+    }
   }
 
   private verifyConfig(unverifiedConfig: any): sqlanvil.ActionConfig.ExportConfig {

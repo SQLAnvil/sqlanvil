@@ -51,6 +51,26 @@ suite("export", ({ afterEach }) => {
     expect(exp.dependencyTargets.map((t: any) => t.name)).contains("src");
   });
 
+  test("rejects a BigQuery export to a non-gs:// location", () => {
+    const graph = compileProject({
+      "definitions/dump.sqlx":
+        `config { type: "export", export: { location: "s3://b/x/", format: "parquet" } }\n` +
+        `SELECT 1 AS id`
+    });
+    const errors = JSON.stringify(graph.graphErrors.compilationErrors);
+    expect(errors).contains("BigQuery exports support only gs://");
+  });
+
+  test("rejects an unknown export format", () => {
+    const graph = compileProject({
+      "definitions/dump.sqlx":
+        `config { type: "export", export: { location: "gs://b/x/", format: "avro" } }\n` +
+        `SELECT 1 AS id`
+    });
+    const errors = JSON.stringify(graph.graphErrors.compilationErrors);
+    expect(errors).contains("Invalid export format");
+  });
+
   test("honors explicit overwrite:false and filename", () => {
     const graph = compileProject({
       "definitions/dump.sqlx":
