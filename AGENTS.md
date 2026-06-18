@@ -175,6 +175,19 @@ Install with `npm i -g @sqlanvil/cli`. (Working from a sqlanvil repo checkout in
 Boot a local PG with `./tools/postgres/run-postgres-db.sh`. `--dry-run` only validates BigQuery
 today; on Postgres it does not EXPLAIN-validate SQL (known gap).
 
+**Named environments (`--environment <name>`):** define dev/staging/prod in an `environments:`
+block in `workflow_settings.yaml`; each bundles non-secret overrides + a pointer to a gitignored
+credentials file:
+```yaml
+environments:
+  dev:  { schemaSuffix: dev,  credentials: .df-credentials.dev.json }
+  prod: { defaultDatabase: prod_db, vars: { region: us-prod }, credentials: .df-credentials.prod.json }
+```
+`sqlanvil run . --environment prod` loads prod's overrides + its credentials file (works on
+compile/run/test). Precedence: **explicit CLI flag > environment > workflow_settings defaults**
+(`vars` merge per-key). Each env's `credentials:` is a path to a **gitignored** `.df-credentials*.json`
+file — secrets never go in `workflow_settings.yaml`. `--schema-suffix` stays the low-level primitive.
+
 ### 13. Supabase extras (`warehouse: supabase`)
 `supabase: {}` adds `enableRls`, `publishToRealtime`, `ownerRole`,
 `vectors: [{ column, dimensions, indexType }]`. Action types: `rlsPolicy`,

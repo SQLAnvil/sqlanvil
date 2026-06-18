@@ -8,6 +8,7 @@ import { sqlanvil } from "sa/protos/ts";
 
 const gitIgnoreContents = `
 ${CREDENTIALS_FILENAME}
+.df-credentials*.json
 node_modules/
 `;
 

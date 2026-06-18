@@ -7,6 +7,11 @@ import yargs from "yargs";
 
 import { build, compile, credentials, init, install, introspectToSqlx, prune, run, test } from "sa/cli/api";
 import { CREDENTIALS_FILENAME } from "sa/cli/api/commands/credentials";
+import {
+  mergeProjectConfigOverride,
+  resolveCredentials,
+  resolveEnvironment
+} from "sa/cli/api/commands/environments";
 import { assertConnectionCredentialsAvailable } from "sa/cli/api/commands/connection_credentials";
 import { IDbAdapter } from "sa/cli/api/dbadapters";
 import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
@@ -67,6 +72,7 @@ interface ProjectConfigArgv {
   "table-prefix"?: string;
   "disable-assertions"?: boolean;
   "default-reservation"?: string;
+  environment?: string;
 }
 
 interface InitArgv {
@@ -346,6 +352,37 @@ function getCredentialsPath(projectDir: string, credentialsPath: string) {
   return actuallyResolve(projectDir, credentialsPath);
 }
 
+// projectConfigOverride that layers the named environment (if any) under the CLI
+// flags. Used by compile/run/test.
+function projectConfigOverrideWithEnvironment(
+  projectDir: string,
+  argv: ProjectConfigArgv
+): sqlanvil.IProjectConfig {
+  const cliOverride = ProjectConfigOptions.constructProjectConfigOverride(argv);
+  if (!argv[ProjectConfigOptions.environment.name]) {
+    return cliOverride;
+  }
+  const { configOverride } = resolveEnvironment(
+    projectDir,
+    argv[ProjectConfigOptions.environment.name]
+  );
+  return mergeProjectConfigOverride(configOverride, cliOverride);
+}
+
+// Resolved absolute credentials path, applying --credentials > env > default. Used
+// by run/test.
+function credentialsPathWithEnvironment(projectDir: string, argv: any): string {
+  const envCredentials = argv[ProjectConfigOptions.environment.name]
+    ? resolveEnvironment(projectDir, argv[ProjectConfigOptions.environment.name]).credentials
+    : undefined;
+  const chosen = resolveCredentials(
+    envCredentials,
+    argv[credentialsOption.name],
+    CREDENTIALS_FILENAME
+  );
+  return getCredentialsPath(projectDir, chosen);
+}
+
 export function runCli() {
   const builtYargs = createYargsCli({
     commands: [
@@ -534,7 +571,7 @@ export function runCli() {
             }
             const compiledGraph = await compile({
               projectDir,
-              projectConfigOverride: ProjectConfigOptions.constructProjectConfigOverride(argv),
+              projectConfigOverride: projectConfigOverrideWithEnvironment(projectDir, argv),
               timeoutMillis: argv[timeoutOption.name] || undefined,
               verbose: argv[verboseOptionName] || false
             });
@@ -636,7 +673,10 @@ export function runCli() {
           }
           const compiledGraph = await compile({
             projectDir: argv[projectDirMustExistOption.name],
-            projectConfigOverride: ProjectConfigOptions.constructProjectConfigOverride(argv),
+            projectConfigOverride: projectConfigOverrideWithEnvironment(
+              argv[projectDirMustExistOption.name],
+              argv
+            ),
             timeoutMillis: argv[timeoutOption.name] || undefined
           });
           if (compiledGraphHasErrors(compiledGraph)) {
@@ -648,7 +688,7 @@ export function runCli() {
           }   
           const warehouse = compiledGraph.projectConfig.warehouse || "bigquery";
           const readCredentials = credentials.read(
-            getCredentialsPath(argv[projectDirOption.name], argv[credentialsOption.name]),
+            credentialsPathWithEnvironment(argv[projectDirMustExistOption.name], argv),
             warehouse
           );
 
@@ -725,7 +765,10 @@ export function runCli() {
           }
           const compiledGraph = await compile({
             projectDir: argv[projectDirOption.name],
-            projectConfigOverride: ProjectConfigOptions.constructProjectConfigOverride(argv),
+            projectConfigOverride: projectConfigOverrideWithEnvironment(
+              argv[projectDirOption.name],
+              argv
+            ),
             timeoutMillis: argv[timeoutOption.name] || undefined
           });
           if (compiledGraphHasErrors(compiledGraph)) {
@@ -737,7 +780,7 @@ export function runCli() {
           }
           const warehouse = compiledGraph.projectConfig.warehouse || "bigquery";
           const readCredentials = credentials.read(
-            getCredentialsPath(argv[projectDirOption.name], argv[credentialsOption.name]),
+            credentialsPathWithEnvironment(argv[projectDirOption.name], argv),
             warehouse
           );
 
@@ -805,7 +848,7 @@ export function runCli() {
           // Source-connection creds for FDW-bridge user mappings. Read here (not in the
           // --dry-run --json path above) and validated fail-fast before anything executes.
           const connectionCredentials = credentials.readConnections(
-            getCredentialsPath(argv[projectDirOption.name], argv[credentialsOption.name])
+            credentialsPathWithEnvironment(argv[projectDirOption.name], argv)
           );
           assertConnectionCredentialsAvailable(executionGraph, connectionCredentials);
 
@@ -1074,6 +1117,13 @@ class ProjectConfigOptions {
     type: "string"
   });
 
+  public static environment = option("environment", {
+    describe:
+      "Named environment from workflow_settings.yaml `environments:` to load (its schemaSuffix, " +
+      "vars, defaultDatabase/location, and credentials file). Explicit flags override the environment.",
+    type: "string"
+  });
+
   public static allYargsOptions = [
     ProjectConfigOptions.defaultDatabase,
     ProjectConfigOptions.defaultSchema,
@@ -1084,7 +1134,8 @@ class ProjectConfigOptions {
     ProjectConfigOptions.schemaSuffix,
     ProjectConfigOptions.tablePrefix,
     ProjectConfigOptions.disableAssertions,
-    ProjectConfigOptions.defaultReservation
+    ProjectConfigOptions.defaultReservation,
+    ProjectConfigOptions.environment
   ];
 
   public static constructProjectConfigOverride(
