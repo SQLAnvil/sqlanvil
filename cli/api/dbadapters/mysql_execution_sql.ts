@@ -5,9 +5,10 @@ import { sqlanvil } from "sa/protos/ts";
 
 // MySQL/MariaDB DDL/DML generator. Emits portable MySQL-dialect SQL — the same
 // statements run against both engines (engine-specific features ride through
-// `operations`). Mirrors PostgresExecutionSql's structure; deliberately omits
-// the Postgres-only surface (storage options, partitioning, materialized views,
-// COMMENT metadata) — see the adapter design doc for what's deferred.
+// `operations`). Mirrors PostgresExecutionSql's structure. Supports table options
+// + secondary indexes (the `mysql:{}` block) and materialized views (emulated as a
+// refreshed table snapshot); COMMENT metadata is applied by the adapter's
+// setMetadata. Still deferred: partitioning and FULLTEXT/SPATIAL/prefix indexes.
 export class MysqlExecutionSql implements IExecutionSql {
   private readonly CompilationSql: CompilationSql;
 
