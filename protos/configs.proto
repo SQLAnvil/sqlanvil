@@ -643,6 +643,54 @@ message ActionConfig {
     string reservation = 13;
   }
 
+  // The user-facing `export: {}` block on a `type: "export"` action.
+  message ExportOptions {
+    // Destination folder/prefix URI: gs:// | s3:// | local:// | relative/absolute path.
+    string location = 1;
+    // "parquet" | "csv" | "json" (json = JSONL).
+    string format = 2;
+    // Overwrite an existing object/file. Defaults to true (defaulted in core when absent).
+    bool overwrite = 3;
+    // Output base filename; defaults to the action name.
+    string filename = 4;
+    // Format-specific passthrough options (e.g. compression, csv header/delimiter).
+    map<string, string> options = 5;
+  }
+
+  // Configuration for a `type: "export"` action: writes a SELECT result to a
+  // Parquet/CSV/JSON file at a cloud or local location.
+  message ExportConfig {
+    // The name of the export.
+    string name = 1;
+
+    // The dataset (schema) used to qualify the export's target name.
+    string dataset = 2;
+
+    // The Google Cloud project (database) of the export.
+    string project = 3;
+
+    // Targets of actions that this action is dependent on.
+    repeated Target dependency_targets = 4;
+
+    // Path to the source file that the contents of the action is loaded from.
+    string filename = 5;
+
+    // A list of user-defined tags with which the action should be labeled.
+    repeated string tags = 6;
+
+    // If set to true, this action will not be executed.
+    bool disabled = 7;
+
+    // Description of the export.
+    string description = 8;
+
+    // If true, this action only depends on data from explicitly-declared dependencies.
+    bool hermetic = 9;
+
+    // The export destination + format options (the `export: {}` block).
+    ExportOptions export = 10;
+  }
+
   message DeclarationConfig {
     // The name of the declaration.
     string name = 1;
@@ -767,6 +815,7 @@ message ActionConfig {
     RealtimePublicationConfig realtime_publication = 10;
     ForeignWrapperConfig foreign_wrapper = 11;
     VectorIndexConfig vector_index = 12;
+    ExportConfig export = 13;
   }
 
   message RlsPolicyConfig {

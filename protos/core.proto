@@ -249,6 +249,30 @@ message Operation {
   reserved 1, 2, 4, 5;
 }
 
+// A compiled file export: writes `query` to a Parquet/CSV/JSON file at `location`.
+message Export {
+  Target target = 1;
+  Target canonical_target = 2;
+  repeated Target dependency_targets = 3;
+  ActionHermeticity hermeticity = 4;
+  bool disabled = 5;
+  repeated string tags = 6;
+  ActionDescriptor action_descriptor = 7;
+  // The SELECT to export (refs already resolved to warehouse identifiers).
+  string query = 8;
+  // Destination folder/prefix URI.
+  string location = 9;
+  // "parquet" | "csv" | "json".
+  string format = 10;
+  bool overwrite = 11;
+  // Output base filename; defaults to the action name.
+  string filename = 12;
+  map<string, string> options = 13;
+  // Source file path (generated).
+  string file_name = 14;
+  string jit_code = 15;
+}
+
 message Assertion {
   Target target = 8;
   Target canonical_target = 13;
@@ -417,6 +441,7 @@ message CompiledGraph {
   repeated Test tests = 8;
   repeated Notebook notebooks = 12;
   repeated DataPreparation data_preparations = 13;
+  repeated Export exports = 14;
 
   GraphErrors graph_errors = 7;
 
