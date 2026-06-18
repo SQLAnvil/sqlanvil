@@ -2,7 +2,7 @@
 
 **SQL workflow tool for BigQuery, Postgres, Supabase, and MySQL/MariaDB.**
 
-SQLAnvil is an open-source fork of [Dataform OSS](https://github.com/dataform-co/dataform) (Apache 2.0), extended with first-class PostgreSQL, Supabase, and MySQL/MariaDB support. Define your data transformations in SQLX, have SQLAnvil compile them to idiomatic SQL, and run them against your warehouse.
+SQLAnvil is an open-source fork of [Dataform OSS](https://github.com/dataform-co/dataform) (Apache 2.0), extended with first-class PostgreSQL and Supabase support, plus adapters for other data sources. Define your data transformations in SQLX, have SQLAnvil compile them to idiomatic SQL, and run them against your warehouse.
 
 > **SQLAnvil is not affiliated with or endorsed by Google.** The Dataform name and related marks are trademarks of Google LLC. See [NOTICE](NOTICE) for attribution.
 
