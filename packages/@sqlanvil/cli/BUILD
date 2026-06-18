@@ -32,6 +32,7 @@ externals = [
     "@google-cloud/bigquery",
     "chokidar",
     "deepmerge",
+    "duckdb",
     "fs-extra",
     "glob",
     "google-sql-syntax-ts",

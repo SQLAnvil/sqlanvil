@@ -1,3 +1,5 @@
+import { resolveExportUri } from "sa/cli/api/dbadapters/export_uri";
+import { nativeRequire } from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
 /**
@@ -100,4 +102,120 @@ export function buildCopySql(
   );
   const optionList = [`FORMAT ${fmt}`, ...extraOptions].join(", ");
   return `COPY (SELECT * FROM postgres_query('${PG_ATTACH_ALIAS}', $sa$${selectSql}$sa$)) TO '${target}' (${optionList})`;
+}
+
+// ---------------------------------------------------------------------------
+// Execution (lazy DuckDB load — only when a Postgres/Supabase export runs).
+// ---------------------------------------------------------------------------
+
+/** Lazily load the optional DuckDB native binding via the real (non-webpack) require. */
+function loadDuckdb(): any {
+  try {
+    return nativeRequire("duckdb");
+  } catch (e) {
+    throw new Error(
+      `Exporting on Postgres/Supabase requires the optional "duckdb" dependency, which failed to ` +
+        `load: ${e.message}`
+    );
+  }
+}
+
+function allAsync(conn: any, sql: string): Promise<any[]> {
+  return new Promise((resolve, reject) => {
+    conn.all(sql, (err: any, rows: any[]) => (err ? reject(err) : resolve(rows || [])));
+  });
+}
+
+function withConnection<T>(fn: (conn: any) => Promise<T>): Promise<T> {
+  const duckdb = loadDuckdb();
+  const db = new duckdb.Database(":memory:");
+  const conn = db.connect();
+  const done = () => {
+    try {
+      conn.close?.();
+    } catch (e) {
+      /* ignore */
+    }
+    try {
+      db.close?.();
+    } catch (e) {
+      /* ignore */
+    }
+  };
+  return fn(conn).then(
+    result => {
+      done();
+      return result;
+    },
+    err => {
+      done();
+      throw err;
+    }
+  );
+}
+
+export interface DuckdbExportArgs {
+  spec: sqlanvil.IExportSpec;
+  selectSql: string;
+  pg: sqlanvil.IPostgresConnection;
+  storage?: { [scheme: string]: { [key: string]: string } };
+  actionName: string;
+}
+
+/**
+ * Runs a Postgres/Supabase export via DuckDB: ATTACH the database read-only,
+ * configure the object-store secret (non-local), then COPY the result of the
+ * SELECT (run on Postgres via `postgres_query`) to the destination.
+ */
+export async function runDuckdbExport(args: DuckdbExportArgs): Promise<{ destination: string }> {
+  const { spec, selectSql, pg, storage, actionName } = args;
+  const uri = resolveExportUri(spec, actionName, { wildcard: false });
+  const scheme = schemeOf(uri);
+  if (scheme !== "local" && !storage?.[scheme]) {
+    throw new Error(
+      `No "${scheme}" storage credentials found in .df-credentials.json (storage.${scheme}) for ` +
+        `export to ${uri}.`
+    );
+  }
+  return withConnection(async conn => {
+    await allAsync(conn, "INSTALL postgres; LOAD postgres; INSTALL httpfs; LOAD httpfs;");
+    await allAsync(conn, buildAttachSql(pg));
+    if (scheme !== "local") {
+      const secret = buildSecretSql(scheme, storage[scheme]);
+      if (secret) {
+        await allAsync(conn, secret);
+      }
+    }
+    await allAsync(conn, buildCopySql(selectSql, uri, spec.format, spec.options || {}));
+    return { destination: toCopyTarget(uri) };
+  });
+}
+
+/**
+ * Exports a direct DuckDB SELECT (no Postgres attach) to a local/object-store
+ * URI. Used by tests and as a lightweight path; the SELECT runs in DuckDB itself.
+ */
+export async function writeViaDuckdb(
+  selectSql: string,
+  uri: string,
+  format: string
+): Promise<void> {
+  await withConnection(async conn => {
+    await allAsync(
+      conn,
+      `COPY (${selectSql}) TO '${toCopyTarget(uri)}' (FORMAT ${(format || "").toLowerCase()})`
+    );
+    return undefined;
+  });
+}
+
+/** Reads a previously written file back through DuckDB (used by tests). */
+export async function readViaDuckdb(uri: string, format: string): Promise<any[]> {
+  const reader =
+    format === "parquet"
+      ? "read_parquet"
+      : format === "csv"
+      ? "read_csv_auto"
+      : "read_json_auto";
+  return withConnection(conn => allAsync(conn, `SELECT * FROM ${reader}('${toCopyTarget(uri)}')`));
 }

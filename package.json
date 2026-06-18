@@ -33,6 +33,7 @@
     "chokidar": "^3.5.3",
     "deepmerge": "^4.2.2",
     "diff": "^8.0.3",
+    "duckdb": "^1.4.0",
     "escodegen": "^1.13.0",
     "espree": "^7.0.0",
     "estraverse": "^5.1.0",
