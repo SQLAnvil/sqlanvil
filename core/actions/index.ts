@@ -1,6 +1,7 @@
 import { Assertion } from "sa/core/actions/assertion";
 import { DataPreparation } from "sa/core/actions/data_preparation";
 import { Declaration } from "sa/core/actions/declaration";
+import { Export } from "sa/core/actions/export";
 import { IncrementalTable } from "sa/core/actions/incremental_table";
 import { Notebook } from "sa/core/actions/notebook";
 import { Operation } from "sa/core/actions/operation";
@@ -32,6 +33,7 @@ export type Action =
   | Declaration
   | Notebook
   | DataPreparation
+  | Export
   | Test
   | RlsPolicy
   | RealtimePublication
@@ -46,6 +48,7 @@ export type ActionProto =
   | sqlanvil.Declaration
   | sqlanvil.Notebook
   | sqlanvil.DataPreparation
+  | sqlanvil.Export
   | sqlanvil.Test;
 
 export { ActionBuilder } from "sa/core/actions/base";
