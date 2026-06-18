@@ -50,6 +50,12 @@ export class PostgresExecutionSql implements IExecutionSql {
     return `drop ${kind} if exists ${this.resolveTarget(target)} cascade`;
   }
 
+  public createExportTasks(exp: sqlanvil.IExport): sqlanvil.IExecutionTask[] {
+    // No SQL runs on Postgres; the runner performs the export via DuckDB. The "export"-type
+    // task carries the SELECT, and the ExecutionAction carries the destination spec.
+    return [sqlanvil.ExecutionTask.create({ type: "export", statement: exp.query })];
+  }
+
   public shouldWriteIncrementally(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,

@@ -31,6 +31,10 @@ export class MysqlExecutionSql implements IExecutionSql {
     return `drop table if exists ${this.resolveTarget(target)}`;
   }
 
+  public createExportTasks(exp: sqlanvil.IExport): sqlanvil.IExecutionTask[] {
+    throw new Error("type: \"export\" is not supported on MySQL/MariaDB yet.");
+  }
+
   public publishTasks(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,

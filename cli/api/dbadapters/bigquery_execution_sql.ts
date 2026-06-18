@@ -1,6 +1,7 @@
 import * as semver from "semver";
 
 import { IExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
+import { resolveExportUri } from "sa/cli/api/dbadapters/export_uri";
 import { concatenateQueries, Task, Tasks } from "sa/cli/api/dbadapters/tasks";
 import { ErrorWithCause } from "sa/common/errors/errors";
 import { CompilationSql } from "sa/core/compilation_sql";
@@ -194,6 +195,19 @@ from (${query}) as insertions`;
 
   public dropIfExists(target: sqlanvil.ITarget, type: sqlanvil.TableMetadata.Type) {
     return `drop ${this.tableTypeAsSql(type)} if exists ${this.resolveTarget(target)}`;
+  }
+
+  public createExportTasks(exp: sqlanvil.IExport): sqlanvil.IExecutionTask[] {
+    // BigQuery exports in-engine via EXPORT DATA. The URI must contain a `*` wildcard.
+    const uri = resolveExportUri(exp, exp.target?.name || exp.filename, { wildcard: true });
+    const format = (exp.format || "").toUpperCase();
+    const statement =
+      `EXPORT DATA OPTIONS(\n` +
+      `  uri='${uri}',\n` +
+      `  format='${format}',\n` +
+      `  overwrite=${exp.overwrite ? "true" : "false"}\n` +
+      `) AS\n${exp.query}`;
+    return [sqlanvil.ExecutionTask.create({ type: "statement", statement })];
   }
 
   private buildIncrementalSchemaChangeTasks(tasks: Tasks, table: sqlanvil.ITable) {

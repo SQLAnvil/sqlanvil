@@ -24,6 +24,7 @@ export interface IExecutionSql {
     projectConfig: sqlanvil.IProjectConfig
   ): Tasks;
   dropIfExists(target: sqlanvil.ITarget, type: sqlanvil.TableMetadata.Type): string;
+  createExportTasks(exp: sqlanvil.IExport): sqlanvil.IExecutionTask[];
 }
 
 export class ExecutionSql implements IExecutionSql {
@@ -70,6 +71,10 @@ export class ExecutionSql implements IExecutionSql {
       : operation.queries.map(statement =>
           sqlanvil.ExecutionTask.create({ type: "statement", statement })
         );
+  }
+
+  public createExportTasks(exp: sqlanvil.IExport): sqlanvil.IExecutionTask[] {
+    return exp.disabled ? [] : this.delegate.createExportTasks(exp);
   }
 
   public createAssertionTasks(assertion: sqlanvil.IAssertion): sqlanvil.IExecutionTask[] {
