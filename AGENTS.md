@@ -218,7 +218,7 @@ deltas above **invert**.
 - **Incremental `uniqueKey` is enough** — compiles to `INSERT ... ON DUPLICATE KEY UPDATE` and the
   adapter auto-creates the unique index (`uq_<db>_<table>`) on first/`--full-refresh`. Don't add
   your own PK/unique for the merge.
-- **No materialized views** — `materialized: true` errors; use `type: "table"`.
+- **Materialized views are emulated as a refreshed table snapshot** — `type: "view", materialized: true` builds a real table (drop + CTAS each run; refresh = re-run), honoring the `mysql:{}` block. No native matview, so it's read back as a table.
 - **`description:`/`columns:` produce real table/column comments** — applied via `ALTER TABLE … COMMENT` / `MODIFY COLUMN … COMMENT` and read back from `information_schema`. Tables/incrementals only — MySQL views can't carry comments. Assertions also work.
 - **No cross-warehouse sources** — a mysql project can't read `connections` (FDW is Postgres-only)
   and MySQL can't be a source; no `introspect` for/from MySQL.
