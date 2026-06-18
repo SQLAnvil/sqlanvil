@@ -566,4 +566,23 @@ suite("extension config", ({ afterEach }) => {
     expect(compileResult.exitCode).equals(0);
     expect(compileResult.stdout).contains("Compiled 0 action(s).");
   });
+
+  test("compile --environment with an unknown environment fails fast", async () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(projectDir, "workflow_settings.yaml"),
+      dumpYaml({
+        warehouse: "postgres",
+        defaultDataset: "analytics",
+        sqlanvilCoreVersion: "3.0.0",
+        environments: { dev: { schemaSuffix: "dev" } }
+      })
+    );
+    const result = await getProcessResult(
+      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--environment", "nope"])
+    );
+    expect(result.exitCode).to.not.equal(0);
+    expect(result.stderr).to.contain('Environment "nope" not found');
+    expect(result.stderr).to.contain("dev");
+  });
 });
