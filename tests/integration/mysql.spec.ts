@@ -171,6 +171,49 @@ suite("@sqlanvil/integration/mysql", { parallel: false }, ({ before, after }) =>
     await dbadapter.execute(`drop database if exists \`${database}\``);
   });
 
+  test("metadata: table + column comments applied and read back; NOT NULL preserved", { timeout: 30000 }, async () => {
+    const database = "sa_integration_test_direct";
+    await dbadapter.execute(`create database if not exists \`${database}\``);
+    await dbadapter.execute(`drop table if exists \`${database}\`.\`meta_t\``);
+    // CTAS from literals → id and label come out NOT NULL on MySQL 8 / MariaDB 11
+    // (asserted below before the MODIFY, so the fidelity check isn't vacuous).
+    await dbadapter.execute(`create table \`${database}\`.\`meta_t\` as select 1 as id, 'a' as label`);
+
+    const nullabilityOf = async (col: string) =>
+      String(
+        (
+          await dbadapter.execute(
+            `select is_nullable as nullable from information_schema.columns ` +
+              `where table_schema = '${database}' and table_name = 'meta_t' and column_name = '${col}'`
+          )
+        ).rows[0].nullable
+      ).toUpperCase();
+    expect(await nullabilityOf("id"), "id starts NOT NULL").to.equal("NO");
+
+    await dbadapter.setMetadata({
+      target: { schema: database, name: "meta_t" },
+      tableType: "table",
+      actionDescriptor: {
+        description: "a table's 'desc'",
+        columns: [
+          { path: ["id"], description: "the id" },
+          { path: ["label"], description: "the label" }
+        ]
+      }
+    });
+
+    const meta = await dbadapter.table({ schema: database, name: "meta_t" });
+    expect(meta.description).to.equal("a table's 'desc'");
+    const byName = keyBy(meta.fields, f => f.name);
+    expect(byName["id"].description).to.equal("the id");
+    expect(byName["label"].description).to.equal("the label");
+
+    // Fidelity: the comment MODIFY must not have dropped NOT NULL.
+    expect(await nullabilityOf("id"), "id still NOT NULL after comment").to.equal("NO");
+
+    await dbadapter.execute(`drop database if exists \`${database}\``);
+  });
+
   test("run: full project build, incremental append, assertion pass/fail", { timeout: 120000 }, async () => {
     const compiledGraph = await compile("tests/integration/mysql_project", "project_e2e");
 

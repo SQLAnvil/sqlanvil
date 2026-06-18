@@ -6,7 +6,12 @@ import {
   IExecutionResultRaw,
   OnCancel
 } from "sa/cli/api/dbadapters/index";
-import { convertFieldType, MySqlPoolExecutor } from "sa/cli/api/utils/mysql";
+import {
+  convertFieldType,
+  escapeMysqlString,
+  MySqlPoolExecutor,
+  reconstructColumnDef
+} from "sa/cli/api/utils/mysql";
 import { ErrorWithCause } from "sa/common/errors/errors";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -207,12 +212,12 @@ export class MySqlDbAdapter implements IDbAdapter {
     const params = [target.schema, target.name];
     const [tableResults, columnResults] = await Promise.all([
       this.execute(
-        `select table_type from information_schema.tables
+        `select table_type, table_comment from information_schema.tables
          where table_schema = ? and table_name = ?`,
         { params, includeQueryInError: true }
       ),
       this.execute(
-        `select column_name, data_type, ordinal_position
+        `select column_name, data_type, ordinal_position, column_comment
          from information_schema.columns
          where table_schema = ? and table_name = ?
          order by ordinal_position`,
@@ -229,15 +234,21 @@ export class MySqlDbAdapter implements IDbAdapter {
     const tableType = String(
       tableResults.rows[0].table_type ?? tableResults.rows[0].TABLE_TYPE
     ).toUpperCase();
+    const tableComment = String(
+      tableResults.rows[0].table_comment ?? tableResults.rows[0].TABLE_COMMENT ?? ""
+    );
     return sqlanvil.TableMetadata.create({
       target,
       type: tableType === "VIEW" ? sqlanvil.TableMetadata.Type.VIEW : sqlanvil.TableMetadata.Type.TABLE,
-      fields: columnResults.rows.map(row =>
-        sqlanvil.Field.create({
+      description: tableComment || undefined,
+      fields: columnResults.rows.map(row => {
+        const comment = String(row.column_comment ?? row.COLUMN_COMMENT ?? "");
+        return sqlanvil.Field.create({
           name: (row.column_name ?? row.COLUMN_NAME) as string,
-          primitive: convertFieldType((row.data_type ?? row.DATA_TYPE) as string)
-        })
-      )
+          primitive: convertFieldType((row.data_type ?? row.DATA_TYPE) as string),
+          description: comment || undefined
+        });
+      })
     });
   }
 
@@ -267,9 +278,77 @@ export class MySqlDbAdapter implements IDbAdapter {
     });
   }
 
-  public async setMetadata(_action: sqlanvil.IExecutionAction): Promise<void> {
-    // Deferred for the MVP — table/column COMMENT metadata is a follow-up PR.
-    return;
+  public async setMetadata(action: sqlanvil.IExecutionAction): Promise<void> {
+    const { target, actionDescriptor } = action;
+    const actualMetadata = await this.table(target);
+    if (!actualMetadata) {
+      return;
+    }
+    // MySQL views cannot carry table or column comments — skip them.
+    if (actualMetadata.type === sqlanvil.TableMetadata.Type.VIEW) {
+      return;
+    }
+    const resolved = `\`${target.schema}\`.\`${target.name}\``;
+
+    // Table comment (standalone statement).
+    if (actionDescriptor?.description) {
+      await this.execute(
+        `alter table ${resolved} comment = '${escapeMysqlString(actionDescriptor.description)}'`,
+        { includeQueryInError: true }
+      );
+    }
+
+    // Column comments require MODIFY COLUMN with the full reconstructed definition
+    // (MySQL has no standalone column-comment statement, and MODIFY rewrites the
+    // whole column).
+    const columnComments = (actionDescriptor?.columns || []).filter(
+      column =>
+        column.path?.length === 1 &&
+        column.description != null &&
+        actualMetadata.fields.some(f => f.name === column.path[0])
+    );
+    if (columnComments.length === 0) {
+      return;
+    }
+    const defResult = await this.execute(
+      `select column_name, column_type, is_nullable, column_default, extra,
+              collation_name, generation_expression
+       from information_schema.columns
+       where table_schema = ? and table_name = ?`,
+      { params: [target.schema, target.name], includeQueryInError: true }
+    );
+    const defByName = new Map<string, any>();
+    defResult.rows.forEach(row => defByName.set(String(row.column_name ?? row.COLUMN_NAME), row));
+    for (const column of columnComments) {
+      const name = column.path[0];
+      const row = defByName.get(name);
+      if (!row) {
+        continue;
+      }
+      const def = reconstructColumnDef({
+        columnType: String(row.column_type ?? row.COLUMN_TYPE),
+        isNullable: String(row.is_nullable ?? row.IS_NULLABLE),
+        columnDefault:
+          (row.column_default ?? row.COLUMN_DEFAULT ?? null) === null
+            ? null
+            : String(row.column_default ?? row.COLUMN_DEFAULT),
+        extra: String(row.extra ?? row.EXTRA ?? ""),
+        collationName:
+          (row.collation_name ?? row.COLLATION_NAME ?? null) === null
+            ? null
+            : String(row.collation_name ?? row.COLLATION_NAME),
+        generationExpression:
+          (row.generation_expression ?? row.GENERATION_EXPRESSION ?? null) === null
+            ? null
+            : String(row.generation_expression ?? row.GENERATION_EXPRESSION)
+      });
+      await this.execute(
+        `alter table ${resolved} modify column \`${name}\` ${def} comment '${escapeMysqlString(
+          column.description
+        )}'`,
+        { includeQueryInError: true }
+      );
+    }
   }
 
   public async close(): Promise<void> {

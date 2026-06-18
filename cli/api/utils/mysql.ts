@@ -126,3 +126,69 @@ export function convertFieldType(type: string) {
       return sqlanvil.Field.Primitive.UNKNOWN;
   }
 }
+
+export interface MysqlColumnDef {
+  columnType: string;
+  isNullable: string; // 'YES' | 'NO'
+  columnDefault: string | null;
+  extra: string; // e.g. '', 'auto_increment', 'DEFAULT_GENERATED', 'STORED GENERATED', 'on update CURRENT_TIMESTAMP'
+  collationName: string | null;
+  generationExpression: string | null;
+}
+
+// MySQL/MariaDB interpret backslashes by default; escape backslash then single
+// quote. Returns the inner content — callers wrap it in single quotes.
+export function escapeMysqlString(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+// Reconstruct a column definition (without the trailing COMMENT) from its
+// information_schema row, so an ALTER TABLE ... MODIFY COLUMN that sets a comment
+// does not silently drop NOT NULL / DEFAULT / AUTO_INCREMENT / collation /
+// generated-expression.
+export function reconstructColumnDef(col: MysqlColumnDef): string {
+  const extra = (col.extra || "").toLowerCase();
+  const notNull = col.isNullable === "NO";
+
+  // Generated columns: <type> GENERATED ALWAYS AS (expr) STORED|VIRTUAL [NOT NULL].
+  // No DEFAULT / AUTO_INCREMENT (illegal on generated columns).
+  if (extra.includes("generated") && col.generationExpression) {
+    const storage = extra.includes("stored") ? "STORED" : "VIRTUAL";
+    return `${col.columnType} GENERATED ALWAYS AS (${col.generationExpression}) ${storage}${
+      notNull ? " NOT NULL" : ""
+    }`;
+  }
+
+  let def = col.columnType;
+  // information_schema sets COLLATION_NAME only for string types (NULL for
+  // numeric/temporal/binary), so emitting COLLATE iff it is present is faithful —
+  // it never produces `int COLLATE ...`.
+  if (col.collationName) {
+    def += ` COLLATE ${col.collationName}`;
+  }
+  def += notNull ? " NOT NULL" : " NULL";
+  def += defaultClause(col, extra);
+  if (extra.includes("on update current_timestamp")) {
+    def += " ON UPDATE CURRENT_TIMESTAMP";
+  }
+  if (extra.includes("auto_increment")) {
+    def += " AUTO_INCREMENT";
+  }
+  return def;
+}
+
+function defaultClause(col: MysqlColumnDef, extra: string): string {
+  if (extra.includes("default_generated")) {
+    const d = col.columnDefault || "";
+    // CURRENT_TIMESTAMP[(n)] forms are emitted bare; other expressions parenthesized.
+    return /^current_timestamp/i.test(d) ? ` DEFAULT ${d}` : ` DEFAULT (${d})`;
+  }
+  if (col.columnDefault === null || col.columnDefault === undefined) {
+    return "";
+  }
+  const d = col.columnDefault;
+  if (d.toUpperCase() === "NULL" || /^-?\d+(\.\d+)?$/.test(d)) {
+    return ` DEFAULT ${d}`;
+  }
+  return ` DEFAULT '${escapeMysqlString(d)}'`;
+}
