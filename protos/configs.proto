@@ -73,6 +73,21 @@ message WorkflowSettings {
 
   // Optional. Named connections (warehouse + read-only sources).
   map<string, ConnectionConfig> connections = 18;
+
+  // Optional. Named environments (dev/staging/prod) selected with `--environment`.
+  map<string, Environment> environments = 19;
+}
+
+// A named environment (dev/staging/prod). Holds only NON-SECRET overrides plus a
+// pointer to a gitignored credentials file — never secrets themselves.
+message Environment {
+  string schema_suffix = 1;
+  map<string, string> vars = 2;
+  string default_database = 3;
+  string default_location = 4;
+  // Path (relative to the project dir) to this environment's gitignored
+  // .df-credentials file.
+  string credentials = 5;
 }
 
 // A named connection: the warehouse (read/write target) or a read-only source.
