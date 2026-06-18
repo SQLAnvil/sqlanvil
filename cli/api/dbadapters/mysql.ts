@@ -303,7 +303,9 @@ export class MySqlDbAdapter implements IDbAdapter {
     // whole column).
     const columnComments = (actionDescriptor?.columns || []).filter(
       column =>
-        column.path?.length === 1 && actualMetadata.fields.some(f => f.name === column.path[0])
+        column.path?.length === 1 &&
+        column.description != null &&
+        actualMetadata.fields.some(f => f.name === column.path[0])
     );
     if (columnComments.length === 0) {
       return;

@@ -175,7 +175,8 @@ suite("@sqlanvil/integration/mysql", { parallel: false }, ({ before, after }) =>
     const database = "sa_integration_test_direct";
     await dbadapter.execute(`create database if not exists \`${database}\``);
     await dbadapter.execute(`drop table if exists \`${database}\`.\`meta_t\``);
-    // CTAS from literals → id and label come out NOT NULL.
+    // CTAS from literals → id and label come out NOT NULL on MySQL 8 / MariaDB 11
+    // (asserted below before the MODIFY, so the fidelity check isn't vacuous).
     await dbadapter.execute(`create table \`${database}\`.\`meta_t\` as select 1 as id, 'a' as label`);
 
     const nullabilityOf = async (col: string) =>
