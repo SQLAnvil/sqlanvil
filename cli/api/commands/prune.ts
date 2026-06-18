@@ -2,7 +2,11 @@ import { targetAsReadableString } from "sa/core/targets";
 import * as utils from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
-type CompileAction = sqlanvil.ITable | sqlanvil.IOperation | sqlanvil.IAssertion;
+type CompileAction =
+  | sqlanvil.ITable
+  | sqlanvil.IOperation
+  | sqlanvil.IAssertion
+  | sqlanvil.IExport;
 
 export function prune(
   compiledGraph: sqlanvil.ICompiledGraph,
@@ -20,6 +24,9 @@ export function prune(
     ),
     operations: compiledGraph.operations.filter(action =>
       includedActionNames.has(targetAsReadableString(action.target))
+    ),
+    exports: compiledGraph.exports.filter(action =>
+      includedActionNames.has(targetAsReadableString(action.target))
     )
   };
 }
@@ -32,7 +39,8 @@ function computeIncludedActionNames(
   const allActions: CompileAction[] = [].concat(
     compiledGraph.tables,
     compiledGraph.operations,
-    compiledGraph.assertions
+    compiledGraph.assertions,
+    compiledGraph.exports
   );
 
   const allActionNames = new Set<string>(
