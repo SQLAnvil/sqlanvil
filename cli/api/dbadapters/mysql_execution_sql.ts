@@ -40,10 +40,17 @@ export class MysqlExecutionSql implements IExecutionSql {
 
     if (table.enumType === sqlanvil.TableType.VIEW) {
       if (table.materialized) {
-        throw new Error(
-          `Materialized views are not supported on mysql (action ${target}). ` +
-            `Use a table, or emulate refresh via operations.`
+        // MySQL/MariaDB have no native materialized views — emulate as a real
+        // table snapshot, refreshed by drop + CTAS each run (mirrors the Postgres
+        // matview default). Drop both the view and table forms so the path is
+        // idempotent whether the prior object was a view or a table.
+        tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.VIEW)));
+        tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
+        tasks.add(
+          Task.statement(`create table ${target}${this.tableOptions(table)} as ${table.query}`)
         );
+        this.createIndexes(table).forEach(stmt => tasks.add(Task.statement(stmt)));
+        return tasks;
       }
       // CREATE OR REPLACE VIEW is atomic in MySQL/MariaDB — no drop needed.
       tasks.add(Task.statement(`create or replace view ${target} as ${table.query}`));
