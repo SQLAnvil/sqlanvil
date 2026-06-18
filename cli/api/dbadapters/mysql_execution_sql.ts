@@ -5,9 +5,10 @@ import { sqlanvil } from "sa/protos/ts";
 
 // MySQL/MariaDB DDL/DML generator. Emits portable MySQL-dialect SQL — the same
 // statements run against both engines (engine-specific features ride through
-// `operations`). Mirrors PostgresExecutionSql's structure; deliberately omits
-// the Postgres-only surface (storage options, partitioning, materialized views,
-// COMMENT metadata) — see the adapter design doc for what's deferred.
+// `operations`). Mirrors PostgresExecutionSql's structure. Supports table options
+// + secondary indexes (the `mysql:{}` block) and materialized views (emulated as a
+// refreshed table snapshot); COMMENT metadata is applied by the adapter's
+// setMetadata. Still deferred: partitioning and FULLTEXT/SPATIAL/prefix indexes.
 export class MysqlExecutionSql implements IExecutionSql {
   private readonly CompilationSql: CompilationSql;
 
@@ -40,10 +41,17 @@ export class MysqlExecutionSql implements IExecutionSql {
 
     if (table.enumType === sqlanvil.TableType.VIEW) {
       if (table.materialized) {
-        throw new Error(
-          `Materialized views are not supported on mysql (action ${target}). ` +
-            `Use a table, or emulate refresh via operations.`
+        // MySQL/MariaDB have no native materialized views — emulate as a real
+        // table snapshot, refreshed by drop + CTAS each run (mirrors the Postgres
+        // matview default). Drop both the view and table forms so the path is
+        // idempotent whether the prior object was a view or a table.
+        tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.VIEW)));
+        tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
+        tasks.add(
+          Task.statement(`create table ${target}${this.tableOptions(table)} as ${table.query}`)
         );
+        this.createIndexes(table).forEach(stmt => tasks.add(Task.statement(stmt)));
+        return tasks;
       }
       // CREATE OR REPLACE VIEW is atomic in MySQL/MariaDB — no drop needed.
       tasks.add(Task.statement(`create or replace view ${target} as ${table.query}`));

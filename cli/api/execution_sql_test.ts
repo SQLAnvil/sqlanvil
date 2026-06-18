@@ -518,15 +518,34 @@ suite("mysql execution sql", () => {
     ).to.equal(true);
   });
 
-  test("materialized view is rejected on mysql", () => {
-    expect(() =>
-      sql
-        .publishTasks(
-          baseTable({ enumType: sqlanvil.TableType.VIEW, materialized: true }),
-          { fullRefresh: false }
-        )
-        .build()
-    ).to.throw(/materialized views are not supported on mysql/i);
+  test("materialized view builds a refreshed table snapshot (drop view+table, CTAS)", () => {
+    const stmts = sql
+      .publishTasks(
+        baseTable({ enumType: sqlanvil.TableType.VIEW, materialized: true }),
+        { fullRefresh: false }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(stmts).to.include("drop view if exists `db`.`t`");
+    expect(stmts).to.include("drop table if exists `db`.`t`");
+    expect(stmts).to.include("create table `db`.`t` as select 1 as id");
+    expect(stmts.some(s => /create or replace view/.test(s))).to.equal(false);
+  });
+
+  test("materialized view honors the mysql:{} block (engine + indexes)", () => {
+    const stmts = sql
+      .publishTasks(
+        baseTable({
+          enumType: sqlanvil.TableType.VIEW,
+          materialized: true,
+          mysql: { engine: "InnoDB", indexes: [{ name: "ix_id", columns: ["id"] }] }
+        }),
+        { fullRefresh: false }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(stmts.some(s => /create table `db`\.`t` engine=InnoDB as /.test(s))).to.equal(true);
+    expect(stmts).to.include("alter table `db`.`t` add index `ix_id` (`id`)");
   });
 
   test("table options: engine + charset land in the CTAS", () => {

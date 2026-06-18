@@ -214,6 +214,45 @@ suite("@sqlanvil/integration/mysql", { parallel: false }, ({ before, after }) =>
     await dbadapter.execute(`drop database if exists \`${database}\``);
   });
 
+  test("materialized view builds + refreshes a real table snapshot", { timeout: 30000 }, async () => {
+    const database = "sa_integration_test_direct";
+    await dbadapter.execute(`create database if not exists \`${database}\``);
+    await dbadapter.execute(`drop table if exists \`${database}\`.\`mv_src\``);
+    await dbadapter.execute(`drop view if exists \`${database}\`.\`mv\``);
+    await dbadapter.execute(`drop table if exists \`${database}\`.\`mv\``);
+    await dbadapter.execute(`create table \`${database}\`.\`mv_src\` (id int)`);
+    await dbadapter.execute(`insert into \`${database}\`.\`mv_src\` values (1), (2)`);
+
+    const adapter = new ExecutionSql({ warehouse: "mysql" }, "2.0.0");
+    const mv: sqlanvil.ITable = {
+      enumType: sqlanvil.TableType.VIEW,
+      materialized: true,
+      target: { schema: database, name: "mv" },
+      query: `select count(*) as n from \`${database}\`.\`mv_src\``
+    };
+
+    const runMv = async () => {
+      for (const task of adapter.publishTasks(mv, { fullRefresh: false }).build()) {
+        await dbadapter.execute(task.statement);
+      }
+    };
+
+    // First build → a real, queryable TABLE holding the snapshot.
+    await runMv();
+    const meta = await dbadapter.table({ schema: database, name: "mv" });
+    expect(meta.type).to.equal(sqlanvil.TableMetadata.Type.TABLE);
+    let n = await dbadapter.execute(`select n from \`${database}\`.\`mv\``);
+    expect(Number(n.rows[0].n)).to.equal(2);
+
+    // Change source, re-run → snapshot refreshes.
+    await dbadapter.execute(`insert into \`${database}\`.\`mv_src\` values (3)`);
+    await runMv();
+    n = await dbadapter.execute(`select n from \`${database}\`.\`mv\``);
+    expect(Number(n.rows[0].n)).to.equal(3);
+
+    await dbadapter.execute(`drop database if exists \`${database}\``);
+  });
+
   test("run: full project build, incremental append, assertion pass/fail", { timeout: 120000 }, async () => {
     const compiledGraph = await compile("tests/integration/mysql_project", "project_e2e");
 
