@@ -63,6 +63,7 @@ ts_test_suite(
     srcs = [
         "commands/build_export_test.ts",
         "commands/connection_credentials_test.ts",
+        "commands/credentials_test.ts",
         "commands/environments_test.ts",
         "commands/init_test.ts",
         "commands/introspect_test.ts",

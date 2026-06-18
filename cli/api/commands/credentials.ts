@@ -20,7 +20,7 @@ export function read(credentialsPath: string, warehouse: string = "bigquery"): a
   // `sqlanvil introspect` (keyed by connection name, mirroring the `connections:`
   // map in workflow_settings.yaml). It is not part of the write-warehouse
   // connection, so exclude it from the strict warehouse-credentials validation.
-  const { connections, ...warehouseCredentials } = credentialsAsJson;
+  const { connections, storage, ...warehouseCredentials } = credentialsAsJson;
   if (warehouse.toLowerCase() === "mysql") {
     const credentials = verifyObjectMatchesProto(sqlanvil.MysqlConnection, warehouseCredentials);
     if (!credentials.host) {
@@ -62,6 +62,28 @@ export function readConnections(credentialsPath: string): { [name: string]: any 
     throw new Error(`Error reading credentials file: ${e.message}`);
   }
   return credentialsAsJson.connections || {};
+}
+
+/**
+ * Returns the `storage` section from `.df-credentials.json` (object-storage
+ * credentials for the runner-side DuckDB export, keyed by scheme — e.g.
+ * `s3`/`gcs`), or `undefined` if the file or key is absent. Only the export path
+ * needs it, so absence is not an error. Distinct from `read()`, which returns the
+ * flat write-warehouse credentials and ignores `storage`.
+ */
+export function readStorageCredentials(
+  credentialsPath: string
+): { [scheme: string]: { [key: string]: string } } | undefined {
+  if (!fs.existsSync(credentialsPath)) {
+    return undefined;
+  }
+  let credentialsAsJson: { [key: string]: any };
+  try {
+    credentialsAsJson = JSON.parse(fs.readFileSync(credentialsPath, "utf8"));
+  } catch (e) {
+    throw new Error(`Error reading credentials file: ${e.message}`);
+  }
+  return credentialsAsJson.storage || undefined;
 }
 
 export enum TestResultStatus {
