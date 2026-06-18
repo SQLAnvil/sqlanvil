@@ -67,6 +67,7 @@ ts_test_suite(
         "commands/environments_test.ts",
         "commands/init_test.ts",
         "commands/introspect_test.ts",
+        "commands/run_export_test.ts",
         "commands/test_test.ts",
         "commands/jit/rpc_test.ts",
         "dbadapters/bigquery_test.ts",

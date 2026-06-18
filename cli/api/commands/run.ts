@@ -4,6 +4,7 @@ import Long from "long";
 import * as dbadapters from "sa/cli/api/dbadapters";
 import { substituteConnectionCredentials } from "sa/cli/api/commands/connection_credentials";
 import { IBigQueryExecutionOptions } from "sa/cli/api/dbadapters/bigquery";
+import { DuckdbExportArgs, runDuckdbExport } from "sa/cli/api/dbadapters/duckdb_export";
 import { Flags } from "sa/common/flags";
 import { retry } from "sa/common/promises";
 import { deepClone, equals } from "sa/common/protos";
@@ -36,6 +37,14 @@ export interface IExecutionOptions {
   // at execution time. Secrets are applied only to the string sent to the warehouse — the
   // in-memory execution graph keeps the placeholders.
   connectionCredentials?: { [name: string]: any };
+  // The write-warehouse connection (Postgres/Supabase) used by the runner-side DuckDB
+  // exporter to ATTACH the source database. Only needed when a project has export actions.
+  warehouseConnection?: any;
+  // Object-store credentials for the DuckDB exporter, keyed by scheme (from
+  // `.df-credentials.json`'s `storage` section). Not needed for local:// exports.
+  storageCredentials?: { [scheme: string]: { [key: string]: string } };
+  // Seam for tests to inject a fake exporter; defaults to runDuckdbExport.
+  duckdbExport?: (args: DuckdbExportArgs) => Promise<{ destination: string }>;
 }
 
 export function run(
@@ -359,7 +368,7 @@ export class Runner {
                 action.actionDescriptor?.reservation ||
                 this.graph.projectConfig?.defaultReservation
             }
-          });
+          }, action);
           if (taskStatus === sqlanvil.TaskResult.ExecutionStatus.FAILED) {
             actionResult.status = sqlanvil.ActionResult.ExecutionStatus.FAILED;
           } else if (taskStatus === sqlanvil.TaskResult.ExecutionStatus.CANCELLED) {
@@ -419,7 +428,8 @@ export class Runner {
     client: dbadapters.IDbClient,
     task: sqlanvil.IExecutionTask,
     parentAction: sqlanvil.IActionResult,
-    options: { bigquery?: sqlanvil.IBigQueryOptions & IBigQueryExecutionOptions }
+    options: { bigquery?: sqlanvil.IBigQueryOptions & IBigQueryExecutionOptions },
+    action?: sqlanvil.IExecutionAction
   ): Promise<sqlanvil.TaskResult.ExecutionStatus> {
     const timer = Timer.start();
     const taskResult: sqlanvil.ITaskResult = {
@@ -431,8 +441,25 @@ export class Runner {
     this.notifyListeners();
     if (options.bigquery?.dryRun && task.type === "assertion") {
       taskResult.status = sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL;
-    }
-    else {
+    } else if (task.type === "export") {
+      // Postgres/Supabase exports run runner-side via DuckDB (not on the warehouse client).
+      try {
+        const exporter = this.executionOptions.duckdbExport || runDuckdbExport;
+        await exporter({
+          spec: action?.export,
+          selectSql: task.statement,
+          pg: this.executionOptions.warehouseConnection,
+          storage: this.executionOptions.storageCredentials,
+          actionName: action?.target?.name
+        });
+        taskResult.status = sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL;
+      } catch (e) {
+        taskResult.status = this.cancelled
+          ? sqlanvil.TaskResult.ExecutionStatus.CANCELLED
+          : sqlanvil.TaskResult.ExecutionStatus.FAILED;
+        taskResult.errorMessage = `${this.graph.projectConfig.warehouse} export error: ${e.message}`;
+      }
+    } else {
       try {
         // Retry this function a given number of times, configurable by user
         // Inject source-connection credentials into FDW-bridge statements at the last

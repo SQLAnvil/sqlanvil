@@ -852,6 +852,14 @@ export function runCli() {
           );
           assertConnectionCredentialsAvailable(executionGraph, connectionCredentials);
 
+          // For runner-side DuckDB exports (Postgres/Supabase): the source DB connection to
+          // ATTACH, plus object-store credentials. Ignored on BigQuery (exports run in-engine).
+          const storageCredentials = credentials.readStorageCredentials(
+            credentialsPathWithEnvironment(argv[projectDirOption.name], argv)
+          );
+          const isPostgresLike =
+            warehouse.toLowerCase() === "postgres" || warehouse.toLowerCase() === "supabase";
+
           if (argv[dryRunOptionName]) {
             print("Dry running (no changes to the warehouse will be applied)...");
           } else {
@@ -860,7 +868,9 @@ export function runCli() {
 
           const runner = run(dbadapter, executionGraph, {
             bigquery: bigqueryOptions,
-            connectionCredentials
+            connectionCredentials,
+            warehouseConnection: isPostgresLike ? readCredentials : undefined,
+            storageCredentials
           });
           process.on("SIGINT", () => {
             runner.cancel();
