@@ -585,4 +585,76 @@ suite("extension config", ({ afterEach }) => {
     expect(result.stderr).to.contain('Environment "nope" not found');
     expect(result.stderr).to.contain("dev");
   });
+
+  test("compile --environment applies the env's schemaSuffix + vars; CLI flag overrides", { timeout: 120000 }, async () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    const npmCacheDir = tmpDirFixture.createNewTmpDir();
+
+    // No sqlanvilCoreVersion → uses the locally installed core (below), not the
+    // stateless npm-registry fetch. environments: defines a `dev` env.
+    fs.writeFileSync(
+      path.join(projectDir, "workflow_settings.yaml"),
+      dumpYaml({
+        defaultProject: DEFAULT_DATABASE,
+        defaultLocation: DEFAULT_LOCATION,
+        defaultDataset: "sqlanvil",
+        environments: {
+          dev: { schemaSuffix: "dev_env", vars: { greeting: "hello" } }
+        }
+      })
+    );
+    fs.writeFileSync(
+      path.join(projectDir, "package.json"),
+      `{
+  "dependencies":{
+    "@sqlanvil/core": "${version}"
+  }
+}`
+    );
+    // Install the local core tarball (avoids bazel read-only sandbox + network).
+    await getProcessResult(
+      execFile(npmPath, ["install", "--prefix", projectDir, "--cache", npmCacheDir, corePackageTarPath])
+    );
+
+    const filePath = path.join(projectDir, "definitions", "example.sqlx");
+    fs.ensureFileSync(filePath);
+    fs.writeFileSync(
+      filePath,
+      `config { type: "table" }\nselect 1 as \${sqlanvil.projectConfig.vars.greeting}`
+    );
+
+    // --environment dev: env's schemaSuffix + vars apply.
+    const envResult = await getProcessResult(
+      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--environment", "dev", "--json"], {
+        env: { ...process.env, NPM_CONFIG_CACHE: npmCacheDir }
+      })
+    );
+    expect(envResult.exitCode, `compile failed: ${envResult.stderr}`).equals(0);
+    const envCompiled = JSON.parse(envResult.stdout);
+    expect(envCompiled.tables[0].target.schema).equals("sqlanvil_dev_env");
+    expect(envCompiled.tables[0].query).contains("hello");
+
+    // --environment dev --schema-suffix qa: explicit CLI flag overrides the env.
+    const overrideResult = await getProcessResult(
+      execFile(
+        nodePath,
+        [
+          cliEntryPointPath,
+          "compile",
+          projectDir,
+          "--environment",
+          "dev",
+          "--schema-suffix",
+          "qa",
+          "--json"
+        ],
+        { env: { ...process.env, NPM_CONFIG_CACHE: npmCacheDir } }
+      )
+    );
+    expect(overrideResult.exitCode, `compile failed: ${overrideResult.stderr}`).equals(0);
+    const overrideCompiled = JSON.parse(overrideResult.stdout);
+    expect(overrideCompiled.tables[0].target.schema).equals("sqlanvil_qa");
+    // Env vars still apply (CLI --schema-suffix doesn't touch vars).
+    expect(overrideCompiled.tables[0].query).contains("hello");
+  });
 });
