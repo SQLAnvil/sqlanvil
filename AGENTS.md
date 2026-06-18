@@ -219,7 +219,7 @@ deltas above **invert**.
   adapter auto-creates the unique index (`uq_<db>_<table>`) on first/`--full-refresh`. Don't add
   your own PK/unique for the merge.
 - **No materialized views** — `materialized: true` errors; use `type: "table"`.
-- **`description:`/`columns:` don't produce DB comments** (no-op on MySQL today; deferred). Assertions work.
+- **`description:`/`columns:` produce real table/column comments** — applied via `ALTER TABLE … COMMENT` / `MODIFY COLUMN … COMMENT` and read back from `information_schema`. Tables/incrementals only — MySQL views can't carry comments. Assertions also work.
 - **No cross-warehouse sources** — a mysql project can't read `connections` (FDW is Postgres-only)
   and MySQL can't be a source; no `introspect` for/from MySQL.
 - **`---` not `;`** (delta #6); **never `DELIMITER`** (client-only directive — a `CREATE PROCEDURE`
