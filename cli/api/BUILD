@@ -70,6 +70,7 @@ ts_test_suite(
         "commands/test_test.ts",
         "commands/jit/rpc_test.ts",
         "dbadapters/bigquery_test.ts",
+        "dbadapters/duckdb_export_test.ts",
         "dbadapters/export_execution_sql_test.ts",
         "dbadapters/export_uri_test.ts",
         "execution_sql_test.ts",
