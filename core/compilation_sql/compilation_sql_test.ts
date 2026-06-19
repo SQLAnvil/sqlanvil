@@ -84,6 +84,28 @@ suite("CompilationSql", () => {
       const compiler = new CompilationSql(config, "3.0.0");
       expect(compiler.sqlString("it's a \\test")).to.equal("'it\\'s a \\\\test'");
     });
+
+    test("BigQuery: escapes newlines so quoted literals stay single-line", () => {
+      // BigQuery single-quoted string literals cannot span multiple lines, so a
+      // raw newline/carriage-return must become the two-char \n / \r escape.
+      const config = sqlanvil.ProjectConfig.create({ warehouse: "bigquery" });
+      const compiler = new CompilationSql(config, "3.0.0");
+      expect(compiler.sqlString("line1\nline2")).to.equal("'line1\\nline2'");
+      expect(compiler.sqlString("line1\r\nline2")).to.equal("'line1\\r\\nline2'");
+    });
+
+    test("MySQL: escapes newlines so quoted literals stay single-line", () => {
+      const config = sqlanvil.ProjectConfig.create({ warehouse: "mysql" });
+      const compiler = new CompilationSql(config, "3.0.0");
+      expect(compiler.sqlString("line1\nline2")).to.equal("'line1\\nline2'");
+      expect(compiler.sqlString("line1\r\nline2")).to.equal("'line1\\r\\nline2'");
+    });
+
+    test("Postgres/Supabase: preserves raw newlines (valid in standard SQL literals)", () => {
+      const config = sqlanvil.ProjectConfig.create({ warehouse: "postgres" });
+      const compiler = new CompilationSql(config, "3.0.0");
+      expect(compiler.sqlString("line1\nline2")).to.equal("'line1\nline2'");
+    });
   });
 
   suite("indexAssertion", () => {
@@ -109,6 +131,28 @@ suite("CompilationSql", () => {
       const result = compiler.indexAssertion("`my_db`.`my_table`", ["col1", "col2"]);
       expect(result).to.contain("`col1`, `col2`");
       expect(result).to.contain("FROM `my_db`.`my_table`");
+    });
+  });
+
+  suite("rowConditionsAssertion", () => {
+    test("BigQuery: a multiline condition produces a single-line failing_row_condition literal", () => {
+      const config = sqlanvil.ProjectConfig.create({ warehouse: "bigquery" });
+      const compiler = new CompilationSql(config, "3.0.0");
+      const result = compiler.rowConditionsAssertion("`db.schema.test`", ["a > 0\n  AND b > 0"]);
+
+      // The label literal is escaped to a single line so BigQuery accepts it...
+      expect(result).to.contain("'a > 0\\n  AND b > 0' AS failing_row_condition");
+      // ...while the WHERE clause keeps the raw (newline-containing) expression.
+      expect(result).to.contain("WHERE NOT (a > 0\n  AND b > 0)");
+    });
+
+    test("joins multiple conditions with UNION ALL", () => {
+      const config = sqlanvil.ProjectConfig.create({ warehouse: "bigquery" });
+      const compiler = new CompilationSql(config, "3.0.0");
+      const result = compiler.rowConditionsAssertion("`db.schema.test`", ["id > 0", "name IS NOT NULL"]);
+      expect(result).to.contain("'id > 0' AS failing_row_condition");
+      expect(result).to.contain("'name IS NOT NULL' AS failing_row_condition");
+      expect(result).to.contain("UNION ALL");
     });
   });
 });

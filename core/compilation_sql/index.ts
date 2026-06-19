@@ -42,8 +42,16 @@ export class CompilationSql {
       return `'${stringContents.replace(/'/g, "''")}'`;
     }
     // BigQuery and MySQL/MariaDB both treat backslash as an escape char by default,
-    // so escape backslashes then single quotes.
-    return `'${stringContents.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+    // so escape backslashes then single quotes. Newlines/carriage-returns must also
+    // be escaped: BigQuery single-quoted string literals cannot span multiple lines,
+    // so a raw newline becomes the two-char \n escape (which parses back to a newline,
+    // keeping the literal single-line). Backslash escaping runs first so the escape
+    // sequences introduced here are not themselves doubled.
+    return `'${stringContents
+      .replace(/\\/g, "\\\\")
+      .replace(/'/g, "\\'")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")}'`;
   }
 
   public indexAssertion(dataset: string, indexCols: string[]) {
