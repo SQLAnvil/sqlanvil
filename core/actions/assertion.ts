@@ -208,7 +208,7 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
    * [AssertionConfig.hermetic](configs#sqlanvil-ActionConfig-AssertionConfig).
    *
    * If true, this indicates that the action only depends on data from explicitly-declared
-   * dependencies. Otherwise if false, it indicates that the  action depends on data from a source
+   * dependencies. Otherwise if false, it indicates that the action depends on data from a source
    * which has not been declared as a dependency.
    */
   public hermetic(hermetic: boolean) {
@@ -260,8 +260,9 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
    * @deprecated Deprecated in favor of
    * [AssertionConfig.project](configs#sqlanvil-ActionConfig-AssertionConfig).
    *
-   * Sets the database (Google Cloud project ID) in which to create the corresponding view for this
-   * assertion.
+   * Sets the database in which to create the corresponding view for this assertion. For BigQuery
+   * targets this is the Google Cloud project ID; for Postgres/Supabase targets this is the database
+   * name configured in `workflow_settings.yaml`.
    */
   public database(database: string) {
     this.proto.target = this.applySessionToTarget(
@@ -277,8 +278,9 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
    * @deprecated Deprecated in favor of
    * [AssertionConfig.dataset](configs#sqlanvil-ActionConfig-AssertionConfig).
    *
-   * Sets the schema (BigQuery dataset) in which to create the corresponding view for this
-   * assertion.
+   * Sets the schema in which to create the corresponding view for this assertion. For BigQuery
+   * targets this is the dataset name; for Postgres/Supabase targets this is the schema name
+   * (e.g. `public`).
    */
   public schema(schema: string) {
     this.proto.target = this.applySessionToTarget(

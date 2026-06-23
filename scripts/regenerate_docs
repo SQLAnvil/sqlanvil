@@ -1,55 +1,105 @@
 #!/bin/bash
+set -euo pipefail
 
 ####################################################################################################
-# Generate documentation for the Javascript API.
-####################################################################################################
-
-# Docs now live in the separate SQLAnvil/docs repo. Clone it as a sibling of this
-# repo (../docs) before regenerating, or override with DOCS_REPO.
+# Regenerate the SQLAnvil reference docs:
+#   * Javascript API class pages (typedoc)  -> reference/<action>.md
+#   * protobuf config reference (camelCase)  -> reference/configs.md
+#
+# Docs live in the separate SQLAnvil/docs repo. Clone it as a sibling (../docs) or set DOCS_REPO.
 #   git clone git@github.com:sqlanvil/docs.git ../docs
+# The published Starlight site (sqlanvil-com) is an optional mirror: set COM_REPO to its root and
+# each page's existing front matter is preserved while the body is replaced.
+####################################################################################################
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 DOCS_REPO="${DOCS_REPO:-../docs}"
 REF_DIR="${DOCS_REPO}/reference"
+COM_REPO="${COM_REPO:-}"   # e.g. ../sqlanvil-com ; empty disables the Starlight mirror
+COM_REF_REL="src/content/docs/docs/reference"
 
 if [ ! -d "${REF_DIR}" ]; then
   echo "ERROR: ${REF_DIR} not found. Clone the docs repo: git clone git@github.com:sqlanvil/docs.git ${DOCS_REPO}"
   exit 1
 fi
+REF_DIR="$(cd "${REF_DIR}" && pwd)"
+[ -n "${COM_REPO}" ] && COM_REF="$(cd "${COM_REPO}/${COM_REF_REL}" && pwd)" || COM_REF=""
 
-npx typedoc
-
-mv newdocs/classes/_core_session_.session.md "${REF_DIR}/session.md"
-mv newdocs/classes/_core_actions_assertion_.assertion.md "${REF_DIR}/assertion.md"
-mv newdocs/classes/_core_actions_table_.table.md "${REF_DIR}/table.md"
-mv newdocs/classes/_core_actions_declaration_.declaration.md "${REF_DIR}/declaration.md"
-mv newdocs/classes/_core_actions_incremental_table_.incrementaltable.md "${REF_DIR}/incrementaltable.md"
-mv newdocs/classes/_core_actions_notebook_.notebook.md "${REF_DIR}/notebook.md"
-mv newdocs/classes/_core_actions_operation_.operation.md "${REF_DIR}/operation.md"
-mv newdocs/classes/_core_actions_test_.test.md "${REF_DIR}/test.md"
-mv newdocs/classes/_core_actions_view_.view.md "${REF_DIR}/view.md"
-
-rm -rf newdocs
+# Replace the body of a Starlight page while preserving its leading `--- ... ---` front matter.
+# $1 = body file (plain markdown), $2 = target page in COM_REF.
+mirror_to_com() {
+  local body="$1" target="$2"
+  [ -n "${COM_REF}" ] || return 0
+  if [ -f "${target}" ] && head -1 "${target}" | grep -q '^---$'; then
+    awk 'NR==1{print;next} /^---$/{print;exit} {print}' "${target}" > "${target}.tmp"
+    printf '\n' >> "${target}.tmp"
+    cat "${body}" >> "${target}.tmp"
+    mv "${target}.tmp" "${target}"
+  else
+    cp "${body}" "${target}"
+  fi
+}
 
 ####################################################################################################
-# Generate the protobuf config reference (reference/configs.md).
+# Javascript API class pages (typedoc + post-processing).
 ####################################################################################################
 
-# sqlx config keys are camelCase, so the proto reference must be generated with
-# camelCase field names. Upstream pseudomuto/protoc-gen-doc only emits snake_case
-# (the camel_case_fields option from PR #540 was never merged), so we build the
-# Ekrekr fork's camelCase branch into a local image — see tools/protoc-gen-doc/.
+# typedoc compiles core/** and must resolve the Bazel-generated `sa/protos/ts` and
+# `sa/core/version` modules. Native macOS Bazel is broken, so bazel-bin symlinks into the
+# docker volume; extract the two generated files to the host for the duration of the run.
+# (Requires a prior `./scripts/docker-bazel build //protos:ts //core:version` to have populated
+# the volume.)
+cleanup() { rm -f "${REPO_ROOT}/protos/ts.d.ts" "${REPO_ROOT}/core/version.ts"; rm -rf "${REPO_ROOT}/newdocs"; }
+trap cleanup EXIT
+
+docker run --rm \
+  -v "${REPO_ROOT}:/workspace" \
+  -v sqlanvil-bazel-cache:/root/.cache/bazel \
+  -v sqlanvil-bazel-disk:/root/.cache/bazel-disk \
+  sqlanvil-dev sh -c \
+  'cp -L /workspace/bazel-bin/protos/ts.d.ts /workspace/protos/ts.d.ts && cp -L /workspace/bazel-bin/core/version.ts /workspace/core/version.ts && chmod 644 /workspace/protos/ts.d.ts /workspace/core/version.ts'
+
+( cd "${REPO_ROOT}" && npx typedoc )
+
+# typedoc filename stem -> published slug. Post-process each into a flat, link-clean page.
+PAGES="
+session:_core_session_.session
+assertion:_core_actions_assertion_.assertion
+table:_core_actions_table_.table
+view:_core_actions_view_.view
+incrementaltable:_core_actions_incremental_table_.incrementaltable
+operation:_core_actions_operation_.operation
+notebook:_core_actions_notebook_.notebook
+test:_core_actions_test_.test
+declaration:_core_actions_declaration_.declaration
+"
+for entry in ${PAGES}; do
+  slug="${entry%%:*}"; stem="${entry##*:}"
+  src="${REPO_ROOT}/newdocs/classes/${stem}.md"
+  [ -f "${src}" ] || { echo "WARNING: typedoc did not emit ${stem}.md — skipping ${slug}"; continue; }
+  python3 "${SCRIPT_DIR}/../tools/typedoc/postprocess.py" "${src}" "${slug}" > "${REF_DIR}/${slug}.md"
+  mirror_to_com "${REF_DIR}/${slug}.md" "${COM_REF}/${slug}.md"
+done
+echo "Generated JS-API reference pages in ${REF_DIR}"
+
+####################################################################################################
+# protobuf config reference (reference/configs.md).
+####################################################################################################
+
+# sqlx config keys are camelCase, so the proto reference must be generated with camelCase field
+# names. Upstream pseudomuto/protoc-gen-doc only emits snake_case (the camel_case_fields option
+# from PR #540 was never merged), so we build the Ekrekr fork's camelCase branch into a local
+# image — see tools/protoc-gen-doc/.
 IMAGE="${PROTOC_GEN_DOC_IMAGE:-protoc-gen-doc:camelcase}"
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-  echo "Image $IMAGE not found — building it..."
-  "${SCRIPT_DIR}/../tools/protoc-gen-doc/build-image.sh"
+if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
+  echo "Image ${IMAGE} not found — building it..."
+  "${REPO_ROOT}/tools/protoc-gen-doc/build-image.sh"
 fi
 
-# The generated page lives in the docs repo (no Starlight front matter); the
-# published sqlanvil-com mirror prepends its own front matter.
 docker run --rm \
-  -v "$(cd "${REF_DIR}" && pwd):/out" \
-  -v "$(cd "$(dirname "$0")/../protos" && pwd):/protos" \
-  "$IMAGE" --doc_opt=markdown,configs.md::camel_case_fields=true configs.proto
-
+  -v "${REF_DIR}:/out" \
+  -v "${REPO_ROOT}/protos:/protos" \
+  "${IMAGE}" --doc_opt=markdown,configs.md::camel_case_fields=true configs.proto
+mirror_to_com "${REF_DIR}/configs.md" "${COM_REF}/configs.md"
 echo "Generated ${REF_DIR}/configs.md"

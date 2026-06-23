@@ -404,7 +404,7 @@ export class Table extends ActionBuilder<sqlanvil.Table> {
    * [TableConfig.hermetic](configs#sqlanvil-ActionConfig-TableConfig).
    *
    * If true, this indicates that the action only depends on data from explicitly-declared
-   * dependencies. Otherwise if false, it indicates that the  action depends on data from a source
+   * dependencies. Otherwise if false, it indicates that the action depends on data from a source
    * which has not been declared as a dependency.
    */
   public hermetic(hermetic: boolean) {
@@ -463,7 +463,9 @@ export class Table extends ActionBuilder<sqlanvil.Table> {
    * @deprecated Deprecated in favor of
    * [TableConfig.project](configs#sqlanvil-ActionConfig-TableConfig).
    *
-   * Sets the database (Google Cloud project ID) in which to create the output of this action.
+   * Sets the database in which to create the output of this action. For BigQuery targets this is
+   * the Google Cloud project ID; for Postgres/Supabase targets this is the database name in
+   * `workflow_settings.yaml`.
    */
   public database(database: string) {
     this.proto.target = this.applySessionToTarget(
@@ -479,7 +481,8 @@ export class Table extends ActionBuilder<sqlanvil.Table> {
    * @deprecated Deprecated in favor of
    * [TableConfig.dataset](configs#sqlanvil-ActionConfig-TableConfig).
    *
-   * Sets the schema (BigQuery dataset) in which to create the output of this action.
+   * Sets the schema (BigQuery dataset / Postgres schema) in which to create the output of this
+   * action.
    */
   public schema(schema: string) {
     this.proto.target = this.applySessionToTarget(

@@ -142,7 +142,8 @@ export class Test extends ActionBuilder<sqlanvil.Test> {
   }
 
   /**
-   * Sets the schema (BigQuery dataset) in which to create the output of this action.
+   * Sets the schema (BigQuery dataset / Postgres schema) in which to create the output of this
+   * action.
    */
   public dataset(ref: Resolvable) {
     this.config({ dataset: ref });

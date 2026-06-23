@@ -377,7 +377,8 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
   /**
    * @deprecated Deprecated in favor of options available directly on
    * [IncrementalTableConfig](configs#sqlanvil-ActionConfig-IncrementalTableConfig). For example:
-   * `publish("name", { type: "table", partitionBy: "column" }`).
+   * `publish("name", { type: "table", partitionBy: "column" }`) for BigQuery, or the `postgres:`
+   * config block for Postgres.
    *
    * Sets bigquery options for the action.
    */
@@ -430,7 +431,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
    * [IncrementalTableConfig.hermetic](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * If true, this indicates that the action only depends on data from explicitly-declared
-   * dependencies. Otherwise if false, it indicates that the  action depends on data from a source
+   * dependencies. Otherwise if false, it indicates that the action depends on data from a source
    * which has not been declared as a dependency.
    */
   public hermetic(hermetic: boolean) {
@@ -490,7 +491,9 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
    * [IncrementalTableConfig.project](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
    * Sets the
-   * Sets the database (Google Cloud project ID) in which to create the output of this action.
+   * Sets the database in which to create the output of this action. For BigQuery targets this is
+   * the Google Cloud project ID; for Postgres/Supabase targets this is the database name in
+   * `workflow_settings.yaml`.
    */
   public database(database: string) {
     this.proto.target = this.applySessionToTarget(
@@ -506,7 +509,8 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
    * @deprecated Deprecated in favor of
    * [IncrementalTableConfig.dataset](configs#sqlanvil-ActionConfig-IncrementalTableConfig).
    *
-   * Sets the schema (BigQuery dataset) in which to create the output of this action.
+   * Sets the schema (BigQuery dataset / Postgres schema) in which to create the output of this
+   * action.
    */
   public schema(schema: string) {
     this.proto.target = this.applySessionToTarget(

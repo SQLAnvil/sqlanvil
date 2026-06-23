@@ -210,7 +210,7 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
    * [OperationConfig.hermetic](configs#sqlanvil-ActionConfig-OperationConfig).
    *
    * If true, this indicates that the action only depends on data from explicitly-declared
-   * dependencies. Otherwise if false, it indicates that the  action depends on data from a source
+   * dependencies. Otherwise if false, it indicates that the action depends on data from a source
    * which has not been declared as a dependency.
    */
   public hermetic(hermetic: boolean) {
@@ -293,8 +293,9 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
    * @deprecated Deprecated in favor of
    * [OperationConfig.project](configs#sqlanvil-ActionConfig-OperationConfig).
    *
-   * Sets the database (Google Cloud project ID) in which to create the corresponding view for this
-   * operation.
+   * Sets the database in which to create the corresponding view for this operation. For BigQuery
+   * targets this is the Google Cloud project ID; for Postgres/Supabase targets this is the database
+   * name in `workflow_settings.yaml`.
    */
   public database(database: string) {
     this.proto.target = this.applySessionToTarget(
@@ -310,7 +311,8 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
    * @deprecated Deprecated in favor of
    * [OperationConfig.dataset](configs#sqlanvil-ActionConfig-OperationConfig).
    *
-   * Sets the schema (BigQuery dataset) in which to create the output of this action.
+   * Sets the schema (BigQuery dataset / Postgres schema) in which to create the output of this
+   * action.
    */
   public schema(schema: string) {
     this.proto.target = this.applySessionToTarget(
