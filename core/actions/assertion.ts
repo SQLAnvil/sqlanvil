@@ -161,6 +161,12 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
       }
       this.proto.actionDescriptor.reservation = config.reservation;
     }
+    if (config.metadata) {
+      if (!this.proto.actionDescriptor) {
+        this.proto.actionDescriptor = {};
+      }
+      this.proto.actionDescriptor.metadata = config.metadata;
+    }
     return this;
   }
 
