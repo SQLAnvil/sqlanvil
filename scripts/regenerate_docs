@@ -30,20 +30,26 @@ mv newdocs/classes/_core_actions_view_.view.md "${REF_DIR}/view.md"
 rm -rf newdocs
 
 ####################################################################################################
-# Generate documentation for protobufs.
+# Generate the protobuf config reference (reference/configs.md).
 ####################################################################################################
 
-# docker pull pseudomuto/protoc-gen-doc
+# sqlx config keys are camelCase, so the proto reference must be generated with
+# camelCase field names. Upstream pseudomuto/protoc-gen-doc only emits snake_case
+# (the camel_case_fields option from PR #540 was never merged), so we build the
+# Ekrekr fork's camelCase branch into a local image — see tools/protoc-gen-doc/.
+IMAGE="${PROTOC_GEN_DOC_IMAGE:-protoc-gen-doc:camelcase}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# docker run --rm \
-#     -v $(pwd)/docs:/out \
-#     -v $(pwd)/protos:/protos \
-#     pseudomuto/protoc-gen-doc configs.proto --doc_opt=markdown,configs-reference.md::camel_case_fields=true
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  echo "Image $IMAGE not found — building it..."
+  "${SCRIPT_DIR}/../tools/protoc-gen-doc/build-image.sh"
+fi
 
-echo ERROR: Generating docs with camel casing requires https://github.com/pseudomuto/protoc-gen-doc/pull/540 to be merged.
-echo Until this is merged, the updated image with camel casing can be built from the fork before running the above script.
-echo This can be done via:
-echo $ git clone git@github.com:Ekrekr/protoc-gen-doc.git
-echo $ make dev/docker
-echo then uncommenting the "docker run" part of this script, and commenting the failure exit return code and prior warning.
-exit 1
+# The generated page lives in the docs repo (no Starlight front matter); the
+# published sqlanvil-com mirror prepends its own front matter.
+docker run --rm \
+  -v "$(cd "${REF_DIR}" && pwd):/out" \
+  -v "$(cd "$(dirname "$0")/../protos" && pwd):/protos" \
+  "$IMAGE" --doc_opt=markdown,configs.md::camel_case_fields=true configs.proto
+
+echo "Generated ${REF_DIR}/configs.md"
