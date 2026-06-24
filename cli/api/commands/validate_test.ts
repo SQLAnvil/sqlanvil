@@ -1,6 +1,6 @@
 import { expect } from "chai";
 
-import { validate, ValidateDeps } from "sa/cli/api/commands/validate";
+import { sweepOrphanShadows, validate, ValidateDeps } from "sa/cli/api/commands/validate";
 import { ValidationResult, ValidationStatus } from "sa/cli/api/commands/validate_graph";
 import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";
@@ -32,7 +32,12 @@ function graph(): sqlanvil.ICompiledGraph {
 class FakeDeps implements ValidateDeps {
   public executed: string[] = [];
   public evaluated: string[] = [];
+  public schemas: string[] = [];
   constructor(private readonly outcome: Map<string, "SUCCESS" | "FAILURE" | "throw">) {}
+
+  public async listSchemas(): Promise<string[]> {
+    return this.schemas;
+  }
 
   public async evaluate(
     action: sqlanvil.ITable | sqlanvil.IAssertion
@@ -120,5 +125,18 @@ suite("validate orchestrator", () => {
     await validate(graph(), deps, { keepShadow: true });
     expect(deps.executed).to.include("CREATE SCHEMA s");
     expect(deps.executed).to.not.include("DROP SCHEMA s");
+  });
+
+  test("sweepOrphanShadows drops only stale shadows, never real schemas", async () => {
+    const now = 10_000_000;
+    const hour = 3_600_000;
+    const deps = new FakeDeps(new Map());
+    deps.schemas = [
+      "public",
+      `public_sqlanvil_validate_${now - 2 * hour}`, // stale orphan
+      `public_sqlanvil_validate_${now - 60_000}` // in-flight
+    ];
+    await sweepOrphanShadows(deps, now, hour);
+    expect(deps.executed).to.eql([`DROP SCHEMA public_sqlanvil_validate_${now - 2 * hour}`]);
   });
 });

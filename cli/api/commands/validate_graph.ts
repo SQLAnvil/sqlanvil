@@ -97,3 +97,35 @@ export function dependencyBlocked(
     return status !== undefined && status !== "PASS";
   });
 }
+
+// --- Shadow-namespace naming + orphan detection (sqlanvil validate). ---
+
+/** Marker embedded in every validation shadow schema/database name, followed by a timestamp. */
+export const VALIDATE_SHADOW_PREFIX = "sqlanvil_validate_";
+
+/** The schemaSuffix fragment for a validation run started at `nowMs` (epoch millis). */
+export function validateShadowSuffix(nowMs: number): string {
+  return `${VALIDATE_SHADOW_PREFIX}${nowMs}`;
+}
+
+/** Extract the run timestamp from a shadow schema/database name, or null if it isn't one. */
+export function parseShadowTimestamp(schemaName: string): number | null {
+  const match = schemaName.match(/sqlanvil_validate_(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * From a list of schema/database names, pick the validation shadows older than `maxAgeMs` —
+ * orphans left by killed runs. Names without the marker (real schemas) are never returned, and
+ * an in-flight run's own fresh shadow (age < maxAgeMs) is left alone.
+ */
+export function shadowSchemasToSweep(
+  schemaNames: string[],
+  nowMs: number,
+  maxAgeMs: number
+): string[] {
+  return schemaNames.filter(name => {
+    const ts = parseShadowTimestamp(name);
+    return ts !== null && nowMs - ts > maxAgeMs;
+  });
+}

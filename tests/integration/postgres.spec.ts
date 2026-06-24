@@ -5,7 +5,7 @@ import * as path from "path";
 
 import * as dfapi from "sa/cli/api";
 import * as dbadapters from "sa/cli/api/dbadapters";
-import { validate, ValidateDeps } from "sa/cli/api/commands/validate";
+import { sweepOrphanShadows, validate, ValidateDeps } from "sa/cli/api/commands/validate";
 import { readViaDuckdb, runDuckdbExport } from "sa/cli/api/dbadapters/duckdb_export";
 import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
@@ -429,7 +429,12 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
         execute: sql => dbadapter.execute(sql).then(() => undefined),
         validationStubSql: t => executionSql.validationStubSql(t),
         createSchemaSql: s => executionSql.createSchemaSql(s),
-        dropSchemaCascadeSql: s => executionSql.dropSchemaCascadeSql(s)
+        dropSchemaCascadeSql: s => executionSql.dropSchemaCascadeSql(s),
+        listSchemas: async () =>
+          (
+            (await dbadapter.execute("select schema_name as name from information_schema.schemata"))
+              .rows || []
+          ).map((r: any) => r.name)
       };
     };
 
@@ -464,6 +469,20 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       expect(byName["leaf"].status).to.equal("BLOCKED");
       expect(byName["assert_leaf"].status).to.equal("BLOCKED");
       expect(await shadowExists()).to.equal(false);
+    });
+
+    test("sweep drops an orphaned shadow schema from a prior killed run", { timeout: 30000 }, async () => {
+      const orphan = "public_sqlanvil_validate_1"; // timestamp 1 → ancient
+      await dbadapter.execute(`drop schema if exists "${orphan}" cascade`);
+      await dbadapter.execute(`create schema "${orphan}"`);
+      await sweepOrphanShadows(makeDeps(), Date.now());
+      const stillThere =
+        (
+          await dbadapter.execute(
+            `select 1 from information_schema.schemata where schema_name = '${orphan}'`
+          )
+        ).rows.length > 0;
+      expect(stillThere).to.equal(false);
     });
   });
 

@@ -1,12 +1,16 @@
 import {
   dependencyBlocked,
   OrderedNode,
+  shadowSchemasToSweep,
   targetKey,
   topoOrder,
   ValidationResult,
   ValidationStatus
 } from "sa/cli/api/commands/validate_graph";
 import { sqlanvil } from "sa/protos/ts";
+
+/** Orphaned shadow schemas/databases older than this are swept before a validate run. */
+export const SHADOW_MAX_AGE_MS = 60 * 60 * 1000;
 
 /**
  * `sqlanvil validate` orchestrator: walk a compiled graph in dependency order and validate each
@@ -24,6 +28,32 @@ export interface ValidateDeps {
   validationStubSql(table: sqlanvil.ITable): string;
   createSchemaSql(schema: string): string;
   dropSchemaCascadeSql(schema: string): string;
+  /** All schema (database, on MySQL) names — used to find orphaned validation shadows. */
+  listSchemas(): Promise<string[]>;
+}
+
+/**
+ * Drop validation shadow schemas/databases left behind by killed runs (older than `maxAgeMs`).
+ * Best-effort housekeeping run before a validate; never throws — a sweep failure must not block
+ * the actual validation. The current run's own fresh shadow is too new to match.
+ */
+export async function sweepOrphanShadows(
+  deps: ValidateDeps,
+  nowMs: number,
+  maxAgeMs: number = SHADOW_MAX_AGE_MS
+): Promise<void> {
+  try {
+    const schemas = await deps.listSchemas();
+    for (const schema of shadowSchemasToSweep(schemas, nowMs, maxAgeMs)) {
+      try {
+        await deps.execute(deps.dropSchemaCascadeSql(schema));
+      } catch (e) {
+        // ignore — another run may be dropping it concurrently
+      }
+    }
+  } catch (e) {
+    // ignore — listing schemas failed; housekeeping is best-effort
+  }
 }
 
 export interface ValidateOptions {

@@ -13,8 +13,8 @@ import {
   resolveEnvironment
 } from "sa/cli/api/commands/environments";
 import { assertConnectionCredentialsAvailable } from "sa/cli/api/commands/connection_credentials";
-import { validate, ValidateDeps } from "sa/cli/api/commands/validate";
-import { ValidationResult } from "sa/cli/api/commands/validate_graph";
+import { sweepOrphanShadows, validate, ValidateDeps } from "sa/cli/api/commands/validate";
+import { ValidationResult, validateShadowSuffix } from "sa/cli/api/commands/validate_graph";
 import { IDbAdapter } from "sa/cli/api/dbadapters";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
@@ -442,7 +442,7 @@ async function runValidate(argv: any): Promise<number> {
     print("Compiling...\n");
   }
   const baseOverride = projectConfigOverrideWithEnvironment(projectDir, argv);
-  const shadowSuffix = `sqlanvil_validate_${Date.now()}`;
+  const shadowSuffix = validateShadowSuffix(Date.now());
   const compiledGraph = await compile({
     projectDir,
     projectConfigOverride: {
@@ -510,8 +510,17 @@ async function runValidate(argv: any): Promise<number> {
     execute: sql => dbadapter.execute(sql).then(() => undefined),
     validationStubSql: table => executionSql.validationStubSql(table),
     createSchemaSql: schema => executionSql.createSchemaSql(schema),
-    dropSchemaCascadeSql: schema => executionSql.dropSchemaCascadeSql(schema)
+    dropSchemaCascadeSql: schema => executionSql.dropSchemaCascadeSql(schema),
+    listSchemas: async () => {
+      const result = await dbadapter.execute(
+        "select schema_name as name from information_schema.schemata"
+      );
+      return ((result && result.rows) || []).map((row: any) => row.name);
+    }
   };
+
+  // Best-effort: clear shadow schemas orphaned by previously-killed validate runs.
+  await sweepOrphanShadows(deps, Date.now());
 
   if (!argv[jsonOutputOption.name]) {
     print("Validating...\n");

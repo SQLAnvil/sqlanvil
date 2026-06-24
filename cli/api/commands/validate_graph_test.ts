@@ -3,8 +3,11 @@ import { expect } from "chai";
 import {
   dependencyBlocked,
   OrderedNode,
+  parseShadowTimestamp,
+  shadowSchemasToSweep,
   targetKey,
   topoOrder,
+  validateShadowSuffix,
   ValidationStatus
 } from "sa/cli/api/commands/validate_graph";
 import { suite, test } from "sa/testing";
@@ -57,5 +60,29 @@ suite("validate_graph", () => {
     expect(dependencyBlocked(["ok", "bad"], status)).to.equal(true);
     expect(dependencyBlocked(["ok", "skipped"], status)).to.equal(true);
     expect(dependencyBlocked(["unknown_external"], status)).to.equal(false); // not in graph
+  });
+
+  test("validateShadowSuffix + parseShadowTimestamp round-trip", () => {
+    const suffix = validateShadowSuffix(1719200000000);
+    expect(suffix).to.equal("sqlanvil_validate_1719200000000");
+    // A composed schema name (schema + env + shadow suffix) still parses the timestamp.
+    expect(parseShadowTimestamp(`public_dev_${suffix}`)).to.equal(1719200000000);
+    expect(parseShadowTimestamp("public")).to.equal(null); // a real schema
+  });
+
+  test("shadowSchemasToSweep: only marked shadows older than maxAge", () => {
+    const now = 2_000_000_000_000; // realistic epoch-ms so subtractions stay positive
+    const hour = 3_600_000;
+    const names = [
+      "public", // real schema — never swept
+      "analytics_prod", // real schema
+      `public_sqlanvil_validate_${now - 2 * hour}`, // old orphan → swept
+      `public_sqlanvil_validate_${now - 60_000}`, // 1 min old (in-flight) → kept
+      `staging_sqlanvil_validate_${now - 5 * hour}` // old orphan → swept
+    ];
+    expect(shadowSchemasToSweep(names, now, hour)).to.eql([
+      `public_sqlanvil_validate_${now - 2 * hour}`,
+      `staging_sqlanvil_validate_${now - 5 * hour}`
+    ]);
   });
 });

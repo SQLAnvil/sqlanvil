@@ -389,7 +389,12 @@ suite("@sqlanvil/integration/mysql", { parallel: false }, ({ before, after }) =>
       execute: sql => dbadapter.execute(sql).then(() => undefined),
       validationStubSql: t => executionSql.validationStubSql(t),
       createSchemaSql: s => executionSql.createSchemaSql(s),
-      dropSchemaCascadeSql: s => executionSql.dropSchemaCascadeSql(s)
+      dropSchemaCascadeSql: s => executionSql.dropSchemaCascadeSql(s),
+      listSchemas: async () =>
+        (
+          (await dbadapter.execute("select schema_name as name from information_schema.schemata"))
+            .rows || []
+        ).map((r: any) => r.name)
     };
     const shadowExists = async () =>
       (
