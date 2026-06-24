@@ -5,6 +5,7 @@ import * as path from "path";
 
 import * as dfapi from "sa/cli/api";
 import * as dbadapters from "sa/cli/api/dbadapters";
+import { validate, ValidateDeps } from "sa/cli/api/commands/validate";
 import { readViaDuckdb, runDuckdbExport } from "sa/cli/api/dbadapters/duckdb_export";
 import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
@@ -383,6 +384,86 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       expect(evaluations[0].status).to.equal(
         sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE
       );
+    });
+  });
+
+  suite("validate", () => {
+    const SHADOW = "sa_integration_validate";
+    const ref = (name: string) => `"${SHADOW}"."${name}"`;
+
+    const makeGraph = (midQuery: string): sqlanvil.ICompiledGraph =>
+      ({
+        tables: [
+          sqlanvil.Table.create({
+            enumType: sqlanvil.TableType.TABLE,
+            target: { schema: SHADOW, name: "src" },
+            query: "select 1 as id"
+          }),
+          sqlanvil.Table.create({
+            enumType: sqlanvil.TableType.TABLE,
+            target: { schema: SHADOW, name: "mid" },
+            query: midQuery,
+            dependencyTargets: [{ schema: SHADOW, name: "src" }]
+          }),
+          sqlanvil.Table.create({
+            enumType: sqlanvil.TableType.TABLE,
+            target: { schema: SHADOW, name: "leaf" },
+            query: `select id from ${ref("mid")}`,
+            dependencyTargets: [{ schema: SHADOW, name: "mid" }]
+          })
+        ],
+        assertions: [
+          sqlanvil.Assertion.create({
+            target: { schema: SHADOW, name: "assert_leaf" },
+            query: `select id from ${ref("leaf")} where false`,
+            dependencyTargets: [{ schema: SHADOW, name: "leaf" }]
+          })
+        ],
+        operations: []
+      } as sqlanvil.ICompiledGraph);
+
+    const makeDeps = (): ValidateDeps => {
+      const executionSql = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+      return {
+        evaluate: action => dbadapter.evaluate(action as any),
+        execute: sql => dbadapter.execute(sql).then(() => undefined),
+        validationStubSql: t => executionSql.validationStubSql(t),
+        createSchemaSql: s => executionSql.createSchemaSql(s),
+        dropSchemaCascadeSql: s => executionSql.dropSchemaCascadeSql(s)
+      };
+    };
+
+    const shadowExists = async () =>
+      (
+        await dbadapter.execute(
+          `select 1 from information_schema.schemata where schema_name = '${SHADOW}'`
+        )
+      ).rows.length > 0;
+
+    test("clean DAG → all PASS; shadow schema created + dropped (no residue)", { timeout: 30000 }, async () => {
+      await dbadapter.execute(`drop schema if exists "${SHADOW}" cascade`);
+      const results = await validate(makeGraph(`select id from ${ref("src")}`), makeDeps());
+      const byName = keyBy(results, r => r.target.name);
+      expect(byName["src"].status).to.equal("PASS");
+      expect(byName["mid"].status).to.equal("PASS");
+      expect(byName["leaf"].status).to.equal("PASS");
+      expect(byName["assert_leaf"].status).to.equal("PASS");
+      // The whole validation is torn down — nothing left behind.
+      expect(await shadowExists()).to.equal(false);
+    });
+
+    test("broken model → FAILURE + dependents BLOCKED; shadow still dropped", { timeout: 30000 }, async () => {
+      await dbadapter.execute(`drop schema if exists "${SHADOW}" cascade`);
+      const results = await validate(
+        makeGraph(`select nonexistent_col from ${ref("src")}`),
+        makeDeps()
+      );
+      const byName = keyBy(results, r => r.target.name);
+      expect(byName["src"].status).to.equal("PASS");
+      expect(byName["mid"].status).to.equal("FAILURE");
+      expect(byName["leaf"].status).to.equal("BLOCKED");
+      expect(byName["assert_leaf"].status).to.equal("BLOCKED");
+      expect(await shadowExists()).to.equal(false);
     });
   });
 

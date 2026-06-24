@@ -1,6 +1,7 @@
 import { expect } from "chai";
 
 import * as dfapi from "sa/cli/api";
+import { validate, ValidateDeps } from "sa/cli/api/commands/validate";
 import * as dbadapters from "sa/cli/api/dbadapters";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { MySqlDbAdapter } from "sa/cli/api/dbadapters/mysql";
@@ -353,6 +354,68 @@ suite("@sqlanvil/integration/mysql", { parallel: false }, ({ before, after }) =>
     const mergeRows = await getTableRows(merge.target, adapter, dbadapter);
     expect(mergeRows.length).to.equal(2);
     expect(mergeRows.every((r: any) => r.val === "new")).to.equal(true);
+  });
+
+  test("validate: clean DAG → PASS; broken → FAILURE + BLOCKED; shadow DB dropped", { timeout: 30000 }, async () => {
+    const SHADOW = "sa_integration_validate";
+    const ref = (name: string) => `\`${SHADOW}\`.\`${name}\``;
+    const makeGraph = (midQuery: string): sqlanvil.ICompiledGraph =>
+      ({
+        tables: [
+          sqlanvil.Table.create({
+            enumType: sqlanvil.TableType.TABLE,
+            target: { schema: SHADOW, name: "src" },
+            query: "select 1 as id"
+          }),
+          sqlanvil.Table.create({
+            enumType: sqlanvil.TableType.TABLE,
+            target: { schema: SHADOW, name: "mid" },
+            query: midQuery,
+            dependencyTargets: [{ schema: SHADOW, name: "src" }]
+          }),
+          sqlanvil.Table.create({
+            enumType: sqlanvil.TableType.TABLE,
+            target: { schema: SHADOW, name: "leaf" },
+            query: `select id from ${ref("mid")}`,
+            dependencyTargets: [{ schema: SHADOW, name: "mid" }]
+          })
+        ],
+        assertions: [],
+        operations: []
+      } as sqlanvil.ICompiledGraph);
+    const executionSql = new ExecutionSql({ warehouse: "mysql" }, "2.0.0");
+    const deps: ValidateDeps = {
+      evaluate: action => dbadapter.evaluate(action as any),
+      execute: sql => dbadapter.execute(sql).then(() => undefined),
+      validationStubSql: t => executionSql.validationStubSql(t),
+      createSchemaSql: s => executionSql.createSchemaSql(s),
+      dropSchemaCascadeSql: s => executionSql.dropSchemaCascadeSql(s)
+    };
+    const shadowExists = async () =>
+      (
+        await dbadapter.execute(
+          `select schema_name from information_schema.schemata where schema_name = '${SHADOW}'`
+        )
+      ).rows.length > 0;
+
+    // Clean DAG → all PASS, shadow database created + dropped.
+    await dbadapter.execute(`drop database if exists \`${SHADOW}\``);
+    let byName = keyBy(await validate(makeGraph(`select id from ${ref("src")}`), deps), r => r.target.name);
+    expect(byName["src"].status).to.equal("PASS");
+    expect(byName["mid"].status).to.equal("PASS");
+    expect(byName["leaf"].status).to.equal("PASS");
+    expect(await shadowExists()).to.equal(false);
+
+    // Broken mid → FAILURE; leaf BLOCKED; shadow still dropped.
+    await dbadapter.execute(`drop database if exists \`${SHADOW}\``);
+    byName = keyBy(
+      await validate(makeGraph(`select nonexistent_col from ${ref("src")}`), deps),
+      r => r.target.name
+    );
+    expect(byName["src"].status).to.equal("PASS");
+    expect(byName["mid"].status).to.equal("FAILURE");
+    expect(byName["leaf"].status).to.equal("BLOCKED");
+    expect(await shadowExists()).to.equal(false);
   });
 
   test("evaluate validates good and bad queries via EXPLAIN", { timeout: 30000 }, async () => {
