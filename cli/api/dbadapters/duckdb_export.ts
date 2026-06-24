@@ -110,57 +110,58 @@ export function buildCopySql(
 // Execution (lazy DuckDB load — only when a Postgres/Supabase export runs).
 // ---------------------------------------------------------------------------
 
-/** Lazily load the optional DuckDB native binding via the real (non-webpack) require. */
+/** Lazily load the optional DuckDB binding via the real (non-webpack) require. */
 function loadDuckdb(): any {
   try {
-    return nativeRequire("duckdb");
+    return nativeRequire("@duckdb/node-api");
   } catch (e) {
     throw new Error(
-      `Exporting on Postgres/Supabase requires the optional "duckdb" dependency, which failed to ` +
-        `load: ${e.message}`
+      `Exporting on Postgres/Supabase requires the optional "@duckdb/node-api" dependency, which ` +
+        `failed to load: ${e.message}`
     );
   }
 }
 
-function allAsync(conn: any, sql: string): Promise<any[]> {
-  return new Promise((resolve, reject) => {
-    conn.all(sql, (err: any, rows: any[]) => (err ? reject(err) : resolve(rows || [])));
-  });
+/** Run a statement (or `;`-separated statements); the result, if any, is discarded. */
+async function runAsync(conn: any, sql: string): Promise<void> {
+  await conn.run(sql);
 }
 
-function withConnection<T>(fn: (conn: any) => Promise<T>): Promise<T> {
-  const duckdb = loadDuckdb();
-  const db = new duckdb.Database(":memory:");
-  const conn = db.connect();
+/** Run a query and return its rows as plain objects. */
+async function allAsync(conn: any, sql: string): Promise<any[]> {
+  const reader = await conn.runAndReadAll(sql);
+  return reader.getRowObjects();
+}
+
+async function withConnection<T>(fn: (conn: any) => Promise<T>): Promise<T> {
+  const { DuckDBInstance } = loadDuckdb();
+  const instance = await DuckDBInstance.create(":memory:");
+  const conn = await instance.connect();
   const done = () => {
     try {
-      conn.close?.();
+      conn.closeSync?.();
     } catch (e) {
       /* ignore */
     }
     try {
-      db.close?.();
+      instance.closeSync?.();
     } catch (e) {
       /* ignore */
     }
   };
-  // DuckDB stores its extension cache under $HOME/.duckdb. In sandboxed/minimal
-  // environments HOME may be unset, which breaks INSTALL; point it at a writable dir.
-  const setup = !process.env.HOME
-    ? allAsync(conn, `SET home_directory='${os.tmpdir()}'`)
-    : Promise.resolve([]);
-  return setup
-    .then(() => fn(conn))
-    .then(
-      result => {
-        done();
-        return result;
-      },
-      err => {
-        done();
-        throw err;
-      }
-    );
+  try {
+    // DuckDB stores its extension cache under $HOME/.duckdb. In sandboxed/minimal
+    // environments HOME may be unset, which breaks INSTALL; point it at a writable dir.
+    if (!process.env.HOME) {
+      await runAsync(conn, `SET home_directory='${os.tmpdir()}'`);
+    }
+    const result = await fn(conn);
+    done();
+    return result;
+  } catch (e) {
+    done();
+    throw e;
+  }
 }
 
 export interface DuckdbExportArgs {
@@ -187,15 +188,15 @@ export async function runDuckdbExport(args: DuckdbExportArgs): Promise<{ destina
     );
   }
   return withConnection(async conn => {
-    await allAsync(conn, "INSTALL postgres; LOAD postgres; INSTALL httpfs; LOAD httpfs;");
-    await allAsync(conn, buildAttachSql(pg));
+    await runAsync(conn, "INSTALL postgres; LOAD postgres; INSTALL httpfs; LOAD httpfs;");
+    await runAsync(conn, buildAttachSql(pg));
     if (scheme !== "local") {
       const secret = buildSecretSql(scheme, storage[scheme]);
       if (secret) {
-        await allAsync(conn, secret);
+        await runAsync(conn, secret);
       }
     }
-    await allAsync(conn, buildCopySql(selectSql, uri, spec.format, spec.options || {}));
+    await runAsync(conn, buildCopySql(selectSql, uri, spec.format, spec.options || {}));
     return { destination: toCopyTarget(uri) };
   });
 }
@@ -210,7 +211,7 @@ export async function writeViaDuckdb(
   format: string
 ): Promise<void> {
   await withConnection(async conn => {
-    await allAsync(
+    await runAsync(
       conn,
       `COPY (${selectSql}) TO '${toCopyTarget(uri)}' (FORMAT ${(format || "").toLowerCase()})`
     );

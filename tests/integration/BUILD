@@ -66,9 +66,9 @@ ts_test_suite(
         "//tools/postgres",
         "@npm//@types/chai",
         "@npm//@types/long",
+        "@npm//@duckdb/node-api",
         "@npm//@types/node",
         "@npm//chai",
-        "@npm//duckdb",
     ],
 )
 

@@ -29,10 +29,10 @@ nodejs_binary(
 )
 
 externals = [
+    "@duckdb/node-api",
     "@google-cloud/bigquery",
     "chokidar",
     "deepmerge",
-    "duckdb",
     "fs-extra",
     "glob",
     "google-sql-syntax-ts",
