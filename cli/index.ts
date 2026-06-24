@@ -14,6 +14,7 @@ import {
 } from "sa/cli/api/commands/environments";
 import { assertConnectionCredentialsAvailable } from "sa/cli/api/commands/connection_credentials";
 import { safeWriteArtifacts, TARGET_DIR } from "sa/cli/api/commands/artifacts";
+import { buildDocsModel, renderDocsHtml } from "sa/cli/api/commands/docs";
 import { ArtifactView, queryParquet } from "sa/cli/api/dbadapters/duckdb_artifacts";
 import { sweepOrphanShadows, validate, ValidateDeps } from "sa/cli/api/commands/validate";
 import { ValidationResult, validateShadowSuffix } from "sa/cli/api/commands/validate_graph";
@@ -641,6 +642,22 @@ async function runInspect(projectDir: string, json: boolean): Promise<number> {
   return 0;
 }
 
+async function runDocs(projectDir: string): Promise<number> {
+  const { views, hasCatalog } = resolveArtifactViews(projectDir);
+  if (!hasCatalog) {
+    printError(NO_ARTIFACTS);
+    return 1;
+  }
+  const model = await buildDocsModel(views, new Date().toISOString());
+  const html = renderDocsHtml(model);
+  const outDir = path.join(projectDir, TARGET_DIR, "docs");
+  fs.mkdirSync(outDir, { recursive: true });
+  const outFile = path.join(outDir, "index.html");
+  fs.writeFileSync(outFile, html);
+  printSuccess(`Wrote catalog to ${outFile}`);
+  return 0;
+}
+
 export function runCli() {
   const builtYargs = createYargsCli({
     commands: [
@@ -1236,6 +1253,15 @@ export function runCli() {
         options: [jsonOutputOption],
         processFn: async (argv: any) =>
           runInspect(argv[projectDirOption.name], argv[jsonOutputOption.name])
+      },
+      {
+        format: `docs [${projectDirOption.name}]`,
+        description:
+          "Generate a self-contained HTML catalog of the project (models, columns, dependencies, " +
+          "last-run status) at target/docs/index.html, from the artifacts.",
+        positionalOptions: [projectDirOption],
+        options: [],
+        processFn: async (argv: any) => runDocs(argv[projectDirOption.name])
       },
       {
         format: `format [${projectDirMustExistOption.name}]`,

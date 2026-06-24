@@ -4,6 +4,7 @@ import * as os from "os";
 import * as path from "path";
 
 import { writeArtifacts } from "sa/cli/api/commands/artifacts";
+import { buildDocsModel, renderDocsHtml } from "sa/cli/api/commands/docs";
 import { ArtifactView, queryParquet } from "sa/cli/api/dbadapters/duckdb_artifacts";
 import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";
@@ -89,6 +90,16 @@ suite("artifacts integration", () => {
       expect(Number(failed.duration_millis)).to.equal(200);
       const ok = runs.find((r: any) => r.status === "SUCCESSFUL");
       expect(Number(ok.duration_millis)).to.equal(400);
+
+      // `sqlanvil docs` model built from the same artifacts.
+      const docsModel = await buildDocsModel(views, "2026-06-24T00:00:00Z");
+      expect(docsModel.summary.total).to.equal(3);
+      expect(docsModel.models.find((m: any) => m.readable === "s.v").dependsOn).to.eql(["s.src"]);
+      expect(docsModel.models.find((m: any) => m.readable === "s.v").status).to.equal("FAILED");
+      expect(docsModel.latestRun && docsModel.latestRun.status).to.equal("FAILED");
+      const html = renderDocsHtml(docsModel);
+      expect(html).to.contain("s.v");
+      expect(html).to.contain("the id");
 
       // Empty rowsets still produce queryable (0-row) Parquet.
       const emptyGraph = { tables: [], operations: [], assertions: [], exports: [], declarations: [] } as sqlanvil.ICompiledGraph;
