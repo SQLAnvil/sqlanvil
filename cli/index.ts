@@ -432,6 +432,94 @@ function printValidationResults(results: ValidationResult[], json: boolean): num
   return failures.length > 0 || blocked.length > 0 ? 1 : 0;
 }
 
+// Shared `validate` flow, used by the `validate` command and by `run --dry-run` on
+// Postgres/Supabase/MySQL. Compiles into an isolated, timestamped shadow namespace (so the
+// WITH NO DATA / LIMIT 0 stubs and the DROP SCHEMA CASCADE teardown never touch real targets),
+// then validates every model against the warehouse planner. Returns the process exit code.
+async function runValidate(argv: any): Promise<number> {
+  const projectDir = argv[projectDirOption.name];
+  if (!argv[jsonOutputOption.name]) {
+    print("Compiling...\n");
+  }
+  const baseOverride = projectConfigOverrideWithEnvironment(projectDir, argv);
+  const shadowSuffix = `sqlanvil_validate_${Date.now()}`;
+  const compiledGraph = await compile({
+    projectDir,
+    projectConfigOverride: {
+      ...baseOverride,
+      schemaSuffix: [baseOverride.schemaSuffix, shadowSuffix].filter(Boolean).join("_")
+    },
+    timeoutMillis: argv[timeoutOption.name] || undefined
+  });
+  if (compiledGraphHasErrors(compiledGraph)) {
+    printCompiledGraphErrors(compiledGraph.graphErrors, argv[quietCompileOption.name]);
+    return 1;
+  }
+  if (!argv[jsonOutputOption.name]) {
+    printSuccess("Compiled successfully.\n");
+  }
+
+  const warehouse = (compiledGraph.projectConfig.warehouse || "bigquery").toLowerCase();
+  if (warehouse === "bigquery") {
+    printError(
+      "`sqlanvil validate` is not supported on BigQuery yet — Postgres/Supabase/MySQL only."
+    );
+    return 1;
+  }
+  const readCredentials = credentials.read(
+    credentialsPathWithEnvironment(projectDir, argv),
+    warehouse
+  );
+  let dbadapter: IDbAdapter;
+  if (warehouse === "supabase") {
+    dbadapter = await SupabaseDbAdapter.create(readCredentials);
+  } else if (warehouse === "mysql") {
+    dbadapter = await MySqlDbAdapter.create(readCredentials);
+  } else {
+    dbadapter = await PostgresDbAdapter.create(readCredentials);
+  }
+
+  const prunedGraph = prune(compiledGraph, {
+    actions: argv[actionsOption.name],
+    includeDependencies: argv[includeDepsOption.name],
+    includeDependents: argv[includeDependentsOption.name],
+    tags: argv[tagsOption.name]
+  });
+  const executionSql = new ExecutionSql(compiledGraph.projectConfig, dataformVersion);
+
+  // Best-effort teardown if the user Ctrl-C's mid-validation (the orchestrator's own finally
+  // covers normal completion + errors; the orphan sweep covers hard kills).
+  const shadowSchemas = Array.from(
+    new Set((prunedGraph.tables || []).map(table => table.target.schema))
+  );
+  process.on("SIGINT", () => {
+    Promise.all(
+      shadowSchemas.map(schema =>
+        dbadapter.execute(executionSql.dropSchemaCascadeSql(schema)).catch(() => undefined)
+      )
+    ).then(() => process.exit(1));
+  });
+
+  const deps: ValidateDeps = {
+    evaluate: action =>
+      dbadapter.evaluate(
+        (action as sqlanvil.ITable).enumType !== undefined
+          ? sqlanvil.Table.create(action as sqlanvil.ITable)
+          : sqlanvil.Assertion.create(action as sqlanvil.IAssertion)
+      ),
+    execute: sql => dbadapter.execute(sql).then(() => undefined),
+    validationStubSql: table => executionSql.validationStubSql(table),
+    createSchemaSql: schema => executionSql.createSchemaSql(schema),
+    dropSchemaCascadeSql: schema => executionSql.dropSchemaCascadeSql(schema)
+  };
+
+  if (!argv[jsonOutputOption.name]) {
+    print("Validating...\n");
+  }
+  const results = await validate(prunedGraph, deps, { keepShadow: argv[keepShadowOption.name] });
+  return printValidationResults(results, argv[jsonOutputOption.name]);
+}
+
 export function runCli() {
   const builtYargs = createYargsCli({
     commands: [
@@ -786,94 +874,7 @@ export function runCli() {
           keepShadowOption,
           ...ProjectConfigOptions.allYargsOptions
         ],
-        processFn: async (argv: any) => {
-          const projectDir = argv[projectDirOption.name];
-          if (!argv[jsonOutputOption.name]) {
-            print("Compiling...\n");
-          }
-          // Compile into an isolated, timestamped shadow namespace by composing a validation
-          // suffix onto whatever schemaSuffix the project/environment already uses. Targets and
-          // ${ref()}s both get it, so the shadow DAG is self-consistent.
-          const baseOverride = projectConfigOverrideWithEnvironment(projectDir, argv);
-          const shadowSuffix = `sqlanvil_validate_${Date.now()}`;
-          const compiledGraph = await compile({
-            projectDir,
-            projectConfigOverride: {
-              ...baseOverride,
-              schemaSuffix: [baseOverride.schemaSuffix, shadowSuffix].filter(Boolean).join("_")
-            },
-            timeoutMillis: argv[timeoutOption.name] || undefined
-          });
-          if (compiledGraphHasErrors(compiledGraph)) {
-            printCompiledGraphErrors(compiledGraph.graphErrors, argv[quietCompileOption.name]);
-            return 1;
-          }
-          if (!argv[jsonOutputOption.name]) {
-            printSuccess("Compiled successfully.\n");
-          }
-
-          const warehouse = (compiledGraph.projectConfig.warehouse || "bigquery").toLowerCase();
-          if (warehouse === "bigquery") {
-            printError(
-              "`sqlanvil validate` is not supported on BigQuery yet — Postgres/Supabase/MySQL only."
-            );
-            return 1;
-          }
-          const readCredentials = credentials.read(
-            credentialsPathWithEnvironment(projectDir, argv),
-            warehouse
-          );
-          let dbadapter: IDbAdapter;
-          if (warehouse === "supabase") {
-            dbadapter = await SupabaseDbAdapter.create(readCredentials);
-          } else if (warehouse === "mysql") {
-            dbadapter = await MySqlDbAdapter.create(readCredentials);
-          } else {
-            dbadapter = await PostgresDbAdapter.create(readCredentials);
-          }
-
-          const prunedGraph = prune(compiledGraph, {
-            actions: argv[actionsOption.name],
-            includeDependencies: argv[includeDepsOption.name],
-            includeDependents: argv[includeDependentsOption.name],
-            tags: argv[tagsOption.name]
-          });
-          const executionSql = new ExecutionSql(compiledGraph.projectConfig, dataformVersion);
-
-          // Best-effort teardown if the user Ctrl-C's mid-validation (the orchestrator's own
-          // finally covers normal completion + errors; the orphan sweep covers hard kills).
-          const shadowSchemas = Array.from(
-            new Set((prunedGraph.tables || []).map(table => table.target.schema))
-          );
-          process.on("SIGINT", () => {
-            Promise.all(
-              shadowSchemas.map(schema =>
-                dbadapter.execute(executionSql.dropSchemaCascadeSql(schema)).catch(() => undefined)
-              )
-            ).then(() => process.exit(1));
-          });
-
-          const deps: ValidateDeps = {
-            evaluate: action =>
-              dbadapter.evaluate(
-                (action as sqlanvil.ITable).enumType !== undefined
-                  ? sqlanvil.Table.create(action as sqlanvil.ITable)
-                  : sqlanvil.Assertion.create(action as sqlanvil.IAssertion)
-              ),
-            execute: sql => dbadapter.execute(sql).then(() => undefined),
-            validationStubSql: table => executionSql.validationStubSql(table),
-            createSchemaSql: schema => executionSql.createSchemaSql(schema),
-            dropSchemaCascadeSql: schema => executionSql.dropSchemaCascadeSql(schema)
-          };
-
-          if (!argv[jsonOutputOption.name]) {
-            print("Validating...\n");
-          }
-          const results = await validate(prunedGraph, deps, {
-            keepShadow: argv[keepShadowOption.name]
-          });
-          return printValidationResults(results, argv[jsonOutputOption.name]);
-        }
+        processFn: async (argv: any) => runValidate(argv)
       },
       {
         format: `run [${projectDirMustExistOption.name}]`,
@@ -934,6 +935,16 @@ export function runCli() {
             printSuccess("Compiled successfully.\n");
           }
           const warehouse = compiledGraph.projectConfig.warehouse || "bigquery";
+
+          // On Postgres/Supabase/MySQL there is no warehouse-native dry-run, and proceeding to
+          // run() would APPLY changes — so `run --dry-run` there means "validate": EXPLAIN every
+          // model in an isolated shadow namespace without executing. (BigQuery keeps its own
+          // server-side dry-run below.) Delegated to the shared validate flow, which re-compiles
+          // into the shadow namespace.
+          if (argv[dryRunOptionName] && warehouse.toLowerCase() !== "bigquery") {
+            return runValidate(argv);
+          }
+
           const readCredentials = credentials.read(
             credentialsPathWithEnvironment(argv[projectDirOption.name], argv),
             warehouse
