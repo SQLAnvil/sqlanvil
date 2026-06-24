@@ -69,6 +69,8 @@ ts_test_suite(
         "commands/introspect_test.ts",
         "commands/run_export_test.ts",
         "commands/test_test.ts",
+        "commands/validate_graph_test.ts",
+        "commands/validate_test.ts",
         "commands/jit/rpc_test.ts",
         "dbadapters/bigquery_test.ts",
         "dbadapters/duckdb_export_test.ts",
