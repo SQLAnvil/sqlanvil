@@ -86,6 +86,35 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
     const expectedSql = fs.readFileSync("cli/api/goldens/on_schema_change_ignore.sql", "utf8");
     expect(procedureSql).to.equal(expectedSql.trim());
   });
+
+  test("validate: table stub wraps the query + LIMIT 0 (BigQuery)", () => {
+    expect(
+      executionSql.validationStubSql({
+        enumType: sqlanvil.TableType.TABLE,
+        target: { database: "project-id", schema: "dataset-id", name: "x" },
+        query: "select 1 as id"
+      })
+    ).to.equal("create table `project-id.dataset-id.x` as select * from (select 1 as id) limit 0");
+  });
+
+  test("validate: view stub is CREATE VIEW (BigQuery)", () => {
+    expect(
+      executionSql.validationStubSql({
+        enumType: sqlanvil.TableType.VIEW,
+        target: { database: "project-id", schema: "dataset-id", name: "x" },
+        query: "select 1 as id"
+      })
+    ).to.equal("create view `project-id.dataset-id.x` as select 1 as id");
+  });
+
+  test("validate: shadow dataset create/drop are project-qualified + cascade (BigQuery)", () => {
+    expect(executionSql.createSchemaSql("dataset-id__sqlanvil_validate_1")).to.equal(
+      "create schema if not exists `project-id.dataset-id__sqlanvil_validate_1`"
+    );
+    expect(executionSql.dropSchemaCascadeSql("dataset-id__sqlanvil_validate_1")).to.equal(
+      "drop schema if exists `project-id.dataset-id__sqlanvil_validate_1` cascade"
+    );
+  });
 });
 
 suite("ExecutionSql with Postgres/Supabase", () => {

@@ -210,17 +210,31 @@ from (${query}) as insertions`;
     return [sqlanvil.ExecutionTask.create({ type: "statement", statement })];
   }
 
-  // `sqlanvil validate` is not wired for BigQuery yet (dry-run + shadow dataset — fast-follow).
+  // --- `sqlanvil validate`: empty, isolated shadow-dataset stubs (dry-run powers evaluate()). ---
+
   public validationStubSql(table: sqlanvil.ITable): string {
-    throw new Error("sqlanvil validate is not supported on BigQuery yet.");
+    const target = this.resolveTarget(table.target);
+    if (table.enumType === sqlanvil.TableType.VIEW) {
+      return `create view ${target} as ${table.query}`;
+    }
+    // BigQuery has no WITH NO DATA; wrap + LIMIT 0 yields an empty, correctly-typed table.
+    return `create table ${target} as select * from (${table.query}) limit 0`;
   }
 
   public createSchemaSql(schema: string): string {
-    throw new Error("sqlanvil validate is not supported on BigQuery yet.");
+    return `create schema if not exists ${this.qualifiedSchema(schema)}`;
   }
 
   public dropSchemaCascadeSql(schema: string): string {
-    throw new Error("sqlanvil validate is not supported on BigQuery yet.");
+    return `drop schema if exists ${this.qualifiedSchema(schema)} cascade`;
+  }
+
+  // A BigQuery dataset, qualified by the default project when one is configured (matches how
+  // resolveTarget qualifies a table: `project.dataset.name`).
+  private qualifiedSchema(schema: string): string {
+    return this.project.defaultDatabase
+      ? `\`${this.project.defaultDatabase}.${schema}\``
+      : `\`${schema}\``;
   }
 
   private buildIncrementalSchemaChangeTasks(tasks: Tasks, table: sqlanvil.ITable) {

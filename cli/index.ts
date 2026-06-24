@@ -460,12 +460,6 @@ async function runValidate(argv: any): Promise<number> {
   }
 
   const warehouse = (compiledGraph.projectConfig.warehouse || "bigquery").toLowerCase();
-  if (warehouse === "bigquery") {
-    printError(
-      "`sqlanvil validate` is not supported on BigQuery yet — Postgres/Supabase/MySQL only."
-    );
-    return 1;
-  }
   const readCredentials = credentials.read(
     credentialsPathWithEnvironment(projectDir, argv),
     warehouse
@@ -475,6 +469,8 @@ async function runValidate(argv: any): Promise<number> {
     dbadapter = await SupabaseDbAdapter.create(readCredentials);
   } else if (warehouse === "mysql") {
     dbadapter = await MySqlDbAdapter.create(readCredentials);
+  } else if (warehouse === "bigquery") {
+    dbadapter = new BigQueryDbAdapter(readCredentials);
   } else {
     dbadapter = await PostgresDbAdapter.create(readCredentials);
   }
