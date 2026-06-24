@@ -13,6 +13,8 @@ import {
   resolveEnvironment
 } from "sa/cli/api/commands/environments";
 import { assertConnectionCredentialsAvailable } from "sa/cli/api/commands/connection_credentials";
+import { safeWriteArtifacts, TARGET_DIR } from "sa/cli/api/commands/artifacts";
+import { ArtifactView, queryParquet } from "sa/cli/api/dbadapters/duckdb_artifacts";
 import { sweepOrphanShadows, validate, ValidateDeps } from "sa/cli/api/commands/validate";
 import { ValidationResult, validateShadowSuffix } from "sa/cli/api/commands/validate_graph";
 import { IDbAdapter } from "sa/cli/api/dbadapters";
@@ -300,6 +302,13 @@ const timeoutOption = option("timeout", {
     rawTimeoutString ? parseDuration(rawTimeoutString) : null
 });
 
+const noArtifactsOption = option("no-artifacts", {
+  describe:
+    "Skip writing the queryable Parquet artifacts under target/ (catalog on compile; run history " +
+    "on run).",
+  type: "boolean"
+});
+
 const keepShadowOption = option("keep-shadow", {
   describe:
     "If set, `validate` leaves its temporary shadow schema(s) in place instead of dropping them " +
@@ -525,6 +534,113 @@ async function runValidate(argv: any): Promise<number> {
   return printValidationResults(results, argv[jsonOutputOption.name]);
 }
 
+// --- Queryable artifacts (`query` / `inspect`) over target/*.parquet via bundled DuckDB. ---
+
+function resolveArtifactViews(
+  projectDir: string
+): { views: ArtifactView[]; hasCatalog: boolean; hasRuns: boolean } {
+  const catalogDir = path.join(projectDir, TARGET_DIR, "catalog");
+  const runsDir = path.join(projectDir, TARGET_DIR, "runs");
+  const views: ArtifactView[] = [];
+  for (const name of ["actions", "dependencies", "columns"]) {
+    const file = path.join(catalogDir, `${name}.parquet`);
+    if (fs.existsSync(file)) {
+      views.push({ name, glob: file });
+    }
+  }
+  const hasRuns =
+    fs.existsSync(runsDir) && fs.readdirSync(runsDir).some(f => f.endsWith(".parquet"));
+  if (hasRuns) {
+    views.push({ name: "runs", glob: path.join(runsDir, "*.parquet") });
+  }
+  return { views, hasCatalog: views.some(v => v.name === "actions"), hasRuns };
+}
+
+function printArtifactRows(rows: any[]): void {
+  if (!rows || rows.length === 0) {
+    print("(0 rows)");
+    return;
+  }
+  const cols = Object.keys(rows[0]);
+  const widths = cols.map(c =>
+    Math.max(c.length, ...rows.map(r => String(r[c] === null || r[c] === undefined ? "" : r[c]).length))
+  );
+  const fmtRow = (vals: string[]) => vals.map((v, i) => v.padEnd(widths[i])).join("  ");
+  print(fmtRow(cols));
+  print(fmtRow(widths.map(w => "-".repeat(w))));
+  for (const row of rows) {
+    print(fmtRow(cols.map(c => String(row[c] === null || row[c] === undefined ? "" : row[c]))));
+  }
+  print(`\n(${rows.length} row${rows.length === 1 ? "" : "s"})`);
+}
+
+const NO_ARTIFACTS = "No artifacts found under target/. Run `sqlanvil compile` (or `run`) first.";
+
+async function runQuery(projectDir: string, sql: string, json: boolean): Promise<number> {
+  const { views, hasCatalog } = resolveArtifactViews(projectDir);
+  if (!hasCatalog) {
+    printError(NO_ARTIFACTS);
+    return 1;
+  }
+  const rows = await queryParquet(sql, views);
+  if (json) {
+    print(prettyJsonStringify(rows));
+  } else {
+    printArtifactRows(rows);
+  }
+  return 0;
+}
+
+async function runInspect(projectDir: string, json: boolean): Promise<number> {
+  const { views, hasCatalog, hasRuns } = resolveArtifactViews(projectDir);
+  if (!hasCatalog) {
+    printError(NO_ARTIFACTS);
+    return 1;
+  }
+  const actionsByType = await queryParquet(
+    "select type, count(*) as n from actions group by type order by type",
+    views
+  );
+  let latestRun: any = null;
+  let failures: any[] = [];
+  if (hasRuns) {
+    const latest = await queryParquet(
+      "select run_id, run_status, " +
+        "count(*) filter (where status = 'SUCCESSFUL') as succeeded, " +
+        "count(*) filter (where status = 'FAILED') as failed, " +
+        "max(end_millis) - min(start_millis) as wall_ms " +
+        "from runs where run_id = (select max(run_id) from runs) group by run_id, run_status",
+      views
+    );
+    latestRun = latest[0] || null;
+    failures = await queryParquet(
+      "select readable_name, error_message from runs " +
+        "where run_id = (select max(run_id) from runs) and status = 'FAILED' limit 20",
+      views
+    );
+  }
+
+  if (json) {
+    print(prettyJsonStringify({ actionsByType, latestRun, failures }));
+    return 0;
+  }
+  print("Actions by type:");
+  printArtifactRows(actionsByType);
+  if (!hasRuns || !latestRun) {
+    print("\nNo runs recorded yet.");
+  } else {
+    print(
+      `\nLatest run (${latestRun.run_status}): ${latestRun.succeeded} succeeded, ` +
+        `${latestRun.failed} failed, ${latestRun.wall_ms}ms`
+    );
+    if (failures.length > 0) {
+      print("\nFailures:");
+      printArtifactRows(failures);
+    }
+  }
+  return 0;
+}
+
 export function runCli() {
   const builtYargs = createYargsCli({
     commands: [
@@ -680,6 +796,7 @@ export function runCli() {
           compileTagsOption,
           compileIncludeDepsOption,
           compileIncludeDependentsOption,
+          noArtifactsOption,
           option(
             verboseOptionName,
             {
@@ -739,6 +856,10 @@ export function runCli() {
               print("");
               printCompiledGraphErrors(compiledGraph.graphErrors, argv[quietCompileOption.name]);
               return true;
+            }
+            // Write the queryable catalog (best-effort) for `sqlanvil query` / `inspect`.
+            if (!(argv as any)[noArtifactsOption.name]) {
+              await safeWriteArtifacts(compiledGraph, projectDir, { warn: print });
             }
             return false;
           }
@@ -911,6 +1032,7 @@ export function runCli() {
           timeoutOption,
           tagsOption,
           bigqueryJobLabelsOption,
+          noArtifactsOption,
           ...ProjectConfigOptions.allYargsOptions
         ],
         processFn: async (argv: RunArgv) => {
@@ -1072,8 +1194,48 @@ export function runCli() {
           runner.onChange(printExecutedGraph);
           const runResult = await runner.result();
           printExecutedGraph(runResult);
+          if (!(argv as any)[noArtifactsOption.name]) {
+            await safeWriteArtifacts(compiledGraph, argv[projectDirOption.name], {
+              runResult,
+              runId: Date.now(),
+              warn: print
+            });
+          }
           return runResult.status === sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL ? 0 : 1;
         }
+      },
+      {
+        format: `query [sql] [${projectDirOption.name}]`,
+        description:
+          "Run SQL over the project's queryable artifacts in target/ (views: actions, " +
+          "dependencies, columns, runs), via the bundled DuckDB.",
+        positionalOptions: [
+          positionalOption(
+            "sql",
+            { describe: 'SQL to run, e.g. "select type, count(*) from actions group by 1".' },
+            (argv: { sql?: string }) => {
+              if (!argv.sql) {
+                throw new Error(
+                  'Provide a SQL query, e.g. sqlanvil query "select * from actions".'
+                );
+              }
+            }
+          ),
+          projectDirOption
+        ],
+        options: [jsonOutputOption],
+        processFn: async (argv: any) =>
+          runQuery(argv[projectDirOption.name], argv.sql, argv[jsonOutputOption.name])
+      },
+      {
+        format: `inspect [${projectDirOption.name}]`,
+        description:
+          "Summarize the project's artifacts: action counts by type, the latest run's status/" +
+          "timing, and recent failures.",
+        positionalOptions: [projectDirOption],
+        options: [jsonOutputOption],
+        processFn: async (argv: any) =>
+          runInspect(argv[projectDirOption.name], argv[jsonOutputOption.name])
       },
       {
         format: `format [${projectDirMustExistOption.name}]`,

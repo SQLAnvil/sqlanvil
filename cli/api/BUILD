@@ -62,6 +62,7 @@ ts_test_suite(
     name = "tests",
     srcs = [
         "commands/artifact_rows_test.ts",
+        "commands/artifacts_integration_test.ts",
         "commands/build_export_test.ts",
         "commands/connection_credentials_test.ts",
         "commands/credentials_test.ts",
