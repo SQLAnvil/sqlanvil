@@ -171,6 +171,36 @@ suite("@sqlanvil/integration/mysql", { parallel: false }, ({ before, after }) =>
     await dbadapter.execute(`drop database if exists \`${database}\``);
   });
 
+  test("pre_operations / post_operations execute around a table build (issue #44)", { timeout: 30000 }, async () => {
+    const database = "sa_integration_test_direct";
+    await dbadapter.execute(`create database if not exists \`${database}\``);
+    await dbadapter.execute(`drop table if exists \`${database}\`.\`preop_marker\``);
+    await dbadapter.execute(`drop table if exists \`${database}\`.\`ops_t\``);
+    const adapter = new ExecutionSql({ warehouse: "mysql" }, "2.0.0");
+
+    const table: sqlanvil.ITable = {
+      enumType: sqlanvil.TableType.TABLE,
+      target: { schema: database, name: "ops_t" },
+      query: "select 1 as id",
+      // preOp creates an observable sentinel; postOp mutates the just-built table.
+      preOps: [`create table \`${database}\`.\`preop_marker\` (id int)`],
+      postOps: [`alter table \`${database}\`.\`ops_t\` add column extra int`]
+    };
+    for (const task of adapter.publishTasks(table, { fullRefresh: true }).build()) {
+      await dbadapter.execute(task.statement);
+    }
+
+    // preOp ran: the sentinel table exists.
+    const marker = await dbadapter.table({ schema: database, name: "preop_marker" });
+    expect(marker, "preOp should have created preop_marker").to.not.equal(null);
+
+    // postOp ran: the column it added is present on the built table.
+    const meta = await dbadapter.table({ schema: database, name: "ops_t" });
+    expect(meta.fields.map(f => f.name)).to.include("extra");
+
+    await dbadapter.execute(`drop database if exists \`${database}\``);
+  });
+
   test("metadata: table + column comments applied and read back; NOT NULL preserved", { timeout: 30000 }, async () => {
     const database = "sa_integration_test_direct";
     await dbadapter.execute(`create database if not exists \`${database}\``);

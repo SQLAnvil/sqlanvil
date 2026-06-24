@@ -1,3 +1,5 @@
+import * as semver from "semver";
+
 import { IExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { Task, Tasks } from "sa/cli/api/dbadapters/tasks";
 import { CompilationSql } from "sa/core/compilation_sql";
@@ -43,6 +45,10 @@ export class MysqlExecutionSql implements IExecutionSql {
     const tasks = new Tasks();
     const target = this.resolveTarget(table.target);
 
+    // Pre-operations (an incremental append swaps in incrementalPreOps, semver-gated
+    // > 1.4.8, so one-time DDL stays on the create path). Mirrors Postgres/BigQuery.
+    this.preOps(table, runConfig, tableMetadata).forEach(task => tasks.add(task));
+
     if (table.enumType === sqlanvil.TableType.VIEW) {
       if (table.materialized) {
         // MySQL/MariaDB have no native materialized views — emulate as a real
@@ -55,14 +61,11 @@ export class MysqlExecutionSql implements IExecutionSql {
           Task.statement(`create table ${target}${this.tableOptions(table)} as ${table.query}`)
         );
         this.createIndexes(table).forEach(stmt => tasks.add(Task.statement(stmt)));
-        return tasks;
+      } else {
+        // CREATE OR REPLACE VIEW is atomic in MySQL/MariaDB — no drop needed.
+        tasks.add(Task.statement(`create or replace view ${target} as ${table.query}`));
       }
-      // CREATE OR REPLACE VIEW is atomic in MySQL/MariaDB — no drop needed.
-      tasks.add(Task.statement(`create or replace view ${target} as ${table.query}`));
-      return tasks;
-    }
-
-    if (table.enumType === sqlanvil.TableType.INCREMENTAL) {
+    } else if (table.enumType === sqlanvil.TableType.INCREMENTAL) {
       const fresh = !this.shouldWriteIncrementally(table, runConfig, tableMetadata);
       if (fresh) {
         // Full refresh or first build: drop + CTAS, then add the unique index that
@@ -78,14 +81,53 @@ export class MysqlExecutionSql implements IExecutionSql {
       } else {
         tasks.add(Task.statement(this.upsertInto(table, tableMetadata)));
       }
-      return tasks;
+    } else {
+      // Plain table: drop + CTAS (with table options) + secondary indexes.
+      tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
+      tasks.add(Task.statement(`create table ${target}${this.tableOptions(table)} as ${table.query}`));
+      this.createIndexes(table).forEach(stmt => tasks.add(Task.statement(stmt)));
     }
 
-    // Plain table: drop + CTAS (with table options) + secondary indexes.
-    tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
-    tasks.add(Task.statement(`create table ${target}${this.tableOptions(table)} as ${table.query}`));
-    this.createIndexes(table).forEach(stmt => tasks.add(Task.statement(stmt)));
+    // Post-operations (incremental append swaps in incrementalPostOps, as above).
+    this.postOps(table, runConfig, tableMetadata).forEach(task => tasks.add(task));
+
     return tasks;
+  }
+
+  // pre_operations / post_operations attached to a table/view/incremental model.
+  // On an incremental append (table already exists, not a full refresh) the
+  // compiler emits the incremental* variants instead, so one-time create-path DDL
+  // does not re-run. Semver-gated > 1.4.8 to match Postgres/BigQuery.
+  public preOps(
+    table: sqlanvil.ITable,
+    runConfig: sqlanvil.IRunConfig,
+    tableMetadata?: sqlanvil.ITableMetadata
+  ): Task[] {
+    let preOps = table.preOps;
+    if (
+      semver.gt(this.sqlanvilCoreVersion, "1.4.8") &&
+      table.enumType === sqlanvil.TableType.INCREMENTAL &&
+      this.shouldWriteIncrementally(table, runConfig, tableMetadata)
+    ) {
+      preOps = table.incrementalPreOps;
+    }
+    return (preOps || []).map(pre => Task.statement(pre));
+  }
+
+  public postOps(
+    table: sqlanvil.ITable,
+    runConfig: sqlanvil.IRunConfig,
+    tableMetadata?: sqlanvil.ITableMetadata
+  ): Task[] {
+    let postOps = table.postOps;
+    if (
+      semver.gt(this.sqlanvilCoreVersion, "1.4.8") &&
+      table.enumType === sqlanvil.TableType.INCREMENTAL &&
+      this.shouldWriteIncrementally(table, runConfig, tableMetadata)
+    ) {
+      postOps = table.incrementalPostOps;
+    }
+    return (postOps || []).map(post => Task.statement(post));
   }
 
   public assertTasks(

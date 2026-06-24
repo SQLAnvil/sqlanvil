@@ -600,5 +600,74 @@ suite("mysql execution sql", () => {
     // The user-declared index is additive.
     expect(stmts).to.include("alter table `db`.`t` add index `ix_label` (`label`)");
   });
+
+  test("table pre_operations / post_operations run around the build (issue #44)", () => {
+    const stmts = sql
+      .publishTasks(
+        baseTable({ preOps: ["set @x = 1"], postOps: ["analyze table `db`.`t`"] }),
+        { fullRefresh: false }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(stmts[0]).to.equal("set @x = 1");
+    expect(stmts[stmts.length - 1]).to.equal("analyze table `db`.`t`");
+    // Ops bracket the create: preOp before the CTAS, postOp after.
+    expect(stmts.indexOf("set @x = 1")).to.be.lessThan(
+      stmts.findIndex(s => s.startsWith("create table"))
+    );
+  });
+
+  test("view pre_operations / post_operations run around CREATE OR REPLACE VIEW", () => {
+    const stmts = sql
+      .publishTasks(
+        baseTable({
+          enumType: sqlanvil.TableType.VIEW,
+          preOps: ["set @v = 1"],
+          postOps: ["set @v = 2"]
+        }),
+        { fullRefresh: false }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(stmts).to.eql([
+      "set @v = 1",
+      "create or replace view `db`.`t` as select 1 as id",
+      "set @v = 2"
+    ]);
+  });
+
+  test("incremental: one-time post-op runs on create, incremental* ops on append (issue #44)", () => {
+    const incTable = baseTable({
+      enumType: sqlanvil.TableType.INCREMENTAL,
+      uniqueKey: ["id"],
+      incrementalQuery: "select 1 as id",
+      preOps: ["create-time preop"],
+      postOps: ["alter table `db`.`t` add primary key (`id`)"], // one-time DDL
+      incrementalPreOps: ["append preop"],
+      incrementalPostOps: ["append postop"]
+    });
+
+    // Create / full-refresh (no existing table): plain preOps/postOps run.
+    const created = sql
+      .publishTasks(incTable, { fullRefresh: false })
+      .build()
+      .map(t => t.statement);
+    expect(created).to.include("create-time preop");
+    expect(created).to.include("alter table `db`.`t` add primary key (`id`)");
+    expect(created).to.not.include("append postop");
+
+    // Incremental append (table already exists): incremental* ops run, one-time DDL does not.
+    const appended = sql
+      .publishTasks(incTable, { fullRefresh: false }, {
+        target: { schema: "db", name: "t" },
+        type: sqlanvil.TableMetadata.Type.TABLE,
+        fields: [{ name: "id" }]
+      })
+      .build()
+      .map(t => t.statement);
+    expect(appended).to.include("append preop");
+    expect(appended).to.include("append postop");
+    expect(appended).to.not.include("alter table `db`.`t` add primary key (`id`)");
+  });
 });
 
