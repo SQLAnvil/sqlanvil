@@ -454,6 +454,28 @@ suite("ExecutionSql with Postgres/Supabase", () => {
     expect(appended).to.include("append postop");
     expect(appended).to.not.include("alter table add primary key (id)");
   });
+
+  test("validate: table stub is CREATE TABLE … WITH NO DATA", () => {
+    expect(executionSql.validationStubSql(baseTable)).to.equal(
+      'create table "my_db"."public"."my_table" as select 1 as id, \'a\' as field1 with no data'
+    );
+  });
+
+  test("validate: view stub is CREATE VIEW", () => {
+    const view = { ...baseTable, enumType: sqlanvil.TableType.VIEW };
+    expect(executionSql.validationStubSql(view)).to.equal(
+      'create view "my_db"."public"."my_table" as select 1 as id, \'a\' as field1'
+    );
+  });
+
+  test("validate: schema create/drop are isolated + cascade", () => {
+    expect(executionSql.createSchemaSql("public__sqlanvil_validate_1")).to.equal(
+      'create schema if not exists "public__sqlanvil_validate_1"'
+    );
+    expect(executionSql.dropSchemaCascadeSql("public__sqlanvil_validate_1")).to.equal(
+      'drop schema if exists "public__sqlanvil_validate_1" cascade'
+    );
+  });
 });
 
 suite("mysql execution sql", () => {
@@ -668,6 +690,27 @@ suite("mysql execution sql", () => {
     expect(appended).to.include("append preop");
     expect(appended).to.include("append postop");
     expect(appended).to.not.include("alter table `db`.`t` add primary key (`id`)");
+  });
+
+  test("validate: table stub wraps the query + LIMIT 0", () => {
+    expect(sql.validationStubSql(baseTable())).to.equal(
+      "create table `db`.`t` as select * from (select 1 as id) as _sa_stub limit 0"
+    );
+  });
+
+  test("validate: view stub is CREATE OR REPLACE VIEW", () => {
+    expect(sql.validationStubSql(baseTable({ enumType: sqlanvil.TableType.VIEW }))).to.equal(
+      "create or replace view `db`.`t` as select 1 as id"
+    );
+  });
+
+  test("validate: shadow schema is a CREATE/DROP DATABASE", () => {
+    expect(sql.createSchemaSql("db__sqlanvil_validate_1")).to.equal(
+      "create database if not exists `db__sqlanvil_validate_1`"
+    );
+    expect(sql.dropSchemaCascadeSql("db__sqlanvil_validate_1")).to.equal(
+      "drop database if exists `db__sqlanvil_validate_1`"
+    );
   });
 });
 

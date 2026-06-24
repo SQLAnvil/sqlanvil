@@ -50,6 +50,26 @@ export class PostgresExecutionSql implements IExecutionSql {
     return `drop ${kind} if exists ${this.resolveTarget(target)} cascade`;
   }
 
+  // --- `sqlanvil validate`: empty, isolated shadow-schema stubs. ---
+
+  public validationStubSql(table: sqlanvil.ITable): string {
+    const target = this.resolveTarget(table.target);
+    if (table.enumType === sqlanvil.TableType.VIEW) {
+      // A view stub validates its query and is referenceable by downstream models.
+      return `create view ${target} as ${table.query}`;
+    }
+    // WITH NO DATA: the planner resolves all refs/columns/types but materializes no rows.
+    return `create table ${target} as ${table.query} with no data`;
+  }
+
+  public createSchemaSql(schema: string): string {
+    return `create schema if not exists "${schema}"`;
+  }
+
+  public dropSchemaCascadeSql(schema: string): string {
+    return `drop schema if exists "${schema}" cascade`;
+  }
+
   public createExportTasks(exp: sqlanvil.IExport): sqlanvil.IExecutionTask[] {
     // No SQL runs on Postgres; the runner performs the export via DuckDB. The "export"-type
     // task carries the SELECT, and the ExecutionAction carries the destination spec.

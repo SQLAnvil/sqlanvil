@@ -37,6 +37,26 @@ export class MysqlExecutionSql implements IExecutionSql {
     throw new Error("type: \"export\" is not supported on MySQL/MariaDB yet.");
   }
 
+  // --- `sqlanvil validate`: empty, isolated shadow-database stubs. ---
+
+  public validationStubSql(table: sqlanvil.ITable): string {
+    const target = this.resolveTarget(table.target);
+    if (table.enumType === sqlanvil.TableType.VIEW) {
+      return `create or replace view ${target} as ${table.query}`;
+    }
+    // MySQL has no WITH NO DATA; wrapping + LIMIT 0 yields an empty, correctly-typed table
+    // (the wrap also keeps UNION/ORDER BY queries valid as a derived table).
+    return `create table ${target} as select * from (${table.query}) as _sa_stub limit 0`;
+  }
+
+  public createSchemaSql(schema: string): string {
+    return `create database if not exists \`${schema}\``;
+  }
+
+  public dropSchemaCascadeSql(schema: string): string {
+    return `drop database if exists \`${schema}\``;
+  }
+
   public publishTasks(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,

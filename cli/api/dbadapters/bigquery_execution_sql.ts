@@ -210,6 +210,19 @@ from (${query}) as insertions`;
     return [sqlanvil.ExecutionTask.create({ type: "statement", statement })];
   }
 
+  // `sqlanvil validate` is not wired for BigQuery yet (dry-run + shadow dataset — fast-follow).
+  public validationStubSql(table: sqlanvil.ITable): string {
+    throw new Error("sqlanvil validate is not supported on BigQuery yet.");
+  }
+
+  public createSchemaSql(schema: string): string {
+    throw new Error("sqlanvil validate is not supported on BigQuery yet.");
+  }
+
+  public dropSchemaCascadeSql(schema: string): string {
+    throw new Error("sqlanvil validate is not supported on BigQuery yet.");
+  }
+
   private buildIncrementalSchemaChangeTasks(tasks: Tasks, table: sqlanvil.ITable) {
     const uniqueId = this.uniqueIdGenerator();
 
