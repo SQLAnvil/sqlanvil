@@ -3,6 +3,7 @@ import Long from "long";
 
 import * as dfapi from "sa/cli/api";
 import * as dbadapters from "sa/cli/api/dbadapters";
+import { validate, ValidateDeps } from "sa/cli/api/commands/validate";
 import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { targetAsReadableString } from "sa/core/targets";
@@ -487,6 +488,83 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
     expect(fullSearch.length).equals(2);
     expect(partialSearch.length).equals(2);
     expect(columnSearch.length).greaterThan(0);
+  });
+
+  suite("validate", { parallel: false }, () => {
+    const SHADOW = "sa_integration_validate";
+    const ref = (name: string) => `\`${PROJECT_ID}.${SHADOW}.${name}\``;
+
+    const makeGraph = (midQuery: string): sqlanvil.ICompiledGraph =>
+      ({
+        tables: [
+          sqlanvil.Table.create({
+            enumType: sqlanvil.TableType.TABLE,
+            target: { database: PROJECT_ID, schema: SHADOW, name: "src" },
+            query: "select 1 as id"
+          }),
+          sqlanvil.Table.create({
+            enumType: sqlanvil.TableType.TABLE,
+            target: { database: PROJECT_ID, schema: SHADOW, name: "mid" },
+            query: midQuery,
+            dependencyTargets: [{ database: PROJECT_ID, schema: SHADOW, name: "src" }]
+          }),
+          sqlanvil.Table.create({
+            enumType: sqlanvil.TableType.TABLE,
+            target: { database: PROJECT_ID, schema: SHADOW, name: "leaf" },
+            query: `select id from ${ref("mid")}`,
+            dependencyTargets: [{ database: PROJECT_ID, schema: SHADOW, name: "mid" }]
+          })
+        ],
+        assertions: [],
+        operations: []
+      } as sqlanvil.ICompiledGraph);
+
+    const makeDeps = (): ValidateDeps => {
+      const executionSql = new ExecutionSql(
+        { warehouse: "bigquery", defaultDatabase: PROJECT_ID },
+        "2.0.0"
+      );
+      return {
+        evaluate: action => dbadapter.evaluate(action as any),
+        execute: sql => dbadapter.execute(sql).then(() => undefined),
+        validationStubSql: t => executionSql.validationStubSql(t),
+        createSchemaSql: s => executionSql.createSchemaSql(s),
+        dropSchemaCascadeSql: s => executionSql.dropSchemaCascadeSql(s),
+        listSchemas: async () => [] // not exercised by validate(); BQ sweep is CLI-only
+      };
+    };
+
+    const shadowExists = async () =>
+      (
+        await dbadapter.execute(
+          `select schema_name from \`${PROJECT_ID}\`.INFORMATION_SCHEMA.SCHEMATA ` +
+            `where schema_name = '${SHADOW}'`
+        )
+      ).rows.length > 0;
+
+    test("clean DAG → all PASS; shadow dataset created + dropped", { timeout: 120000 }, async () => {
+      await dbadapter.execute(`drop schema if exists \`${PROJECT_ID}.${SHADOW}\` cascade`);
+      const byName = keyBy(
+        await validate(makeGraph(`select id from ${ref("src")}`), makeDeps()),
+        r => r.target.name
+      );
+      expect(byName["src"].status).to.equal("PASS");
+      expect(byName["mid"].status).to.equal("PASS");
+      expect(byName["leaf"].status).to.equal("PASS");
+      expect(await shadowExists()).to.equal(false);
+    });
+
+    test("broken model → FAILURE + dependents BLOCKED; shadow dropped", { timeout: 120000 }, async () => {
+      await dbadapter.execute(`drop schema if exists \`${PROJECT_ID}.${SHADOW}\` cascade`);
+      const byName = keyBy(
+        await validate(makeGraph(`select nonexistent_col from ${ref("src")}`), makeDeps()),
+        r => r.target.name
+      );
+      expect(byName["src"].status).to.equal("PASS");
+      expect(byName["mid"].status).to.equal("FAILURE");
+      expect(byName["leaf"].status).to.equal("BLOCKED");
+      expect(await shadowExists()).to.equal(false);
+    });
   });
 });
 
