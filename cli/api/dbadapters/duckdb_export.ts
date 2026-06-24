@@ -1,7 +1,5 @@
-import * as os from "os";
-
+import { allAsync, runAsync, withDuckdb } from "sa/cli/api/dbadapters/duckdb";
 import { resolveExportUri } from "sa/cli/api/dbadapters/export_uri";
-import { nativeRequire } from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
 /**
@@ -106,63 +104,8 @@ export function buildCopySql(
   return `COPY (SELECT * FROM postgres_query('${PG_ATTACH_ALIAS}', $sa$${selectSql}$sa$)) TO '${target}' (${optionList})`;
 }
 
-// ---------------------------------------------------------------------------
-// Execution (lazy DuckDB load — only when a Postgres/Supabase export runs).
-// ---------------------------------------------------------------------------
-
-/** Lazily load the optional DuckDB binding via the real (non-webpack) require. */
-function loadDuckdb(): any {
-  try {
-    return nativeRequire("@duckdb/node-api");
-  } catch (e) {
-    throw new Error(
-      `Exporting on Postgres/Supabase requires the optional "@duckdb/node-api" dependency, which ` +
-        `failed to load: ${e.message}`
-    );
-  }
-}
-
-/** Run a statement (or `;`-separated statements); the result, if any, is discarded. */
-async function runAsync(conn: any, sql: string): Promise<void> {
-  await conn.run(sql);
-}
-
-/** Run a query and return its rows as plain objects. */
-async function allAsync(conn: any, sql: string): Promise<any[]> {
-  const reader = await conn.runAndReadAll(sql);
-  return reader.getRowObjects();
-}
-
-async function withConnection<T>(fn: (conn: any) => Promise<T>): Promise<T> {
-  const { DuckDBInstance } = loadDuckdb();
-  const instance = await DuckDBInstance.create(":memory:");
-  const conn = await instance.connect();
-  const done = () => {
-    try {
-      conn.closeSync?.();
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      instance.closeSync?.();
-    } catch (e) {
-      /* ignore */
-    }
-  };
-  try {
-    // DuckDB stores its extension cache under $HOME/.duckdb. In sandboxed/minimal
-    // environments HOME may be unset, which breaks INSTALL; point it at a writable dir.
-    if (!process.env.HOME) {
-      await runAsync(conn, `SET home_directory='${os.tmpdir()}'`);
-    }
-    const result = await fn(conn);
-    done();
-    return result;
-  } catch (e) {
-    done();
-    throw e;
-  }
-}
+// Execution helpers (loadDuckdb / runAsync / allAsync / withDuckdb) live in
+// `sa/cli/api/dbadapters/duckdb` and are shared with the queryable-artifacts writer.
 
 export interface DuckdbExportArgs {
   spec: sqlanvil.IExportSpec;
@@ -187,7 +130,7 @@ export async function runDuckdbExport(args: DuckdbExportArgs): Promise<{ destina
         `export to ${uri}.`
     );
   }
-  return withConnection(async conn => {
+  return withDuckdb(async conn => {
     await runAsync(conn, "INSTALL postgres; LOAD postgres; INSTALL httpfs; LOAD httpfs;");
     await runAsync(conn, buildAttachSql(pg));
     if (scheme !== "local") {
@@ -210,7 +153,7 @@ export async function writeViaDuckdb(
   uri: string,
   format: string
 ): Promise<void> {
-  await withConnection(async conn => {
+  await withDuckdb(async conn => {
     await runAsync(
       conn,
       `COPY (${selectSql}) TO '${toCopyTarget(uri)}' (FORMAT ${(format || "").toLowerCase()})`
@@ -227,5 +170,5 @@ export async function readViaDuckdb(uri: string, format: string): Promise<any[]>
       : format === "csv"
       ? "read_csv_auto"
       : "read_json_auto";
-  return withConnection(conn => allAsync(conn, `SELECT * FROM ${reader}('${toCopyTarget(uri)}')`));
+  return withDuckdb(conn => allAsync(conn, `SELECT * FROM ${reader}('${toCopyTarget(uri)}')`));
 }
