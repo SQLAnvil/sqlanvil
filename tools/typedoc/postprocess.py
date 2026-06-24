@@ -29,6 +29,7 @@ PUBLISHED = {
     "_core_actions_notebook_.notebook.md": "notebook",
     "_core_actions_test_.test.md": "test",
     "_core_actions_declaration_.declaration.md": "declaration",
+    "_core_actions_export_.export.md": "export",
     "_core_session_.session.md": "session",
 }
 

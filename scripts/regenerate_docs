@@ -73,6 +73,7 @@ operation:_core_actions_operation_.operation
 notebook:_core_actions_notebook_.notebook
 test:_core_actions_test_.test
 declaration:_core_actions_declaration_.declaration
+export:_core_actions_export_.export
 "
 for entry in ${PAGES}; do
   slug="${entry%%:*}"; stem="${entry##*:}"
