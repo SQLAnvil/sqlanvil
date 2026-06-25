@@ -1,6 +1,7 @@
 import * as fs from "fs-extra";
 import * as path from "path";
 
+import * as mysql from "mysql2/promise";
 import * as pg from "pg";
 import { BigQuery } from "@google-cloud/bigquery";
 
@@ -46,6 +47,12 @@ export function mapPostgresType(pgType: string): string {
   // Postgres source -> Postgres warehouse: identity (information_schema already
   // reports a valid Postgres type name).
   return pgType.trim().toLowerCase();
+}
+
+export function mapMysqlType(mysqlType: string): string {
+  // MySQL source -> MySQL warehouse: identity (information_schema.DATA_TYPE is
+  // already a valid MySQL base type name, e.g. "varchar", "int", "datetime").
+  return mysqlType.trim().toLowerCase();
 }
 
 export interface RenderDeclarationOptions {
@@ -195,12 +202,61 @@ export const readBigQuerySchema: SchemaReader = function(resolved, sourceSchema,
     });
 };
 
+export const readMysqlSchema: SchemaReader = function(resolved, sourceSchema, table) {
+  const c = resolved.credentials;
+  let conn: any;
+  return mysql
+    .createConnection({
+      host: c.host || resolved.definition.host,
+      port: Number(c.port || resolved.definition.port || 3306),
+      database: c.database || resolved.definition.database,
+      user: c.user,
+      password: c.password,
+      ssl: c.sslMode && c.sslMode !== "disable" ? { rejectUnauthorized: false } : undefined
+    })
+    .then(function(connection) {
+      conn = connection;
+      // MySQL has no catalog level — the "schema" is the database (table_schema).
+      return conn.query(
+        `select column_name, data_type, column_comment
+         from information_schema.columns
+         where table_schema = ? and table_name = ?
+         order by ordinal_position`,
+        [sourceSchema, table]
+      );
+    })
+    .then(function(result: any) {
+      const rows: any[] = result[0] || [];
+      return rows.map(function(r) {
+        // mysql2 preserves the SELECTed (lowercase) labels, but guard for upper-case too.
+        const name = r.column_name !== undefined ? r.column_name : r.COLUMN_NAME;
+        const type = r.data_type !== undefined ? r.data_type : r.DATA_TYPE;
+        const comment = r.column_comment !== undefined ? r.column_comment : r.COLUMN_COMMENT;
+        return { name, type, description: comment || undefined };
+      });
+    })
+    .then(
+      function(cols) {
+        return conn.end().then(function() { return cols; });
+      },
+      function(err) {
+        return (conn ? conn.end() : Promise.resolve()).then(
+          function() { throw err; },
+          function() { throw err; }
+        );
+      }
+    );
+};
+
 function defaultReaderFor(platform: string): SchemaReader {
   if (platform === "bigquery") {
     return readBigQuerySchema;
   }
   if (platform === "postgres" || platform === "supabase") {
     return readPostgresSchema;
+  }
+  if (platform === "mysql") {
+    return readMysqlSchema;
   }
   throw new Error(`introspect does not support source platform "${platform}".`);
 }
@@ -234,7 +290,12 @@ export function introspectToSqlx(
         `Pass it as "schema.table", or set "dataset"/"defaultSchema" on the connection.`
     ));
   }
-  const mapType = resolved.definition.platform === "bigquery" ? mapBigQueryType : mapPostgresType;
+  const mapType =
+    resolved.definition.platform === "bigquery"
+      ? mapBigQueryType
+      : resolved.definition.platform === "mysql"
+      ? mapMysqlType
+      : mapPostgresType;
   return reader(resolved, sourceSchema, parts.table).then(function(rawColumns) {
     if (rawColumns.length === 0) {
       throw new Error(

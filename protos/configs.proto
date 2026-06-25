@@ -92,7 +92,9 @@ message Environment {
 
 // A named connection: the warehouse (read/write target) or a read-only source.
 message ConnectionConfig {
-  // Optional. One of "bigquery", "postgres", "supabase".
+  // Optional. One of "bigquery", "postgres", "supabase", "mysql".
+  // ("mysql" is supported by `sqlanvil introspect` for schema scaffolding; a runtime
+  // cross-warehouse MySQL *source* bridge is not yet implemented — see issue #35.)
   string platform = 1;
   // Optional. BigQuery source default project.
   string project = 2;

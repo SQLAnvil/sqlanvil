@@ -1,6 +1,7 @@
 import { expect } from "chai";
 
 import * as dfapi from "sa/cli/api";
+import { readMysqlSchema } from "sa/cli/api/commands/introspect";
 import { validate, ValidateDeps } from "sa/cli/api/commands/validate";
 import * as dbadapters from "sa/cli/api/dbadapters";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
@@ -354,6 +355,33 @@ suite("@sqlanvil/integration/mysql", { parallel: false }, ({ before, after }) =>
     const mergeRows = await getTableRows(merge.target, adapter, dbadapter);
     expect(mergeRows.length).to.equal(2);
     expect(mergeRows.every((r: any) => r.val === "new")).to.equal(true);
+  });
+
+  test("introspect: readMysqlSchema reads columns, types, and comments (issue #35)", { timeout: 30000 }, async () => {
+    const database = "sa_integration_test_direct";
+    await dbadapter.execute(`create database if not exists \`${database}\``);
+    await dbadapter.execute(`drop table if exists \`${database}\`.\`intro_t\``);
+    await dbadapter.execute(
+      `create table \`${database}\`.\`intro_t\` (id int comment 'the id', label varchar(50))`
+    );
+    const resolved = {
+      name: "src",
+      definition: { platform: "mysql", host: MysqlFixture.host, port: MysqlFixture.port, database },
+      credentials: {
+        host: MysqlFixture.host,
+        port: MysqlFixture.port,
+        database,
+        user: MysqlFixture.user,
+        password: MysqlFixture.password
+      }
+    };
+    const cols = await readMysqlSchema(resolved as any, database, "intro_t");
+    const byName = keyBy(cols, (c: any) => c.name);
+    expect(byName["id"].type).to.equal("int");
+    expect(byName["id"].description).to.equal("the id");
+    expect(byName["label"].type).to.equal("varchar");
+    expect(byName["label"].description).to.equal(undefined);
+    await dbadapter.execute(`drop database if exists \`${database}\``);
   });
 
   test("validate: clean DAG → PASS; broken → FAILURE + BLOCKED; shadow DB dropped", { timeout: 30000 }, async () => {

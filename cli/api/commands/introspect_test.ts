@@ -4,7 +4,7 @@ import * as path from "path";
 
 import { suite, test } from "sa/testing";
 import { TmpDirFixture } from "sa/testing/fixtures";
-import { mapBigQueryType, mapPostgresType, renderDeclarationSqlx, resolveConnection, introspectToSqlx } from "sa/cli/api/commands/introspect";
+import { mapBigQueryType, mapMysqlType, mapPostgresType, renderDeclarationSqlx, resolveConnection, introspectToSqlx } from "sa/cli/api/commands/introspect";
 import { read as readCredentials, readConnections } from "sa/cli/api/commands/credentials";
 
 suite("introspect type mapping", () => {
@@ -34,6 +34,12 @@ suite("introspect type mapping", () => {
     expect(mapPostgresType("text")).equals("text");
     expect(mapPostgresType("  BIGINT ")).equals("bigint");
     expect(mapPostgresType("double precision")).equals("double precision");
+  });
+
+  test("MySQL types pass through unchanged (lowercased/trimmed)", () => {
+    expect(mapMysqlType("varchar")).equals("varchar");
+    expect(mapMysqlType("  INT ")).equals("int");
+    expect(mapMysqlType("DATETIME")).equals("datetime");
   });
 });
 
@@ -188,6 +194,29 @@ suite("introspect orchestrator", ({ afterEach }) => {
     expect(sqlx).to.contain(`zip_code: "text"`);
     expect(sqlx).to.contain(`internal_point_lat: "float8"`);
     expect(sqlx).to.contain(`zip_code: "5-digit ZIP"`);
+  });
+
+  test("mysql connection: raw MySQL types pass through, rendered as a declaration", async () => {
+    const dir = tmp2.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(dir, "workflow_settings.yaml"),
+      `defaultDataset: app\nwarehouse: wh\nconnections:\n  wh:\n    platform: mysql\n  mysrc:\n    platform: mysql\n    host: h\n    database: app`
+    );
+    fs.writeFileSync(
+      path.join(dir, ".df-credentials.json"),
+      JSON.stringify({ connections: { wh: {}, mysrc: { user: "u", password: "p" } } })
+    );
+    const fakeReader = function() {
+      return Promise.resolve([
+        { name: "id", type: "INT", description: "the id" },
+        { name: "label", type: "VARCHAR" }
+      ]);
+    };
+    const sqlx = await introspectToSqlx(dir, "mysrc", "app.widgets", { reader: fakeReader });
+    expect(sqlx).to.contain(`connection: "mysrc"`);
+    expect(sqlx).to.contain(`id: "int"`);
+    expect(sqlx).to.contain(`label: "varchar"`);
+    expect(sqlx).to.contain(`id: "the id"`);
   });
 });
 
