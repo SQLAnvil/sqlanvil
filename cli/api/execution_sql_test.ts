@@ -721,6 +721,79 @@ suite("mysql execution sql", () => {
     expect(appended).to.not.include("alter table `db`.`t` add primary key (`id`)");
   });
 
+  test("partition: RANGE emits explicit child definitions after table options", () => {
+    const stmts = sql
+      .publishTasks(
+        baseTable({
+          mysql: {
+            engine: "InnoDB",
+            partition: {
+              kind: sqlanvil.MysqlOptions.Partition.Kind.RANGE,
+              expression: "id",
+              partitions: [
+                { name: "p0", values: "values less than (10)" },
+                { name: "pmax", values: "values less than maxvalue" }
+              ]
+            }
+          }
+        }),
+        { fullRefresh: false }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(stmts).to.include(
+      "create table `db`.`t` engine=InnoDB partition by range (id) " +
+        "(partition p0 values less than (10), partition pmax values less than maxvalue) as select 1 as id"
+    );
+  });
+
+  test("partition: HASH/KEY emit PARTITIONS <n>", () => {
+    const hash = sql
+      .publishTasks(
+        baseTable({
+          mysql: { partition: { kind: sqlanvil.MysqlOptions.Partition.Kind.HASH, expression: "id", count: 4 } }
+        }),
+        { fullRefresh: false }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(hash).to.include("create table `db`.`t` partition by hash (id) partitions 4 as select 1 as id");
+
+    const key = sql
+      .publishTasks(
+        baseTable({
+          mysql: { partition: { kind: sqlanvil.MysqlOptions.Partition.Kind.KEY, expression: "id", count: 2 } }
+        }),
+        { fullRefresh: false }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(key).to.include("create table `db`.`t` partition by key (id) partitions 2 as select 1 as id");
+  });
+
+  test("partition: applies on the incremental fresh-create path", () => {
+    const stmts = sql
+      .publishTasks(
+        baseTable({
+          enumType: sqlanvil.TableType.INCREMENTAL,
+          uniqueKey: ["id"],
+          mysql: {
+            partition: {
+              kind: sqlanvil.MysqlOptions.Partition.Kind.RANGE,
+              expression: "id",
+              partitions: [{ name: "pmax", values: "values less than maxvalue" }]
+            }
+          }
+        }),
+        { fullRefresh: true }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(stmts.some(s => /partition by range \(id\) \(partition pmax values less than maxvalue\) as /.test(s))).to.equal(
+      true
+    );
+  });
+
   test("validate: table stub wraps the query + LIMIT 0", () => {
     expect(sql.validationStubSql(baseTable())).to.equal(
       "create table `db`.`t` as select * from (select 1 as id) as _sa_stub limit 0"

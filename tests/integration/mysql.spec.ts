@@ -357,6 +357,42 @@ suite("@sqlanvil/integration/mysql", { parallel: false }, ({ before, after }) =>
     expect(mergeRows.every((r: any) => r.val === "new")).to.equal(true);
   });
 
+  test("partitioning: RANGE partitions created on real MySQL/MariaDB (#45)", { timeout: 30000 }, async () => {
+    const database = "sa_integration_test_direct";
+    await dbadapter.execute(`create database if not exists \`${database}\``);
+    await dbadapter.execute(`drop table if exists \`${database}\`.\`part_t\``);
+    const adapter = new ExecutionSql({ warehouse: "mysql" }, "2.0.0");
+    const table: sqlanvil.ITable = {
+      enumType: sqlanvil.TableType.TABLE,
+      target: { schema: database, name: "part_t" },
+      query: "select 1 as id union all select 15 as id",
+      mysql: {
+        partition: {
+          kind: sqlanvil.MysqlOptions.Partition.Kind.RANGE,
+          expression: "id",
+          partitions: [
+            { name: "p0", values: "values less than (10)" },
+            { name: "pmax", values: "values less than maxvalue" }
+          ]
+        }
+      }
+    };
+    for (const task of adapter.publishTasks(table, { fullRefresh: true }).build()) {
+      await dbadapter.execute(task.statement);
+    }
+    const parts = await dbadapter.execute(
+      `select partition_name as name from information_schema.partitions ` +
+        `where table_schema = '${database}' and table_name = 'part_t' and partition_name is not null`
+    );
+    const names = parts.rows.map((r: any) => r.name);
+    expect(names).to.include("p0");
+    expect(names).to.include("pmax");
+    // Both rows landed (one per partition) and are queryable.
+    const count = await dbadapter.execute(`select count(*) as n from \`${database}\`.\`part_t\``);
+    expect(Number(count.rows[0].n)).to.equal(2);
+    await dbadapter.execute(`drop database if exists \`${database}\``);
+  });
+
   test("introspect: readMysqlSchema reads columns, types, and comments (issue #35)", { timeout: 30000 }, async () => {
     const database = "sa_integration_test_direct";
     await dbadapter.execute(`create database if not exists \`${database}\``);

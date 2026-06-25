@@ -78,7 +78,7 @@ export class MysqlExecutionSql implements IExecutionSql {
         tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.VIEW)));
         tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
         tasks.add(
-          Task.statement(`create table ${target}${this.tableOptions(table)} as ${table.query}`)
+          Task.statement(`create table ${target}${this.tableOptions(table)}${this.partitionClause(table)} as ${table.query}`)
         );
         this.createIndexes(table).forEach(stmt => tasks.add(Task.statement(stmt)));
       } else {
@@ -91,7 +91,7 @@ export class MysqlExecutionSql implements IExecutionSql {
         // Full refresh or first build: drop + CTAS, then add the unique index that
         // ON DUPLICATE KEY UPDATE relies on for subsequent incremental appends.
         tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
-        tasks.add(Task.statement(`create table ${target}${this.tableOptions(table)} as ${table.query}`));
+        tasks.add(Task.statement(`create table ${target}${this.tableOptions(table)}${this.partitionClause(table)} as ${table.query}`));
         if (table.uniqueKey && table.uniqueKey.length > 0) {
           const idx = `uq_${table.target.schema}_${table.target.name}`.slice(0, 63);
           const cols = table.uniqueKey.map(k => `\`${k}\``).join(", ");
@@ -104,7 +104,7 @@ export class MysqlExecutionSql implements IExecutionSql {
     } else {
       // Plain table: drop + CTAS (with table options) + secondary indexes.
       tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
-      tasks.add(Task.statement(`create table ${target}${this.tableOptions(table)} as ${table.query}`));
+      tasks.add(Task.statement(`create table ${target}${this.tableOptions(table)}${this.partitionClause(table)} as ${table.query}`));
       this.createIndexes(table).forEach(stmt => tasks.add(Task.statement(stmt)));
     }
 
@@ -212,6 +212,39 @@ export class MysqlExecutionSql implements IExecutionSql {
     return `insert into ${target} (${backticked.join(", ")}) select ${backticked.join(
       ", "
     )} from (${query}) as insertions${tail}`;
+  }
+
+  private partitionKindAsSql(kind?: sqlanvil.MysqlOptions.Partition.Kind): string {
+    switch (kind) {
+      case sqlanvil.MysqlOptions.Partition.Kind.LIST:
+        return "list";
+      case sqlanvil.MysqlOptions.Partition.Kind.HASH:
+        return "hash";
+      case sqlanvil.MysqlOptions.Partition.Kind.KEY:
+        return "key";
+      case sqlanvil.MysqlOptions.Partition.Kind.RANGE:
+      default:
+        return "range";
+    }
+  }
+
+  // The `PARTITION BY …` suffix for a CTAS create path (MySQL grammar puts partition
+  // options after table options, before AS query). HASH/KEY use `PARTITIONS <n>`;
+  // RANGE/LIST emit explicit `PARTITION <name> <values>` child definitions verbatim.
+  private partitionClause(table: sqlanvil.ITable): string {
+    const partition = table.mysql && table.mysql.partition;
+    if (!partition) {
+      return "";
+    }
+    const kind = this.partitionKindAsSql(partition.kind);
+    const head = ` partition by ${kind} (${partition.expression})`;
+    if (kind === "hash" || kind === "key") {
+      return partition.count ? `${head} partitions ${partition.count}` : head;
+    }
+    const defs = (partition.partitions || [])
+      .map(bound => `partition ${bound.name} ${bound.values}`)
+      .join(", ");
+    return `${head} (${defs})`;
   }
 
   // Table-options suffix for a CTAS create path, e.g. " engine=InnoDB default

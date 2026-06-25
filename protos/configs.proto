@@ -1034,6 +1034,37 @@ message MysqlOptions {
     bool unique = 3;
   }
   repeated Index indexes = 4;
+
+  // Native MySQL/MariaDB partitioning. NB: MySQL requires every column used in the
+  // partitioning expression to be part of every UNIQUE/PRIMARY key — so a partitioned
+  // incremental table's `uniqueKey` must include the partition column(s).
+  message Partition {
+    enum Kind {
+      RANGE = 0;
+      LIST = 1;
+      HASH = 2;
+      KEY = 3;
+    }
+    Kind kind = 1;
+
+    // The expression/columns inside `PARTITION BY <kind> (...)`, emitted verbatim.
+    // For RANGE/LIST: a column or expression (e.g. "id", "YEAR(created_at)").
+    // For HASH/KEY: a column list. (RANGE COLUMNS / LIST COLUMNS not modeled in v1.)
+    string expression = 2;
+
+    // RANGE/LIST child partitions. `values` is the raw clause body after the name,
+    // e.g. "VALUES LESS THAN (2024)" (range, use MAXVALUE for a catch-all) or
+    // "VALUES IN ('us', 'ca')" (list).
+    message Bound {
+      string name = 1;
+      string values = 2;
+    }
+    repeated Bound partitions = 3;
+
+    // HASH/KEY partition count, emitted as `PARTITIONS <n>`. Ignored for RANGE/LIST.
+    uint32 count = 4;
+  }
+  Partition partition = 5;
 }
 
 // SupabaseOptions — Supabase-specific platform features layered on top of
