@@ -68,7 +68,8 @@ export class Builder {
       ),
       this.prunedGraph.operations.map(o => this.buildOperation(o)),
       this.prunedGraph.assertions.map(a => this.buildAssertion(a)),
-      this.prunedGraph.exports.map(e => this.buildExport(e))
+      this.prunedGraph.exports.map(e => this.buildExport(e)),
+      this.prunedGraph.imports.map(i => this.buildImport(i))
     );
     return sqlanvil.ExecutionGraph.create({
       projectConfig: this.prunedGraph.projectConfig,
@@ -128,8 +129,28 @@ export class Builder {
     };
   }
 
+  private buildImport(imp: sqlanvil.IImport) {
+    return {
+      ...this.toPartialExecutionAction(imp),
+      type: "import",
+      tasks: this.executionSql.createImportTasks(imp),
+      hermeticity: imp.hermeticity || sqlanvil.ActionHermeticity.NON_HERMETIC,
+      import: sqlanvil.ImportSpec.create({
+        location: imp.location,
+        format: imp.format,
+        overwrite: imp.overwrite,
+        options: imp.options
+      })
+    };
+  }
+
   private toPartialExecutionAction(
-    action: sqlanvil.ITable | sqlanvil.IOperation | sqlanvil.IAssertion | sqlanvil.IExport
+    action:
+      | sqlanvil.ITable
+      | sqlanvil.IOperation
+      | sqlanvil.IAssertion
+      | sqlanvil.IExport
+      | sqlanvil.IImport
   ) {
     return sqlanvil.ExecutionAction.create({
       target: action.target,

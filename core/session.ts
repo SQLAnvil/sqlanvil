@@ -9,6 +9,7 @@ import {
 } from "sa/core/actions/data_preparation";
 import { Declaration } from "sa/core/actions/declaration";
 import { Export } from "sa/core/actions/export";
+import { Import } from "sa/core/actions/import";
 import { IncrementalTable } from "sa/core/actions/incremental_table";
 import { Notebook } from "sa/core/actions/notebook";
 import { Operation, OperationContext } from "sa/core/actions/operation";
@@ -210,6 +211,9 @@ export class Session {
         this.actions.push(
           new Export(this, sqlxConfig).query(ctx => actionOptions.sqlContextable(ctx)[0])
         );
+        break;
+      case "import":
+        this.actions.push(new Import(this, sqlxConfig));
         break;
       case "declaration":
         this.declare(sqlxConfig);
@@ -668,6 +672,7 @@ export class Session {
         this.actions.filter(action => action instanceof DataPreparation)
       ),
       exports: this.compileGraphChunk(this.actions.filter(action => action instanceof Export)),
+      imports: this.compileGraphChunk(this.actions.filter(action => action instanceof Import)),
       graphErrors: this.graphErrors,
       sqlanvilCoreVersion,
       targets: this.actions.map(action => action.getTarget()),
@@ -686,6 +691,7 @@ export class Session {
         compiledGraph.notebooks,
         compiledGraph.dataPreparations,
         compiledGraph.exports,
+        compiledGraph.imports,
         compiledGraph.tests
       )
     );
@@ -698,6 +704,7 @@ export class Session {
         compiledGraph.notebooks,
         compiledGraph.dataPreparations,
         compiledGraph.exports,
+        compiledGraph.imports,
         compiledGraph.tests
       ),
       [].concat(compiledGraph.declarations.map(declaration => declaration.target))
@@ -715,6 +722,7 @@ export class Session {
         compiledGraph.notebooks,
         compiledGraph.dataPreparations,
         compiledGraph.exports,
+        compiledGraph.imports,
         compiledGraph.tests
       )
     );

@@ -273,6 +273,28 @@ message Export {
   string jit_code = 15;
 }
 
+// A compiled file import: loads the file at `location` into the table at `target`. The inverse
+// of Export — a producer whose target is ref()-able by downstream actions.
+message Import {
+  Target target = 1;
+  Target canonical_target = 2;
+  repeated Target dependency_targets = 3;
+  ActionHermeticity hermeticity = 4;
+  bool disabled = 5;
+  repeated string tags = 6;
+  ActionDescriptor action_descriptor = 7;
+  // Source file/glob/URI to read (used verbatim).
+  string location = 8;
+  // "parquet" | "csv" | "json".
+  string format = 9;
+  // Replace (drop + create) vs append (INSERT … SELECT). Defaults true.
+  bool overwrite = 10;
+  map<string, string> options = 11;
+  // Source .sqlx file path (generated).
+  string file_name = 12;
+  string jit_code = 13;
+}
+
 message Assertion {
   Target target = 8;
   Target canonical_target = 13;
@@ -442,6 +464,7 @@ message CompiledGraph {
   repeated Notebook notebooks = 12;
   repeated DataPreparation data_preparations = 13;
   repeated Export exports = 14;
+  repeated Import imports = 16;
 
   GraphErrors graph_errors = 7;
 

@@ -37,6 +37,10 @@ export class MysqlExecutionSql implements IExecutionSql {
     throw new Error("type: \"export\" is not supported on MySQL/MariaDB yet.");
   }
 
+  public createImportTasks(imp: sqlanvil.IImport): sqlanvil.IExecutionTask[] {
+    throw new Error("type: \"import\" is not supported on MySQL/MariaDB yet.");
+  }
+
   // --- `sqlanvil validate`: empty, isolated shadow-database stubs. ---
 
   public validationStubSql(table: sqlanvil.ITable): string {

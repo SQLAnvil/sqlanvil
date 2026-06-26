@@ -696,6 +696,55 @@ message ActionConfig {
     ExportOptions export = 10;
   }
 
+  // The user-facing `import: {}` block on a `type: "import"` action.
+  message ImportOptions {
+    // Source file/glob/URI to read: gs:// | s3:// | local:// | relative/absolute path.
+    // Used verbatim (unlike export, where the filename is derived) — point it at the exact
+    // file or glob (e.g. gs://bucket/orders/*.parquet).
+    string location = 1;
+    // "parquet" | "csv" | "json" (json = JSONL).
+    string format = 2;
+    // Replace the destination table (drop + create). Defaults to true. When false, rows are
+    // appended (INSERT … SELECT) into an existing table.
+    bool overwrite = 3;
+    // Format-specific passthrough options (reserved for future reader options).
+    map<string, string> options = 4;
+  }
+
+  // Configuration for a `type: "import"` action: loads a Parquet/CSV/JSON file into a table in
+  // the warehouse (the inverse of `type: "export"`). The resulting table is ref()-able.
+  message ImportConfig {
+    // The name of the import (the destination table name).
+    string name = 1;
+
+    // The dataset (schema) used to qualify the import's target name.
+    string dataset = 2;
+
+    // The Google Cloud project (database) of the import.
+    string project = 3;
+
+    // Targets of actions that this action is dependent on.
+    repeated Target dependency_targets = 4;
+
+    // Path to the source .sqlx file the action is defined in (generated).
+    string filename = 5;
+
+    // A list of user-defined tags with which the action should be labeled.
+    repeated string tags = 6;
+
+    // If set to true, this action will not be executed.
+    bool disabled = 7;
+
+    // Description of the import.
+    string description = 8;
+
+    // If true, this action only depends on data from explicitly-declared dependencies.
+    bool hermetic = 9;
+
+    // The import source + format options (the `import: {}` block).
+    ImportOptions import = 10;
+  }
+
   message DeclarationConfig {
     // The name of the declaration.
     string name = 1;
@@ -821,6 +870,7 @@ message ActionConfig {
     ForeignWrapperConfig foreign_wrapper = 11;
     VectorIndexConfig vector_index = 12;
     ExportConfig export = 13;
+    ImportConfig import = 14;
   }
 
   message RlsPolicyConfig {

@@ -76,6 +76,13 @@ export class PostgresExecutionSql implements IExecutionSql {
     return [sqlanvil.ExecutionTask.create({ type: "export", statement: exp.query })];
   }
 
+  public createImportTasks(imp: sqlanvil.IImport): sqlanvil.IExecutionTask[] {
+    // No SQL runs on Postgres; the runner performs the import via DuckDB (read the file, write into
+    // the warehouse). The "import"-type task is a marker; the ExecutionAction carries the source
+    // spec + destination target.
+    return [sqlanvil.ExecutionTask.create({ type: "import" })];
+  }
+
   public shouldWriteIncrementally(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,

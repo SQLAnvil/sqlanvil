@@ -60,7 +60,7 @@ export interface ValidateOptions {
   keepShadow?: boolean;
 }
 
-type NodeKind = "table" | "assertion" | "operation";
+type NodeKind = "table" | "assertion" | "operation" | "import";
 
 interface ValidateNode extends OrderedNode {
   kind: NodeKind;
@@ -128,6 +128,22 @@ export async function validate(
       action: undefined
     });
   }
+  // Imports load a file into a table — there's no warehouse-planner query to EXPLAIN and the file's
+  // columns are unknown before the run, so they're SKIPPED (like operations). A model that reads an
+  // imported table is therefore reported BLOCKED rather than validated against guessed columns.
+  for (const imp of compiledGraph.imports || []) {
+    if (!imp.target) {
+      continue;
+    }
+    nodes.push({
+      key: targetKey(imp.target),
+      dependencyKeys: depKeys(imp.dependencyTargets),
+      kind: "import",
+      type: "import",
+      target: imp.target,
+      action: undefined
+    });
+  }
 
   const ordered = topoOrder(nodes);
   // Only table/view/incremental stubs get materialized, so only their schemas need creating.
@@ -144,7 +160,7 @@ export async function validate(
     }
 
     for (const node of ordered) {
-      if (node.kind === "operation") {
+      if (node.kind === "operation" || node.kind === "import") {
         statusByKey.set(node.key, "SKIPPED");
         results.push({ target: node.target, type: node.type, status: "SKIPPED", errors: [] });
         continue;

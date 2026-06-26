@@ -151,6 +151,9 @@ export function catalogRows(compiledGraph: sqlanvil.ICompiledGraph): CatalogRows
   for (const exp of compiledGraph.exports || []) {
     add(exp, "export");
   }
+  for (const imp of compiledGraph.imports || []) {
+    add(imp, "import");
+  }
   for (const declaration of compiledGraph.declarations || []) {
     add(declaration, "declaration");
   }

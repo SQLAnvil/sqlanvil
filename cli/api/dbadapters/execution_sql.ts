@@ -25,6 +25,7 @@ export interface IExecutionSql {
   ): Tasks;
   dropIfExists(target: sqlanvil.ITarget, type: sqlanvil.TableMetadata.Type): string;
   createExportTasks(exp: sqlanvil.IExport): sqlanvil.IExecutionTask[];
+  createImportTasks(imp: sqlanvil.IImport): sqlanvil.IExecutionTask[];
   // `sqlanvil validate`: empty, typed shadow-schema stub for a model so downstream
   // refs resolve at validation time; plus schema (database, on MySQL) create/drop.
   validationStubSql(table: sqlanvil.ITable): string;
@@ -80,6 +81,10 @@ export class ExecutionSql implements IExecutionSql {
 
   public createExportTasks(exp: sqlanvil.IExport): sqlanvil.IExecutionTask[] {
     return exp.disabled ? [] : this.delegate.createExportTasks(exp);
+  }
+
+  public createImportTasks(imp: sqlanvil.IImport): sqlanvil.IExecutionTask[] {
+    return imp.disabled ? [] : this.delegate.createImportTasks(imp);
   }
 
   public createAssertionTasks(assertion: sqlanvil.IAssertion): sqlanvil.IExecutionTask[] {

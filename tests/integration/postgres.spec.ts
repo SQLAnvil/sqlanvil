@@ -7,6 +7,7 @@ import * as dfapi from "sa/cli/api";
 import * as dbadapters from "sa/cli/api/dbadapters";
 import { sweepOrphanShadows, validate, ValidateDeps } from "sa/cli/api/commands/validate";
 import { readViaDuckdb, runDuckdbExport } from "sa/cli/api/dbadapters/duckdb_export";
+import { runDuckdbImport } from "sa/cli/api/dbadapters/duckdb_import";
 import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { targetAsReadableString } from "sa/core/targets";
@@ -1040,6 +1041,63 @@ $$`
         { id: 1, name: "a" },
         { id: 2, name: "b" }
       ]);
+
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    });
+  }
+
+  for (const format of ["parquet", "csv"]) {
+    test(`imports a local ${format} file into Postgres via DuckDB (round-trip)`, { timeout: 120000 }, async () => {
+      const schema = `sa_integration_test_import_${format}`;
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+      await dbadapter.execute(`create schema "${schema}"`);
+      await dbadapter.execute(
+        `create table "${schema}"."src" as select 1 as id, 'a' as name union all select 2, 'b'`
+      );
+
+      const pg = {
+        host: PostgresFixture.host,
+        port: PostgresFixture.port,
+        database: PostgresFixture.database,
+        user: PostgresFixture.user,
+        password: PostgresFixture.password
+      };
+
+      // Write a file to import from (reuse the export bridge).
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sa-import-"));
+      await runDuckdbExport({
+        spec: sqlanvil.ExportSpec.create({ location: `local://${dir}/`, format, filename: "src" }),
+        selectSql: `select * from "${schema}"."src" order by id`,
+        pg,
+        actionName: "src"
+      });
+      const ext = format === "json" ? "jsonl" : format;
+      const file = `local://${path.join(dir, `src.${ext}`)}`;
+
+      // Overwrite import: the file lands in a new, ref()-able warehouse table.
+      await runDuckdbImport({
+        spec: sqlanvil.ImportSpec.create({ location: file, format, overwrite: true }),
+        target: sqlanvil.Target.create({ schema, name: "loaded" }),
+        pg
+      });
+      const loaded = (
+        await dbadapter.execute(`select id, name from "${schema}"."loaded" order by id`)
+      ).rows.map((r: any) => ({ id: Number(r.id), name: r.name }));
+      expect(loaded).deep.equals([
+        { id: 1, name: "a" },
+        { id: 2, name: "b" }
+      ]);
+
+      // Append import (overwrite:false): rows are added to the existing table.
+      await runDuckdbImport({
+        spec: sqlanvil.ImportSpec.create({ location: file, format, overwrite: false }),
+        target: sqlanvil.Target.create({ schema, name: "loaded" }),
+        pg
+      });
+      const count = Number(
+        (await dbadapter.execute(`select count(*)::int as n from "${schema}"."loaded"`)).rows[0].n
+      );
+      expect(count).equals(4);
 
       await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
     });

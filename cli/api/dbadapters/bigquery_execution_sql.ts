@@ -210,6 +210,20 @@ from (${query}) as insertions`;
     return [sqlanvil.ExecutionTask.create({ type: "statement", statement })];
   }
 
+  public createImportTasks(imp: sqlanvil.IImport): sqlanvil.IExecutionTask[] {
+    // BigQuery imports in-engine via LOAD DATA from gs:// files (overwrite = replace, into = append).
+    const target = this.resolveTarget(imp.target);
+    const format = (imp.format || "").toUpperCase();
+    const verb = imp.overwrite ? "OVERWRITE" : "INTO";
+    const statement =
+      `LOAD DATA ${verb} ${target}\n` +
+      `FROM FILES (\n` +
+      `  format = '${format}',\n` +
+      `  uris = ['${imp.location}']\n` +
+      `)`;
+    return [sqlanvil.ExecutionTask.create({ type: "statement", statement })];
+  }
+
   // --- `sqlanvil validate`: empty, isolated shadow-dataset stubs (dry-run powers evaluate()). ---
 
   public validationStubSql(table: sqlanvil.ITable): string {

@@ -6,7 +6,8 @@ type CompileAction =
   | sqlanvil.ITable
   | sqlanvil.IOperation
   | sqlanvil.IAssertion
-  | sqlanvil.IExport;
+  | sqlanvil.IExport
+  | sqlanvil.IImport;
 
 export function prune(
   compiledGraph: sqlanvil.ICompiledGraph,
@@ -27,6 +28,9 @@ export function prune(
     ),
     exports: compiledGraph.exports.filter(action =>
       includedActionNames.has(targetAsReadableString(action.target))
+    ),
+    imports: compiledGraph.imports.filter(action =>
+      includedActionNames.has(targetAsReadableString(action.target))
     )
   };
 }
@@ -40,7 +44,8 @@ function computeIncludedActionNames(
     compiledGraph.tables,
     compiledGraph.operations,
     compiledGraph.assertions,
-    compiledGraph.exports
+    compiledGraph.exports,
+    compiledGraph.imports
   );
 
   const allActionNames = new Set<string>(

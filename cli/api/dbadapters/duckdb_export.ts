@@ -15,8 +15,15 @@ import { sqlanvil } from "sa/protos/ts";
 export const PG_ATTACH_ALIAS = "pg";
 export const SECRET_NAME = "sa_export";
 
-/** Builds the DuckDB ATTACH for the project's Postgres connection (read-only). */
-export function buildAttachSql(pg: sqlanvil.IPostgresConnection): string {
+/**
+ * Builds the DuckDB ATTACH for the project's Postgres connection. Read-only by default (exports
+ * only read); pass `{ readOnly: false }` for imports, which write into the warehouse.
+ */
+export function buildAttachSql(
+  pg: sqlanvil.IPostgresConnection,
+  opts: { readOnly?: boolean } = {}
+): string {
+  const readOnly = opts.readOnly !== false;
   const dsn = [
     pg.host && `host=${pg.host}`,
     pg.port && `port=${pg.port}`,
@@ -26,7 +33,8 @@ export function buildAttachSql(pg: sqlanvil.IPostgresConnection): string {
   ]
     .filter(Boolean)
     .join(" ");
-  return `ATTACH '${dsn}' AS ${PG_ATTACH_ALIAS} (TYPE postgres, READ_ONLY)`;
+  const mode = readOnly ? ", READ_ONLY" : "";
+  return `ATTACH '${dsn}' AS ${PG_ATTACH_ALIAS} (TYPE postgres${mode})`;
 }
 
 /**

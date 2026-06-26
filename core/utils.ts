@@ -2,6 +2,7 @@ import { Action, ActionProto } from "sa/core/actions";
 import { Assertion } from "sa/core/actions/assertion";
 import { DataPreparation } from "sa/core/actions/data_preparation";
 import { Export } from "sa/core/actions/export";
+import { Import } from "sa/core/actions/import";
 import { IncrementalTable } from "sa/core/actions/incremental_table";
 import { Notebook } from "sa/core/actions/notebook";
 import { Operation } from "sa/core/actions/operation";
@@ -22,7 +23,8 @@ type actionsWithDependencies =
   | Operation
   | Notebook
   | DataPreparation
-  | Export;
+  | Export
+  | Import;
 
 // This side-steps webpack's require in favour of the real require.
 export const nativeRequire =

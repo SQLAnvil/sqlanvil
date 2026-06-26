@@ -39,3 +39,6 @@ docs/superpowers/
 
 # Local Supabase CLI stack state (run-supabase-stack.sh)
 tools/supabase/.supabase-stack/
+
+# Local secrets
+.env

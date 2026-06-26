@@ -5,6 +5,7 @@ import * as dbadapters from "sa/cli/api/dbadapters";
 import { substituteConnectionCredentials } from "sa/cli/api/commands/connection_credentials";
 import { IBigQueryExecutionOptions } from "sa/cli/api/dbadapters/bigquery";
 import { DuckdbExportArgs, runDuckdbExport } from "sa/cli/api/dbadapters/duckdb_export";
+import { DuckdbImportArgs, runDuckdbImport } from "sa/cli/api/dbadapters/duckdb_import";
 import { Flags } from "sa/common/flags";
 import { retry } from "sa/common/promises";
 import { deepClone, equals } from "sa/common/protos";
@@ -45,6 +46,8 @@ export interface IExecutionOptions {
   storageCredentials?: { [scheme: string]: { [key: string]: string } };
   // Seam for tests to inject a fake exporter; defaults to runDuckdbExport.
   duckdbExport?: (args: DuckdbExportArgs) => Promise<{ destination: string }>;
+  // Seam for tests to inject a fake importer; defaults to runDuckdbImport.
+  duckdbImport?: (args: DuckdbImportArgs) => Promise<{ source: string }>;
 }
 
 export function run(
@@ -458,6 +461,24 @@ export class Runner {
           ? sqlanvil.TaskResult.ExecutionStatus.CANCELLED
           : sqlanvil.TaskResult.ExecutionStatus.FAILED;
         taskResult.errorMessage = `${this.graph.projectConfig.warehouse} export error: ${e.message}`;
+      }
+    } else if (task.type === "import") {
+      // Postgres/Supabase imports run runner-side via DuckDB (read the file, write into the
+      // warehouse). BigQuery imports run on the warehouse client as a LOAD DATA statement.
+      try {
+        const importer = this.executionOptions.duckdbImport || runDuckdbImport;
+        await importer({
+          spec: action?.import,
+          target: action?.target,
+          pg: this.executionOptions.warehouseConnection,
+          storage: this.executionOptions.storageCredentials
+        });
+        taskResult.status = sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL;
+      } catch (e) {
+        taskResult.status = this.cancelled
+          ? sqlanvil.TaskResult.ExecutionStatus.CANCELLED
+          : sqlanvil.TaskResult.ExecutionStatus.FAILED;
+        taskResult.errorMessage = `${this.graph.projectConfig.warehouse} import error: ${e.message}`;
       }
     } else {
       try {
