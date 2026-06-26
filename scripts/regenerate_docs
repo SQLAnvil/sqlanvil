@@ -74,6 +74,7 @@ notebook:_core_actions_notebook_.notebook
 test:_core_actions_test_.test
 declaration:_core_actions_declaration_.declaration
 export:_core_actions_export_.export
+import:_core_actions_import_.import
 "
 for entry in ${PAGES}; do
   slug="${entry%%:*}"; stem="${entry##*:}"
