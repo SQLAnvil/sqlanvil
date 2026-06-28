@@ -6,31 +6,34 @@ set -euo pipefail
 #   * Javascript API class pages (typedoc)  -> reference/<action>.md
 #   * protobuf config reference (camelCase)  -> reference/configs.md
 #
-# Docs live in the separate SQLAnvil/docs repo. Clone it as a sibling (../docs) or set DOCS_REPO.
-#   git clone git@github.com:sqlanvil/docs.git ../docs
-# The published Starlight site (sqlanvil-com) is an optional mirror: set COM_REPO to its root and
-# each page's existing front matter is preserved while the body is replaced.
+# These publish straight into the Starlight site (sqlanvil-com) — the single canonical home for
+# user-facing docs (sqlanvil.com/docs). Clone it as a sibling (../sqlanvil-com) or set COM_REPO.
+#   git clone git@github.com:SQLAnvil/sqlanvil-com.git ../sqlanvil-com
+# Each generated page replaces only the BODY of the existing Starlight page; its front matter
+# (title/description/sidebar) is preserved.
 ####################################################################################################
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-DOCS_REPO="${DOCS_REPO:-../docs}"
-REF_DIR="${DOCS_REPO}/reference"
-COM_REPO="${COM_REPO:-}"   # e.g. ../sqlanvil-com ; empty disables the Starlight mirror
+COM_REPO="${COM_REPO:-../sqlanvil-com}"
 COM_REF_REL="src/content/docs/docs/reference"
+COM_REF="${COM_REPO}/${COM_REF_REL}"
 
-if [ ! -d "${REF_DIR}" ]; then
-  echo "ERROR: ${REF_DIR} not found. Clone the docs repo: git clone git@github.com:sqlanvil/docs.git ${DOCS_REPO}"
+if [ ! -d "${COM_REF}" ]; then
+  echo "ERROR: ${COM_REF} not found. Clone the site repo: git clone git@github.com:SQLAnvil/sqlanvil-com.git ${COM_REPO}"
   exit 1
 fi
-REF_DIR="$(cd "${REF_DIR}" && pwd)"
-[ -n "${COM_REPO}" ] && COM_REF="$(cd "${COM_REPO}/${COM_REF_REL}" && pwd)" || COM_REF=""
+COM_REF="$(cd "${COM_REF}" && pwd)"
+
+# Generated bodies (plain markdown, no front matter) are written here, then applied into the
+# Starlight pages with their front matter preserved.
+GEN_DIR="${REPO_ROOT}/newdocs/_gen"
+mkdir -p "${GEN_DIR}"
 
 # Replace the body of a Starlight page while preserving its leading `--- ... ---` front matter.
-# $1 = body file (plain markdown), $2 = target page in COM_REF.
-mirror_to_com() {
+# $1 = generated body file (plain markdown), $2 = target page in COM_REF.
+apply_to_site() {
   local body="$1" target="$2"
-  [ -n "${COM_REF}" ] || return 0
   if [ -f "${target}" ] && head -1 "${target}" | grep -q '^---$'; then
     awk 'NR==1{print;next} /^---$/{print;exit} {print}' "${target}" > "${target}.tmp"
     printf '\n' >> "${target}.tmp"
@@ -80,10 +83,10 @@ for entry in ${PAGES}; do
   slug="${entry%%:*}"; stem="${entry##*:}"
   src="${REPO_ROOT}/newdocs/classes/${stem}.md"
   [ -f "${src}" ] || { echo "WARNING: typedoc did not emit ${stem}.md — skipping ${slug}"; continue; }
-  python3 "${SCRIPT_DIR}/../tools/typedoc/postprocess.py" "${src}" "${slug}" > "${REF_DIR}/${slug}.md"
-  mirror_to_com "${REF_DIR}/${slug}.md" "${COM_REF}/${slug}.md"
+  python3 "${SCRIPT_DIR}/../tools/typedoc/postprocess.py" "${src}" "${slug}" > "${GEN_DIR}/${slug}.md"
+  apply_to_site "${GEN_DIR}/${slug}.md" "${COM_REF}/${slug}.md"
 done
-echo "Generated JS-API reference pages in ${REF_DIR}"
+echo "Generated JS-API reference pages into ${COM_REF}"
 
 ####################################################################################################
 # protobuf config reference (reference/configs.md).
@@ -100,8 +103,8 @@ if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
 fi
 
 docker run --rm \
-  -v "${REF_DIR}:/out" \
+  -v "${GEN_DIR}:/out" \
   -v "${REPO_ROOT}/protos:/protos" \
   "${IMAGE}" --doc_opt=markdown,configs.md::camel_case_fields=true configs.proto
-mirror_to_com "${REF_DIR}/configs.md" "${COM_REF}/configs.md"
-echo "Generated ${REF_DIR}/configs.md"
+apply_to_site "${GEN_DIR}/configs.md" "${COM_REF}/configs.md"
+echo "Generated configs.md into ${COM_REF}"
