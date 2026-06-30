@@ -55,7 +55,10 @@ operational `public` tables. The shaped staging view (`stg_zip_codes`) sits in
   (Dashboard → Database → Extensions).
 - A **GCP service account** with a billing-enabled project and BigQuery read access.
   Querying public datasets is free up to the monthly tier, but BigQuery still needs
-  a billing project to run the query.
+  a billing project to run the query. Set that project as `billingProject` on the
+  connection (the source `bigquery-public-data` can be read but not billed) — the FDW
+  then bills your project and reads the source via a full-FQN subquery. The service
+  account needs `roles/bigquery.jobUser` on your billing project.
 - `@sqlanvil/cli` (`npm i -g @sqlanvil/cli`).
 
 > The BigQuery wrapper relies on Supabase's `wrappers` extension. It works on

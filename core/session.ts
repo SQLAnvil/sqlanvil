@@ -520,7 +520,12 @@ export class Session {
             name: serverName,
             provider: "bigquery",
             server: serverName,
-            serverOptions: { project_id: connection.project, dataset_id: connection.dataset },
+            serverOptions: {
+              // Bill query jobs to `billingProject` when set (e.g. read bigquery-public-data
+              // but bill your own project); otherwise the source project bills itself.
+              project_id: connection.billingProject || connection.project,
+              dataset_id: connection.dataset
+            },
             credential: { saKeyId: connection.saKeyId }
           })
         );
@@ -544,9 +549,16 @@ export class Session {
       }
     }
 
+    // BigQuery: with a separate `billingProject`, the server's project_id is the billing project,
+    // so the plain `table` option would resolve `billingProject.dataset.table` (wrong project).
+    // Read the source via a full-FQN subquery instead — bills `billingProject`, reads `project`.
+    const bqTable = connection.billingProject
+      ? `(select ${Object.keys(columnTypes).join(", ")} from ` +
+        `\`${connection.project}.${connection.dataset}.${config.name}\`)`
+      : config.name;
     const ftOptions =
       connection.platform === "bigquery"
-        ? { table: config.name }
+        ? { table: bqTable }
         : { schema_name: config.schema || connection.defaultSchema || "public", table_name: config.name };
 
     this.actions.push(

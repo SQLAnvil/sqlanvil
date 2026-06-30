@@ -11,8 +11,13 @@ connections:
   # auto-generates the read-only FDW bridge — no hand-written wrapper() needed.
   bigquery_public:
     platform: bigquery
-    project: bigquery-public-data
+    project: bigquery-public-data            # where the source dataset LIVES
     dataset: geo_us_boundaries
+    # The source is in Google's project, which you can READ but not BILL. Set
+    # `billingProject` to your own GCP project so the FDW bills your project and
+    # reads the source via a full-FQN subquery. Omit it only when `project` is a
+    # dataset in your own (billing) project.
+    billingProject: "REPLACE_WITH_YOUR_GCP_PROJECT"
     saKeyId: "REPLACE_WITH_VAULT_SECRET_ID"   # non-secret Vault pointer (see README)
 vars:
   target_zip: "94110"

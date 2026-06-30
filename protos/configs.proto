@@ -102,6 +102,11 @@ message ConnectionConfig {
   string dataset = 3;
   // Optional. Non-secret Vault secret id used in generated BigQuery FDW server DDL.
   string sa_key_id = 4;
+  // Optional. BigQuery project that runs/bills the FDW query jobs. Defaults to `project`.
+  // Set this to your own project when `project` is a dataset you can read but not bill
+  // (e.g. `bigquery-public-data`): the FDW server's `project_id` becomes the billing
+  // project and the foreign table reads the source via a full-FQN subquery.
+  string billing_project = 9;
   // Optional. Postgres source host (non-secret; password lives in .df-credentials.json).
   string host = 5;
   // Optional. Postgres source port.
