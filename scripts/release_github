@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+#
+# Cut (or refresh) the GitHub Release for the current SQLANVIL_VERSION.
+#
+# npm publish stays manual (badger 2FA; see sqlanvil-docs/npm_publishing.md §3.4). This automates the
+# easily-forgotten §3.5 GitHub-release step — it was skipped on 1.8.2 AND 1.13.0. Run it right after the
+# npm publish. Idempotent: re-running updates the notes/title of an existing release.
+#
+#   ./scripts/release_github                 # release the version in version.bzl
+#   VERSION=1.13.0 ./scripts/release_github  # override
+#   DRY_RUN=1 ./scripts/release_github       # print what it would do, touch nothing
+#
+# Notes come from sqlanvil-com/whats-new.md (set WHATS_NEW=... to relocate). Relative /docs links are
+# absolutised to https://sqlanvil.com/docs. The canonical tag is vX.Y.Z (bare X.Y.Z tags are inherited
+# upstream Dataform tags — leave them alone).
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+REPO="SQLAnvil/sqlanvil"
+WHATS_NEW="${WHATS_NEW:-../sqlanvil-com/src/content/docs/docs/whats-new.md}"
+VERSION="${VERSION:-$(grep -oE 'SQLANVIL_VERSION = "[^"]+"' version.bzl | sed -E 's/.*"([^"]+)".*/\1/')}"
+[ -n "$VERSION" ] || { echo "could not read SQLANVIL_VERSION from version.bzl" >&2; exit 1; }
+TAG="v$VERSION"
+
+[ -f "$WHATS_NEW" ] || { echo "whats-new not found: $WHATS_NEW (set WHATS_NEW=...)" >&2; exit 1; }
+
+# --- Headline + body for this version, straight from whats-new.md ----------------------------------
+# Header line looks like:  ## 1.13.0 — Cross-project BigQuery FDW (`billingProject`)
+HEADER_LINE=$(grep -m1 "^## $VERSION " "$WHATS_NEW" || true)
+[ -n "$HEADER_LINE" ] || { echo "no '## $VERSION' section in $WHATS_NEW — add the release entry first" >&2; exit 1; }
+# Strip the '## X.Y.Z' prefix, then any leading non-alphanumeric run (spaces + the em-dash, encoding-agnostic).
+HEADLINE=$(printf '%s' "$HEADER_LINE" | sed -E "s/^## [0-9.]+//" | sed 's/^[^A-Za-z0-9(`]*//')
+TITLE="$TAG — $HEADLINE"
+
+# Body = everything under the header up to the next '## ', with /docs links absolutised + an Install line.
+BODY=$(awk -v v="$VERSION" '
+  $0 ~ "^## " v " " { grab=1; next }
+  grab && /^## / { exit }
+  grab { print }
+' "$WHATS_NEW" | sed 's#](/docs/#](https://sqlanvil.com/docs/#g')
+
+NOTES_FILE=$(mktemp)
+{ printf '%s\n' "$BODY"; printf '\n**Install:** `npm i -g @sqlanvil/cli@%s`\n' "$VERSION"; } > "$NOTES_FILE"
+
+# --- Release commit: the 'release: SQLAnvil X.Y.Z' bump, else HEAD ----------------------------------
+COMMIT=$(git log -1 --format=%H --grep="release: SQLAnvil $VERSION" --grep="SQLANVIL_VERSION.*$VERSION" || true)
+[ -n "$COMMIT" ] || COMMIT=$(git rev-parse HEAD)
+
+echo "Version : $VERSION"
+echo "Tag     : $TAG  (commit ${COMMIT:0:9})"
+echo "Title   : $TITLE"
+echo "Notes   :"
+sed 's/^/  | /' "$NOTES_FILE"
+
+if [ "${DRY_RUN:-0}" = "1" ]; then
+  echo "[dry-run] would tag + push $TAG and create/update the release"
+  rm -f "$NOTES_FILE"; exit 0
+fi
+
+# --- Canonical tag on the release commit, pushed ---------------------------------------------------
+if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+  git tag -a "$TAG" "$COMMIT" -m "$TITLE"
+fi
+git push origin "$TAG"
+
+# --- Create or update the release ------------------------------------------------------------------
+if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+  echo "Release $TAG exists — updating title/notes."
+  gh release edit "$TAG" --repo "$REPO" --title "$TITLE" --notes-file "$NOTES_FILE" --latest
+else
+  gh release create "$TAG" --repo "$REPO" --verify-tag --latest --title "$TITLE" --notes-file "$NOTES_FILE"
+fi
+
+rm -f "$NOTES_FILE"
+echo "Done: https://github.com/$REPO/releases/tag/$TAG"
