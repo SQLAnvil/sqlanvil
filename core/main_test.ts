@@ -1105,6 +1105,89 @@ connections:
         /Connection "bad".*platform/
       );
     });
+
+    test("bigquery connection with billingProject bills the billing project and reads via a subquery", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `defaultDataset: public
+warehouse: my_supabase
+connections:
+  my_supabase:
+    platform: supabase
+    defaultSchema: public
+  bigquery_public:
+    platform: bigquery
+    project: bigquery-public-data
+    dataset: geo_us_boundaries
+    billingProject: my-billing-project
+    saKeyId: vault-123`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions", "zip_codes.sqlx"),
+        `config {
+  type: "declaration",
+  connection: "bigquery_public",
+  name: "zip_codes",
+  columnTypes: { zip_code: "text", lat: "float8" }
+}`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      const operations = result.compile.compiledGraph.operations;
+      const serverSql = operations
+        .find(o => o.target.name === "bigquery_public_srv")
+        .queries.join("\n");
+      const foreignTableSql = operations
+        .find(o => o.target.schema === "bigquery_public_ext" && o.target.name === "zip_codes")
+        .queries.join("\n");
+      // Bills the billing project, not the (unbillable) data project.
+      expect(serverSql).to.contain("project_id 'my-billing-project'");
+      // Reads the source via a full-FQN subquery so the job bills the billing project.
+      expect(foreignTableSql).to.contain(
+        "select zip_code, lat from `bigquery-public-data.geo_us_boundaries.zip_codes`"
+      );
+    });
+
+    test("bigquery connection without billingProject uses the plain table option (unchanged)", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `defaultDataset: public
+warehouse: my_supabase
+connections:
+  my_supabase:
+    platform: supabase
+    defaultSchema: public
+  my_bq:
+    platform: bigquery
+    project: my-project
+    dataset: my_dataset
+    saKeyId: vault-123`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions", "widgets.sqlx"),
+        `config {
+  type: "declaration",
+  connection: "my_bq",
+  name: "widgets",
+  columnTypes: { id: "int8" }
+}`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      const operations = result.compile.compiledGraph.operations;
+      const serverSql = operations.find(o => o.target.name === "my_bq_srv").queries.join("\n");
+      const foreignTableSql = operations
+        .find(o => o.target.schema === "my_bq_ext" && o.target.name === "widgets")
+        .queries.join("\n");
+      expect(serverSql).to.contain("project_id 'my-project'");
+      expect(foreignTableSql).to.contain("options (table 'widgets')");
+    });
   });
 
   suite("action configs", () => {
