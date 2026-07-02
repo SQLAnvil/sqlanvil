@@ -69,7 +69,8 @@ export class Builder {
       this.prunedGraph.operations.map(o => this.buildOperation(o)),
       this.prunedGraph.assertions.map(a => this.buildAssertion(a)),
       this.prunedGraph.exports.map(e => this.buildExport(e)),
-      this.prunedGraph.imports.map(i => this.buildImport(i))
+      this.prunedGraph.imports.map(i => this.buildImport(i)),
+      this.prunedGraph.extracts.map(e => this.buildExtract(e))
     );
     return sqlanvil.ExecutionGraph.create({
       projectConfig: this.prunedGraph.projectConfig,
@@ -144,6 +145,26 @@ export class Builder {
     };
   }
 
+  private buildExtract(ext: sqlanvil.IExtract) {
+    // No warehouse SQL: the "extract" task is a marker; the run-time seam reads the cross-warehouse
+    // source (keyless BigQuery) and materializes the rows into the target from the ExtractSpec.
+    return {
+      ...this.toPartialExecutionAction(ext),
+      type: "extract",
+      tasks: ext.disabled ? [] : [sqlanvil.ExecutionTask.create({ type: "extract", statement: "" })],
+      hermeticity: ext.hermeticity || sqlanvil.ActionHermeticity.NON_HERMETIC,
+      extract: sqlanvil.ExtractSpec.create({
+        connectionName: ext.connectionName,
+        platform: ext.platform,
+        project: ext.project,
+        dataset: ext.dataset,
+        sourceName: ext.sourceName,
+        billingProject: ext.billingProject,
+        columnTypes: ext.columnTypes
+      })
+    };
+  }
+
   private toPartialExecutionAction(
     action:
       | sqlanvil.ITable
@@ -151,6 +172,7 @@ export class Builder {
       | sqlanvil.IAssertion
       | sqlanvil.IExport
       | sqlanvil.IImport
+      | sqlanvil.IExtract
   ) {
     return sqlanvil.ExecutionAction.create({
       target: action.target,

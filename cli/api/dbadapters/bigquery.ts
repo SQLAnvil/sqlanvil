@@ -43,7 +43,9 @@ export function bigQueryClientOptions(
   const base: BigQueryOptions = {
     projectId,
     scopes: EXTRA_GOOGLE_SCOPES,
-    location: credentials.location
+    // Empty string is not a valid BigQuery location; omit it so the client/job auto-detects the
+    // location from the referenced tables (e.g. a runner-extract source with no location set).
+    location: credentials.location || undefined
   };
   if (credentials.accessToken) {
     const authClient = new OAuth2Client();

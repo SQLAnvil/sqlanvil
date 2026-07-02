@@ -4,6 +4,7 @@ import Long from "long";
 import * as dbadapters from "sa/cli/api/dbadapters";
 import { substituteConnectionCredentials } from "sa/cli/api/commands/connection_credentials";
 import { IBigQueryExecutionOptions } from "sa/cli/api/dbadapters/bigquery";
+import { BigQueryExtractArgs, runBigQueryExtract } from "sa/cli/api/dbadapters/bigquery_extract";
 import { DuckdbExportArgs, runDuckdbExport } from "sa/cli/api/dbadapters/duckdb_export";
 import { DuckdbImportArgs, runDuckdbImport } from "sa/cli/api/dbadapters/duckdb_import";
 import { Flags } from "sa/common/flags";
@@ -48,6 +49,8 @@ export interface IExecutionOptions {
   duckdbExport?: (args: DuckdbExportArgs) => Promise<{ destination: string }>;
   // Seam for tests to inject a fake importer; defaults to runDuckdbImport.
   duckdbImport?: (args: DuckdbImportArgs) => Promise<{ source: string }>;
+  // Seam for tests to inject a fake extractor; defaults to runBigQueryExtract.
+  bigQueryExtract?: (args: BigQueryExtractArgs) => Promise<{ rowCount: number }>;
 }
 
 export function run(
@@ -479,6 +482,24 @@ export class Runner {
           ? sqlanvil.TaskResult.ExecutionStatus.CANCELLED
           : sqlanvil.TaskResult.ExecutionStatus.FAILED;
         taskResult.errorMessage = `${this.graph.projectConfig.warehouse} import error: ${e.message}`;
+      }
+    } else if (task.type === "extract") {
+      // runner-extract: read the cross-warehouse source (keyless BigQuery) and materialize the rows
+      // into this action's target (Postgres/Supabase), replacing the live FDW foreign table.
+      try {
+        const extractor = this.executionOptions.bigQueryExtract || runBigQueryExtract;
+        await extractor({
+          spec: action?.extract,
+          target: action?.target,
+          pg: this.executionOptions.warehouseConnection,
+          connectionCredentials: this.executionOptions.connectionCredentials || {}
+        });
+        taskResult.status = sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL;
+      } catch (e) {
+        taskResult.status = this.cancelled
+          ? sqlanvil.TaskResult.ExecutionStatus.CANCELLED
+          : sqlanvil.TaskResult.ExecutionStatus.FAILED;
+        taskResult.errorMessage = `${this.graph.projectConfig.warehouse} extract error: ${e.message}`;
       }
     } else {
       try {
