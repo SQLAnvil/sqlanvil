@@ -7,12 +7,13 @@ ts_library(
     name = "flags",
     srcs = glob(
         ["*.ts"],
-        exclude = ["*_test.ts"],
+        exclude = ["*_test.ts", "*.spec.ts"],
     ),
     deps = [
         "//:modules-fix",
         "@npm//@types/long",
         "@npm//@types/node",
+        "@npm//long",
     ],
 )
 

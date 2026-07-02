@@ -78,19 +78,37 @@ export interface IBigQueryExecutionOptions {
   reservation?: string;
 }
 
+export type BigQueryClientProvider = (projectId?: string) => BigQuery;
+
+export function createBigQueryClientProvider(
+  credentials: sqlanvil.IBigQuery
+): BigQueryClientProvider {
+  const clients = new Map<string, BigQuery>();
+  return (projectId?: string) => {
+    projectId = projectId || credentials.projectId;
+    if (!clients.has(projectId)) {
+      // bigQueryClientOptions carries the accessToken > JSON key > ADC precedence (keyless support).
+      clients.set(projectId, new BigQuery(bigQueryClientOptions(credentials, projectId)));
+    }
+    return clients.get(projectId);
+  };
+}
+
 export class BigQueryDbAdapter implements IDbAdapter {
   private bigQueryCredentials: sqlanvil.IBigQuery;
   private pool: PromisePoolExecutor;
-
-  private readonly clients = new Map<string, BigQuery>();
-  private readonly bigqueryClient?: BigQuery;
+  private clientProvider: BigQueryClientProvider;
 
   constructor(
     credentials: sqlanvil.IBigQuery,
-    options?: { concurrencyLimit?: number; bigqueryClient?: BigQuery }
+    options?: {
+      concurrencyLimit?: number;
+      clientProvider?: BigQueryClientProvider;
+    }
   ) {
     this.bigQueryCredentials = credentials;
-    this.bigqueryClient = options?.bigqueryClient;
+    this.clientProvider = options?.clientProvider || createBigQueryClientProvider(credentials);
+
     // Bigquery allows 50 concurrent queries, and a rate limit of 100/user/second by default.
     // These limits should be safely low enough for most projects.
     this.pool = new PromisePoolExecutor({
@@ -215,7 +233,7 @@ export class BigQueryDbAdapter implements IDbAdapter {
       datasetIds.map(async datasetId => {
         const [tables] = await this.getClient(database)
           .dataset(datasetId)
-          .getTables();
+          .getTables({ autoPaginate: true, maxResults: 1000 });
         await Promise.all(
           tables.map(async table => {
             const metadata = await this.table({
@@ -313,14 +331,14 @@ export class BigQueryDbAdapter implements IDbAdapter {
   }
 
   public async schemas(database: string): Promise<string[]> {
-    const data = await this.getClient(database).getDatasets();
+    const data = await this.getClient(database).getDatasets({ autoPaginate: true, maxResults: 1000 });
     return data[0].map(dataset => dataset.id);
   }
 
   public async createSchema(database: string, schema: string): Promise<void> {
     await this.execute(
       `create schema if not exists \`${database || this.bigQueryCredentials.projectId}.${schema}\``,
-      { bigquery: { location: this.bigQueryCredentials.location } }
+      { bigquery: { location: this.bigQueryCredentials.location || "US" } }
     );
   }
 
@@ -361,17 +379,7 @@ export class BigQueryDbAdapter implements IDbAdapter {
   }
 
   private getClient(projectId?: string) {
-    if (this.bigqueryClient) {
-      return this.bigqueryClient;
-    }
-    projectId = projectId || this.bigQueryCredentials.projectId;
-    if (!this.clients.has(projectId)) {
-      this.clients.set(
-        projectId,
-        new BigQuery(bigQueryClientOptions(this.bigQueryCredentials, projectId))
-      );
-    }
-    return this.clients.get(projectId);
+    return this.clientProvider(projectId);
   }
 
   private async runQuery(
@@ -579,11 +587,14 @@ function convertFieldType(type: string) {
     case "INT64":
       return sqlanvil.Field.Primitive.INTEGER;
     case "NUMERIC":
+    case "BIGNUMERIC":
       return sqlanvil.Field.Primitive.NUMERIC;
     case "BOOL":
     case "BOOLEAN":
       return sqlanvil.Field.Primitive.BOOLEAN;
     case "STRING":
+    case "JSON":
+    case "INTERVAL":
       return sqlanvil.Field.Primitive.STRING;
     case "DATE":
       return sqlanvil.Field.Primitive.DATE;

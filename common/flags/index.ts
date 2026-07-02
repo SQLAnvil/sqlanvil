@@ -1,47 +1,5 @@
 import Long from "long";
 
-/**
- * Extracts `--flag value` / `--flag=value` pairs from an argv array, for the
- * lightweight global flag system that coexists with the CLI's yargs parser.
- * Non-flag args (the command and positionals like a project dir) are ignored —
- * yargs is responsible for those.
- */
-export function parseArgvFlags(argv: string[]): { [flagName: string]: string } {
-  const parsedArgv: { [flagName: string]: string } = {};
-
-  const splitArgv = [];
-  for (let arg of argv) {
-    // TODO: This is a temporary hack to be backwards-compatible with yargs behaviour, where
-    // to switch off a boolean flag, it requires a 'no-' prefix in front of the flag name.
-    if (arg.startsWith("--no-")) {
-      arg = `--${arg.slice(5)}=false`;
-    }
-    if (arg.startsWith("--") && arg.includes("=")) {
-      splitArgv.push(arg.slice(0, arg.indexOf("=")));
-      splitArgv.push(arg.slice(arg.indexOf("=") + 1));
-    } else {
-      splitArgv.push(arg);
-    }
-  }
-
-  let currentFlagName = "";
-  for (const splitArg of splitArgv) {
-    if (splitArg.startsWith("--")) {
-      currentFlagName = splitArg.slice(2);
-      parsedArgv[currentFlagName] = "";
-    } else if (currentFlagName) {
-      parsedArgv[currentFlagName] = splitArg;
-      currentFlagName = "";
-    }
-    // Non-flag args (the command, and positionals like a project dir) are ignored —
-    // yargs parses those. This previously threw "Arg neither flag name nor flag value",
-    // which crashed the CLI at load whenever a positional followed an option
-    // (e.g. `sqlanvil init --warehouse postgres ./my_proj`).
-  }
-
-  return parsedArgv;
-}
-
 export class Flags {
   public static boolean(name: string, defaultValue: boolean = false) {
     return new SingleValueFlag(name, defaultValue, (stringValue: string) => {
@@ -81,11 +39,46 @@ export class Flags {
     Flags.parsedArgv[flagName] = value;
   }
 
-  private static readonly parsedArgv = parseArgvFlags(process.argv);
+  private static readonly parsedArgv = parseArgv(process.argv);
 
   private static invalidFlagValueError(flagName: string) {
     return new Error(`Invalid flag value: ${Flags.getRawFlagValue(flagName)} [${flagName}]`);
   }
+}
+
+// Parses an argv array into a map of flag name to flag value. Any token that is neither a flag
+// nor a flag value (for example the command and its positional arguments) is ignored, as yargs
+// is responsible for parsing those.
+export function parseArgv(argv: string[]): { [flagName: string]: string } {
+  const parsedArgv: { [flagName: string]: string } = {};
+
+  const splitArgv = [];
+  for (let arg of argv) {
+    // TODO: This is a temporary hack to be backwards-compatible with yargs behaviour, where
+    // to switch off a boolean flag, it requires a 'no-' prefix in front of the flag name.
+    if (arg.startsWith("--no-")) {
+      arg = `--${arg.slice(5)}=false`;
+    }
+    if (arg.startsWith("--") && arg.includes("=")) {
+      splitArgv.push(arg.slice(0, arg.indexOf("=")));
+      splitArgv.push(arg.slice(arg.indexOf("=") + 1));
+    } else {
+      splitArgv.push(arg);
+    }
+  }
+
+  let currentFlagName = "";
+  for (const splitArg of splitArgv) {
+    if (splitArg.startsWith("--")) {
+      currentFlagName = splitArg.slice(2);
+      parsedArgv[currentFlagName] = "";
+    } else if (currentFlagName) {
+      parsedArgv[currentFlagName] = splitArg;
+      currentFlagName = "";
+    }
+  }
+
+  return parsedArgv;
 }
 
 export interface IFlag<T> {

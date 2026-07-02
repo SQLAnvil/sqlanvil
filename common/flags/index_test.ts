@@ -1,36 +1,57 @@
 import { expect } from "chai";
 
-import { parseArgvFlags } from "sa/common/flags";
+import { parseArgv } from "sa/common/flags";
 import { suite, test } from "sa/testing";
 
 suite("flags", () => {
-  test("extracts --flag value pairs", () => {
-    expect(parseArgvFlags(["node", "cli", "--warehouse", "postgres"])).deep.equals({
-      warehouse: "postgres"
+  suite("parseArgv", () => {
+    test("parses a flag followed by its value", () => {
+      expect(parseArgv(["node", "script", "--foo", "bar"])).deep.equals({ foo: "bar" });
     });
-  });
 
-  test("extracts --flag=value", () => {
-    expect(parseArgvFlags(["node", "cli", "--credentials=/tmp/x.json"])).deep.equals({
-      credentials: "/tmp/x.json"
+    test("parses a --flag=value pair", () => {
+      expect(parseArgv(["node", "script", "--foo=bar"])).deep.equals({ foo: "bar" });
     });
-  });
 
-  test("--no-x becomes x=false", () => {
-    expect(parseArgvFlags(["node", "cli", "--no-cache"])).deep.equals({ cache: "false" });
-  });
+    test("parses multiple flags", () => {
+      expect(parseArgv(["node", "script", "--foo", "bar", "--baz", "qux"])).deep.equals({
+        foo: "bar",
+        baz: "qux"
+      });
+    });
 
-  test("ignores leading positionals (command + args before any flag)", () => {
-    expect(parseArgvFlags(["node", "cli", "init", "/tmp/dir", "--warehouse", "postgres"])).deep.equals(
-      { warehouse: "postgres" }
-    );
-  });
+    test("ignores positional arguments before flags", () => {
+      expect(parseArgv(["node", "script", "run", "my_project", "--foo", "bar"])).deep.equals({
+        foo: "bar"
+      });
+    });
 
-  test("ignores a positional that follows a flag, instead of throwing", () => {
-    // Regression: `init --warehouse postgres /tmp/dir` used to throw
-    // "Arg neither flag name nor flag value" at module load, crashing the CLI.
-    const argv = ["node", "cli", "init", "--warehouse", "postgres", "/tmp/dir"];
-    expect(() => parseArgvFlags(argv)).to.not.throw();
-    expect(parseArgvFlags(argv)).deep.equals({ warehouse: "postgres" });
+    test("ignores positional arguments after a flag and its value", () => {
+      // Regression test for https://github.com/dataform-co/dataform/issues/2198: a positional
+      // argument after a flag used to throw "Arg neither flag name nor flag value", which
+      // crashed the CLI.
+      expect(parseArgv(["node", "script", "run", "--foo", "bar", "my_project"])).deep.equals({
+        foo: "bar"
+      });
+    });
+
+    test("ignores positional arguments interleaved with flags", () => {
+      expect(parseArgv(["node", "script", "--foo", "bar", "pos", "--baz", "qux"])).deep.equals({
+        foo: "bar",
+        baz: "qux"
+      });
+    });
+
+    test("returns an empty object when no flags are present", () => {
+      expect(parseArgv(["node", "script", "run", "my_project"])).deep.equals({});
+    });
+
+    test("treats a --no- prefix as setting the flag to false", () => {
+      expect(parseArgv(["node", "script", "--no-foo"])).deep.equals({ foo: "false" });
+    });
+
+    test("records a value-less trailing flag as an empty string", () => {
+      expect(parseArgv(["node", "script", "--foo"])).deep.equals({ foo: "" });
+    });
   });
 });

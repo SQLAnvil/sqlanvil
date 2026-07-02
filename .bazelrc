@@ -1,3 +1,5 @@
+common --enable_bzlmod
+
 build --test_output=errors --action_env="GTEST_COLOR=1"
 
 build --incompatible_py3_is_default=false
@@ -10,3 +12,12 @@ build --incompatible_py3_is_default=false
 # build:remote-cache --remote_timeout=3600
 # build:remote-cache --auth_enabled=true
 # build:remote-cache --google_default_credentials=true
+
+# --- Full-graph build on a recent-Apple-Clang Mac (opt-in: --config=macos-cpp) --------------------
+# `bazel build //...` on macOS compiles the C++ protoc tool (go/rust/objc proto codegen — NOT the TS
+# deliverables, which build without this). Two native-toolchain snags need bypassing:
+#   1. Homebrew ccache shadows the compiler and chokes on `-U_FORTIFY_SOURCE` → pin CC to clang.
+#   2. Newer Apple Clang errors on abseil's deprecated `__is_trivially_relocatable` under -Werror.
+# The core/cli/packages/tests targets do NOT need this; only the full graph does.
+build:macos-cpp --action_env=CC=/usr/bin/clang --host_action_env=CC=/usr/bin/clang
+build:macos-cpp --copt=-Wno-deprecated-builtins --host_copt=-Wno-deprecated-builtins

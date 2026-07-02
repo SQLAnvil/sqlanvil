@@ -19,11 +19,13 @@ import { Test } from "sa/core/actions/test";
 import { View } from "sa/core/actions/view";
 import { CompilationSql } from "sa/core/compilation_sql";
 import { Contextable, IActionContext, ITableContext, Resolvable } from "sa/core/contextables";
+import * as Path from "sa/core/path";
 import { targetAsReadableString, targetStringifier } from "sa/core/targets";
 import * as utils from "sa/core/utils";
 import { ResolvableMap, toResolvable } from "sa/core/utils";
 import { version as sqlanvilCoreVersion } from "sa/core/version";
 import { sqlanvil, google } from "sa/protos/ts";
+
 
 const DEFAULT_CONFIG = {
   defaultSchema: "sqlanvil",
@@ -94,6 +96,30 @@ export class Session {
 
   public compilationSql(): CompilationSql {
     return new CompilationSql(this.projectConfig, sqlanvilCoreVersion);
+  }
+
+  public getContents(filePath: string): string {
+    const callerFile = utils.getCallerFile(this.rootDir);
+    const callerDir = Path.dirName(callerFile);
+    const resolvedPath = Path.join(callerDir,filePath);
+    const absolutePath = Path.separator + Path.normalize(Path.join(this.rootDir, resolvedPath));
+    const rootDir = this.rootDir.endsWith(Path.separator) ? this.rootDir : this.rootDir + Path.separator;
+
+    if (!absolutePath.startsWith(rootDir)){
+      throw new Error(`Cannot read "${filePath}": path resolves outside the project directory.`);
+    }
+
+    let module: any;
+    try {
+      module = utils.nativeRequire(absolutePath);
+    } catch {
+      throw new Error(`Cannot read "${filePath}": file not found.`);
+    }
+
+    if (!module || typeof module.contents !== "string") {
+      throw new Error (`Cannot read "${filePath}": only .md files are supported.`)
+    }
+    return module.contents;
   }
 
   public sqlxAction(actionOptions: {

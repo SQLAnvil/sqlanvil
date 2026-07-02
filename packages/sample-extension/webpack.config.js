@@ -1,11 +1,19 @@
 const path = require("path");
 const webpack = require("webpack");
 
+const fs = require("fs");
+
 module.exports = (env, argv) => {
+  const runfilesDir = process.env.RUNFILES;
+  let workspaceName = "sa";
+  if (!fs.existsSync(path.resolve(runfilesDir, "sa"))) {
+    workspaceName = "_main";
+  }
+
   const config = {
     mode: argv.mode || "development",
     target: 'node',
-    entry: [path.resolve(process.env.RUNFILES, "sa/packages/sample-extension/index")],
+    entry: [path.resolve(runfilesDir, workspaceName, "packages/sample-extension/index")],
     output: {
       libraryTarget: "commonjs-module",
     },
@@ -18,7 +26,7 @@ module.exports = (env, argv) => {
     resolve: {
       extensions: [".ts", ".js", ".json"],
       alias: {
-        sa: path.resolve(process.env.RUNFILES, "sa")
+        sa: path.resolve(runfilesDir, workspaceName)
       }
     },
     plugins: [

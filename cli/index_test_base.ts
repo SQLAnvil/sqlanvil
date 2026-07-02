@@ -2,7 +2,13 @@
 import * as fs from "fs";
 import * as path from "path";
 
-export const CREDENTIALS_PATH = path.resolve(process.env.RUNFILES, "sa/test_credentials/bigquery.json");
+const runfilesDir = process.env.RUNFILES;
+let workspaceName = "sa";
+if (!fs.existsSync(path.resolve(runfilesDir, "sa"))) {
+  workspaceName = "_main";
+}
+
+export const CREDENTIALS_PATH = path.resolve(runfilesDir, workspaceName, "test_credentials/bigquery.json");
 
 // The GCP project for live BigQuery CLI integration tests (used as the project
 // arg when shelling out to `sqlanvil init`/`run`). Not hardcoded — this is OSS.

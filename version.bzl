@@ -3,4 +3,4 @@
 # is synced to — surfaced as metadata (e.g. `sqlanvil --version`), not the package
 # version. Bump SQLANVIL_VERSION for sqlanvil releases; bump DF_VERSION on upstream syncs.
 SQLANVIL_VERSION = "1.15.0"
-DF_VERSION = "3.0.60"
+DF_VERSION = "3.0.61"

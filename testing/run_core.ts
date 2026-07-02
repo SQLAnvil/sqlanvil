@@ -40,7 +40,7 @@ export class WorkflowSettingsTemplates {
   });
 }
 
-const SOURCE_EXTENSIONS = ["js", "sql", "sqlx", "yaml", "ipynb"];
+const SOURCE_EXTENSIONS = ["js", "sql", "sqlx", "yaml", "ipynb","md"];
 
 export function coreExecutionRequestFromPath(
   projectDir: string,
