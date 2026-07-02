@@ -11,6 +11,12 @@ message BigQuery {
   string credentials = 3;
   // Options are listed here: https://cloud.google.com/bigquery/docs/locations
   string location = 4;
+  // Optional short-lived OAuth2 access token. When set, BigQuery authenticates
+  // with this token (as an OAuth2Client) instead of a JSON key or ADC — the
+  // keyless path used by SQLAnvil Cloud's runner, which mints a token by
+  // impersonating a customer-selected service account. Takes precedence over
+  // `credentials`. Tokens are short-lived (≈1h), so this suits a single run.
+  string access_token = 5;
 
   reserved 2;
 }

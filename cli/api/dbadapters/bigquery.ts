@@ -1,4 +1,11 @@
-import { BigQuery, GetTablesResponse, TableField, TableMetadata } from "@google-cloud/bigquery";
+import {
+  BigQuery,
+  BigQueryOptions,
+  GetTablesResponse,
+  TableField,
+  TableMetadata
+} from "@google-cloud/bigquery";
+import { OAuth2Client } from "google-auth-library";
 import Long from "long";
 import { PromisePoolExecutor } from "promise-pool-executor";
 
@@ -18,6 +25,38 @@ import { retry } from "sa/common/promises";
 import { sqlanvil } from "sa/protos/ts";
 
 const EXTRA_GOOGLE_SCOPES = ["https://www.googleapis.com/auth/drive"];
+
+/**
+ * Build the `@google-cloud/bigquery` client options for a set of credentials. Three auth modes, in
+ * precedence order:
+ *   1. `accessToken` — a short-lived OAuth2 token (the keyless SQLAnvil Cloud path: the runner mints
+ *      it by impersonating a customer-selected service account). Wrapped in an `OAuth2Client` so the
+ *      client authenticates as that SA. No key held anywhere.
+ *   2. `credentials` — a JSON service-account key.
+ *   3. neither — Application Default Credentials (the library's own fallback).
+ * Exported for unit testing (the client itself is otherwise constructed lazily/mocked).
+ */
+export function bigQueryClientOptions(
+  credentials: sqlanvil.IBigQuery,
+  projectId: string
+): BigQueryOptions {
+  const base: BigQueryOptions = {
+    projectId,
+    scopes: EXTRA_GOOGLE_SCOPES,
+    location: credentials.location
+  };
+  if (credentials.accessToken) {
+    const authClient = new OAuth2Client();
+    authClient.setCredentials({ access_token: credentials.accessToken });
+    // Cast: @google-cloud/bigquery and this package may resolve google-auth-library at slightly
+    // different type versions; OAuth2Client is an AuthClient at runtime.
+    return { ...base, authClient: authClient as any };
+  }
+  return {
+    ...base,
+    credentials: credentials.credentials ? JSON.parse(credentials.credentials) : undefined
+  };
+}
 
 const BIGQUERY_DATE_RELATED_FIELDS = [
   "BigQueryDate",
@@ -327,13 +366,7 @@ export class BigQueryDbAdapter implements IDbAdapter {
     if (!this.clients.has(projectId)) {
       this.clients.set(
         projectId,
-        new BigQuery({
-          projectId,
-          scopes: EXTRA_GOOGLE_SCOPES,
-          location: this.bigQueryCredentials.location,
-          credentials:
-            this.bigQueryCredentials.credentials && JSON.parse(this.bigQueryCredentials.credentials)
-        })
+        new BigQuery(bigQueryClientOptions(this.bigQueryCredentials, projectId))
       );
     }
     return this.clients.get(projectId);

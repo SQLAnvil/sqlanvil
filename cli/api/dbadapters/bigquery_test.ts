@@ -2,7 +2,7 @@ import { Dataset, Table } from "@google-cloud/bigquery";
 import { expect } from "chai";
 import { anything, instance, mock, verify, when } from "ts-mockito";
 
-import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
+import { BigQueryDbAdapter, bigQueryClientOptions } from "sa/cli/api/dbadapters/bigquery";
 import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";
 
@@ -78,5 +78,50 @@ suite("BigQueryDbAdapter", () => {
     expect(result[0].target.database).to.equal(projectId);
     expect(result[0].target.schema).to.equal(schemaName);
     expect(result[0].target.name).to.equal(tableName);
+  });
+
+  suite("bigQueryClientOptions auth modes", () => {
+    test("accessToken → OAuth2Client authClient (keyless), no JSON credentials", () => {
+      const credentials = sqlanvil.BigQuery.create({
+        projectId: "p",
+        location: "US",
+        accessToken: "ya29.test-token"
+      });
+      const opts = bigQueryClientOptions(credentials, "p") as any;
+      expect(opts.projectId).to.equal("p");
+      expect(opts.location).to.equal("US");
+      expect(opts.authClient).to.be.ok;
+      expect(opts.authClient.credentials.access_token).to.equal("ya29.test-token");
+      expect(opts.credentials).to.be.undefined;
+    });
+
+    test("JSON key → parsed credentials, no authClient", () => {
+      const key = JSON.stringify({ client_email: "sa@proj.iam.gserviceaccount.com", private_key: "K" });
+      const credentials = sqlanvil.BigQuery.create({ projectId: "p", location: "EU", credentials: key });
+      const opts = bigQueryClientOptions(credentials, "p") as any;
+      expect(opts.authClient).to.be.undefined;
+      expect(opts.credentials.client_email).to.equal("sa@proj.iam.gserviceaccount.com");
+    });
+
+    test("neither → ADC fallback (no authClient, no credentials)", () => {
+      const credentials = sqlanvil.BigQuery.create({ projectId: "p", location: "US" });
+      const opts = bigQueryClientOptions(credentials, "p") as any;
+      expect(opts.authClient).to.be.undefined;
+      expect(opts.credentials).to.be.undefined;
+    });
+
+    test("accessToken takes precedence over a JSON key", () => {
+      const key = JSON.stringify({ client_email: "sa@proj.iam.gserviceaccount.com", private_key: "K" });
+      const credentials = sqlanvil.BigQuery.create({
+        projectId: "p",
+        location: "US",
+        credentials: key,
+        accessToken: "ya29.override"
+      });
+      const opts = bigQueryClientOptions(credentials, "p") as any;
+      expect(opts.authClient).to.be.ok;
+      expect(opts.authClient.credentials.access_token).to.equal("ya29.override");
+      expect(opts.credentials).to.be.undefined;
+    });
   });
 });
