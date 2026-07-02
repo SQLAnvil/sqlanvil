@@ -109,7 +109,7 @@ function actionConfigFilenameIsInvalidSqlx(
             `files cannot be referenced from actions.yaml. .sqlx files are ` +
             `compiled directly from the definitions/ directory. Either use a ` +
             `.sql file with the same contents, or remove the actions.yaml ` +
-            `entry and let Dataform pick up the .sqlx file automatically.`
+            `entry and let SQLAnvil pick up the .sqlx file automatically.`
         ),
         actionConfigsPath
       );
