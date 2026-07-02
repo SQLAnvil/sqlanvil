@@ -2,6 +2,7 @@ import { Assertion } from "sa/core/actions/assertion";
 import { DataPreparation } from "sa/core/actions/data_preparation";
 import { Declaration } from "sa/core/actions/declaration";
 import { Export } from "sa/core/actions/export";
+import { Extract } from "sa/core/actions/extract";
 import { Import } from "sa/core/actions/import";
 import { IncrementalTable } from "sa/core/actions/incremental_table";
 import { Notebook } from "sa/core/actions/notebook";
@@ -35,6 +36,7 @@ export type Action =
   | Notebook
   | DataPreparation
   | Export
+  | Extract
   | Import
   | Test
   | RlsPolicy
@@ -51,6 +53,7 @@ export type ActionProto =
   | sqlanvil.Notebook
   | sqlanvil.DataPreparation
   | sqlanvil.Export
+  | sqlanvil.Extract
   | sqlanvil.Import
   | sqlanvil.Test;
 

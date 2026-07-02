@@ -115,6 +115,12 @@ message ConnectionConfig {
   string database = 7;
   // Optional. Postgres/Supabase default schema.
   string default_schema = 8;
+  // Optional. Source read mode for a cross-warehouse source connection:
+  //   "fdw" (default) — a live foreign-data-wrapper table (needs the Vault secret + wrappers).
+  //   "runner-extract" — the CLI reads the source directly at run time and materializes the rows
+  //     into a plain table (keyless; no Vault secret, no wrappers/postgis on the branch). BigQuery
+  //     only for now. See the runner-extract action.
+  string mode = 10;
 }
 
 message DefaultIcebergConfig {

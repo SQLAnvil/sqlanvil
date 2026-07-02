@@ -10,6 +10,7 @@ import {
 import { Declaration } from "sa/core/actions/declaration";
 import { Export } from "sa/core/actions/export";
 import { Import } from "sa/core/actions/import";
+import { Extract } from "sa/core/actions/extract";
 import { IncrementalTable } from "sa/core/actions/incremental_table";
 import { Notebook } from "sa/core/actions/notebook";
 import { Operation, OperationContext } from "sa/core/actions/operation";
@@ -511,6 +512,30 @@ export class Session {
     const serverName = `${connectionName}_srv`;
     const extSchema = `${connectionName}_ext`;
 
+    // Runner-extract mode: materialize the source into a plain table at run time (keyless — no FDW
+    // server, no Vault secret, no wrappers/postgis on the branch) instead of a live foreign table.
+    // The Extract action is the ref-able stand-in; the CLI reads the source and loads the rows during
+    // `run`. (BigQuery only for now; other platforms fall through to the FDW path.)
+    if ((connection.mode || "fdw") === "runner-extract" && connection.platform === "bigquery") {
+      this.actions.push(
+        new Extract(this, {
+          filename,
+          name: config.name,
+          schema: extSchema,
+          connectionName,
+          platform: connection.platform,
+          project: connection.project,
+          dataset: connection.dataset,
+          sourceName: config.name,
+          billingProject: connection.billingProject,
+          columnTypes: config.columnTypes
+        })
+      );
+      // The Extract (above) is the ref-able stand-in; the plain `declaration` built earlier is
+      // intentionally NOT pushed, mirroring the FDW path.
+      return declaration;
+    }
+
     if (!this.foreignServers.has(connectionName)) {
       this.foreignServers.add(connectionName);
       if (connection.platform === "bigquery") {
@@ -685,6 +710,7 @@ export class Session {
       ),
       exports: this.compileGraphChunk(this.actions.filter(action => action instanceof Export)),
       imports: this.compileGraphChunk(this.actions.filter(action => action instanceof Import)),
+      extracts: this.compileGraphChunk(this.actions.filter(action => action instanceof Extract)),
       graphErrors: this.graphErrors,
       sqlanvilCoreVersion,
       targets: this.actions.map(action => action.getTarget()),
@@ -704,6 +730,7 @@ export class Session {
         compiledGraph.dataPreparations,
         compiledGraph.exports,
         compiledGraph.imports,
+        compiledGraph.extracts,
         compiledGraph.tests
       )
     );
@@ -717,6 +744,7 @@ export class Session {
         compiledGraph.dataPreparations,
         compiledGraph.exports,
         compiledGraph.imports,
+        compiledGraph.extracts,
         compiledGraph.tests
       ),
       [].concat(compiledGraph.declarations.map(declaration => declaration.target))
@@ -735,6 +763,7 @@ export class Session {
         compiledGraph.dataPreparations,
         compiledGraph.exports,
         compiledGraph.imports,
+        compiledGraph.extracts,
         compiledGraph.tests
       )
     );

@@ -295,6 +295,35 @@ message Import {
   string jit_code = 13;
 }
 
+// A runner-extract source: the ref-able stand-in for a `connection:` declaration whose connection
+// has `mode: "runner-extract"`. Instead of a live FDW foreign table, the CLI reads the source
+// (keyless BigQuery) at run time and materializes the rows into this plain warehouse table. Synthesized
+// by the compiler (users write a `connection:` declaration, not `type: "extract"`).
+message Extract {
+  Target target = 1;
+  Target canonical_target = 2;
+  repeated Target dependency_targets = 3;
+  ActionHermeticity hermeticity = 4;
+  bool disabled = 5;
+  repeated string tags = 6;
+  ActionDescriptor action_descriptor = 7;
+  // The named connection this source reads through (keys into .df-credentials.json `connections`
+  // for the per-connection access token / key).
+  string connection_name = 8;
+  // Source platform ("bigquery").
+  string platform = 9;
+  // Source project + dataset + object name (BigQuery reads `project.dataset.source_name`).
+  string project = 10;
+  string dataset = 11;
+  string source_name = 12;
+  // BigQuery project that bills the extract query. Defaults to `project`.
+  string billing_project = 13;
+  // Column name -> SQL type, defining the materialized table (from `sqlanvil introspect`).
+  map<string, string> column_types = 14;
+  // Source .sqlx file path (generated).
+  string file_name = 15;
+}
+
 message Assertion {
   Target target = 8;
   Target canonical_target = 13;
@@ -465,6 +494,7 @@ message CompiledGraph {
   repeated DataPreparation data_preparations = 13;
   repeated Export exports = 14;
   repeated Import imports = 16;
+  repeated Extract extracts = 17;
 
   GraphErrors graph_errors = 7;
 

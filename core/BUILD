@@ -23,6 +23,7 @@ ts_library(
         "actions/data_preparation.ts",
         "actions/declaration.ts",
         "actions/export.ts",
+        "actions/extract.ts",
         "actions/import.ts",
         "actions/incremental_table.ts",
         "actions/index.ts",

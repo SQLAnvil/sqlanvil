@@ -1151,6 +1151,59 @@ connections:
       );
     });
 
+    test("bigquery connection with mode runner-extract emits an Extract (no FDW server/foreign table)", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `defaultDataset: public
+warehouse: my_supabase
+connections:
+  my_supabase:
+    platform: supabase
+    defaultSchema: public
+  bigquery_public:
+    platform: bigquery
+    project: bigquery-public-data
+    dataset: geo_us_boundaries
+    billingProject: my-billing-project
+    mode: runner-extract`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions", "zip_codes.sqlx"),
+        `config {
+  type: "declaration",
+  connection: "bigquery_public",
+  name: "zip_codes",
+  columnTypes: { zip_code: "text", lat: "float8" }
+}`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      // No FDW bridge: no CREATE SERVER, no foreign table.
+      const operations = result.compile.compiledGraph.operations;
+      expect(operations.find(o => o.target.name === "bigquery_public_srv")).to.be.undefined;
+      expect(
+        operations.find(
+          o => o.target.schema === "bigquery_public_ext" && o.target.name === "zip_codes"
+        )
+      ).to.be.undefined;
+      // Instead, one Extract action carrying the source + columns, targeting the ref-able table.
+      const extracts = result.compile.compiledGraph.extracts;
+      expect(extracts.length).equals(1);
+      const extract = extracts[0];
+      expect(extract.target.schema).equals("bigquery_public_ext");
+      expect(extract.target.name).equals("zip_codes");
+      expect(extract.connectionName).equals("bigquery_public");
+      expect(extract.platform).equals("bigquery");
+      expect(extract.project).equals("bigquery-public-data");
+      expect(extract.dataset).equals("geo_us_boundaries");
+      expect(extract.sourceName).equals("zip_codes");
+      expect(extract.billingProject).equals("my-billing-project");
+      expect(extract.columnTypes).deep.equals({ zip_code: "text", lat: "float8" });
+    });
+
     test("bigquery connection without billingProject uses the plain table option (unchanged)", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
