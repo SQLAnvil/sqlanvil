@@ -26,8 +26,9 @@ fi
 COM_REF="$(cd "${COM_REF}" && pwd)"
 
 # Generated bodies (plain markdown, no front matter) are written here, then applied into the
-# Starlight pages with their front matter preserved.
-GEN_DIR="${REPO_ROOT}/newdocs/_gen"
+# Starlight pages with their front matter preserved. NB: must live OUTSIDE typedoc's `newdocs`
+# out dir — typedoc refuses to write into a pre-existing directory it didn't generate.
+GEN_DIR="${REPO_ROOT}/.docs_gen"
 mkdir -p "${GEN_DIR}"
 
 # Replace the body of a Starlight page while preserving its leading `--- ... ---` front matter.
@@ -53,7 +54,7 @@ apply_to_site() {
 # docker volume; extract the two generated files to the host for the duration of the run.
 # (Requires a prior `./scripts/docker-bazel build //protos:ts //core:version` to have populated
 # the volume.)
-cleanup() { rm -f "${REPO_ROOT}/protos/ts.d.ts" "${REPO_ROOT}/core/version.ts"; rm -rf "${REPO_ROOT}/newdocs"; }
+cleanup() { rm -f "${REPO_ROOT}/protos/ts.d.ts" "${REPO_ROOT}/core/version.ts"; rm -rf "${REPO_ROOT}/newdocs" "${REPO_ROOT}/.docs_gen"; }
 trap cleanup EXIT
 
 docker run --rm \
