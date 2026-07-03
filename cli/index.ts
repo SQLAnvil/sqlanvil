@@ -48,7 +48,7 @@ import {
 } from "sa/cli/util";
 import { createYargsCli, option, positionalOption } from "sa/cli/yargswrapper";
 import { targetAsReadableString } from "sa/core/targets";
-import { dataformVersion } from "sa/core/version";
+import { dataformVersion, version as sqlanvilVersion } from "sa/core/version";
 import { sqlanvil } from "sa/protos/ts";
 import { formatFile } from "sa/sqlx/format";
 
@@ -130,6 +130,7 @@ interface RunArgv extends ProjectConfigArgv {
   actions?: string[];
   credentials: string;
   "full-refresh": boolean;
+  graph?: string;
   "include-deps"?: boolean;
   "include-dependents"?: boolean;
   json: boolean;
@@ -182,6 +183,15 @@ const fullRefreshOption = option("full-refresh", {
   describe: "Forces incremental tables to be rebuilt from scratch.",
   type: "boolean",
   default: false
+});
+
+const graphFileOption = option("graph", {
+  describe:
+    "Path to a stored compiled graph (the JSON emitted by `compile --json`). Runs it directly, " +
+    "without compiling the project — what executes is exactly what was compiled, including any " +
+    "environment overrides baked in at compile time.",
+  type: "string",
+  coerce: (rawPath?: string) => (rawPath ? actuallyResolve(rawPath) : rawPath)
 });
 
 const actionsOption = option("actions", {
@@ -1042,6 +1052,7 @@ export function runCli() {
           actionsOption,
           credentialsOption,
           fullRefreshOption,
+          graphFileOption,
           includeDepsOption,
           includeDependentsOption,
           credentialsOption,
@@ -1060,23 +1071,61 @@ export function runCli() {
             );
             return;
           }
-          if (!argv[jsonOutputOption.name]) {
-            print("Compiling...\n");
+          const graphPath = argv[graphFileOption.name];
+          let compiledGraph: sqlanvil.CompiledGraph;
+          if (graphPath) {
+            // Run a frozen, pre-compiled graph. Everything that shapes compilation is already
+            // baked into it, so compile-time overrides make no sense here — reject rather than
+            // silently ignore them.
+            if (argv[ProjectConfigOptions.environment.name]) {
+              printError(
+                `--${graphFileOption.name} runs a frozen graph: its environment overrides were baked ` +
+                  `in at compile time. Compile with --environment instead, and pass --credentials ` +
+                  `explicitly for this run.`
+              );
+              return 1;
+            }
+            assertPathExists(graphPath);
+            try {
+              compiledGraph = sqlanvil.CompiledGraph.fromObject(
+                JSON.parse(fs.readFileSync(graphPath, "utf8"))
+              );
+            } catch (e) {
+              printError(`Failed to load compiled graph from ${graphPath}: ${(e as Error).message}`);
+              return 1;
+            }
+            const graphCore = compiledGraph.sqlanvilCoreVersion;
+            const majorMinor = (v: string) => v.split(".").slice(0, 2).join(".");
+            if (graphCore && majorMinor(graphCore) !== majorMinor(sqlanvilVersion)) {
+              print(
+                `WARNING: graph was compiled by core ${graphCore}; this CLI is ${sqlanvilVersion}. ` +
+                  `Recompile the graph if the run misbehaves.\n`
+              );
+            }
+            if (!argv[jsonOutputOption.name]) {
+              printSuccess(
+                `Loaded compiled graph (core ${graphCore || "unknown"}) from ${graphPath}\n`
+              );
+            }
+          } else {
+            if (!argv[jsonOutputOption.name]) {
+              print("Compiling...\n");
+            }
+            compiledGraph = await compile({
+              projectDir: argv[projectDirOption.name],
+              projectConfigOverride: projectConfigOverrideWithEnvironment(
+                argv[projectDirOption.name],
+                argv
+              ),
+              timeoutMillis: argv[timeoutOption.name] || undefined
+            });
+            if (!argv[jsonOutputOption.name] && !compiledGraphHasErrors(compiledGraph)) {
+              printSuccess("Compiled successfully.\n");
+            }
           }
-          const compiledGraph = await compile({
-            projectDir: argv[projectDirOption.name],
-            projectConfigOverride: projectConfigOverrideWithEnvironment(
-              argv[projectDirOption.name],
-              argv
-            ),
-            timeoutMillis: argv[timeoutOption.name] || undefined
-          });
           if (compiledGraphHasErrors(compiledGraph)) {
             printCompiledGraphErrors(compiledGraph.graphErrors, argv[quietCompileOption.name]);
             return 1;
-          }
-          if (!argv[jsonOutputOption.name]) {
-            printSuccess("Compiled successfully.\n");
           }
           const warehouse = compiledGraph.projectConfig.warehouse || "bigquery";
 
@@ -1086,6 +1135,13 @@ export function runCli() {
           // server-side dry-run below.) Delegated to the shared validate flow, which re-compiles
           // into the shadow namespace.
           if (argv[dryRunOptionName] && warehouse.toLowerCase() !== "bigquery") {
+            if (graphPath) {
+              printError(
+                `--${dryRunOptionName} on ${warehouse} validates by recompiling the project source, ` +
+                  `which --${graphFileOption.name} bypasses. Run \`sqlanvil validate\` on the project instead.`
+              );
+              return 1;
+            }
             return runValidate(argv);
           }
 
