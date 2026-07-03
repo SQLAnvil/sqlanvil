@@ -202,6 +202,9 @@ export class View extends ActionBuilder<sqlanvil.Table> {
     if (config.postgres) {
       this.postgres(config.postgres);
     }
+    if (config.mysql) {
+      this.mysql(config.mysql);
+    }
     if (config.preOperations) {
       this.preOps(config.preOperations);
     }
@@ -346,6 +349,16 @@ export class View extends ActionBuilder<sqlanvil.Table> {
    */
   public postgres(postgres: sqlanvil.IPostgresOptions) {
     this.proto.postgres = sqlanvil.PostgresOptions.create(postgres);
+  }
+
+  /**
+   * Sets MySQL/MariaDB-native options. Only meaningful for a materialized view
+   * (`materialized: true`), which MySQL emulates as a refreshed table snapshot —
+   * table options and indexes apply to that table. Mirrors
+   * [ViewConfig.mysql](configs#sqlanvil-ActionConfig-ViewConfig).
+   */
+  public mysql(mysql: sqlanvil.IMysqlOptions) {
+    this.proto.mysql = sqlanvil.MysqlOptions.create(mysql);
   }
 
   /**

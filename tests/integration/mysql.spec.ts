@@ -173,6 +173,56 @@ suite("@sqlanvil/integration/mysql", { parallel: false }, ({ before, after }) =>
     await dbadapter.execute(`drop database if exists \`${database}\``);
   });
 
+  test(
+    "mysql:{} row_format + fulltext + prefix indexes apply on real MySQL/MariaDB (issue #35)",
+    { timeout: 30000 },
+    async () => {
+      const database = "sa_integration_test_idx";
+      await dbadapter.execute(`create database if not exists \`${database}\``);
+      const adapter = new ExecutionSql({ warehouse: "mysql" }, "2.0.0");
+
+      const table: sqlanvil.ITable = {
+        enumType: sqlanvil.TableType.TABLE,
+        target: { schema: database, name: "articles" },
+        query: "select 1 as id, 'hello world' as title, repeat('x', 300) as body",
+        mysql: {
+          engine: "InnoDB",
+          rowFormat: "DYNAMIC",
+          indexes: [
+            { name: "ft_title", columns: ["title"], type: "fulltext" },
+            { columns: ["body(50)"] }
+          ]
+        }
+      };
+      for (const task of adapter.publishTasks(table, { fullRefresh: true }).build()) {
+        await dbadapter.execute(task.statement);
+      }
+
+      // row_format applied.
+      const rf = await dbadapter.execute(
+        `select row_format from information_schema.tables where table_schema = '${database}' and table_name = 'articles'`
+      );
+      expect(String(rf.rows[0].row_format ?? rf.rows[0].ROW_FORMAT).toUpperCase()).to.equal(
+        "DYNAMIC"
+      );
+
+      // Fulltext index type + prefix length (sub_part) visible in the catalog.
+      const idx = await dbadapter.execute(
+        `select index_name, index_type, sub_part from information_schema.statistics ` +
+          `where table_schema = '${database}' and table_name = 'articles' and index_name <> 'PRIMARY'`
+      );
+      const byName = keyBy(idx.rows, (r: any) => String(r.index_name ?? r.INDEX_NAME));
+      expect(
+        String(byName.ft_title.index_type ?? byName.ft_title.INDEX_TYPE).toUpperCase()
+      ).to.equal("FULLTEXT");
+      const prefixed = byName.articles_body_idx;
+      expect(prefixed, "derived prefix-index name (bare column, no (50))").to.exist;
+      expect(Number(prefixed.sub_part ?? prefixed.SUB_PART)).to.equal(50);
+
+      await dbadapter.execute(`drop database if exists \`${database}\``);
+    }
+  );
+
   test("pre_operations / post_operations execute around a table build (issue #44)", { timeout: 30000 }, async () => {
     const database = "sa_integration_test_direct";
     await dbadapter.execute(`create database if not exists \`${database}\``);

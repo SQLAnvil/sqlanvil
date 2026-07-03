@@ -437,6 +437,11 @@ message ActionConfig {
     // ("on_dependency_change" → in-place REFRESH instead of drop+recreate)
     // apply; indexes also apply to materialized views.
     PostgresOptions postgres = 22;
+
+    // MySQL/MariaDB-native options. Only meaningful for a materialized view
+    // (materialized: true), which MySQL emulates as a refreshed table snapshot —
+    // engine/charset/collation/row_format and indexes apply to that table.
+    MysqlOptions mysql = 23;
   }
 
   enum OnSchemaChange {
@@ -1077,9 +1082,8 @@ message PostgresOptions {
   string refresh_policy = 7;
 }
 
-// MySQL/MariaDB table options + secondary indexes. First cut: engine/charset/
-// collation and plain/unique secondary indexes. (No partitioning, FULLTEXT/
-// SPATIAL/prefix indexes, or row_format yet — those are later follow-ups.)
+// MySQL/MariaDB table options, secondary indexes (plain/unique/fulltext/spatial,
+// with optional per-column prefix lengths), row_format, and native partitioning.
 message MysqlOptions {
   // Storage engine, emitted as ENGINE=<engine> (e.g. "InnoDB", "MyISAM").
   // Omit to use the server default.
@@ -1088,13 +1092,24 @@ message MysqlOptions {
   string charset = 2;
   // Default collation, emitted as COLLATE=<collation> (e.g. "utf8mb4_unicode_ci").
   string collation = 3;
+  // Row format, emitted as ROW_FORMAT=<row_format> (e.g. "DYNAMIC", "COMPRESSED",
+  // "COMPACT", "REDUNDANT"). Omit to use the engine default.
+  string row_format = 6;
 
   message Index {
     // Optional; when omitted, derived as <table>_<cols>_idx (or _key if unique),
     // capped at 63 chars.
     string name = 1;
+    // Column names. A column may carry a prefix length in MySQL's own syntax —
+    // "description(50)" — emitted as `description`(50) (required to index BLOB/TEXT,
+    // optional elsewhere).
     repeated string columns = 2;
     bool unique = 3;
+    // Index type: "" (default B-tree/engine default), "fulltext", or "spatial".
+    // Mutually exclusive with `unique`. NB a SPATIAL index requires a NOT NULL
+    // SRID-attributed geometry column — CTAS-created columns are nullable, so
+    // spatial usually needs an `ALTER TABLE ... MODIFY` pre-step in post_operations.
+    string type = 4;
   }
   repeated Index indexes = 4;
 

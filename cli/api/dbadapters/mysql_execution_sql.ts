@@ -7,10 +7,11 @@ import { sqlanvil } from "sa/protos/ts";
 
 // MySQL/MariaDB DDL/DML generator. Emits portable MySQL-dialect SQL — the same
 // statements run against both engines (engine-specific features ride through
-// `operations`). Mirrors PostgresExecutionSql's structure. Supports table options
-// + secondary indexes (the `mysql:{}` block) and materialized views (emulated as a
-// refreshed table snapshot); COMMENT metadata is applied by the adapter's
-// setMetadata. Still deferred: partitioning and FULLTEXT/SPATIAL/prefix indexes.
+// `operations`). Mirrors PostgresExecutionSql's structure. Supports the full
+// `mysql:{}` block — table options (engine/charset/collation/row_format), secondary
+// indexes (plain/unique/fulltext/spatial, per-column prefix lengths), native
+// partitioning — and materialized views (emulated as a refreshed table snapshot);
+// COMMENT metadata is applied by the adapter's setMetadata.
 export class MysqlExecutionSql implements IExecutionSql {
   private readonly CompilationSql: CompilationSql;
 
@@ -269,12 +270,16 @@ export class MysqlExecutionSql implements IExecutionSql {
     if (opts.collation) {
       suffix += ` collate=${opts.collation}`;
     }
+    if (opts.rowFormat) {
+      suffix += ` row_format=${opts.rowFormat}`;
+    }
     return suffix;
   }
 
-  // One `ALTER TABLE ... ADD [UNIQUE] INDEX` per declared index (same form as the
-  // uniqueKey index in publishTasks). Returned as separate statements to run after
-  // the table is created.
+  // One `ALTER TABLE ... ADD [UNIQUE|FULLTEXT|SPATIAL] INDEX` per declared index (same
+  // form as the uniqueKey index in publishTasks). Returned as separate statements to run
+  // after the table is created. Columns may carry a MySQL prefix length ("body(50)"),
+  // emitted as `body`(50).
   private createIndexes(table: sqlanvil.ITable): string[] {
     const indexes = table.mysql?.indexes;
     if (!indexes || indexes.length === 0) {
@@ -282,12 +287,34 @@ export class MysqlExecutionSql implements IExecutionSql {
     }
     const target = this.resolveTarget(table.target);
     return indexes.map(index => {
-      const unique = index.unique ? "unique " : "";
-      const cols = (index.columns || []).map(c => `\`${c}\``).join(", ");
+      const kind = (index.type || "").toLowerCase();
+      if (kind && kind !== "fulltext" && kind !== "spatial") {
+        throw new Error(
+          `mysql index type must be "fulltext" or "spatial" (or omitted); got "${index.type}".`
+        );
+      }
+      if (kind && index.unique) {
+        throw new Error(`a mysql ${kind} index cannot also be unique.`);
+      }
+      const prefix = index.unique ? "unique " : kind ? `${kind} ` : "";
+      const cols = (index.columns || []).map(c => this.indexColumnSql(c)).join(", ");
+      const bareColumns = (index.columns || []).map(c => this.indexColumnName(c));
       const name =
-        index.name || this.defaultIndexName(table.target.name, index.columns, !!index.unique);
-      return `alter table ${target} add ${unique}index \`${name}\` (${cols})`;
+        index.name || this.defaultIndexName(table.target.name, bareColumns, !!index.unique);
+      return `alter table ${target} add ${prefix}index \`${name}\` (${cols})`;
     });
+  }
+
+  // "body(50)" -> `body`(50); "id" -> `id`. Prefix lengths are MySQL's own index
+  // syntax (required to index BLOB/TEXT columns).
+  private indexColumnSql(column: string): string {
+    const m = /^(.*?)\((\d+)\)$/.exec(column.trim());
+    return m ? `\`${m[1].trim()}\`(${m[2]})` : `\`${column}\``;
+  }
+
+  private indexColumnName(column: string): string {
+    const m = /^(.*?)\((\d+)\)$/.exec(column.trim());
+    return m ? m[1].trim() : column;
   }
 
   // Derive an index name from table + columns (mirrors the Postgres helper and the

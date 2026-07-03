@@ -410,5 +410,35 @@ SELECT 1 AS id`
         noData: true
       });
     });
+
+    test("materialized view mysql options (row_format, fulltext index) compile through view config", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), VALID_WORKFLOW_SETTINGS_YAML);
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/mv.sqlx"),
+        `
+config {
+  type: "view",
+  materialized: true,
+  mysql: {
+    engine: "InnoDB",
+    rowFormat: "DYNAMIC",
+    indexes: [{ name: "ft_title", columns: ["title"], type: "fulltext" }]
+  }
+}
+SELECT 1 AS id, 'x' AS title`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      expect(result.compile.compiledGraph.tables[0].materialized).equals(true);
+      expect(asPlainObject(result.compile.compiledGraph.tables[0].mysql)).deep.equals({
+        engine: "InnoDB",
+        rowFormat: "DYNAMIC",
+        indexes: [{ name: "ft_title", columns: ["title"], type: "fulltext" }]
+      });
+    });
   });
 });

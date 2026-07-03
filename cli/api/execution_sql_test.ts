@@ -632,6 +632,75 @@ suite("mysql execution sql", () => {
     expect(stmts).to.include("alter table `db`.`t` add unique index `t_id_key` (`id`)");
   });
 
+  test("row_format lands in the CTAS after the other table options", () => {
+    const stmts = sql
+      .publishTasks(baseTable({ mysql: { engine: "InnoDB", rowFormat: "DYNAMIC" } }), {
+        fullRefresh: false
+      })
+      .build()
+      .map(t => t.statement);
+    expect(
+      stmts.some(s => /create table `db`\.`t` engine=InnoDB row_format=DYNAMIC as /.test(s))
+    ).to.equal(true);
+  });
+
+  test("fulltext index emits ADD FULLTEXT INDEX", () => {
+    const stmts = sql
+      .publishTasks(
+        baseTable({ mysql: { indexes: [{ name: "ft_body", columns: ["body"], type: "fulltext" }] } }),
+        { fullRefresh: false }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(stmts).to.include("alter table `db`.`t` add fulltext index `ft_body` (`body`)");
+  });
+
+  test("spatial index emits ADD SPATIAL INDEX", () => {
+    const stmts = sql
+      .publishTasks(
+        baseTable({ mysql: { indexes: [{ columns: ["geom"], type: "spatial" }] } }),
+        { fullRefresh: false }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(stmts).to.include("alter table `db`.`t` add spatial index `t_geom_idx` (`geom`)");
+  });
+
+  test("index column prefix lengths emit MySQL prefix syntax and stay out of derived names", () => {
+    const stmts = sql
+      .publishTasks(
+        baseTable({ mysql: { indexes: [{ columns: ["description(50)", "id"] }] } }),
+        { fullRefresh: false }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(stmts).to.include(
+      "alter table `db`.`t` add index `t_description_id_idx` (`description`(50), `id`)"
+    );
+  });
+
+  test("a fulltext index cannot also be unique", () => {
+    expect(() =>
+      sql
+        .publishTasks(
+          baseTable({ mysql: { indexes: [{ columns: ["body"], type: "fulltext", unique: true }] } }),
+          { fullRefresh: false }
+        )
+        .build()
+    ).to.throw(/fulltext index cannot also be unique/);
+  });
+
+  test("an unknown index type is rejected", () => {
+    expect(() =>
+      sql
+        .publishTasks(
+          baseTable({ mysql: { indexes: [{ columns: ["id"], type: "hash" }] } }),
+          { fullRefresh: false }
+        )
+        .build()
+    ).to.throw(/index type must be "fulltext" or "spatial"/);
+  });
+
   test("incremental fresh-create carries table options and user indexes alongside the uniqueKey index", () => {
     const stmts = sql
       .publishTasks(

@@ -221,13 +221,15 @@ deltas above **invert**.
 - **Credentials:** flat **`MysqlConnection`** — `host port database user password sslMode`. **No
   `defaultSchema`** (unlike Postgres). `sslMode`: `"disable"` (local) or `"require"`. Port 3306.
   Identifiers compile to two-part backticks `` `db`.`table` ``.
-- **`mysql: {}` block (indexes + engine/charset/collation).** Declare secondary indexes
-  (`indexes: [{ name?, columns, unique? }]`) and table options (`engine`, `charset`, `collation`)
-  in config — the role `postgres: {}` plays. **Plain B-tree only**; no `WHERE`/`INCLUDE`/`opclass`
-  (those are Postgres-only). **Partitioning, FULLTEXT/SPATIAL/prefix indexes, and `row_format` are
-  NOT in the block yet** — those stay raw MySQL DDL in `operations`/`post_operations` (wrap one-time
-  DDL on incrementals in `when(!incremental())`, delta #9). Use `mysql: {}`, never `postgres: {}`, on
-  a mysql model.
+- **`mysql: {}` block (indexes + table options + partitioning).** Declare secondary indexes
+  (`indexes: [{ name?, columns, unique?, type? }]`) and table options (`engine`, `charset`,
+  `collation`, `rowFormat`) in config — the role `postgres: {}` plays. Index `type:` is
+  `"fulltext"` or `"spatial"` (1.19+; mutually exclusive with `unique`; spatial needs a NOT NULL
+  SRID geometry column, which CTAS doesn't produce — usually needs a `post_operations` MODIFY
+  first). Columns may carry a prefix length in MySQL's own syntax — `"body(50)"` → `` `body`(50) ``
+  (required to index TEXT/BLOB). No `WHERE`/`INCLUDE`/`opclass` (Postgres-only). Partitioning via
+  `mysql: { partition: {...} }` (1.11+). On matviews the block flows through `type: "view",
+  materialized: true` (1.19+). Use `mysql: {}`, never `postgres: {}`, on a mysql model.
 - **Incremental `uniqueKey` is enough** — compiles to `INSERT ... ON DUPLICATE KEY UPDATE` and the
   adapter auto-creates the unique index (`uq_<db>_<table>`) on first/`--full-refresh`. Don't add
   your own PK/unique for the merge.
