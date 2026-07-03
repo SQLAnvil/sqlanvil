@@ -1,0 +1,10 @@
+config {
+  type: "assertion",
+  description: "Every cached address point has plausible US coordinates and a 5-digit ZIP — broken geocodes never silently propagate into the mailing list."
+}
+
+SELECT *
+FROM ${ref("addresses_cache")}
+WHERE latitude  NOT BETWEEN 17 AND 72
+   OR longitude NOT BETWEEN -180 AND -65
+   OR zip_code !~ '^[0-9]{5}$'

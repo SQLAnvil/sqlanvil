@@ -1,14 +1,14 @@
 config {
   type: "table",
   schema: "public",
-  description: "Sample customers with mailing ZIP codes."
+  description: "Sample customers with mailing addresses. Erin's street doesn't geocode (not in OpenAddresses) — she demonstrates the ZIP-centroid fallback."
 }
 
 SELECT * FROM (
   VALUES
-    (1, 'amy@example.com',   '94110'),
-    (2, 'ben@example.com',   '94103'),
-    (3, 'cara@example.com',  '95014'),
-    (4, 'dan@example.com',   '10001'),
-    (5, 'erin@example.com',  '94609')
-) AS t(customer_id, email, zip)
+    (1, 'amy@example.com',   '94110', '3125 24th St'),
+    (2, 'ben@example.com',   '94103', '1098 Howard St'),
+    (3, 'cara@example.com',  '95014', '10300 Torre Ave'),
+    (4, 'dan@example.com',   '10001', '350 5th Ave'),
+    (5, 'erin@example.com',  '94609', '4799 Shattuck Ave')
+) AS t(customer_id, email, zip, street_address)

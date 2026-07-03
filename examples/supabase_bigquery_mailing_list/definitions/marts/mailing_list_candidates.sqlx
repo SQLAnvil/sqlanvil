@@ -1,7 +1,7 @@
 config {
   type: "view",
   schema: "public",
-  description: "Customers who purchased recently AND live within radius of the target ZIP."
+  description: "Customers who purchased recently AND live within radius of the target ZIP. Distance uses the customer's exact address point (OpenAddresses) when it geocodes, falling back to their ZIP centroid (BigQuery) — the precision column says which."
 }
 
 WITH target AS (
@@ -10,25 +10,41 @@ WITH target AS (
   WHERE zip_code = '${sqlanvil.projectConfig.vars.target_zip}'
 ),
 recent_customers AS (
-  SELECT DISTINCT c.customer_id, c.email, c.zip
+  SELECT DISTINCT c.customer_id, c.email, c.zip, c.street_address
   FROM ${ref("customers")} AS c
   JOIN ${ref("sales_orders")} AS o ON o.customer_id = c.customer_id
   WHERE o.order_date >= CURRENT_DATE - INTERVAL '${sqlanvil.projectConfig.vars.purchased_since_days} days'
+),
+geocoded AS (
+  -- Address-level point when the customer's street matches an OpenAddresses row in
+  -- their ZIP; otherwise the ZIP centroid. `precision` records which one was used.
+  SELECT
+    rc.customer_id,
+    rc.email,
+    rc.zip,
+    COALESCE(a.latitude,  z.lat) AS lat,
+    COALESCE(a.longitude, z.lon) AS lon,
+    CASE WHEN a.latitude IS NOT NULL THEN 'address' ELSE 'zip_centroid' END AS precision
+  FROM recent_customers AS rc
+  JOIN ${ref("zip_codes_cache")} AS z ON z.zip_code = rc.zip
+  LEFT JOIN ${ref("addresses_cache")} AS a
+    ON  a.zip_code = rc.zip
+    AND LOWER(TRIM(rc.street_address)) = LOWER(a.street_number || ' ' || a.street_name)
 )
 SELECT
-  rc.customer_id,
-  rc.email,
-  rc.zip,
+  g.customer_id,
+  g.email,
+  g.zip,
+  g.precision,
   ROUND(
     (ST_Distance(
       ST_MakePoint(t.lon, t.lat)::geography,
-      ST_MakePoint(z.lon, z.lat)::geography
+      ST_MakePoint(g.lon, g.lat)::geography
     ) / 1609.34)::numeric, 1
   ) AS distance_miles
-FROM recent_customers AS rc
-JOIN ${ref("zip_codes_cache")} AS z ON z.zip_code = rc.zip
+FROM geocoded AS g
 CROSS JOIN target AS t
 WHERE ST_Distance(
         ST_MakePoint(t.lon, t.lat)::geography,
-        ST_MakePoint(z.lon, z.lat)::geography
+        ST_MakePoint(g.lon, g.lat)::geography
       ) <= ${sqlanvil.projectConfig.vars.radius_miles}::float8 * 1609.34

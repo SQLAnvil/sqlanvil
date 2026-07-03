@@ -1,0 +1,34 @@
+config {
+  type: "view",
+  schema: "oa_ext",
+  description: "Normalized intermediate view of OpenAddresses.io data for high-performance location and ZIP code mapping.",
+  columns: {
+    longitude: "Geographic longitude coordinate.",
+    latitude: "Geographic latitude coordinate.",
+    street_number: "Property number on the street.",
+    street_name: "Street or road name.",
+    unit_number: "Suite, unit, or apartment number.",
+    city_name: "City or town name.",
+    county_name: "County or administrative district.",
+    state_code: "Two-letter US state postal code (e.g. TX, CA).",
+    zip_code: "5-digit ZIP code or postal code.",
+    address_id: "Unique identifier for the address.",
+    address_hash: "Row-level verification hash."
+  }
+}
+
+SELECT
+    a.lon      AS longitude,
+    a.lat      AS latitude,
+    a.number   AS street_number,
+    a.street   AS street_name,
+    a.unit     AS unit_number,
+    a.city     AS city_name,
+    a.district AS county_name,
+    a.region   AS state_code,
+    a.postcode AS zip_code,
+    a.id       AS address_id,
+    a.hash     AS address_hash
+FROM ${ref("openaddresses_us")} AS a
+WHERE a.lat IS NOT NULL
+  AND a.lon IS NOT NULL

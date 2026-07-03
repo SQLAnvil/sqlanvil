@@ -1,0 +1,11 @@
+config {
+  type: "import",
+  dataset: "oa_ext",
+  name: "openaddresses_us",
+  description: "Raw US property addresses and geospatial coordinates from OpenAddresses.io, loaded from a file via the DuckDB import bridge.",
+  import: {
+    location: "data/openaddresses_sample.csv",
+    format: "csv",
+    overwrite: true
+  }
+}

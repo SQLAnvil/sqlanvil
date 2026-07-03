@@ -1,0 +1,23 @@
+config {
+  type: "table",
+  schema: "public",
+  description: "Optimized address-coordinates table for geocoding joins. The composite indexes play the role BigQuery clustering does in a warehouse pipeline: sub-second lookups by state/ZIP and by ZIP+street.",
+  postgres: {
+    indexes: [
+      { columns: ["state_code", "zip_code"] },
+      { columns: ["zip_code", "street_number", "street_name"] }
+    ]
+  }
+}
+
+SELECT
+  longitude,
+  latitude,
+  street_number,
+  street_name,
+  unit_number,
+  city_name,
+  county_name,
+  state_code,
+  zip_code
+FROM ${ref("stg_addresses")}

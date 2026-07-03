@@ -1,0 +1,13 @@
+lon,lat,number,street,unit,city,district,region,postcode,id,hash
+-122.4187,37.7521,3125,24th St,,San Francisco,San Francisco County,CA,94110,us/ca/san_francisco:100001,8a1f03be
+-122.4152,37.7489,850,Precita Ave,,San Francisco,San Francisco County,CA,94110,us/ca/san_francisco:100002,2c77d1a0
+-122.4221,37.7563,1201,Guerrero St,APT 2,San Francisco,San Francisco County,CA,94110,us/ca/san_francisco:100003,f04b9e11
+-122.4103,37.7726,1098,Howard St,,San Francisco,San Francisco County,CA,94103,us/ca/san_francisco:100004,7d3e52c9
+-122.4079,37.7751,344,9th St,,San Francisco,San Francisco County,CA,94103,us/ca/san_francisco:100005,91ab4e6d
+-122.2647,37.8362,4901,Telegraph Ave,,Oakland,Alameda County,CA,94609,us/ca/alameda:200001,c5518f22
+-122.2668,37.8341,466,49th St,,Oakland,Alameda County,CA,94609,us/ca/alameda:200002,03da7b84
+-122.0419,37.3183,10300,Torre Ave,,Cupertino,Santa Clara County,CA,95014,us/ca/santa_clara:300001,6e92cc47
+-122.0327,37.3229,20525,Mariani Ave,,Cupertino,Santa Clara County,CA,95014,us/ca/santa_clara:300002,b8f01d5e
+-73.9969,40.7484,350,5th Ave,,New York,New York County,NY,10001,us/ny/new_york:400001,44a6e9f0
+-73.9937,40.7506,1,Penn Plz,,New York,New York County,NY,10001,us/ny/new_york:400002,d27c3b18
+-122.4165,,9999,Broken Row,,San Francisco,San Francisco County,CA,94110,us/ca/san_francisco:100099,deadbeef
