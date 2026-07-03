@@ -163,8 +163,13 @@ const projectDirOption = positionalOption("project-dir", {
 
 const projectDirMustExistOption = {
   ...projectDirOption,
-  check: (argv: { "project-dir": string }) => {
+  check: (argv: { "project-dir": string; graph?: string }) => {
     assertPathExists(argv[projectDirOption.name]);
+    // With --graph the compiled graph IS the project — the directory is only a working dir
+    // (credentials, artifacts), so don't require workflow_settings.yaml there.
+    if (argv.graph) {
+      return;
+    }
     const workflowSettingsYamlPath = path.resolve(
       argv[projectDirOption.name],
       "workflow_settings.yaml"
