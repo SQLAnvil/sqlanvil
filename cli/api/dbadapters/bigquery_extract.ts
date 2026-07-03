@@ -1,5 +1,5 @@
 import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
-import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
+import { loadRowsIntoPostgres } from "sa/cli/api/dbadapters/extract_load";
 import { sqlanvil } from "sa/protos/ts";
 
 /**
@@ -13,8 +13,6 @@ import { sqlanvil } from "sa/protos/ts";
 // Guard rails (D5): cap the extract so a huge source can't blow up a branch. Truncation is logged.
 const DEFAULT_ROW_CAP = 1_000_000;
 const DEFAULT_BYTE_CAP = 512 * 1024 * 1024;
-// Postgres allows at most 65535 bind params per statement; keep batches well under that.
-const MAX_PARAMS_PER_INSERT = 60000;
 
 export interface BigQueryExtractArgs {
   spec: sqlanvil.IExtractSpec;
@@ -28,8 +26,6 @@ export interface BigQueryExtractArgs {
   /** Test-only: skip real SSL negotiation against a local Postgres. */
   disableSslForTestsOnly?: boolean;
 }
-
-const quoteIdent = (id: string) => `"${String(id).replace(/"/g, '""')}"`;
 
 /** BigQuery wraps DATE/TIME/TIMESTAMP/NUMERIC as `{ value: "..." }`; unwrap to a primitive for pg. */
 function coerce(v: any): any {
@@ -45,7 +41,7 @@ function coerce(v: any): any {
 export async function runBigQueryExtract(args: BigQueryExtractArgs): Promise<{ rowCount: number }> {
   const { spec, target, connectionCredentials } = args;
   if ((spec.platform || "bigquery") !== "bigquery") {
-    throw new Error(`runner-extract supports only bigquery sources (got "${spec.platform}").`);
+    throw new Error(`bigquery runner-extract got a "${spec.platform}" source.`);
   }
   const cols = Object.keys(spec.columnTypes || {});
   if (cols.length === 0) {
@@ -84,36 +80,13 @@ export async function runBigQueryExtract(args: BigQueryExtractArgs): Promise<{ r
   }
 
   // Materialize into the warehouse.
-  const pg = await PostgresDbAdapter.create(args.pg, {
+  await loadRowsIntoPostgres({
+    pg: args.pg,
+    target,
+    columnTypes: spec.columnTypes,
+    rows,
+    coerce,
     disableSslForTestsOnly: args.disableSslForTestsOnly
   });
-  try {
-    const qualified = `${quoteIdent(target.schema)}.${quoteIdent(target.name)}`;
-    const colDefs = cols.map(c => `${quoteIdent(c)} ${spec.columnTypes[c]}`).join(", ");
-    await pg.execute(`create schema if not exists ${quoteIdent(target.schema)}`);
-    // Drop a same-named FOREIGN table too (cascade), so switching a warehouse from `fdw` to
-    // `runner-extract` — or re-running — doesn't collide: `drop table` won't remove a foreign table,
-    // and dependents (downstream views) are rebuilt by the rest of the run anyway.
-    await pg.execute(`drop foreign table if exists ${qualified} cascade`);
-    await pg.execute(`drop table if exists ${qualified} cascade`);
-    await pg.execute(`create table ${qualified} (${colDefs})`);
-
-    const colIdents = cols.map(quoteIdent).join(", ");
-    const batchRows = Math.max(1, Math.min(1000, Math.floor(MAX_PARAMS_PER_INSERT / cols.length)));
-    for (let i = 0; i < rows.length; i += batchRows) {
-      const batch = rows.slice(i, i + batchRows);
-      const params: any[] = [];
-      const tuples = batch.map((row, r) => {
-        const placeholders = cols.map((c, ci) => `$${r * cols.length + ci + 1}`);
-        cols.forEach(c => params.push(coerce(row[c])));
-        return `(${placeholders.join(", ")})`;
-      });
-      await pg.execute(`insert into ${qualified} (${colIdents}) values ${tuples.join(", ")}`, {
-        params
-      });
-    }
-    return { rowCount: rows.length };
-  } finally {
-    await pg.close();
-  }
+  return { rowCount: rows.length };
 }

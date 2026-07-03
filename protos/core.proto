@@ -310,7 +310,7 @@ message Extract {
   // The named connection this source reads through (keys into .df-credentials.json `connections`
   // for the per-connection access token / key).
   string connection_name = 8;
-  // Source platform ("bigquery").
+  // Source platform ("bigquery" or "mysql").
   string platform = 9;
   // Source project + dataset + object name (BigQuery reads `project.dataset.source_name`).
   string project = 10;
@@ -322,6 +322,9 @@ message Extract {
   map<string, string> column_types = 14;
   // Source .sqlx file path (generated).
   string file_name = 15;
+  // Source database for platforms whose namespace is a database (MySQL reads
+  // `database.source_name`).
+  string database = 16;
 }
 
 message Assertion {

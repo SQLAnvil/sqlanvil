@@ -5,6 +5,7 @@ import * as dbadapters from "sa/cli/api/dbadapters";
 import { substituteConnectionCredentials } from "sa/cli/api/commands/connection_credentials";
 import { IBigQueryExecutionOptions } from "sa/cli/api/dbadapters/bigquery";
 import { BigQueryExtractArgs, runBigQueryExtract } from "sa/cli/api/dbadapters/bigquery_extract";
+import { MysqlExtractArgs, runMysqlExtract } from "sa/cli/api/dbadapters/mysql_extract";
 import { DuckdbExportArgs, runDuckdbExport } from "sa/cli/api/dbadapters/duckdb_export";
 import { DuckdbImportArgs, runDuckdbImport } from "sa/cli/api/dbadapters/duckdb_import";
 import { Flags } from "sa/common/flags";
@@ -51,6 +52,8 @@ export interface IExecutionOptions {
   duckdbImport?: (args: DuckdbImportArgs) => Promise<{ source: string }>;
   // Seam for tests to inject a fake extractor; defaults to runBigQueryExtract.
   bigQueryExtract?: (args: BigQueryExtractArgs) => Promise<{ rowCount: number }>;
+  // Seam for tests to inject a fake MySQL extractor; defaults to runMysqlExtract.
+  mysqlExtract?: (args: MysqlExtractArgs) => Promise<{ rowCount: number }>;
 }
 
 export function run(
@@ -484,10 +487,14 @@ export class Runner {
         taskResult.errorMessage = `${this.graph.projectConfig.warehouse} import error: ${e.message}`;
       }
     } else if (task.type === "extract") {
-      // runner-extract: read the cross-warehouse source (keyless BigQuery) and materialize the rows
-      // into this action's target (Postgres/Supabase), replacing the live FDW foreign table.
+      // runner-extract: read the cross-warehouse source (keyless BigQuery, MySQL/MariaDB) and
+      // materialize the rows into this action's target (Postgres/Supabase), replacing the live
+      // FDW foreign table.
       try {
-        const extractor = this.executionOptions.bigQueryExtract || runBigQueryExtract;
+        const extractor =
+          action?.extract?.platform === "mysql"
+            ? this.executionOptions.mysqlExtract || runMysqlExtract
+            : this.executionOptions.bigQueryExtract || runBigQueryExtract;
         await extractor({
           spec: action?.extract,
           target: action?.target,

@@ -49,10 +49,42 @@ export function mapPostgresType(pgType: string): string {
   return pgType.trim().toLowerCase();
 }
 
+// MySQL source -> Postgres warehouse. columnTypes on a connection'd declaration define the
+// bridge/extract table's columns IN THE WRITE WAREHOUSE (always Postgres/Supabase — a mysql
+// warehouse can't read connections), so raw MySQL names like "datetime" or "double" would fail
+// the extract's CREATE TABLE. Types spelled the same in both dialects pass through unmapped.
+const MYSQL_TYPE_MAP: { [key: string]: string } = {
+  tinyint: "smallint",
+  mediumint: "integer",
+  int: "integer",
+  double: "double precision",
+  float: "real",
+  decimal: "numeric",
+  bit: "smallint",
+  year: "smallint",
+  datetime: "timestamp",
+  // MySQL TIMESTAMP is UTC-normalized on the wire; timestamptz preserves that.
+  timestamp: "timestamptz",
+  char: "text",
+  varchar: "text",
+  tinytext: "text",
+  mediumtext: "text",
+  longtext: "text",
+  enum: "text",
+  set: "text",
+  binary: "bytea",
+  varbinary: "bytea",
+  tinyblob: "bytea",
+  blob: "bytea",
+  mediumblob: "bytea",
+  longblob: "bytea",
+  json: "jsonb",
+  geometry: "text"
+};
+
 export function mapMysqlType(mysqlType: string): string {
-  // MySQL source -> MySQL warehouse: identity (information_schema.DATA_TYPE is
-  // already a valid MySQL base type name, e.g. "varchar", "int", "datetime").
-  return mysqlType.trim().toLowerCase();
+  const key = mysqlType.trim().toLowerCase();
+  return MYSQL_TYPE_MAP[key] || key;
 }
 
 export interface RenderDeclarationOptions {

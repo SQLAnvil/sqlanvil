@@ -158,6 +158,7 @@ export class Builder {
         platform: ext.platform,
         project: ext.project,
         dataset: ext.dataset,
+        database: ext.database,
         sourceName: ext.sourceName,
         billingProject: ext.billingProject,
         columnTypes: ext.columnTypes

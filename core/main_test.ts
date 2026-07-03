@@ -1204,6 +1204,96 @@ connections:
       expect(extract.columnTypes).deep.equals({ zip_code: "text", lat: "float8" });
     });
 
+    test("mysql connection emits an Extract by default (runner-extract is the only mysql mode)", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `defaultDataset: public
+warehouse: my_supabase
+connections:
+  my_supabase:
+    platform: supabase
+    defaultSchema: public
+  shop_mysql:
+    platform: mysql
+    host: mysql.example.com
+    port: 3306
+    database: shop`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions", "orders.sqlx"),
+        `config {
+  type: "declaration",
+  connection: "shop_mysql",
+  name: "orders",
+  columnTypes: { id: "bigint", total: "numeric" }
+}`
+      );
+      fs.writeFileSync(
+        path.join(projectDir, "definitions", "customers.sqlx"),
+        `config {
+  type: "declaration",
+  connection: "shop_mysql",
+  schema: "legacy_db",
+  name: "customers",
+  columnTypes: { id: "bigint", email: "text" }
+}`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      // No FDW bridge for MySQL — no CREATE SERVER, no foreign table.
+      const operations = result.compile.compiledGraph.operations;
+      expect(operations.find(o => o.target.name === "shop_mysql_srv")).to.be.undefined;
+      const extracts = result.compile.compiledGraph.extracts;
+      expect(extracts.length).equals(2);
+      const orders = extracts.find(e => e.target.name === "orders");
+      expect(orders.target.schema).equals("shop_mysql_ext");
+      expect(orders.connectionName).equals("shop_mysql");
+      expect(orders.platform).equals("mysql");
+      expect(orders.database).equals("shop");
+      expect(orders.sourceName).equals("orders");
+      expect(orders.columnTypes).deep.equals({ id: "bigint", total: "numeric" });
+      // An explicit `schema:` on the declaration names the source database.
+      const customers = extracts.find(e => e.target.name === "customers");
+      expect(customers.database).equals("legacy_db");
+    });
+
+    test("mysql connection with explicit mode fdw is a compile error", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `defaultDataset: public
+warehouse: my_supabase
+connections:
+  my_supabase:
+    platform: supabase
+    defaultSchema: public
+  shop_mysql:
+    platform: mysql
+    host: mysql.example.com
+    database: shop
+    mode: fdw`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions", "orders.sqlx"),
+        `config {
+  type: "declaration",
+  connection: "shop_mysql",
+  name: "orders",
+  columnTypes: { id: "bigint" }
+}`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+      const errors = result.compile.compiledGraph.graphErrors.compilationErrors;
+      expect(errors.length).equals(1);
+      expect(errors[0].message).to.contain('MySQL/MariaDB sources support only mode "runner-extract"');
+      expect(result.compile.compiledGraph.extracts ?? []).deep.equals([]);
+    });
+
     test("bigquery connection without billingProject uses the plain table option (unchanged)", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(

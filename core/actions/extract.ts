@@ -10,12 +10,14 @@ export interface IExtractConfig {
   schema?: string;
   /** The named source connection (keys into .df-credentials.json `connections` for auth). */
   connectionName: string;
-  /** Source platform — "bigquery" for now. */
+  /** Source platform — "bigquery" or "mysql". */
   platform: string;
   /** Source project (BigQuery reads `project.dataset.sourceName`). */
   project?: string;
   /** Source dataset. */
   dataset?: string;
+  /** Source database (MySQL reads `database.sourceName`). */
+  database?: string;
   /** Source object name (defaults to `name`). */
   sourceName?: string;
   /** BigQuery billing project (defaults to `project`). */
@@ -53,6 +55,7 @@ export class Extract extends ActionBuilder<sqlanvil.Extract> {
     this.proto.platform = config.platform;
     this.proto.project = config.project || "";
     this.proto.dataset = config.dataset || "";
+    this.proto.database = config.database || "";
     this.proto.sourceName = config.sourceName || config.name;
     this.proto.billingProject = config.billingProject || "";
     this.proto.columnTypes = config.columnTypes || {};

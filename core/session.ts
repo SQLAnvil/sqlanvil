@@ -538,11 +538,32 @@ export class Session {
     const serverName = `${connectionName}_srv`;
     const extSchema = `${connectionName}_ext`;
 
+    // MySQL/MariaDB sources have no Postgres FDW — runner-extract is their default and only mode.
+    // Reject an explicit `mode: "fdw"` with a clear error instead of emitting a broken
+    // postgres_fdw server against a MySQL host.
+    const mode =
+      connection.mode || (connection.platform === "mysql" ? "runner-extract" : "fdw");
+    if (connection.platform === "mysql" && mode !== "runner-extract") {
+      this.compileError(
+        new Error(
+          `Connection "${connectionName}": MySQL/MariaDB sources support only ` +
+            `mode "runner-extract" (there is no Postgres FDW for MySQL); got "${mode}".`
+        ),
+        filename,
+        declaration.getTarget()
+      );
+      this.actions.push(declaration);
+      return declaration;
+    }
+
     // Runner-extract mode: materialize the source into a plain table at run time (keyless — no FDW
     // server, no Vault secret, no wrappers/postgis on the branch) instead of a live foreign table.
     // The Extract action is the ref-able stand-in; the CLI reads the source and loads the rows during
-    // `run`. (BigQuery only for now; other platforms fall through to the FDW path.)
-    if ((connection.mode || "fdw") === "runner-extract" && connection.platform === "bigquery") {
+    // `run`. (BigQuery and MySQL; other platforms fall through to the FDW path.)
+    if (
+      mode === "runner-extract" &&
+      (connection.platform === "bigquery" || connection.platform === "mysql")
+    ) {
       this.actions.push(
         new Extract(this, {
           filename,
@@ -552,6 +573,13 @@ export class Session {
           platform: connection.platform,
           project: connection.project,
           dataset: connection.dataset,
+          // MySQL namespace: an explicit `schema:` on the declaration names the source database,
+          // falling back to the connection's `database`. NB the Declaration constructor above
+          // MUTATES config, renaming legacy `schema` -> `dataset` — read both.
+          database:
+            connection.platform === "mysql"
+              ? config.schema || config.dataset || connection.database
+              : undefined,
           sourceName: config.name,
           billingProject: connection.billingProject,
           columnTypes: config.columnTypes
@@ -610,7 +638,14 @@ export class Session {
     const ftOptions =
       connection.platform === "bigquery"
         ? { table: bqTable }
-        : { schema_name: config.schema || connection.defaultSchema || "public", table_name: config.name };
+        : {
+            // NB the Declaration constructor MUTATES config, renaming legacy `schema` ->
+            // `dataset` — read both, else an explicit source schema silently falls back
+            // to the connection default.
+            schema_name:
+              config.schema || config.dataset || connection.defaultSchema || "public",
+            table_name: config.name
+          };
 
     this.actions.push(
       new ForeignTable(this, {

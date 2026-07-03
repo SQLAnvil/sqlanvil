@@ -233,8 +233,15 @@ deltas above **invert**.
   your own PK/unique for the merge.
 - **Materialized views are emulated as a refreshed table snapshot** — `type: "view", materialized: true` builds a real table (drop + CTAS each run; refresh = re-run), honoring the `mysql:{}` block. No native matview, so it's read back as a table.
 - **`description:`/`columns:` produce real table/column comments** — applied via `ALTER TABLE … COMMENT` / `MODIFY COLUMN … COMMENT` and read back from `information_schema`. Tables/incrementals only — MySQL views can't carry comments. Assertions also work.
-- **No cross-warehouse sources** — a mysql project can't read `connections` (FDW is Postgres-only)
-  and MySQL can't be a source; no `introspect` for/from MySQL.
+- **A mysql WAREHOUSE can't read cross-warehouse sources** — only a postgres/supabase warehouse
+  reads `connections`. MySQL/MariaDB **as a source** works (1.18+): declare a connection with
+  `platform: mysql` + `host`/`port`/`database` and it is **runner-extract only** (no Postgres FDW
+  for MySQL — `mode: fdw` is a compile error; omit `mode`, runner-extract is the default). The CLI
+  reads `database.table` over the wire at run time (mysql2) and materializes a plain
+  `<conn>_ext.<name>` table in the write warehouse, capped at 1M rows / 512MB. Declarations need
+  `columnTypes` — scaffold with `sqlanvil introspect <conn> <db>.<table>` (MySQL introspect works).
+  Credentials go in `.df-credentials.json`'s `connections` map: `{ host, port, user, password,
+  sslMode? }`. An explicit `schema:` on the declaration overrides the source database.
 - **`---` not `;`** (delta #6); **never `DELIMITER`** (client-only directive — a `CREATE PROCEDURE`
   body's internal `;` survive between `---` separators). Backtick-quote identifiers in raw DDL.
 - CLI: `sqlanvil init <dir> --warehouse mysql`. Local engines: `./tools/mysql/run-mysql-db.sh`

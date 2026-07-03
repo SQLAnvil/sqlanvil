@@ -93,8 +93,9 @@ message Environment {
 // A named connection: the warehouse (read/write target) or a read-only source.
 message ConnectionConfig {
   // Optional. One of "bigquery", "postgres", "supabase", "mysql".
-  // ("mysql" is supported by `sqlanvil introspect` for schema scaffolding; a runtime
-  // cross-warehouse MySQL *source* bridge is not yet implemented — see issue #35.)
+  // MySQL/MariaDB sources are runner-extract only (no Postgres FDW for MySQL): the CLI reads
+  // the source at run time and materializes it into the write warehouse. `sqlanvil introspect`
+  // scaffolds declarations (columnTypes) from a MySQL source.
   string platform = 1;
   // Optional. BigQuery source default project.
   string project = 2;
@@ -107,19 +108,20 @@ message ConnectionConfig {
   // (e.g. `bigquery-public-data`): the FDW server's `project_id` becomes the billing
   // project and the foreign table reads the source via a full-FQN subquery.
   string billing_project = 9;
-  // Optional. Postgres source host (non-secret; password lives in .df-credentials.json).
+  // Optional. Postgres/MySQL source host (non-secret; password lives in .df-credentials.json).
   string host = 5;
-  // Optional. Postgres source port.
+  // Optional. Postgres/MySQL source port.
   uint32 port = 6;
-  // Optional. Postgres source database name.
+  // Optional. Postgres/MySQL source database name.
   string database = 7;
   // Optional. Postgres/Supabase default schema.
   string default_schema = 8;
   // Optional. Source read mode for a cross-warehouse source connection:
-  //   "fdw" (default) — a live foreign-data-wrapper table (needs the Vault secret + wrappers).
-  //   "runner-extract" — the CLI reads the source directly at run time and materializes the rows
-  //     into a plain table (keyless; no Vault secret, no wrappers/postgis on the branch). BigQuery
-  //     only for now. See the runner-extract action.
+  //   "fdw" (default for bigquery/postgres/supabase) — a live foreign-data-wrapper table (needs
+  //     the Vault secret + wrappers).
+  //   "runner-extract" (default and only mode for mysql; also supported for bigquery) — the CLI
+  //     reads the source directly at run time and materializes the rows into a plain table
+  //     (keyless; no Vault secret, no wrappers/postgis on the branch). See the extract action.
   string mode = 10;
 }
 

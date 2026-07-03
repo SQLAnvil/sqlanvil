@@ -36,10 +36,20 @@ suite("introspect type mapping", () => {
     expect(mapPostgresType("double precision")).equals("double precision");
   });
 
-  test("MySQL types pass through unchanged (lowercased/trimmed)", () => {
-    expect(mapMysqlType("varchar")).equals("varchar");
-    expect(mapMysqlType("  INT ")).equals("int");
-    expect(mapMysqlType("DATETIME")).equals("datetime");
+  test("MySQL types map to Postgres types (columnTypes define the extract table in the warehouse)", () => {
+    expect(mapMysqlType("varchar")).equals("text");
+    expect(mapMysqlType("  INT ")).equals("integer");
+    expect(mapMysqlType("DATETIME")).equals("timestamp");
+    expect(mapMysqlType("timestamp")).equals("timestamptz");
+    expect(mapMysqlType("double")).equals("double precision");
+    expect(mapMysqlType("decimal")).equals("numeric");
+    expect(mapMysqlType("tinyint")).equals("smallint");
+    expect(mapMysqlType("json")).equals("jsonb");
+    expect(mapMysqlType("blob")).equals("bytea");
+    // Names valid in both dialects pass through.
+    expect(mapMysqlType("bigint")).equals("bigint");
+    expect(mapMysqlType("date")).equals("date");
+    expect(mapMysqlType("text")).equals("text");
   });
 });
 
@@ -196,7 +206,7 @@ suite("introspect orchestrator", ({ afterEach }) => {
     expect(sqlx).to.contain(`zip_code: "5-digit ZIP"`);
   });
 
-  test("mysql connection: raw MySQL types pass through, rendered as a declaration", async () => {
+  test("mysql connection: MySQL types render as Postgres columnTypes in the declaration", async () => {
     const dir = tmp2.createNewTmpDir();
     fs.writeFileSync(
       path.join(dir, "workflow_settings.yaml"),
@@ -214,8 +224,8 @@ suite("introspect orchestrator", ({ afterEach }) => {
     };
     const sqlx = await introspectToSqlx(dir, "mysrc", "app.widgets", { reader: fakeReader });
     expect(sqlx).to.contain(`connection: "mysrc"`);
-    expect(sqlx).to.contain(`id: "int"`);
-    expect(sqlx).to.contain(`label: "varchar"`);
+    expect(sqlx).to.contain(`id: "integer"`);
+    expect(sqlx).to.contain(`label: "text"`);
     expect(sqlx).to.contain(`id: "the id"`);
   });
 });
