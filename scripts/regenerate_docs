@@ -50,19 +50,17 @@ apply_to_site() {
 ####################################################################################################
 
 # typedoc compiles core/** and must resolve the Bazel-generated `sa/protos/ts` and
-# `sa/core/version` modules. Native macOS Bazel is broken, so bazel-bin symlinks into the
-# docker volume; extract the two generated files to the host for the duration of the run.
-# (Requires a prior `./scripts/docker-bazel build //protos:ts //core:version` to have populated
-# the volume.)
+# `sa/core/version` modules. Copy the two generated files out of bazel-bin for the duration
+# of the run. (Requires a prior `bazel build //protos:ts //core:version` — native Bazel works
+# on macOS since the bzlmod migration, #41; docker-bazel is no longer needed here.)
 cleanup() { rm -f "${REPO_ROOT}/protos/ts.d.ts" "${REPO_ROOT}/core/version.ts"; rm -rf "${REPO_ROOT}/newdocs" "${REPO_ROOT}/.docs_gen"; }
 trap cleanup EXIT
 
-docker run --rm \
-  -v "${REPO_ROOT}:/workspace" \
-  -v sqlanvil-bazel-cache:/root/.cache/bazel \
-  -v sqlanvil-bazel-disk:/root/.cache/bazel-disk \
-  sqlanvil-dev sh -c \
-  'cp -L /workspace/bazel-bin/protos/ts.d.ts /workspace/protos/ts.d.ts && cp -L /workspace/bazel-bin/core/version.ts /workspace/core/version.ts && chmod 644 /workspace/protos/ts.d.ts /workspace/core/version.ts'
+for f in protos/ts.d.ts core/version.ts; do
+  [ -e "${REPO_ROOT}/bazel-bin/${f}" ] || { echo "bazel-bin/${f} missing — run: bazel build //protos:ts //core:version" >&2; exit 1; }
+  cp -L "${REPO_ROOT}/bazel-bin/${f}" "${REPO_ROOT}/${f}"
+  chmod 644 "${REPO_ROOT}/${f}"
+done
 
 ( cd "${REPO_ROOT}" && npx typedoc )
 

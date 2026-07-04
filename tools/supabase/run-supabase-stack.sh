@@ -44,13 +44,12 @@ cat <<'EOF'
 Local Supabase stack is up. The Postgres DB is exposed on port 54322
 (user: postgres, password: postgres, db: postgres).
 
-Run the RLS enforcement spec against it. Tests run INSIDE the docker-bazel
-container, so reach the DB as host.docker.internal and pass env with --test_env:
+Run the RLS enforcement spec against it (native bazel; pass env with --test_env).
+(Only if running inside ./scripts/docker-bazel: use host.docker.internal instead.)
 
-  SUPABASE_HOST=host.docker.internal SUPABASE_PORT=54322 SUPABASE_USER=postgres SUPABASE_PASSWORD=postgres SUPABASE_DATABASE=postgres \
-    ./scripts/docker-bazel test //tests/integration:supabase_rls.spec \
-    --test_env=SUPABASE_HOST --test_env=SUPABASE_PORT --test_env=SUPABASE_USER --test_env=SUPABASE_PASSWORD --test_env=SUPABASE_DATABASE \
-    --jobs=2 --local_ram_resources=2048
+  SUPABASE_HOST=127.0.0.1 SUPABASE_PORT=54322 SUPABASE_USER=postgres SUPABASE_PASSWORD=postgres SUPABASE_DATABASE=postgres \
+    bazel test //tests/integration:supabase_rls.spec \
+    --test_env=SUPABASE_HOST --test_env=SUPABASE_PORT --test_env=SUPABASE_USER --test_env=SUPABASE_PASSWORD --test_env=SUPABASE_DATABASE
 
 Stop the stack with: ./tools/supabase/run-supabase-stack.sh stop
 EOF

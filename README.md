@@ -82,20 +82,22 @@ scripts/      ./scripts/run is the CLI entrypoint wrapper
 
 ## Building from source
 
-SQLAnvil uses [Bazel](https://bazel.build) (via Bazelisk). The recommended dev path on macOS is the Docker-based build container:
+SQLAnvil uses [Bazel](https://bazel.build) (via Bazelisk). Native Bazel works on macOS
+and Linux (Bazel 7 + bzlmod):
 
 ```bash
 # Build the proto layer
-./scripts/docker-bazel build //protos:sqlanvil_proto
+bazel build //protos:sqlanvil_proto
 
 # Run the CLI
-./scripts/docker-bazel run //packages/@sqlanvil/cli:bin -- help
+./scripts/run help
 
 # Run tests
-./scripts/docker-bazel test //...
+bazel test //core/... //cli/...
 ```
 
-See [contributing.md](contributing.md) for full instructions.
+A Docker-based build container (`./scripts/docker-bazel`) remains available as an
+optional hermetic environment. See [contributing.md](contributing.md) for full instructions.
 
 ---
 

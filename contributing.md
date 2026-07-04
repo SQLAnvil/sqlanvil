@@ -29,18 +29,22 @@ SQLAnvil uses [Bazel](https://bazel.build) for all build and test targets. There
 ## Prerequisites
 
 - [Bazelisk](https://github.com/bazelbuild/bazelisk) — `npm install -g @bazel/bazelisk`
-- Docker (recommended for macOS — see note below)
-- Node.js 20 LTS (used by some tooling outside Bazel)
+- Docker (for the database integration-test containers; optionally for the hermetic build container)
+- Node.js 20+ LTS (used by some tooling outside Bazel)
 
 ## macOS build note
 
-The pinned Bazel version has toolchain issues with macOS Tahoe (Bazel 5's `wrapped_clang` lacks `LC_UUID`). Use the Docker dev container until the toolchain is modernized:
+Native Bazel works on macOS since the Bazel 7 + bzlmod migration (#41) — deliverables and
+tests build with no flags; a full `bazel build //...` (which includes C++/abseil corners)
+wants `--config=macos-cpp`. The Docker dev container remains available as an optional
+hermetic environment (if you use it, reach test databases as `host.docker.internal`
+instead of `127.0.0.1`):
 
 ```bash
-# Build anything
+# Optional: build inside the container
 ./scripts/docker-bazel build //protos:sqlanvil_proto
 
-# Interactive shell
+# Optional: interactive shell
 ./scripts/docker-bazel
 ```
 
