@@ -32,7 +32,7 @@ below before authoring a `warehouse: mysql` project.
 warehouse: postgres            # flat string ("postgres" or "supabase") — NOT nested
 defaultDataset: public         # the Postgres SCHEMA
 defaultAssertionDataset: sqlanvil_assertions
-sqlanvilCoreVersion: 1.1.1     # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); 1.1.1+ for named connections
+sqlanvilCoreVersion: 1.19.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
 vars:
   someVar: value
 ```
@@ -164,16 +164,32 @@ double-quoted identifiers.
 
 ### 12. CLI: `sqlanvil <verb>` (the installed CLI — no global `dataform`, no `npm run`)
 ```bash
-sqlanvil init    <projectDir> --warehouse postgres   # or supabase — scaffolds workflow_settings.yaml + a .df-credentials.json template (BigQuery is the default; it needs a GCP project + location)
-sqlanvil compile <projectDir>
-sqlanvil run     <projectDir> --credentials <projectDir>/.df-credentials.json
-sqlanvil run     <projectDir> --credentials ... --full-refresh
-sqlanvil run     <projectDir> --credentials ... --actions <name> --include-deps
-sqlanvil test    <projectDir> --credentials ...
+sqlanvil init      <projectDir> --warehouse postgres   # or supabase/mysql — scaffolds workflow_settings.yaml + a .df-credentials.json template (BigQuery is the default; it needs a GCP project + location)
+sqlanvil compile   <projectDir>
+sqlanvil run       <projectDir> --credentials <projectDir>/.df-credentials.json
+sqlanvil run       <projectDir> --credentials ... --full-refresh
+sqlanvil run       <projectDir> --credentials ... --actions <name> --include-deps
+sqlanvil validate  <projectDir> --credentials ...      # EXPLAIN-validate the whole DAG without executing
+sqlanvil test      <projectDir> --credentials ...
 ```
 Install with `npm i -g @sqlanvil/cli`. (Working from a sqlanvil repo checkout instead of the installed CLI? Use `./scripts/run <verb>` in place of `sqlanvil <verb>`.)
-Boot a local PG with `./tools/postgres/run-postgres-db.sh`. `--dry-run` only validates BigQuery
-today; on Postgres it does not EXPLAIN-validate SQL (known gap).
+Boot a local PG with `./tools/postgres/run-postgres-db.sh`.
+
+**`validate` / `run --dry-run` (>=1.9):** walks the DAG in dependency order, `EXPLAIN`-checks each
+model against the live warehouse in a throwaway shadow schema (empty stubs let downstream
+`${ref()}`s resolve), and reports **PASS / FAILURE / BLOCKED** (blocked = only an upstream failed)
+/ SKIPPED (operations, imports). `run --dry-run` on Postgres/Supabase/MySQL *validates* — it does
+not execute. Any FAILURE/BLOCKED exits non-zero. (BigQuery: native server-side dry-run.)
+
+**`run --graph <file>` (>=1.17):** executes a stored `compile --json` output directly — no compile,
+no project source needed (a bare dir + credentials works). What runs is exactly what was compiled;
+environment overrides are baked in (`--environment` with `--graph` is rejected); selection flags
+still apply. The release-artifact pattern: compile once, run the identical graph later/elsewhere.
+
+**Queryable artifacts (>=1.10):** `compile`/`run` write Parquet artifacts under `<projectDir>/target/`
+(gitignore it). `sqlanvil query "<sql>"` runs SQL over them (views: `actions`, `dependencies`,
+`columns`, `runs`); `sqlanvil inspect` prints a summary; `sqlanvil docs` renders an HTML catalog to
+`target/docs/index.html`. Warehouse-agnostic — no connection needed.
 
 **Named environments (`--environment <name>`):** define dev/staging/prod in an `environments:`
 block in `workflow_settings.yaml`; each bundles non-secret overrides + a pointer to a gitignored
@@ -209,6 +225,37 @@ declare({ schema: "raw", name: "customers" });
 applied to a declaration's own target, and `${ref()}` to a declared source resolves to the real
 (unsuffixed) table even under `--schema-suffix dev` — so a dev run reads true sources while writing
 to suffixed output. A declaration without a suffix is correct; don't "fix" it.
+
+### 15. Cross-warehouse sources: named connections (BigQuery / Postgres / MySQL)
+
+Read a table from ANOTHER warehouse via a **named connection** — never hand-roll an FDW. Declare
+non-secret coordinates in `workflow_settings.yaml` under `connections:` (`platform: bigquery` with
+`project`/`dataset`/`saKeyId`/`billingProject` (>=1.13, bill your project for read-but-not-bill
+sources); `platform: postgres` with `host`/`port`/`database`/`defaultSchema`; `platform: mysql`
+(>=1.18) with `host`/`port`/`database`). Secrets go in `.df-credentials.json`'s `connections.<name>`
+map (postgres/mysql: user/password; BigQuery: SA `credentials` or a keyless short-lived
+`accessToken`, >=1.14). Tag a declaration with `connection: "<name>"` + **`columnTypes` in
+POSTGRES types** (compile error without them) — scaffold via
+`sqlanvil introspect <conn> <schema.table> --output definitions/sources/<name>.sqlx` (maps
+BigQuery/Postgres/MySQL types to PG). The write warehouse must be postgres/supabase; connections
+are READ-ONLY sources (single write warehouse).
+
+Two modes (`mode:` on the connection): **`fdw`** (default for bigquery/postgres — live foreign
+table in `<conn>_ext`, needs `wrappers` + Vault on the warehouse) and **`runner-extract`**
+(>=1.15 BigQuery; default and ONLY mode for mysql — `mode: fdw` on mysql is a compile error): the
+CLI reads the source at run time and materializes a plain `<conn>_ext.<name>` table (1M rows /
+512MB caps) — no Vault, no extensions, works on bare/ephemeral branches. Either way, downstream
+just `${ref("<name>")}`s it.
+
+### 16. File exports and imports (`type: "export"` >=1.8, `type: "import"` >=1.12)
+
+Config-only actions moving FILES across the warehouse boundary (Parquet/CSV/JSON; local paths or
+`s3://`/`gs://` — bucket creds under `storage:` in `.df-credentials.json`). **`import`** loads a
+file into a `${ref()}`-able warehouse table (`import: { location, format, overwrite }`; `location`
+is the verbatim source URI; `overwrite` defaults true; PG/Supabase via the DuckDB bridge, BigQuery
+native `LOAD DATA` gs:// only, MySQL throws). **`export`** writes a query result to a file — a
+terminal sink. `validate` marks imports SKIPPED and their downstream BLOCKED (expected). Hosted
+SQLAnvil Cloud rejects LOCAL paths at compile — use object-store URIs there.
 
 ## MySQL / MariaDB (`warehouse: mysql`)
 
@@ -265,6 +312,10 @@ deltas above **invert**.
 | in-place matview refresh | `postgres: { refreshPolicy: "on_dependency_change" }` in the view config (else drop+recreate) |
 | `dataform run` / `npm run` | `sqlanvil run ... --credentials` |
 | `dataformCoreVersion:` | `sqlanvilCoreVersion:` (sqlanvil's own SemVer line) |
+| hand-written FDW / foreign table to read another warehouse | named connection + `sqlanvil introspect` (delta #15) |
+| `LOAD DATA` / hand-rolled `COPY` to ingest a file | `type: "import"` (>=1.12) |
+| `EXPORT DATA` (BQ-only) | `type: "export"` (>=1.8) |
+| hoping `--dry-run` validates | `sqlanvil validate` (>=1.9) — EXPLAIN-checks the whole DAG |
 
 ## Red flags — you're reverting to BigQuery priors
 
@@ -274,8 +325,11 @@ statements · `ADD PRIMARY KEY`/`ADD CONSTRAINT` in an incremental `post_operati
 `when(!incremental())` · a bare `dataform`/`npm run` command.
 
 On **`warehouse: mysql`**: a `postgres: {}`/`bigquery: {}` block · `defaultSchema` in creds ·
-double-quoted identifiers in raw DDL (MySQL uses backticks) · `materialized: true` (errors) · a
-hand-added PK/unique just to make an incremental `uniqueKey` work (auto-created) · `DELIMITER`
-around a procedure body · expecting `description:`/`columns:` to produce DB comments (no-op today).
+double-quoted identifiers in raw DDL (MySQL uses backticks) · a hand-added PK/unique just to make
+an incremental `uniqueKey` work (auto-created) · `DELIMITER` around a procedure body · expecting
+`materialized: true` to be a NATIVE matview (it's a refreshed table snapshot) · expecting
+`description:`/`columns:` on a VIEW to produce comments (views can't; tables/incrementals do) ·
+raw `CREATE FULLTEXT/SPATIAL INDEX` or `PARTITION BY` DDL in operations (first-class in
+`mysql: {}` now) · `unique: true` with index `type: "fulltext"|"spatial"` (mutually exclusive).
 
 When unsure of a `postgres:` field name or enum value, read `protos/configs.proto`.

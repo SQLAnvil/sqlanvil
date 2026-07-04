@@ -10,7 +10,7 @@ Guidance for Claude Code when working in the `sqlanvil/` project.
 
 ## What This Is
 
-**sqlanvil** is Ivan's fork of [`dataform-co/dataform`](https://github.com/dataform-co/dataform), fully renamed and repositioned as an open-source SQL workflow tool with first-class support for **BigQuery, PostgreSQL, and Supabase** (upstream Dataform OSS dropped Postgres support after the Google acquisition).
+**sqlanvil** is Ivan's fork of [`dataform-co/dataform`](https://github.com/dataform-co/dataform), fully renamed and repositioned as an open-source SQL workflow tool with first-class support for **BigQuery, PostgreSQL, Supabase, and MySQL/MariaDB** (upstream Dataform OSS dropped Postgres support after the Google acquisition).
 
 - **Upstream**: `git@github.com:dataform-co/dataform.git` (Google's Dataform OSS — low activity; focus shifted to hosted BigQuery product)
 - **Origin**: `git@github.com:sqlanvil/sqlanvil.git`
@@ -19,19 +19,19 @@ Guidance for Claude Code when working in the `sqlanvil/` project.
 ## Stack
 
 - **Language**: TypeScript
-- **Build**: Bazel (via Bazelisk) — old-style `WORKSPACE`, not `MODULE.bazel`
+- **Build**: Bazel 7 (via Bazelisk) — **bzlmod** (`MODULE.bazel`, migrated in #41; workspace name `sa`). Native Bazel works on macOS: deliverables/tests build with no flags; full-tree `bazel build //...` wants `--config=macos-cpp`. `./scripts/docker-bazel` remains an optional hermetic container.
 - **Protos**: protobuf (`protos/*.proto`) for core/configs/db_adapter/etc.
-- **Target warehouses**: BigQuery, PostgreSQL, and Supabase — all three adapters landed on `main` and integration-verified
+- **Target warehouses**: BigQuery, PostgreSQL, Supabase, and MySQL/MariaDB — all four adapters on `main` and integration-verified
 - **No npm `scripts`** in `package.json` — everything runs through Bazel.
 
 ## Layout
 
 ```
 core/         Compiler + action types (table/view/incremental/assertion/operation/notebook/declaration)
-cli/          CLI entrypoint (cli/index.ts) and per-adapter glue (cli/api/dbadapters/ — bigquery, postgres, supabase)
+cli/          CLI entrypoint (cli/index.ts) and per-adapter glue (cli/api/dbadapters/ — bigquery, postgres, supabase, mysql)
 protos/       Protobuf definitions for core/configs/execution/db_adapter
-tools/        Bazel rules + Postgres/Supabase docker test fixtures (tools/postgres/, tools/supabase/)
-tests/        Integration specs (bigquery + postgres + supabase) against real warehouses
+tools/        Bazel rules + docker test fixtures (tools/postgres/, tools/supabase/, tools/mysql/)
+tests/        Integration specs (bigquery + postgres + supabase + mysql/mariadb) against real warehouses
 examples/     Sample SQLAnvil projects
 scripts/      `./scripts/run` is the CLI entrypoint wrapper
 ```
@@ -119,6 +119,17 @@ The same pattern runs `:supabase.spec` / `:supabase_rls.spec` with `SUPABASE_*` 
 
 ## Things To Know
 
+- **Cross-warehouse sources (named connections).** A postgres/supabase warehouse reads other
+  warehouses via `connections:` — two mechanisms: the **FDW bridge** (`mode: fdw`, live foreign
+  table via `wrappers`, `core/actions/{wrapper,foreign_table}.ts`) and **runner-extract**
+  (`mode: runner-extract` — the CLI reads the source at run time and materializes a plain
+  `<conn>_ext.<name>` table; `core/actions/extract.ts`, `cli/api/dbadapters/{bigquery,mysql}_extract.ts`
+  + shared `extract_load.ts`; dispatched by `spec.platform` in `run.ts`). BigQuery supports both
+  modes (+ `billingProject`, keyless `accessToken`); **MySQL/MariaDB sources (1.18) are
+  runner-extract only** (`mode: fdw` = compile error in `session.ts declare()`). `introspect` maps
+  source types → PG types (`mapMysqlType` etc.). Gotcha: the `Declaration` constructor MUTATES its
+  config (`schema` → `dataset`) — read both in `declare()` branches. Single write warehouse: a
+  mysql warehouse can't read connections.
 - **File import (`type: "import"`).** The symmetric inverse of `type: "export"` (1.8.0): loads a
   Parquet/CSV/JSON file into a **table in the warehouse**, so it's `ref()`-able (a *producer*, unlike
   export's terminal sink). **Config-only** (no SQL body, like `declaration`) — `import: { location,
