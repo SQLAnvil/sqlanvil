@@ -130,6 +130,21 @@ The same pattern runs `:supabase.spec` / `:supabase_rls.spec` with `SUPABASE_*` 
   source types → PG types (`mapMysqlType` etc.). Gotcha: the `Declaration` constructor MUTATES its
   config (`schema` → `dataset`) — read both in `declare()` branches. Single write warehouse: a
   mysql warehouse can't read connections.
+- **Python script actions (`python:` in actions.yaml, 1.20).** Execution-time user scripts as DAG
+  nodes (file staging / glue before an `import`); compile NEVER runs Python (hermetic-compile
+  invariant — Cloud pinned releases depend on it) and no warehouse credentials are injected
+  (scripts stage files; `import` loads them). Language-neutral protos (`Script`/`ScriptSpec`/
+  `ScriptConfig` with a `language` field — `python:` is yaml sugar normalized PRE-verification in
+  `core/main.ts normalizeScriptSugar`); a second language = a CLI resolver + sugar entry, not a
+  proto migration. Code: `core/actions/script.ts` (compile checks use compileConfig.filePaths —
+  the CLI globs ALL project files; testing/run_core.ts now mirrors that), `cli/api/commands/
+  script_run.ts` (spawn contract: cwd=projectDir, SA_VARS/SA_ACTION_NAME, tail-capped output,
+  30-min default timeout; `scriptRun` seam in run.ts), `script_env.ts` (validate's embedded
+  checker under the RESOLVED interpreter: version/requirements/syntax, offline — packaging or
+  pip-vendored fallback; FAILURE blocks dependents). Hosted rejection lives in the CLOUD runner
+  pre-flight (`assertNoScriptActions`), not the engine. Gotcha: `py_compile` refuses /dev/null
+  as cfile — the checker uses builtin `compile()` instead. Integration: script→import chain in
+  postgres.spec. Spec: `sqlanvil-private/planning/specs/2026-07-04-python-script-actions-design.md`.
 - **File import (`type: "import"`).** The symmetric inverse of `type: "export"` (1.8.0): loads a
   Parquet/CSV/JSON file into a **table in the warehouse**, so it's `ref()`-able (a *producer*, unlike
   export's terminal sink). **Config-only** (no SQL body, like `declaration`) — `import: { location,

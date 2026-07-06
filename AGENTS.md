@@ -32,7 +32,7 @@ below before authoring a `warehouse: mysql` project.
 warehouse: postgres            # flat string ("postgres" or "supabase") — NOT nested
 defaultDataset: public         # the Postgres SCHEMA
 defaultAssertionDataset: sqlanvil_assertions
-sqlanvilCoreVersion: 1.19.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
+sqlanvilCoreVersion: 1.20.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
 vars:
   someVar: value
 ```
@@ -179,7 +179,9 @@ Boot a local PG with `./tools/postgres/run-postgres-db.sh`.
 model against the live warehouse in a throwaway shadow schema (empty stubs let downstream
 `${ref()}`s resolve), and reports **PASS / FAILURE / BLOCKED** (blocked = only an upstream failed)
 / SKIPPED (operations, imports). `run --dry-run` on Postgres/Supabase/MySQL *validates* — it does
-not execute. Any FAILURE/BLOCKED exits non-zero. (BigQuery: native server-side dry-run.)
+not execute. Any FAILURE/BLOCKED exits non-zero. (BigQuery: native server-side dry-run.) Python
+script actions (>=1.20) get an env check instead of EXPLAIN: interpreter vs `pythonVersion`,
+requirements vs installed packages, syntax — without executing the script.
 
 **`run --graph <file>` (>=1.17):** executes a stored `compile --json` output directly — no compile,
 no project source needed (a bare dir + credentials works). What runs is exactly what was compiled;
@@ -256,6 +258,35 @@ is the verbatim source URI; `overwrite` defaults true; PG/Supabase via the DuckD
 native `LOAD DATA` gs:// only, MySQL throws). **`export`** writes a query result to a file — a
 terminal sink. `validate` marks imports SKIPPED and their downstream BLOCKED (expected). Hosted
 SQLAnvil Cloud rejects LOCAL paths at compile — use object-store URIs there.
+
+### 17. Python script actions (`python:` in actions.yaml, >=1.20)
+
+Execution-time Python steps as DAG nodes — the staging/glue slot (download, unzip, API call)
+before an `import`. Declared in `definitions/actions.yaml` (NOT a new file extension; NOT
+compile-time like `.js`):
+
+```yaml
+actions:
+  - python:
+      name: fetch_data
+      file: loader/fetch_data.py             # plain .py, path from project root
+      args: ["northeast"]                     # sys.argv[1:]
+      requirements: loader/requirements.txt   # optional; VALIDATED, never installed
+      pythonVersion: ">=3.11"                 # optional PEP 440 specifier
+      venv: .venv                             # optional; that venv's interpreter runs it
+      dependencies: ["upstream_action"]
+```
+
+Contract: cwd = project dir; env `SA_VARS` (vars as JSON) + `SA_ACTION_NAME`; exit 0 = success;
+30-min default timeout (`timeoutMillis` overrides). **No warehouse credentials are injected** —
+the script stages FILES; a downstream `type: "import"` (with
+`dependencyTargets: [{name: "fetch_data"}]`) loads them. Never have the script write to the
+warehouse itself. `sqlanvil validate` checks the interpreter version, requirements vs installed
+packages, and syntax WITHOUT executing (a failing script BLOCKs dependents); the user owns the
+env — pip/uv install is their job, sqlanvil never installs. Hosted SQLAnvil Cloud rejects script
+actions at compile — local CLI / BYO CI only. `python:` is sugar for the language-neutral
+`script: { language: "python", ... }` (proto field names: `filename`, `depsFile`,
+`runtimeVersion`, `envRoot`).
 
 ## MySQL / MariaDB (`warehouse: mysql`)
 
