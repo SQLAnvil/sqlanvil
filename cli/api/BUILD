@@ -71,6 +71,7 @@ ts_test_suite(
         "commands/environments_test.ts",
         "commands/init_test.ts",
         "commands/introspect_test.ts",
+        "commands/prune_test.ts",
         "commands/run_export_test.ts",
         "commands/run_extract_test.ts",
         "commands/run_import_test.ts",

@@ -8,6 +8,7 @@ type CompileAction =
   | sqlanvil.IAssertion
   | sqlanvil.IExport
   | sqlanvil.IImport
+  | sqlanvil.IExtract
   | sqlanvil.IScript;
 
 export function prune(
@@ -33,6 +34,12 @@ export function prune(
     imports: compiledGraph.imports.filter(action =>
       includedActionNames.has(targetAsReadableString(action.target))
     ),
+    // Extracts (runner-extract source materializations) prune like any other action: a
+    // selective run only reads a source if a selected action depends on it (--include-deps
+    // pulls it in) — it shouldn't re-extract (and bill) unrelated sources.
+    extracts: (compiledGraph.extracts || []).filter(action =>
+      includedActionNames.has(targetAsReadableString(action.target))
+    ),
     scripts: (compiledGraph.scripts || []).filter(action =>
       includedActionNames.has(targetAsReadableString(action.target))
     )
@@ -50,6 +57,7 @@ function computeIncludedActionNames(
     compiledGraph.assertions,
     compiledGraph.exports,
     compiledGraph.imports,
+    compiledGraph.extracts || [],
     compiledGraph.scripts || []
   );
 

@@ -99,13 +99,18 @@ suite("init", ({ afterEach }) => {
     await init(projectDir, { warehouse: "postgres" });
 
     for (const sample of [
+      "definitions/sources/app_orders.sqlx",
+      "definitions/sources/bigquery_zip_codes.sqlx",
+      "definitions/intermediate/stg_app_orders.sqlx",
+      "definitions/intermediate/stg_zip_codes.sqlx",
       "definitions/outputs/sales/daily_sales.sqlx",
       "definitions/outputs/reporting/product_revenue.sqlx",
+      "definitions/outputs/reporting/orders_by_region.sqlx",
       "definitions/test/assert_sales_amounts_positive.sqlx"
     ]) {
       expect(fs.existsSync(path.join(projectDir, sample)), sample).equals(true);
     }
-    for (const kept of ["definitions/sources", "definitions/intermediate", "includes"]) {
+    for (const kept of ["includes"]) {
       expect(fs.existsSync(path.join(projectDir, kept, ".gitkeep")), kept).equals(true);
     }
     // Retired scaffold dirs are gone.
@@ -117,16 +122,45 @@ suite("init", ({ afterEach }) => {
     ]) {
       expect(fs.existsSync(path.join(projectDir, gone)), gone).equals(false);
     }
-    // The demo view refs the demo table; the assertion states the business rule.
-    const view = fs.readFileSync(
-      path.join(projectDir, "definitions/outputs/reporting/product_revenue.sqlx"),
+    // Outputs read the intermediate views, which read the source declarations.
+    const daily = fs.readFileSync(
+      path.join(projectDir, "definitions/outputs/sales/daily_sales.sqlx"),
       "utf8"
     );
-    expect(view).to.contain('ref("daily_sales")');
+    expect(daily).to.contain('ref("stg_app_orders")');
+    const stg = fs.readFileSync(
+      path.join(projectDir, "definitions/intermediate/stg_app_orders.sqlx"),
+      "utf8"
+    );
+    expect(stg).to.contain('ref("app_orders")');
     const assertion = fs.readFileSync(
       path.join(projectDir, "definitions/test/assert_sales_amounts_positive.sqlx"),
       "utf8"
     );
     expect(assertion).to.contain('type: "assertion"');
+    // The cross-warehouse source rides the bigquery_public connection in workflow_settings.
+    const settings = readSettings(projectDir);
+    expect(settings.connections.bigquery_public.platform).equals("bigquery");
+    expect(settings.connections.bigquery_public.mode).equals("runner-extract");
+  });
+
+  test("mysql projects skip the cross-warehouse BigQuery sample (connections unsupported)", async () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    await init(projectDir, { warehouse: "mysql" });
+    expect(fs.existsSync(path.join(projectDir, "definitions/sources/app_orders.sqlx"))).equals(true);
+    expect(fs.existsSync(path.join(projectDir, "definitions/sources/bigquery_zip_codes.sqlx"))).equals(false);
+    expect(readSettings(projectDir)).to.not.have.property("connections");
+  });
+
+  test("bigquery projects declare the public table natively (no connection)", async () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    await init(projectDir, { warehouse: "bigquery", defaultDatabase: "p", defaultLocation: "US" });
+    const decl = fs.readFileSync(
+      path.join(projectDir, "definitions/sources/bigquery_zip_codes.sqlx"),
+      "utf8"
+    );
+    expect(decl).to.contain('database: "bigquery-public-data"');
+    expect(decl).to.not.contain("connection:");
+    expect(readSettings(projectDir)).to.not.have.property("connections");
   });
 });
