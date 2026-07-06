@@ -7,6 +7,7 @@ import { Import } from "sa/core/actions/import";
 import { IncrementalTable } from "sa/core/actions/incremental_table";
 import { Notebook } from "sa/core/actions/notebook";
 import { Operation } from "sa/core/actions/operation";
+import { Script } from "sa/core/actions/script";
 import { Table } from "sa/core/actions/table";
 import { Test } from "sa/core/actions/test";
 import { View } from "sa/core/actions/view";
@@ -38,6 +39,7 @@ export type Action =
   | Export
   | Extract
   | Import
+  | Script
   | Test
   | RlsPolicy
   | RealtimePublication
@@ -55,6 +57,7 @@ export type ActionProto =
   | sqlanvil.Export
   | sqlanvil.Extract
   | sqlanvil.Import
+  | sqlanvil.Script
   | sqlanvil.Test;
 
 export { ActionBuilder } from "sa/core/actions/base";

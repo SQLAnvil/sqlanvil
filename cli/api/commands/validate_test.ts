@@ -139,4 +139,62 @@ suite("validate orchestrator", () => {
     await sweepOrphanShadows(deps, now, hour);
     expect(deps.executed).to.eql([`DROP SCHEMA public_sqlanvil_validate_${now - 2 * hour}`]);
   });
+
+  // Script chain: script -> import -> model reading the imported table.
+  function scriptGraph(): sqlanvil.ICompiledGraph {
+    return {
+      tables: [
+        {
+          target: { schema: "s", name: "stg" },
+          query: "select 1 from oa_ext.addresses",
+          enumType: sqlanvil.TableType.TABLE,
+          dependencyTargets: [{ schema: "oa_ext", name: "addresses" }]
+        }
+      ],
+      assertions: [],
+      operations: [],
+      imports: [
+        {
+          target: { schema: "oa_ext", name: "addresses" },
+          dependencyTargets: [{ schema: "s", name: "load_files" }]
+        }
+      ],
+      scripts: [
+        {
+          target: { schema: "s", name: "load_files" },
+          language: "python",
+          scriptFilename: "loader/load.py"
+        }
+      ]
+    } as sqlanvil.ICompiledGraph;
+  }
+
+  test("a passing script env-check is PASS; without a checker it degrades to SKIPPED", async () => {
+    const deps = new FakeDeps(new Map());
+    (deps as ValidateDeps).checkScript = async () => [{ status: SUCCESS }];
+    const results = await validate(scriptGraph(), deps);
+    expect(statusOf(results, "load_files")).to.equal("PASS");
+    // The import downstream is still SKIPPED by design (file columns unknown pre-run).
+    expect(statusOf(results, "addresses")).to.equal("SKIPPED");
+
+    const noChecker = new FakeDeps(new Map());
+    const degraded = await validate(scriptGraph(), noChecker);
+    expect(statusOf(degraded, "load_files")).to.equal("SKIPPED");
+  });
+
+  test("a failing script env-check is FAILURE with its errors, and blocks dependents", async () => {
+    const deps = new FakeDeps(new Map());
+    (deps as ValidateDeps).checkScript = async () => [
+      { status: FAILURE, error: { message: "requirements: requests is not installed" } }
+    ];
+    const results = await validate(scriptGraph(), deps);
+    expect(statusOf(results, "load_files")).to.equal("FAILURE");
+    const scriptResult = results.find(r => r.target.name === "load_files");
+    expect(scriptResult.errors[0].error.message).to.contain("requests is not installed");
+    expect(scriptResult.type).to.equal("script");
+    // Imports are never validated (SKIPPED regardless), and anything reading them is BLOCKED —
+    // so the failed script's chain still surfaces as blocked at the first validatable action.
+    expect(statusOf(results, "addresses")).to.equal("SKIPPED");
+    expect(statusOf(results, "stg")).to.equal("BLOCKED");
+  });
 });

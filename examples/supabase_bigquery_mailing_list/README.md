@@ -63,17 +63,41 @@ millions of address points — so the distance filter uses the customer's *actua
 address* whenever it geocodes, and only falls back to the ZIP centroid when it
 doesn't. The mart's `precision` column tells you which one each row used.
 
-The ingestion is a `type: "import"` action (`definitions/sources/openaddresses_us.sqlx`)
-— a **file → warehouse-table producer** powered by the runner-side DuckDB bridge:
+The ingestion is a two-step, fully in-DAG chain — the slot Dataform/dbt leave outside
+the pipeline:
 
-```js
-config {
-  type: "import",
-  dataset: "oa_ext",
-  name: "openaddresses_us",
-  import: { location: "data/openaddresses_sample.csv", format: "csv", overwrite: true }
-}
-```
+1. **A `python:` script action** (`definitions/actions.yaml` → `loader/fetch_openaddresses.py`)
+   stages the file. Out of the box it re-stages the bundled sample (dropping rows with broken
+   coordinates at the edge); set an `oa_source_url` var and the same script downloads a real
+   region from openaddresses.io instead. Script actions never receive warehouse credentials —
+   they produce files.
+
+   ```yaml
+   actions:
+     - python:
+         name: fetch_openaddresses
+         file: loader/fetch_openaddresses.py
+         pythonVersion: ">=3.9"
+         tags: ["ingest"]
+   ```
+
+2. **A `type: "import"` action** (`definitions/sources/openaddresses_us.sqlx`) — a
+   **file → warehouse-table producer** powered by the runner-side DuckDB bridge — loads what
+   the script staged, depending on it like any other action:
+
+   ```js
+   config {
+     type: "import",
+     dataset: "oa_ext",
+     name: "openaddresses_us",
+     dependencyTargets: [{name: "fetch_openaddresses"}],
+     import: { location: "data/openaddresses_us.csv", format: "csv", overwrite: true }
+   }
+   ```
+
+`sqlanvil validate` covers the script too: it checks the interpreter against `pythonVersion`,
+any `requirements:` manifest against the installed packages, and the script's syntax — without
+executing anything (the Python analog of `EXPLAIN`).
 
 Downstream, the pattern mirrors a production warehouse ingestion:
 
@@ -90,15 +114,18 @@ Downstream, the pattern mirrors a production warehouse ingestion:
   customer (Erin) deliberately doesn't geocode, so both paths show up in the output.
 
 The bundled `data/openaddresses_sample.csv` is a 12-row slice in OpenAddresses'
-standard 11-column layout so the example runs out of the box. For real data,
-download a region/state from [openaddresses.io](https://openaddresses.io)
-(free account) and point `location:` at it — same schema, millions of rows; the
-DuckDB bridge also reads `s3://`/`gs://` URIs directly (add the bucket credentials
-under `storage` in `.df-credentials.json`).
+standard 11-column layout so the example runs out of the box. For real data, set
+the `oa_source_url` var to a region/state download from
+[openaddresses.io](https://openaddresses.io) (free account) — same schema,
+millions of rows; alternatively skip the script and point the import's
+`location:` straight at an `s3://`/`gs://` URI (add the bucket credentials under
+`storage` in `.df-credentials.json`).
 
-> **SQLAnvil Cloud note:** hosted runs reject *local* file paths at compile time
-> (an ephemeral runner's disk isn't durable) — stage the file on `s3://`/`gs://`
-> when running this project on Cloud.
+> **SQLAnvil Cloud note:** hosted runs reject *local* file paths — and python
+> script actions — at compile time (an ephemeral runner's disk isn't durable, and
+> user code doesn't execute on the shared runner). Run this chain with the local
+> CLI or your own CI; on Cloud, stage the file on `s3://`/`gs://` and drop the
+> script action.
 
 ## Prerequisites
 

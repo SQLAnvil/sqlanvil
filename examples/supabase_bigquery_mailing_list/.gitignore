@@ -1,0 +1,6 @@
+# Staged by loader/fetch_openaddresses.py (the python script action) at run time.
+data/openaddresses_us.csv
+# Queryable artifacts written by compile/run.
+target/
+# Credentials (copy .df-credentials.example.json).
+.df-credentials.json

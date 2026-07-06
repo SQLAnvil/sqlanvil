@@ -16,6 +16,7 @@ import { assertConnectionCredentialsAvailable } from "sa/cli/api/commands/connec
 import { safeWriteArtifacts, TARGET_DIR } from "sa/cli/api/commands/artifacts";
 import { buildDocsModel, renderDocsHtml } from "sa/cli/api/commands/docs";
 import { ArtifactView, queryParquet } from "sa/cli/api/dbadapters/duckdb_artifacts";
+import { checkScriptAction } from "sa/cli/api/commands/script_env";
 import { sweepOrphanShadows, validate, ValidateDeps } from "sa/cli/api/commands/validate";
 import { ValidationResult, validateShadowSuffix } from "sa/cli/api/commands/validate_graph";
 import { IDbAdapter } from "sa/cli/api/dbadapters";
@@ -537,7 +538,10 @@ async function runValidate(argv: any): Promise<number> {
         "select schema_name as name from information_schema.schemata"
       );
       return ((result && result.rows) || []).map((row: any) => row.name);
-    }
+    },
+    // Script actions: interpreter/requirements/syntax check via the resolved interpreter
+    // (warehouse-independent — nothing is installed or executed).
+    checkScript: script => checkScriptAction(script, projectDir)
   };
 
   // Best-effort: clear shadow schemas orphaned by previously-killed validate runs.
@@ -1241,7 +1245,10 @@ export function runCli() {
             bigquery: bigqueryOptions,
             connectionCredentials,
             warehouseConnection: isPostgresLike ? readCredentials : undefined,
-            storageCredentials
+            storageCredentials,
+            // For script actions: the cwd the script runs in (projectDirOption is coerced to
+            // an absolute path).
+            projectDir: argv[projectDirOption.name]
           });
           process.on("SIGINT", () => {
             runner.cancel();

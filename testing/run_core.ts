@@ -109,19 +109,24 @@ export function runMainInVm(
   return decode64(sqlanvil.CoreExecutionResponse, encodedCoreExecutionResponse);
 }
 
+// Mirrors the CLI's project file index (`glob.sync("!(node_modules)/**/*.*")` in
+// cli/vm/compile.ts): every non-dot file with an extension, so compile-time file-existence
+// checks (e.g. script actions) see the same paths in tests as in a real compile.
 function walkDirectoryForFilenames(projectDir: string, relativePath: string = ""): string[] {
   let paths: string[] = [];
   fs.readdirSync(path.join(projectDir, relativePath), { withFileTypes: true })
-    .filter(directoryEntry => directoryEntry.name !== "node_modules")
+    .filter(
+      directoryEntry =>
+        directoryEntry.name !== "node_modules" && !directoryEntry.name.startsWith(".")
+    )
     .forEach(directoryEntry => {
       if (directoryEntry.isDirectory()) {
-        paths = paths.concat(walkDirectoryForFilenames(projectDir, directoryEntry.name));
-        return;
-      }
-      const fileExtension = directoryEntry.name.split(".").slice(-1)[0];
-      if (directoryEntry.isFile() && SOURCE_EXTENSIONS.includes(fileExtension)) {
-        paths.push(directoryEntry.name);
+        paths = paths.concat(
+          walkDirectoryForFilenames(projectDir, path.join(relativePath, directoryEntry.name))
+        );
+      } else if (directoryEntry.isFile() && directoryEntry.name.includes(".")) {
+        paths.push(path.join(relativePath, directoryEntry.name));
       }
     });
-  return paths.map(filename => path.join(relativePath, filename));
+  return paths;
 }

@@ -70,7 +70,8 @@ export class Builder {
       this.prunedGraph.assertions.map(a => this.buildAssertion(a)),
       this.prunedGraph.exports.map(e => this.buildExport(e)),
       this.prunedGraph.imports.map(i => this.buildImport(i)),
-      this.prunedGraph.extracts.map(e => this.buildExtract(e))
+      this.prunedGraph.extracts.map(e => this.buildExtract(e)),
+      (this.prunedGraph.scripts || []).map(s => this.buildScript(s))
     );
     return sqlanvil.ExecutionGraph.create({
       projectConfig: this.prunedGraph.projectConfig,
@@ -166,6 +167,28 @@ export class Builder {
     };
   }
 
+  private buildScript(script: sqlanvil.IScript) {
+    // No warehouse SQL: the "script" task is a marker; the run-time seam spawns the script's
+    // interpreter with the contract carried on the ScriptSpec.
+    return {
+      ...this.toPartialExecutionAction(script),
+      type: "script",
+      tasks: script.disabled
+        ? []
+        : [sqlanvil.ExecutionTask.create({ type: "script", statement: "" })],
+      hermeticity: script.hermeticity || sqlanvil.ActionHermeticity.NON_HERMETIC,
+      script: sqlanvil.ScriptSpec.create({
+        language: script.language,
+        filename: script.scriptFilename,
+        args: script.args,
+        depsFile: script.depsFile,
+        runtimeVersion: script.runtimeVersion,
+        envRoot: script.envRoot,
+        timeoutMillis: script.timeoutMillis
+      })
+    };
+  }
+
   private toPartialExecutionAction(
     action:
       | sqlanvil.ITable
@@ -174,6 +197,7 @@ export class Builder {
       | sqlanvil.IExport
       | sqlanvil.IImport
       | sqlanvil.IExtract
+      | sqlanvil.IScript
   ) {
     return sqlanvil.ExecutionAction.create({
       target: action.target,

@@ -8,6 +8,7 @@ import { BigQueryExtractArgs, runBigQueryExtract } from "sa/cli/api/dbadapters/b
 import { MysqlExtractArgs, runMysqlExtract } from "sa/cli/api/dbadapters/mysql_extract";
 import { DuckdbExportArgs, runDuckdbExport } from "sa/cli/api/dbadapters/duckdb_export";
 import { DuckdbImportArgs, runDuckdbImport } from "sa/cli/api/dbadapters/duckdb_import";
+import { runScript, ScriptRunArgs } from "sa/cli/api/commands/script_run";
 import { Flags } from "sa/common/flags";
 import { retry } from "sa/common/promises";
 import { deepClone, equals } from "sa/common/protos";
@@ -54,6 +55,11 @@ export interface IExecutionOptions {
   bigQueryExtract?: (args: BigQueryExtractArgs) => Promise<{ rowCount: number }>;
   // Seam for tests to inject a fake MySQL extractor; defaults to runMysqlExtract.
   mysqlExtract?: (args: MysqlExtractArgs) => Promise<{ rowCount: number }>;
+  // Seam for tests to inject a fake script runner; defaults to runScript.
+  scriptRun?: (args: ScriptRunArgs) => Promise<{ exitCode: number }>;
+  // Absolute project directory — the cwd for script actions (and the base for their relative
+  // paths). Only needed when a project has script actions.
+  projectDir?: string;
 }
 
 export function run(
@@ -485,6 +491,27 @@ export class Runner {
           ? sqlanvil.TaskResult.ExecutionStatus.CANCELLED
           : sqlanvil.TaskResult.ExecutionStatus.FAILED;
         taskResult.errorMessage = `${this.graph.projectConfig.warehouse} import error: ${e.message}`;
+      }
+    } else if (task.type === "script") {
+      // Script actions run runner-side: spawn the script's interpreter with cwd = the project
+      // directory. No warehouse client involvement — and no warehouse credentials in the env.
+      try {
+        if (!this.executionOptions.projectDir) {
+          throw new Error("script actions need the project directory (internal: projectDir unset)");
+        }
+        const scriptRunner = this.executionOptions.scriptRun || runScript;
+        await scriptRunner({
+          spec: action?.script,
+          target: action?.target,
+          projectDir: this.executionOptions.projectDir,
+          vars: this.graph.projectConfig?.vars || {}
+        });
+        taskResult.status = sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL;
+      } catch (e) {
+        taskResult.status = this.cancelled
+          ? sqlanvil.TaskResult.ExecutionStatus.CANCELLED
+          : sqlanvil.TaskResult.ExecutionStatus.FAILED;
+        taskResult.errorMessage = `script error: ${e.message}`;
       }
     } else if (task.type === "extract") {
       // runner-extract: read the cross-warehouse source (keyless BigQuery, MySQL/MariaDB) and

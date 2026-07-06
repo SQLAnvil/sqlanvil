@@ -8,6 +8,8 @@ import * as dbadapters from "sa/cli/api/dbadapters";
 import { sweepOrphanShadows, validate, ValidateDeps } from "sa/cli/api/commands/validate";
 import { readViaDuckdb, runDuckdbExport } from "sa/cli/api/dbadapters/duckdb_export";
 import { runDuckdbImport } from "sa/cli/api/dbadapters/duckdb_import";
+import { runScript } from "sa/cli/api/commands/script_run";
+import { checkScriptAction } from "sa/cli/api/commands/script_env";
 import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { targetAsReadableString } from "sa/core/targets";
@@ -1102,4 +1104,94 @@ $$`
       await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
     });
   }
+
+  // The python script-action chain (issue #48): a script stages a CSV → import loads it into a
+  // ref()-able table → the data checks out. runScript is the exact code path `sqlanvil run`
+  // dispatches a "script" task to; checkScriptAction is validate's env check for the same action.
+  test("a python script stages a CSV that import loads (script → import chain)", { timeout: 120000 }, async () => {
+    const schema = "sa_integration_test_script_chain";
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    await dbadapter.execute(`create schema "${schema}"`);
+
+    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "sa-script-"));
+    fs.mkdirSync(path.join(projectDir, "loader"));
+    fs.writeFileSync(
+      path.join(projectDir, "loader", "stage_addresses.py"),
+      [
+        "import csv, json, os, sys",
+        "rows = [",
+        '    {"id": 1, "city": "Boston", "lat": 42.36},',
+        '    {"id": 2, "city": "Portland", "lat": 43.66},',
+        '    {"id": 3, "city": "Nowhere", "lat": 999.0},  # broken row',
+        "]",
+        "# The staging contract: filter obviously-broken rows before the warehouse sees them.",
+        "rows = [r for r in rows if -90 <= r['lat'] <= 90]",
+        'os.makedirs("staged", exist_ok=True)',
+        'with open("staged/addresses.csv", "w", newline="") as f:',
+        '    w = csv.DictWriter(f, fieldnames=["id", "city", "lat"])',
+        "    w.writeheader()",
+        "    w.writerows(rows)",
+        'print("staged %d rows for %s" % (len(rows), os.environ.get("SA_ACTION_NAME")))'
+      ].join("\n")
+    );
+
+    // validate's env check passes for the real script + interpreter.
+    const evaluations = await checkScriptAction(
+      sqlanvil.Script.create({
+        target: { schema, name: "stage_addresses" },
+        language: "python",
+        scriptFilename: "loader/stage_addresses.py",
+        runtimeVersion: ">=3.8"
+      }),
+      projectDir
+    );
+    expect(evaluations).deep.equals([
+      { status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS }
+    ]);
+
+    // Run the script (what a "script" ExecutionTask does), then import its output file.
+    await runScript({
+      spec: sqlanvil.ScriptSpec.create({
+        language: "python",
+        filename: "loader/stage_addresses.py"
+      }),
+      target: sqlanvil.Target.create({ schema, name: "stage_addresses" }),
+      projectDir,
+      vars: {},
+      onOutput: () => undefined
+    });
+
+    await runDuckdbImport({
+      spec: sqlanvil.ImportSpec.create({
+        location: `local://${path.join(projectDir, "staged", "addresses.csv")}`,
+        format: "csv",
+        overwrite: true
+      }),
+      target: sqlanvil.Target.create({ schema, name: "addresses" }),
+      pg: {
+        host: PostgresFixture.host,
+        port: PostgresFixture.port,
+        database: PostgresFixture.database,
+        user: PostgresFixture.user,
+        password: PostgresFixture.password
+      }
+    });
+
+    const loaded = (
+      await dbadapter.execute(`select id, city from "${schema}"."addresses" order by id`)
+    ).rows.map((r: any) => ({ id: Number(r.id), city: r.city }));
+    expect(loaded).deep.equals([
+      { id: 1, city: "Boston" },
+      { id: 2, city: "Portland" }
+    ]);
+    // The assertion-style check: no out-of-range coordinates made it through.
+    const bad = Number(
+      (await dbadapter.execute(
+        `select count(*)::int as n from "${schema}"."addresses" where lat not between -90 and 90`
+      )).rows[0].n
+    );
+    expect(bad).equals(0);
+
+    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+  });
 });

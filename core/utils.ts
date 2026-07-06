@@ -6,6 +6,7 @@ import { Import } from "sa/core/actions/import";
 import { IncrementalTable } from "sa/core/actions/incremental_table";
 import { Notebook } from "sa/core/actions/notebook";
 import { Operation } from "sa/core/actions/operation";
+import { Script } from "sa/core/actions/script";
 import { Table } from "sa/core/actions/table";
 import { View } from "sa/core/actions/view";
 import { Contextable, Resolvable } from "sa/core/contextables";
@@ -24,7 +25,8 @@ type actionsWithDependencies =
   | Notebook
   | DataPreparation
   | Export
-  | Import;
+  | Import
+  | Script;
 
 // This side-steps webpack's require in favour of the real require.
 export const nativeRequire =

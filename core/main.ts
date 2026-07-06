@@ -10,6 +10,7 @@ import { Declaration } from "sa/core/actions/declaration";
 import { IncrementalTable } from "sa/core/actions/incremental_table";
 import { Notebook } from "sa/core/actions/notebook";
 import { Operation } from "sa/core/actions/operation";
+import { Script } from "sa/core/actions/script";
 import { Table } from "sa/core/actions/table";
 import { View } from "sa/core/actions/view";
 import { ISqlanvilExtension } from "sa/core/extension";
@@ -204,11 +205,72 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
               actionConfigsPath
             )
           );
+        } else if (actionConfig.script) {
+          session.actions.push(
+            new Script(
+              session,
+              sqlanvil.ActionConfig.ScriptConfig.create(actionConfig.script),
+              actionConfigsPath,
+              filePaths
+            )
+          );
         } else {
           throw Error("Empty action configs are not permitted.");
         }
       });
     });
+}
+
+// Per-language sugar keys in actions.yaml, each normalizing to the language-neutral
+// `script: { language: <key>, ... }` shape (with the friendly field names mapped onto the
+// ScriptConfig proto fields). Adding a language here is config sugar only — the protos stay
+// language-neutral by design.
+const SCRIPT_SUGAR_KEYS = ["python"];
+
+// Friendly field name -> ScriptConfig proto field, per language.
+const SCRIPT_SUGAR_FIELDS: { [language: string]: { [friendly: string]: string } } = {
+  python: {
+    file: "filename",
+    requirements: "depsFile",
+    pythonVersion: "runtimeVersion",
+    venv: "envRoot"
+  }
+};
+
+/**
+ * Rewrites `- python: {...}` actions.yaml entries into `- script: { language: "python", ... }`
+ * BEFORE proto verification (the ActionConfig proto only knows `script`). A plain-string
+ * `dependencies: [...]` list is also accepted here and mapped to `dependencyTargets`.
+ */
+function normalizeScriptSugar(actionConfigsAsJson: any): any {
+  if (!actionConfigsAsJson || !Array.isArray(actionConfigsAsJson.actions)) {
+    return actionConfigsAsJson;
+  }
+  for (const action of actionConfigsAsJson.actions) {
+    if (!action || typeof action !== "object") {
+      continue;
+    }
+    for (const language of SCRIPT_SUGAR_KEYS) {
+      if (!action[language] || typeof action[language] !== "object") {
+        continue;
+      }
+      const sugar = action[language];
+      const script: any = { language };
+      const fieldMap = SCRIPT_SUGAR_FIELDS[language] || {};
+      for (const key of Object.keys(sugar)) {
+        if (key === "dependencies" && Array.isArray(sugar[key])) {
+          script.dependencyTargets = sugar[key].map((dep: any) =>
+            typeof dep === "string" ? { name: dep } : dep
+          );
+        } else {
+          script[fieldMap[key] || key] = sugar[key];
+        }
+      }
+      delete action[language];
+      action.script = script;
+    }
+  }
+  return actionConfigsAsJson;
 }
 
 function loadActionConfigsFile(
@@ -222,6 +284,7 @@ function loadActionConfigsFile(
   } catch (e) {
     session.compileError(e, actionConfigsPath);
   }
+  actionConfigsAsJson = normalizeScriptSugar(actionConfigsAsJson);
   verifyObjectMatchesProto(
     sqlanvil.ActionConfigs,
     actionConfigsAsJson,

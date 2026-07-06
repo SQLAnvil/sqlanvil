@@ -74,6 +74,8 @@ ts_test_suite(
         "commands/run_export_test.ts",
         "commands/run_extract_test.ts",
         "commands/run_import_test.ts",
+        "commands/run_script_test.ts",
+        "commands/script_env_test.ts",
         "commands/test_test.ts",
         "commands/validate_graph_test.ts",
         "commands/validate_test.ts",

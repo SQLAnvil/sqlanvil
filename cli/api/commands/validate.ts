@@ -30,6 +30,12 @@ export interface ValidateDeps {
   dropSchemaCascadeSql(schema: string): string;
   /** All schema (database, on MySQL) names — used to find orphaned validation shadows. */
   listSchemas(): Promise<string[]>;
+  /**
+   * Environment/syntax check for a script action (interpreter version, requirements satisfied,
+   * source parses — see script_env.ts). Optional: when absent, scripts are SKIPPED like
+   * operations (still blocking their dependents).
+   */
+  checkScript?(script: sqlanvil.IScript): Promise<sqlanvil.IQueryEvaluation[]>;
 }
 
 /**
@@ -60,13 +66,14 @@ export interface ValidateOptions {
   keepShadow?: boolean;
 }
 
-type NodeKind = "table" | "assertion" | "operation" | "import";
+type NodeKind = "table" | "assertion" | "operation" | "import" | "script";
 
 interface ValidateNode extends OrderedNode {
   kind: NodeKind;
-  type: string; // table | view | incremental | assertion | operation
+  type: string; // table | view | incremental | assertion | operation | script
   target: sqlanvil.ITarget;
   table?: sqlanvil.ITable; // set for kind === "table" (used for the stub)
+  script?: sqlanvil.IScript; // set for kind === "script" (used for the env check)
   action: sqlanvil.ITable | sqlanvil.IAssertion;
 }
 
@@ -144,6 +151,23 @@ export async function validate(
       action: undefined
     });
   }
+  // Scripts get an environment/syntax check (deps.checkScript — the Python analog of EXPLAIN)
+  // rather than a warehouse-planner query. A FAILED script blocks its dependents, exactly like
+  // a failed model; without a checker they degrade to SKIPPED (still blocking).
+  for (const script of compiledGraph.scripts || []) {
+    if (!script.target) {
+      continue;
+    }
+    nodes.push({
+      key: targetKey(script.target),
+      dependencyKeys: depKeys(script.dependencyTargets),
+      kind: "script",
+      type: "script",
+      target: script.target,
+      script,
+      action: undefined
+    });
+  }
 
   const ordered = topoOrder(nodes);
   // Only table/view/incremental stubs get materialized, so only their schemas need creating.
@@ -160,7 +184,11 @@ export async function validate(
     }
 
     for (const node of ordered) {
-      if (node.kind === "operation" || node.kind === "import") {
+      if (
+        node.kind === "operation" ||
+        node.kind === "import" ||
+        (node.kind === "script" && !deps.checkScript)
+      ) {
         statusByKey.set(node.key, "SKIPPED");
         results.push({ target: node.target, type: node.type, status: "SKIPPED", errors: [] });
         continue;
@@ -171,7 +199,10 @@ export async function validate(
         continue;
       }
 
-      const evaluations = await deps.evaluate(node.action);
+      const evaluations =
+        node.kind === "script"
+          ? await deps.checkScript(node.script)
+          : await deps.evaluate(node.action);
       const failed = evaluations.some(
         e => e.status === sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE
       );

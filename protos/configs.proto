@@ -874,6 +874,57 @@ message ActionConfig {
     }
   }
 
+  // Configuration for a script action: an execution-time user script (Python in v1) that stages
+  // files / runs glue steps as a first-class DAG node. Language-neutral by design — `language`
+  // selects the per-language resolver in the CLI; the friendly `python:` actions.yaml key is
+  // sugar that normalizes to `script: { language: "python", ... }`. Scripts never receive
+  // warehouse credentials; they produce files, and `type: "import"` is the loading boundary.
+  message ScriptConfig {
+    // The name of the script action (how downstream actions depend on it).
+    string name = 1;
+
+    // The dataset (schema) used to qualify the script's target name.
+    string dataset = 2;
+
+    // The project (database) used to qualify the script's target name.
+    string project = 3;
+
+    // Targets of actions that this action is dependent on.
+    repeated Target dependency_targets = 4;
+
+    // Path to the script file to execute, relative to the project root.
+    string filename = 5;
+
+    // A list of user-defined tags with which the action should be labeled.
+    repeated string tags = 6;
+
+    // If set to true, this action will not be executed.
+    bool disabled = 7;
+
+    // Description of the script action.
+    string description = 8;
+
+    // Script language ("python" in v1). Set automatically by the `python:` sugar.
+    string language = 9;
+
+    // Arguments passed verbatim to the script.
+    repeated string args = 10;
+
+    // Declared dependency manifest, relative to the project root (requirements.txt for
+    // python). sqlanvil validates the environment against it but never installs anything.
+    string deps_file = 11;
+
+    // Runtime version specifier (a PEP 440 specifier for python, e.g. ">=3.11").
+    string runtime_version = 12;
+
+    // Environment root directory, relative to the project root (a venv for python) — its
+    // interpreter runs the script. When unset, the interpreter is resolved from PATH.
+    string env_root = 13;
+
+    // Per-action timeout in milliseconds. 0 means the default (30 minutes).
+    int32 timeout_millis = 14;
+  }
+
   oneof action {
     TableConfig table = 1;
     ViewConfig view = 2;
@@ -889,6 +940,7 @@ message ActionConfig {
     VectorIndexConfig vector_index = 12;
     ExportConfig export = 13;
     ImportConfig import = 14;
+    ScriptConfig script = 15;
   }
 
   message RlsPolicyConfig {

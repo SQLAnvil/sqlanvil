@@ -1,0 +1,12 @@
+# Script actions: execution-time steps in the DAG (issue #48). The `python:` key is sugar for
+# the language-neutral `script:` action. This one stages the OpenAddresses CSV that the
+# `openaddresses_us` import action (definitions/sources/openaddresses_us.sqlx) loads.
+#
+# Scripts never receive warehouse credentials — they produce files; `type: "import"` loads them.
+# `sqlanvil validate` checks the interpreter version and the script's syntax without executing it.
+actions:
+  - python:
+      name: fetch_openaddresses
+      file: loader/fetch_openaddresses.py
+      pythonVersion: ">=3.9"
+      tags: ["ingest"]

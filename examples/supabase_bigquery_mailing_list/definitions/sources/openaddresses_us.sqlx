@@ -2,9 +2,10 @@ config {
   type: "import",
   dataset: "oa_ext",
   name: "openaddresses_us",
-  description: "Raw US property addresses and geospatial coordinates from OpenAddresses.io, loaded from a file via the DuckDB import bridge.",
+  description: "Raw US property addresses and geospatial coordinates from OpenAddresses.io, staged by the fetch_openaddresses python action and loaded via the DuckDB import bridge.",
+  dependencyTargets: [{name: "fetch_openaddresses"}],
   import: {
-    location: "data/openaddresses_sample.csv",
+    location: "data/openaddresses_us.csv",
     format: "csv",
     overwrite: true
   }

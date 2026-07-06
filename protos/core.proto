@@ -327,6 +327,40 @@ message Extract {
   string database = 16;
 }
 
+// An execution-time script action (user code — Python in v1): file-staging and glue steps as
+// first-class DAG nodes, ordered by dependencies and covered by run history. The script runs
+// runner-side (a spawned interpreter with cwd = project dir), never on the warehouse, and no
+// warehouse credentials are ever injected — scripts produce files; `type: "import"` loads them.
+// Language-neutral by design: `language` selects the per-language resolver in the CLI, so a new
+// language is a resolver + config sugar, not a proto migration.
+message Script {
+  Target target = 1;
+  Target canonical_target = 2;
+  repeated Target dependency_targets = 3;
+  ActionHermeticity hermeticity = 4;
+  bool disabled = 5;
+  repeated string tags = 6;
+  ActionDescriptor action_descriptor = 7;
+  // Script language ("python" in v1).
+  string language = 8;
+  // Script path relative to the project root.
+  string script_filename = 9;
+  // Arguments passed verbatim to the script.
+  repeated string args = 10;
+  // Declared dependency manifest relative to the project root (requirements.txt for python).
+  // Validated by `sqlanvil validate`, never installed.
+  string deps_file = 11;
+  // Runtime version specifier (PEP 440 for python).
+  string runtime_version = 12;
+  // Environment root relative to the project root (a venv for python) whose interpreter runs
+  // the script. Empty = resolve the interpreter from PATH.
+  string env_root = 13;
+  // Per-action timeout in milliseconds. 0 = the default (30 minutes).
+  int32 timeout_millis = 14;
+  // Source config file path (actions.yaml) (generated).
+  string file_name = 15;
+}
+
 message Assertion {
   Target target = 8;
   Target canonical_target = 13;
@@ -498,6 +532,7 @@ message CompiledGraph {
   repeated Export exports = 14;
   repeated Import imports = 16;
   repeated Extract extracts = 17;
+  repeated Script scripts = 18;
 
   GraphErrors graph_errors = 7;
 
