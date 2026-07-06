@@ -27,8 +27,6 @@ SQLAnvil is an open-source fork of [Dataform OSS](https://github.com/dataform-co
 - **Release-artifact runs** — `sqlanvil run --graph <file>` executes a stored `compile --json` output exactly as compiled; **named environments** (`--environment`) give per-env schema suffixes and vars
 - **SQLX + YAML + JS** — three authoring modes: SQL with config blocks, `actions.yaml` bulk definitions, or the JavaScript API
 
-Want hosted orchestration on top (branch-aware CI on PRs, scheduled workflows, zero credential custody)? That's **[SQLAnvil Cloud](https://sqlanvil.com/docs/cloud/)**.
-
 ---
 
 ## Quick start
