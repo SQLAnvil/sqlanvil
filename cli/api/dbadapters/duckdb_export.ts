@@ -81,6 +81,26 @@ export function toCopyTarget(uri: string): string {
   return uri;
 }
 
+/**
+ * Resolves a LOCAL location (a bare path or local://) against `baseDir` — the project directory.
+ * Remote URIs and absolute paths pass through untouched. Relative import/export locations are
+ * project-relative, matching how script actions run (cwd = project dir): without this, a
+ * relative `location:` silently depended on the CLI's own cwd, so `sqlanvil run <projectDir>`
+ * from anywhere else couldn't find files a script action had just staged.
+ */
+export function resolveLocalLocation(location: string, baseDir?: string): string {
+  if (!location || !baseDir || schemeOf(location) !== "local") {
+    return location;
+  }
+  const hasScheme = location.startsWith("local://");
+  const bare = hasScheme ? location.slice("local://".length) : location;
+  if (bare.startsWith("/") || /^[A-Za-z]:[\\/]/.test(bare)) {
+    return location;
+  }
+  const joined = `${baseDir.replace(/\/+$/, "")}/${bare}`;
+  return hasScheme ? `local://${joined}` : joined;
+}
+
 /** Returns the storage scheme of a URI: "s3" | "gcs" | "local". */
 export function schemeOf(uri: string): "s3" | "gcs" | "local" {
   if (uri.startsWith("s3://")) {

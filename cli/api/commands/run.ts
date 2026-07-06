@@ -6,7 +6,11 @@ import { substituteConnectionCredentials } from "sa/cli/api/commands/connection_
 import { IBigQueryExecutionOptions } from "sa/cli/api/dbadapters/bigquery";
 import { BigQueryExtractArgs, runBigQueryExtract } from "sa/cli/api/dbadapters/bigquery_extract";
 import { MysqlExtractArgs, runMysqlExtract } from "sa/cli/api/dbadapters/mysql_extract";
-import { DuckdbExportArgs, runDuckdbExport } from "sa/cli/api/dbadapters/duckdb_export";
+import {
+  DuckdbExportArgs,
+  resolveLocalLocation,
+  runDuckdbExport
+} from "sa/cli/api/dbadapters/duckdb_export";
 import { DuckdbImportArgs, runDuckdbImport } from "sa/cli/api/dbadapters/duckdb_import";
 import { runScript, ScriptRunArgs } from "sa/cli/api/commands/script_run";
 import { Flags } from "sa/common/flags";
@@ -461,7 +465,15 @@ export class Runner {
       try {
         const exporter = this.executionOptions.duckdbExport || runDuckdbExport;
         await exporter({
-          spec: action?.export,
+          spec: action?.export && {
+            ...action.export,
+            // Relative local destinations are project-relative (like script actions), not
+            // cwd-relative.
+            location: resolveLocalLocation(
+              action.export.location,
+              this.executionOptions.projectDir
+            )
+          },
           selectSql: task.statement,
           pg: this.executionOptions.warehouseConnection,
           storage: this.executionOptions.storageCredentials,
@@ -480,7 +492,16 @@ export class Runner {
       try {
         const importer = this.executionOptions.duckdbImport || runDuckdbImport;
         await importer({
-          spec: action?.import,
+          spec: action?.import && {
+            ...action.import,
+            // Relative local sources are project-relative — a script action stages
+            // "staged/x.csv" with cwd = project dir; the import must read the same file no
+            // matter where the CLI itself was invoked from.
+            location: resolveLocalLocation(
+              action.import.location,
+              this.executionOptions.projectDir
+            )
+          },
           target: action?.target,
           pg: this.executionOptions.warehouseConnection,
           storage: this.executionOptions.storageCredentials

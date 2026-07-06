@@ -47,6 +47,42 @@ suite("runner import hook", () => {
     expect(calls[0].storage.s3.accessKeyId).equals("k");
   });
 
+  test("a relative local location resolves against projectDir (script-staged files)", async () => {
+    const calls: any[] = [];
+    const graph = sqlanvil.ExecutionGraph.create({
+      projectConfig: { warehouse: "postgres" },
+      warehouseState: { tables: [] },
+      actions: []
+    });
+    const runner = new Runner({} as any, graph, {
+      projectDir: "/proj",
+      duckdbImport: async (args: any) => {
+        calls.push(args);
+        return { source: "x" };
+      }
+    });
+    for (const [location, resolved] of [
+      ["staged/cities.csv", "/proj/staged/cities.csv"],
+      ["local://staged/cities.csv", "local:///proj/staged/cities.csv"],
+      ["/abs/cities.csv", "/abs/cities.csv"], // absolute passes through
+      ["s3://b/o/*.parquet", "s3://b/o/*.parquet"] // remote passes through
+    ]) {
+      const action = sqlanvil.ExecutionAction.create({
+        target: { schema: "analytics", name: "orders" },
+        type: "import",
+        import: { location, format: "csv" }
+      });
+      await (runner as any).executeTask(
+        null,
+        sqlanvil.ExecutionTask.create({ type: "import" }),
+        { tasks: [] },
+        {},
+        action
+      );
+      expect(calls.pop().spec.location).equals(resolved);
+    }
+  });
+
   test("a failing importer marks the task FAILED", async () => {
     const runner = new Runner(
       {} as any,
