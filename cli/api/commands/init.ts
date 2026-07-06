@@ -18,14 +18,16 @@ export interface IInitResult {
 }
 
 // A starter PostgresConnection (strict JSON — no comment keys; the credentials parser rejects
-// them). Supabase points at the project's db host with SSL required; plain Postgres at localhost.
+// them). Supabase points at the SESSION POOLER (Dashboard → Connect → Session pooler): the
+// direct `db.<ref>.supabase.co` host is IPv6-only, so it ENOTFOUNDs on most IPv4 networks —
+// a first-run trap. Plain Postgres points at localhost.
 function postgresCredentialsTemplate(warehouse: string): string {
   const isSupabase = warehouse === "supabase";
   const template = {
-    host: isSupabase ? "db.<project-ref>.supabase.co" : "localhost",
+    host: isSupabase ? "aws-1-<region>.pooler.supabase.com" : "localhost",
     port: 5432,
     database: "postgres",
-    user: "postgres",
+    user: isSupabase ? "postgres.<your-project-ref>" : "postgres",
     password: "",
     sslMode: isSupabase ? "require" : "disable",
     defaultSchema: "public"
@@ -86,7 +88,11 @@ export async function init(
     workflowSettings.defaultProject = projectConfig.defaultDatabase;
     workflowSettings.defaultLocation = projectConfig.defaultLocation;
   }
-  workflowSettings.defaultDataset = projectConfig.defaultSchema || "sqlanvil";
+  // Postgres/Supabase default to the schema every instance already has; BigQuery/MySQL keep a
+  // namespaced default (their "schema" is a dataset/database the run creates).
+  const isPostgresLike = warehouse === "postgres" || warehouse === "supabase";
+  workflowSettings.defaultDataset =
+    projectConfig.defaultSchema || (isPostgresLike ? "public" : "sqlanvil");
   workflowSettings.defaultAssertionDataset =
     projectConfig.assertionSchema || "sqlanvil_assertions";
   // Iceberg is a BigQuery concept.
@@ -126,54 +132,74 @@ export async function init(
     filesWritten.push(path.join(projectDir, CREDENTIALS_FILENAME));
   }
 
-  // Make the default models, includes folders.
-  const definitionsDir = path.join(projectDir, "definitions");
-  fs.mkdirSync(definitionsDir);
-  dirsCreated.push(definitionsDir);
+  // Workflow directories: sources (declarations for data you read), intermediate (staging),
+  // outputs (what the business consumes), test (assertions). Directories that start empty get a
+  // .gitkeep so the scaffold survives the first commit (the compiler never reads dotfiles).
+  const mkdir = (...segments: string[]): string => {
+    const dir = path.join(projectDir, ...segments);
+    fs.mkdirSync(dir, { recursive: true });
+    dirsCreated.push(dir);
+    return dir;
+  };
+  const write = (filePath: string, contents: string) => {
+    fs.writeFileSync(filePath, contents);
+    filesWritten.push(filePath);
+  };
+  const keep = (dir: string) => write(path.join(dir, ".gitkeep"), "");
 
-  // Create Google's best-practice workflow directories inside definitions
-  const sourcesDir = path.join(definitionsDir, "sources");
-  fs.mkdirSync(sourcesDir);
-  dirsCreated.push(sourcesDir);
+  mkdir("definitions");
+  keep(mkdir("definitions", "sources"));
+  keep(mkdir("definitions", "intermediate"));
+  const salesDir = mkdir("definitions", "outputs", "sales");
+  const reportingDir = mkdir("definitions", "outputs", "reporting");
+  const testDir = mkdir("definitions", "test");
+  keep(mkdir("includes"));
 
-  // Add sources/ecommerce subdirectory
-  const ecommerceDir = path.join(sourcesDir, "ecommerce");
-  fs.mkdirSync(ecommerceDir);
-  dirsCreated.push(ecommerceDir);
+  // A tiny working DAG (table → view → assertion) so `sqlanvil compile` / `validate` / `run`
+  // do something real out of the box. Deliberately dialect-neutral SQL — it runs unchanged on
+  // all four warehouses. Replace with your own models.
+  write(
+    path.join(salesDir, "daily_sales.sqlx"),
+    `config {
+  type: "table",
+  description: "Demo sales data created by sqlanvil init — replace with your own models."
+}
 
-  const intermediateDir = path.join(definitionsDir, "intermediate");
-  fs.mkdirSync(intermediateDir);
-  dirsCreated.push(intermediateDir);
+SELECT 1 AS order_id, 'widget' AS product, 2 AS quantity, 19.98 AS amount
+UNION ALL
+SELECT 2 AS order_id, 'gadget' AS product, 1 AS quantity, 24.50 AS amount
+UNION ALL
+SELECT 3 AS order_id, 'widget' AS product, 3 AS quantity, 29.97 AS amount
+`
+  );
+  write(
+    path.join(reportingDir, "product_revenue.sqlx"),
+    `config {
+  type: "view",
+  description: "Revenue by product — a downstream view built with ref()."
+}
 
-  const outputsDir = path.join(definitionsDir, "outputs");
-  fs.mkdirSync(outputsDir);
-  dirsCreated.push(outputsDir);
+SELECT
+  product,
+  SUM(quantity) AS units_sold,
+  SUM(amount) AS revenue
+FROM \${ref("daily_sales")}
+GROUP BY product
+`
+  );
+  write(
+    path.join(testDir, "assert_sales_amounts_positive.sqlx"),
+    `config {
+  type: "assertion",
+  description: "Business rule: every sale has a positive quantity and amount."
+}
 
-  // Add outputs subdirectories (sales, orders, marketing)
-  const salesDir = path.join(outputsDir, "sales");
-  fs.mkdirSync(salesDir);
-  dirsCreated.push(salesDir);
-
-  const ordersDir = path.join(outputsDir, "orders");
-  fs.mkdirSync(ordersDir);
-  dirsCreated.push(ordersDir);
-
-  const marketingDir = path.join(outputsDir, "marketing");
-  fs.mkdirSync(marketingDir);
-  dirsCreated.push(marketingDir);
-
-  // Add test and extra subdirectories
-  const testDir = path.join(definitionsDir, "test");
-  fs.mkdirSync(testDir);
-  dirsCreated.push(testDir);
-
-  const extraDir = path.join(definitionsDir, "extra");
-  fs.mkdirSync(extraDir);
-  dirsCreated.push(extraDir);
-
-  const includesDir = path.join(projectDir, "includes");
-  fs.mkdirSync(includesDir);
-  dirsCreated.push(includesDir);
+-- An assertion FAILS when its query returns rows — select the violations.
+SELECT *
+FROM \${ref("daily_sales")}
+WHERE quantity <= 0 OR amount <= 0
+`
+  );
 
   return {
     filesWritten,

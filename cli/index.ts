@@ -695,7 +695,7 @@ export function runCli() {
         format:
           `init [${projectDirOption.name}] [${ProjectConfigOptions.defaultDatabase.name}]` +
           ` [${ProjectConfigOptions.defaultLocation.name}]`,
-        description: "Create a new sqlanvil project (BigQuery, Postgres, or Supabase).",
+        description: "Create a new sqlanvil project (BigQuery, Postgres, Supabase, or MySQL/MariaDB).",
         positionalOptions: [
           projectDirOption,
           positionalOption(

@@ -75,4 +75,58 @@ suite("init", ({ afterEach }) => {
     expect(settings).to.not.have.property("defaultProject");
     expect(fs.existsSync(credentialsPath(projectDir))).equals(true);
   });
+
+  test("postgres-like projects default the dataset to public; others to sqlanvil", async () => {
+    const pgDir = tmpDirFixture.createNewTmpDir();
+    await init(pgDir, { warehouse: "supabase" });
+    expect(readSettings(pgDir).defaultDataset).equals("public");
+
+    const bqDir = tmpDirFixture.createNewTmpDir();
+    await init(bqDir, { warehouse: "bigquery", defaultDatabase: "p", defaultLocation: "US" });
+    expect(readSettings(bqDir).defaultDataset).equals("sqlanvil");
+  });
+
+  test("supabase creds template points at the session pooler, never the IPv6-only direct host", async () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    await init(projectDir, { warehouse: "supabase" });
+    const creds = JSON.parse(fs.readFileSync(credentialsPath(projectDir), "utf8"));
+    expect(creds.host).to.contain("pooler.supabase.com");
+    expect(creds.user).to.contain("postgres.");
+  });
+
+  test("scaffolds the workflow directories with sample DAG + assertion and .gitkeep for empty dirs", async () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    await init(projectDir, { warehouse: "postgres" });
+
+    for (const sample of [
+      "definitions/outputs/sales/daily_sales.sqlx",
+      "definitions/outputs/reporting/product_revenue.sqlx",
+      "definitions/test/assert_sales_amounts_positive.sqlx"
+    ]) {
+      expect(fs.existsSync(path.join(projectDir, sample)), sample).equals(true);
+    }
+    for (const kept of ["definitions/sources", "definitions/intermediate", "includes"]) {
+      expect(fs.existsSync(path.join(projectDir, kept, ".gitkeep")), kept).equals(true);
+    }
+    // Retired scaffold dirs are gone.
+    for (const gone of [
+      "definitions/sources/ecommerce",
+      "definitions/outputs/orders",
+      "definitions/outputs/marketing",
+      "definitions/extra"
+    ]) {
+      expect(fs.existsSync(path.join(projectDir, gone)), gone).equals(false);
+    }
+    // The demo view refs the demo table; the assertion states the business rule.
+    const view = fs.readFileSync(
+      path.join(projectDir, "definitions/outputs/reporting/product_revenue.sqlx"),
+      "utf8"
+    );
+    expect(view).to.contain('ref("daily_sales")');
+    const assertion = fs.readFileSync(
+      path.join(projectDir, "definitions/test/assert_sales_amounts_positive.sqlx"),
+      "utf8"
+    );
+    expect(assertion).to.contain('type: "assertion"');
+  });
 });
