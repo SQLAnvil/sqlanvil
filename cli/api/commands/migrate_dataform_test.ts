@@ -1,0 +1,312 @@
+import { expect } from "chai";
+import * as fs from "fs-extra";
+import * as os from "os";
+import * as path from "path";
+
+import {
+  connectionNameFor,
+  findConfigBlock,
+  migrateDataform,
+  parseSqlxConfig
+} from "sa/cli/api/commands/migrate_dataform";
+import { suite, test } from "sa/testing";
+
+suite("migrate-dataform", () => {
+  function fixtureProject(): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sqlanvil-migrate-src-"));
+    const write = (rel: string, contents: string) => {
+      const full = path.join(dir, rel);
+      fs.mkdirsSync(path.dirname(full));
+      fs.writeFileSync(full, contents);
+    };
+
+    write(
+      "workflow_settings.yaml",
+      ["defaultLocation: US", "defaultProject: acme-analytics", "defaultDataset: dataform", "defaultAssertionDataset: dataform_assertions", "dataformCoreVersion: 3.0.61"].join("\n")
+    );
+    // Credentials that must NEVER be copied.
+    write(".df-credentials.json", `{"projectId":"x"}`);
+    write("service_account_key.json", `{"private_key":"x"}`);
+    write(".env", "SECRET=x");
+    write("compile_output.json", "{}");
+
+    // Declarations: literal database, projectConfig expression, and a description.
+    write(
+      "definitions/sources/ods/customers.sqlx",
+      `config {
+    type: "declaration",
+    database: dataform.projectConfig.defaultDatabase,
+    schema: "ods",
+    name: "customers",
+}
+`
+    );
+    write(
+      "definitions/sources/raw/events.sqlx",
+      `config {
+    type: "declaration",
+    database: "other-project",
+    schema: "raw_events",
+    name: "events",
+    description: "Raw event stream",
+}
+`
+    );
+    // A declaration in a schema that is ALSO a target schema (overlap warning).
+    write(
+      "definitions/sources/ods/flags.sqlx",
+      `config { type: "declaration", schema: "ods", name: "flags" }
+`
+    );
+
+    // Target with the BigQuery-isms.
+    write(
+      "definitions/output/daily.sqlx",
+      `config {
+  type: "table",
+  schema: "ods",
+  bigquery: {
+    partitionBy: "sale_date",
+    clusterBy: ["region"]
+  },
+  tags: ["daily"]
+}
+
+SELECT
+  SAFE_CAST(amount AS NUMERIC) AS amount,
+  SAFE_DIVIDE(a, b) AS ratio,
+  CURRENT_DATE() AS today
+FROM \${ref("customers")}
+QUALIFY ROW_NUMBER() OVER (PARTITION BY id ORDER BY ts DESC) = 1
+`
+    );
+    write(
+      "definitions/output/fqn.sqlx",
+      `config { type: "view" }
+SELECT * FROM \`acme-analytics.ods.legacy_table\`
+`
+    );
+    // Clean target — must come through byte-identical apart from nothing.
+    write(
+      "definitions/output/clean.sqlx",
+      `config { type: "view", schema: "reports" }
+SELECT id, name FROM \${ref("customers")}
+`
+    );
+    // Config with an orphaned separator comma after the bigquery block, plus a database
+    // qualifier, plus a js{} block whose contents must NOT receive inline markers.
+    write(
+      "definitions/output/tricky.sqlx",
+      `config {
+  type: "table",
+  database: dataform.projectConfig.defaultDatabase,
+  bigquery: {
+    clusterBy: ["store_zip"]
+  }
+,
+  columns: {
+    id: "the id"
+  }
+}
+
+js {
+  const helper = \`SELECT SAFE_CAST(x AS INT64) FROM t\`;
+}
+
+SELECT 1 AS id
+`
+    );
+
+    // A .js definition using the compile global.
+    write(
+      "definitions/operations/dynamic.js",
+      `operate("dyn", { disabled: dataform.projectConfig.schemaSuffix !== "prod" }).queries(() => "SELECT 1");
+`
+    );
+    // includes helper emitting BigQuery SQL.
+    write(
+      "includes/functions.js",
+      `const domainFromEmail = (email) => \`split(\${email}, '@')[SAFE_OFFSET(1)]\`;
+module.exports = { domainFromEmail };
+`
+    );
+    return dir;
+  }
+
+  function snapshot(dir: string): Map<string, string> {
+    const map = new Map<string, string>();
+    const walk = (rel: string) => {
+      for (const e of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
+        const r = rel ? `${rel}/${e.name}` : e.name;
+        if (e.isDirectory()) walk(r);
+        else map.set(r, fs.readFileSync(path.join(dir, r), "utf8"));
+      }
+    };
+    walk("");
+    return map;
+  }
+
+  test("converts the fixture: connections, declarations, markers, report — source untouched", async () => {
+    const src = fixtureProject();
+    const before = snapshot(src);
+    const out = fs.mkdtempSync(path.join(os.tmpdir(), "sqlanvil-migrate-out-"));
+    fs.rmdirSync(out); // migrateDataform accepts a missing dir
+
+    const report = await migrateDataform({ srcDir: src, outDir: out, coreVersion: "9.9.9" });
+
+    // THE guarantee: byte-identical source afterwards.
+    expect(snapshot(src)).deep.equals(before);
+
+    // workflow_settings: supabase + pinned core + both connections.
+    const settings = fs.readFileSync(path.join(out, "workflow_settings.yaml"), "utf8");
+    expect(settings).to.contain("warehouse: supabase");
+    expect(settings).to.contain("defaultDataset: dataform");
+    expect(settings).to.contain("sqlanvilCoreVersion: 9.9.9");
+    expect(settings).to.contain("bq_acme_analytics:");
+    expect(settings).to.contain("bq_other_project:");
+    expect(settings).to.contain("mode: runner-extract");
+    expect(settings).to.contain("billingProject: acme-analytics");
+    expect(settings).to.not.contain("defaultProject");
+    expect(settings).to.not.contain("defaultLocation");
+
+    // Declarations rewritten onto connections, with the introspect TODO.
+    const decl = fs.readFileSync(path.join(out, "definitions/sources/ods/customers.sqlx"), "utf8");
+    expect(decl).to.contain('connection: "bq_acme_analytics"');
+    expect(decl).to.contain('schema: "ods"');
+    expect(decl).to.contain('name: "customers"');
+    expect(decl).to.contain("sqlanvil introspect bq_acme_analytics ods.customers");
+    expect(decl).to.not.contain("database:");
+    const decl2 = fs.readFileSync(path.join(out, "definitions/sources/raw/events.sqlx"), "utf8");
+    expect(decl2).to.contain('description: "Raw event stream"');
+    expect(decl2).to.contain('connection: "bq_other_project"');
+    expect(decl2).to.contain('schema: "raw_events"');
+
+    // Target rewrites + markers.
+    const daily = fs.readFileSync(path.join(out, "definitions/output/daily.sqlx"), "utf8");
+    expect(daily).to.contain("CAST(amount AS NUMERIC)");
+    expect(daily).to.not.match(/SAFE_CAST\s*\(/); // the explanatory marker may name SAFE_CAST
+    expect(daily).to.contain("CURRENT_DATE AS today");
+    expect(daily).to.contain("-- SQLANVIL-MIGRATE: SAFE_DIVIDE");
+    expect(daily).to.contain("-- SQLANVIL-MIGRATE: QUALIFY");
+    // bigquery block commented out with a config-context marker.
+    expect(daily).to.contain("// SQLANVIL-MIGRATE: BigQuery-only setting");
+    expect(daily).to.contain("//   bigquery: {");
+    expect(daily).to.not.match(/^\s*bigquery: \{/m);
+    // tags survive.
+    expect(daily).to.contain('tags: ["daily"]');
+
+    const fqn = fs.readFileSync(path.join(out, "definitions/output/fqn.sqlx"), "utf8");
+    expect(fqn).to.contain("-- SQLANVIL-MIGRATE: backticked BigQuery FQN");
+
+    const clean = fs.readFileSync(path.join(out, "definitions/output/clean.sqlx"), "utf8");
+    expect(clean).to.not.contain("SQLANVIL-MIGRATE");
+
+    // Orphan comma swallowed, database: commented, js{} contents untouched by markers.
+    const tricky = fs.readFileSync(path.join(out, "definitions/output/tricky.sqlx"), "utf8");
+    expect(tricky).to.contain("//   database:");
+    expect(tricky).to.not.match(/^\s*,\s*$/m); // no orphaned separator comma outside comments
+    expect(tricky).to.match(/^\/\/\s*,\s*$/m); // it was commented out instead
+    // In-line rewrites still apply inside js{} (safe); only marker LINES are suppressed there.
+    expect(tricky).to.contain("CAST(x AS INT64)");
+    expect(tricky.split("js {")[1].split("}")[0]).to.not.contain("SQLANVIL-MIGRATE");
+    expect(tricky).to.contain('id: "the id"'); // columns survived the comma handling
+
+    // Compile-global rename in .js + includes.
+    const dyn = fs.readFileSync(path.join(out, "definitions/operations/dynamic.js"), "utf8");
+    expect(dyn).to.contain("sqlanvil.projectConfig.schemaSuffix");
+    // The code (after the summary block, whose note names the old global) is fully renamed.
+    expect(dyn.split("*/").pop()).to.not.contain("dataform.projectConfig");
+    // .js files get one top-of-file summary block, never inline markers.
+    const inc = fs.readFileSync(path.join(out, "includes/functions.js"), "utf8");
+    expect(inc.startsWith("/* SQLANVIL-MIGRATE")).equals(true);
+    expect(inc).to.contain("SAFE_OFFSET");
+    expect(inc.split("*/")[1]).to.not.contain("SQLANVIL-MIGRATE");
+
+    // Credentials and artifacts never copied.
+    for (const secret of [".df-credentials.json", "service_account_key.json", ".env", "compile_output.json"]) {
+      expect(fs.existsSync(path.join(out, secret)), secret).equals(false);
+      expect(report.skippedForSafety).to.include(secret);
+    }
+
+    // Report shape.
+    expect(report.inventory.byType.declaration).equals(3);
+    expect(report.connections.map(c => c.name)).deep.equals([
+      "bq_acme_analytics",
+      "bq_other_project"
+    ]);
+    expect(report.connections[0].declarationCount).equals(2);
+    expect(report.connections[0].datasets).deep.equals(["ods"]);
+    expect(report.overlappingSchemas).deep.equals(["ods"]);
+    const flaggedTargets = report.files.filter(f => f.action === "target" && f.status === "flagged");
+    expect(flaggedTargets.map(f => f.file)).to.include("definitions/output/daily.sqlx");
+    expect(fs.existsSync(path.join(out, "migration-report.md"))).equals(true);
+    expect(fs.existsSync(path.join(out, "migration-report.json"))).equals(true);
+    const md = fs.readFileSync(path.join(out, "migration-report.md"), "utf8");
+    expect(md).to.contain("Schemas that are BOTH source and target");
+  });
+
+  test("refuses an output dir inside the source (and vice versa), and a non-empty output", async () => {
+    const src = fixtureProject();
+    for (const bad of [path.join(src, "out"), path.dirname(src)]) {
+      try {
+        await migrateDataform({ srcDir: src, outDir: bad });
+        expect.fail("expected rejection");
+      } catch (e) {
+        expect((e as Error).message).to.match(/must not be inside|not empty/);
+      }
+    }
+    const nonEmpty = fs.mkdtempSync(path.join(os.tmpdir(), "sqlanvil-migrate-ne-"));
+    fs.writeFileSync(path.join(nonEmpty, "x.txt"), "x");
+    try {
+      await migrateDataform({ srcDir: src, outDir: nonEmpty });
+      expect.fail("expected rejection");
+    } catch (e) {
+      expect((e as Error).message).to.contain("not empty");
+    }
+  });
+
+  test("dataform.json projects convert too (legacy field names)", async () => {
+    const src = fs.mkdtempSync(path.join(os.tmpdir(), "sqlanvil-migrate-dj-"));
+    fs.writeFileSync(
+      path.join(src, "dataform.json"),
+      JSON.stringify({
+        warehouse: "bigquery",
+        defaultDatabase: "legacy-project",
+        defaultSchema: "dataform_data",
+        assertionSchema: "df_assertions",
+        vars: { region: "us" }
+      })
+    );
+    fs.mkdirsSync(path.join(src, "definitions"));
+    fs.writeFileSync(
+      path.join(src, "definitions/src.sqlx"),
+      `config { type: "declaration", schema: "raw", name: "t" }\n`
+    );
+    const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "sqlanvil-migrate-djo-")), "out");
+    const report = await migrateDataform({ srcDir: src, outDir: out });
+    const settings = fs.readFileSync(path.join(out, "workflow_settings.yaml"), "utf8");
+    expect(settings).to.contain("defaultDataset: dataform_data");
+    expect(settings).to.contain("defaultAssertionDataset: df_assertions");
+    expect(settings).to.contain("region: us");
+    expect(fs.existsSync(path.join(out, "dataform.json"))).equals(false);
+    expect(report.connections[0].project).equals("legacy-project");
+  });
+
+  test("config parsing helpers handle strings-with-braces and the defaultDatabase expression", () => {
+    const source = `config {
+  type: "table",
+  description: "has { braces } inside",
+}
+SELECT 1`;
+    const span = findConfigBlock(source)!;
+    const parsed = parseSqlxConfig(span.body);
+    expect(parsed.type).equals("table");
+    expect(parsed.description).equals("has { braces } inside");
+
+    const decl = parseSqlxConfig(
+      `type: "declaration", database: dataform.projectConfig.defaultDatabase, schema: "s", name: "n"`
+    );
+    expect(decl.database).equals("<defaultDatabase>");
+    expect(connectionNameFor("My-Proj")).equals("bq_my_proj");
+  });
+});

@@ -16,6 +16,7 @@ import { assertConnectionCredentialsAvailable } from "sa/cli/api/commands/connec
 import { safeWriteArtifacts, TARGET_DIR } from "sa/cli/api/commands/artifacts";
 import { buildDocsModel, renderDocsHtml } from "sa/cli/api/commands/docs";
 import { ArtifactView, queryParquet } from "sa/cli/api/dbadapters/duckdb_artifacts";
+import { migrateDataform } from "sa/cli/api/commands/migrate_dataform";
 import { checkScriptAction } from "sa/cli/api/commands/script_env";
 import { sweepOrphanShadows, validate, ValidateDeps } from "sa/cli/api/commands/validate";
 import { ValidationResult, validateShadowSuffix } from "sa/cli/api/commands/validate_graph";
@@ -1443,6 +1444,40 @@ export function runCli() {
           } else {
             print(sqlx);
           }
+          return 0;
+        }
+      },
+      {
+        format: "migrate-dataform <source-dir> <out-dir>",
+        description:
+          "Convert a Dataform/BigQuery project into a sqlanvil-on-Postgres project. The source " +
+          "directory is READ-ONLY; the converted project + migration-report.{md,json} land in " +
+          "<out-dir> (must be empty). Sources stay in BigQuery as named connections; target SQL " +
+          "gets safe rewrites + inline SQLANVIL-MIGRATE markers for dialect review.",
+        positionalOptions: [
+          positionalOption("source-dir", {
+            describe: "The Dataform project to convert (never modified)."
+          }),
+          positionalOption("out-dir", {
+            describe: "Where the converted sqlanvil project is written (created; must be empty)."
+          })
+        ],
+        options: [],
+        processFn: async (argv: { "source-dir": string; "out-dir": string }) => {
+          const report = await migrateDataform({
+            srcDir: argv["source-dir"],
+            outDir: argv["out-dir"]
+          });
+          const targets = report.files.filter(f => f.action === "target");
+          const flagged = targets.filter(f => f.status === "flagged").length;
+          printSuccess(
+            `Converted ${report.inventory.sqlxFiles} .sqlx file(s): ` +
+              `${report.connections.length} source connection(s) over ` +
+              `${report.files.filter(f => f.action === "declaration").length} declaration(s); ` +
+              `${targets.length} target file(s), ${flagged} flagged for dialect review.`
+          );
+          print(`Report: ${path.join(argv["out-dir"], "migration-report.md")}`);
+          print(`Next: sqlanvil compile ${argv["out-dir"]}`);
           return 0;
         }
       }
