@@ -17,6 +17,22 @@ export interface IInitResult {
   dirsCreated: string[];
 }
 
+export interface IInitOptions {
+  /** Write the sample project files (default true). False = bare directories only. */
+  includeSample?: boolean;
+  /**
+   * Postgres/Supabase only: include the cross-warehouse BigQuery sample source (the
+   * `bigquery_public` connection + its declaration/staging/reporting files). Default true.
+   * Ignored when the sample project itself is excluded.
+   */
+  includeBigQuerySource?: boolean;
+  /**
+   * Verbatim contents for the credentials file, replacing the placeholder template
+   * (non-BigQuery warehouses only — BigQuery credentials come from `init-creds`).
+   */
+  credentialsJson?: string;
+}
+
 // A starter PostgresConnection (strict JSON — no comment keys; the credentials parser rejects
 // them). Supabase points at the SESSION POOLER (Dashboard → Connect → Session pooler): the
 // direct `db.<ref>.supabase.co` host is IPv6-only, so it ENOTFOUNDs on most IPv4 networks —
@@ -51,7 +67,8 @@ function mysqlCredentialsTemplate(): string {
 
 export async function init(
   projectDir: string,
-  projectConfig: sqlanvil.IProjectConfig
+  projectConfig: sqlanvil.IProjectConfig,
+  options: IInitOptions = {}
 ): Promise<IInitResult> {
   const workflowSettingsYamlPath = path.join(projectDir, "workflow_settings.yaml");
   const packageJsonPath = path.join(projectDir, "package.json");
@@ -114,10 +131,19 @@ export async function init(
   if (projectConfig.builtinAssertionNamePrefix) {
     workflowSettings.builtinAssertionNamePrefix = projectConfig.builtinAssertionNamePrefix;
   }
+  // Sample project switches (see IInitOptions). The BigQuery sample source only exists as a
+  // cross-warehouse connection on Postgres/Supabase; MySQL can't read connections at all, and
+  // on a BigQuery warehouse the sample declaration is native (no connection needed).
+  const includeSample = options.includeSample !== false;
+  const withBigQuerySource =
+    includeSample &&
+    warehouse !== "mysql" &&
+    (!isPostgresLike || options.includeBigQuerySource !== false);
+
   // Postgres/Supabase: a named connection for the sample cross-warehouse BigQuery source.
   // runner-extract needs no Vault secret and no wrappers extension — the CLI reads BigQuery at
   // run time (credentials go under `connections` in .df-credentials.json when you first run it).
-  if (isPostgresLike) {
+  if (isPostgresLike && withBigQuerySource) {
     workflowSettings.connections = {
       bigquery_public: sqlanvil.ConnectionConfig.create({
         platform: "bigquery",
@@ -141,7 +167,8 @@ export async function init(
   if (!isBigQuery) {
     fs.writeFileSync(
       path.join(projectDir, CREDENTIALS_FILENAME),
-      warehouse === "mysql" ? mysqlCredentialsTemplate() : postgresCredentialsTemplate(warehouse)
+      options.credentialsJson ??
+        (warehouse === "mysql" ? mysqlCredentialsTemplate() : postgresCredentialsTemplate(warehouse))
     );
     filesWritten.push(path.join(projectDir, CREDENTIALS_FILENAME));
   }
@@ -174,7 +201,10 @@ export async function init(
   // box; `run` works once the source declarations point at real data (validate tells you
   // exactly what's missing). MySQL warehouses can't read cross-warehouse connections, so they
   // skip the BigQuery source. All sample SQL is dialect-neutral.
-  const withBigQuerySource = warehouse !== "mysql";
+  if (!includeSample) {
+    [sourcesDir, intermediateDir, salesDir, reportingDir, testDir].forEach(keep);
+    return { filesWritten, dirsCreated };
+  }
 
   write(
     path.join(sourcesDir, "app_orders.sqlx"),

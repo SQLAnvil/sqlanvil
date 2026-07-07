@@ -17,6 +17,7 @@ import { safeWriteArtifacts, TARGET_DIR } from "sa/cli/api/commands/artifacts";
 import { buildDocsModel, renderDocsHtml } from "sa/cli/api/commands/docs";
 import { ArtifactView, queryParquet } from "sa/cli/api/dbadapters/duckdb_artifacts";
 import { migrateDataform } from "sa/cli/api/commands/migrate_dataform";
+import { printMigrationSummary, runInteractiveInit } from "sa/cli/interactive_init";
 import { checkScriptAction } from "sa/cli/api/commands/script_env";
 import { sweepOrphanShadows, validate, ValidateDeps } from "sa/cli/api/commands/validate";
 import { ValidationResult, validateShadowSuffix } from "sa/cli/api/commands/validate_graph";
@@ -90,6 +91,8 @@ interface InitArgv {
   "default-location"?: string;
   warehouse: string;
   iceberg: boolean;
+  bare: boolean;
+  interactive: boolean;
 }
 
 interface InstallArgv {
@@ -364,6 +367,21 @@ const quietCompileOption = option("quiet", {
 
 const icebergOption = option("iceberg", {
   describe: "Initialize the project with workflow-level Iceberg tables configuration.",
+  type: "boolean",
+  default: false
+});
+
+const bareOption = option("bare", {
+  describe: "Skip the sample project files — scaffold bare (gitkept) directories only.",
+  type: "boolean",
+  default: false
+});
+
+const interactiveOption = option("interactive", {
+  describe:
+    "Guided Q&A setup: start a fresh project (warehouse, sample project, credentials) or " +
+    "convert an existing Dataform project. Other init arguments are ignored except " +
+    "[project-dir], which seeds the directory prompt.",
   type: "boolean",
   default: false
 });
@@ -696,7 +714,9 @@ export function runCli() {
         format:
           `init [${projectDirOption.name}] [${ProjectConfigOptions.defaultDatabase.name}]` +
           ` [${ProjectConfigOptions.defaultLocation.name}]`,
-        description: "Create a new sqlanvil project (BigQuery, Postgres, Supabase, or MySQL/MariaDB).",
+        description:
+          "Create a new sqlanvil project (BigQuery, Postgres, Supabase, or MySQL/MariaDB). " +
+          "Use --interactive for a guided setup, including converting a Dataform project.",
         positionalOptions: [
           projectDirOption,
           positionalOption(
@@ -706,7 +726,11 @@ export function runCli() {
             },
             (argv: InitArgv) => {
               const warehouse = argv[warehouseOption.name] || "bigquery";
-              if (warehouse === "bigquery" && !argv[ProjectConfigOptions.defaultDatabase.name]) {
+              if (
+                warehouse === "bigquery" &&
+                !argv[interactiveOption.name] &&
+                !argv[ProjectConfigOptions.defaultDatabase.name]
+              ) {
                 throw new Error(
                   `The ${ProjectConfigOptions.defaultDatabase.name} positional argument is ` +
                     `required for BigQuery projects. Use "sqlanvil help init" for more info.`
@@ -723,7 +747,11 @@ export function runCli() {
             },
             (argv: InitArgv) => {
               const warehouse = argv[warehouseOption.name] || "bigquery";
-              if (warehouse === "bigquery" && !argv[ProjectConfigOptions.defaultLocation.name]) {
+              if (
+                warehouse === "bigquery" &&
+                !argv[interactiveOption.name] &&
+                !argv[ProjectConfigOptions.defaultLocation.name]
+              ) {
                 throw new Error(
                   `The ${ProjectConfigOptions.defaultLocation.name} positional argument is ` +
                     `required for BigQuery projects. Use "sqlanvil help init" for more info.`
@@ -732,9 +760,12 @@ export function runCli() {
             }
           )
         ],
-        options: [warehouseOption, icebergOption],
+        options: [warehouseOption, icebergOption, bareOption, interactiveOption],
         processFn: async (argv: InitArgv) => {
           const projectDir = argv[projectDirOption.name];
+          if (argv[interactiveOption.name]) {
+            return runInteractiveInit(projectDir);
+          }
           const warehouse = argv[warehouseOption.name] || "bigquery";
           const projectConfig: sqlanvil.IProjectConfig = { warehouse };
           if (warehouse === "bigquery") {
@@ -751,7 +782,9 @@ export function runCli() {
 
           print("Writing project files...\n");
 
-          const initResult = await init(projectDir, projectConfig);
+          const initResult = await init(projectDir, projectConfig, {
+            includeSample: !argv[bareOption.name]
+          });
           printInitResult(initResult);
           return 0;
         }
@@ -1468,15 +1501,7 @@ export function runCli() {
             srcDir: argv["source-dir"],
             outDir: argv["out-dir"]
           });
-          const targets = report.files.filter(f => f.action === "target");
-          const flagged = targets.filter(f => f.status === "flagged").length;
-          printSuccess(
-            `Converted ${report.inventory.sqlxFiles} .sqlx file(s): ` +
-              `${report.connections.length} source connection(s) over ` +
-              `${report.files.filter(f => f.action === "declaration").length} declaration(s); ` +
-              `${targets.length} target file(s), ${flagged} flagged for dialect review.`
-          );
-          print(`Report: ${path.join(argv["out-dir"], "migration-report.md")}`);
+          printMigrationSummary(report, argv["out-dir"]);
           print(`Next: sqlanvil compile ${argv["out-dir"]}`);
           return 0;
         }

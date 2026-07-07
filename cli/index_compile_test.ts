@@ -181,7 +181,9 @@ suite("disable-assertions flag (compilation)", ({ afterEach, beforeEach }) => {
         // This suite asserts BigQuery compile output; init now defaults to supabase.
         "--warehouse=bigquery",
         DEFAULT_DATABASE,
-        DEFAULT_LOCATION
+        DEFAULT_LOCATION,
+        // The suite deep-equals compile output, so keep the 1.21+ sample project out.
+        "--bare"
       ])
     );
 
@@ -392,7 +394,9 @@ suite("compile node selection", ({ afterEach }) => {
         projectDir,
         "--warehouse=bigquery",
         DEFAULT_DATABASE,
-        DEFAULT_LOCATION
+        DEFAULT_LOCATION,
+        // The selection assertions expect ONLY the three tables below — no sample project.
+        "--bare"
       ])
     );
 

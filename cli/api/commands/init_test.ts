@@ -163,4 +163,50 @@ suite("init", ({ afterEach }) => {
     expect(decl).to.not.contain("connection:");
     expect(readSettings(projectDir)).to.not.have.property("connections");
   });
+
+  test("includeSample: false scaffolds bare, gitkept directories and no connections block", async () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    await init(projectDir, { warehouse: "supabase" }, { includeSample: false });
+
+    for (const kept of [
+      "definitions/sources",
+      "definitions/intermediate",
+      "definitions/outputs/sales",
+      "definitions/outputs/reporting",
+      "definitions/test",
+      "includes"
+    ]) {
+      expect(fs.existsSync(path.join(projectDir, kept, ".gitkeep")), kept).equals(true);
+    }
+    expect(fs.existsSync(path.join(projectDir, "definitions/sources/app_orders.sqlx"))).equals(
+      false
+    );
+    expect(readSettings(projectDir)).to.not.have.property("connections");
+    // The credentials template is still written.
+    expect(fs.existsSync(credentialsPath(projectDir))).equals(true);
+  });
+
+  test("includeBigQuerySource: false keeps the local sample but drops the BQ source + connection", async () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    await init(projectDir, { warehouse: "supabase" }, { includeBigQuerySource: false });
+
+    expect(fs.existsSync(path.join(projectDir, "definitions/sources/app_orders.sqlx"))).equals(
+      true
+    );
+    for (const gone of [
+      "definitions/sources/bigquery_zip_codes.sqlx",
+      "definitions/intermediate/stg_zip_codes.sqlx",
+      "definitions/outputs/reporting/orders_by_region.sqlx"
+    ]) {
+      expect(fs.existsSync(path.join(projectDir, gone)), gone).equals(false);
+    }
+    expect(readSettings(projectDir)).to.not.have.property("connections");
+  });
+
+  test("credentialsJson replaces the placeholder template verbatim", async () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    const credentialsJson = `${JSON.stringify({ host: "h", port: 5432 }, null, 2)}\n`;
+    await init(projectDir, { warehouse: "supabase" }, { credentialsJson });
+    expect(fs.readFileSync(credentialsPath(projectDir), "utf8")).equals(credentialsJson);
+  });
 });

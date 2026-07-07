@@ -11,6 +11,7 @@ ts_library(
         "console.ts",
         "credentials.ts",
         "index.ts",
+        "interactive_init.ts",
         "util.ts",
         "yargswrapper.ts",
     ],
@@ -61,6 +62,7 @@ ts_test_suite(
     srcs = [
         "index_help_test.ts",
         "index_init_test.ts",
+        "index_interactive_init_test.ts",
         "index_project_test.ts",
         "index_compile_test.ts",
         "index_connections_test.ts",

@@ -107,6 +107,20 @@ export function passwordQuestion(questionText: string) {
   });
 }
 
+/**
+ * Test-friendly variant of passwordQuestion, mirroring interactiveQuestion: in a non-TTY
+ * environment with DATAFORM_CLI_TEST_INPUTS set it consumes the test input (echoed masked);
+ * otherwise it prompts with hidden echo.
+ */
+export function interactivePasswordQuestion(questionText: string): string {
+  if (!process.stdin.isTTY && process.env.DATAFORM_CLI_TEST_INPUTS !== undefined) {
+    const testInput = getTestInput(questionText);
+    print(`${questionText} ********\n`);
+    return testInput;
+  }
+  return passwordQuestion(questionText);
+}
+
 export function ynQuestion(questionText: string, defaultValue: boolean = false): boolean {
   const response = readlineSync.keyInYN(questionText);
   if (typeof response === "string") {
