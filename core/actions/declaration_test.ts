@@ -273,4 +273,48 @@ actions:
       ])
     );
   });
+
+
+  // Runner-extract connection declarations (1.22 semantics): the declared `schema:` names the
+  // SOURCE dataset (overriding the connection default) AND the Postgres schema the extract
+  // materializes into — so Dataform-style schema-qualified refs keep resolving after a
+  // migration. Empty columnTypes compiles (introspect fills it in later); the run fails instead.
+  test("connection declarations: declared schema drives source dataset + target schema; empty columnTypes compiles", () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(projectDir, "workflow_settings.yaml"),
+      [
+        "warehouse: supabase",
+        "defaultDataset: public",
+        "defaultAssertionDataset: sqlanvil_assertions",
+        "connections:",
+        "  bq_acme:",
+        "    platform: bigquery",
+        "    project: acme-analytics",
+        "    billingProject: acme-analytics",
+        "    mode: runner-extract"
+      ].join("\n")
+    );
+    fs.mkdirsSync(path.join(projectDir, "definitions"));
+    fs.writeFileSync(
+      path.join(projectDir, "definitions/zip_code.sqlx"),
+      `config { type: "declaration", connection: "bq_acme", schema: "ods", name: "zip_code", columnTypes: {} }`
+    );
+    fs.writeFileSync(
+      path.join(projectDir, "definitions/legacy_style.sqlx"),
+      `config { type: "declaration", connection: "bq_acme", name: "no_schema", columnTypes: { id: "bigint" } }`
+    );
+
+    const graph = runMainInVm(coreExecutionRequestFromPath(projectDir)).compile.compiledGraph;
+    expect(asPlainObject(graph.graphErrors.compilationErrors)).deep.equals([]);
+    expect(graph.extracts.length).equals(2);
+
+    const withSchema = graph.extracts.find((e: any) => e.sourceName === "zip_code");
+    expect(withSchema.target.schema).equals("ods"); // materializes under the declared name
+    expect(withSchema.dataset).equals("ods"); // reads acme-analytics.ods.zip_code
+    expect(Object.keys(withSchema.columnTypes ?? {})).deep.equals([]); // compiles empty
+
+    const legacy = graph.extracts.find((e: any) => e.sourceName === "no_schema");
+    expect(legacy.target.schema).equals("bq_acme_ext"); // pre-1.22 behavior preserved
+  });
 });

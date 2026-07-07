@@ -539,6 +539,19 @@ export class Runner {
       // materialize the rows into this action's target (Postgres/Supabase), replacing the live
       // FDW foreign table.
       try {
+        // Fail BEFORE touching (and billing) the source: a declaration without columnTypes
+        // compiles (so migrations can introspect incrementally) but cannot extract.
+        if (Object.keys(action?.extract?.columnTypes ?? {}).length === 0) {
+          const ds =
+            action?.extract?.platform === "mysql"
+              ? action?.extract?.database
+              : action?.extract?.dataset;
+          throw new Error(
+            `declaration "${action?.target?.name}" has no columnTypes — scaffold them with: ` +
+              `sqlanvil introspect ${action?.extract?.connectionName} ${ds}.${action?.extract?.sourceName} ` +
+              `--output <its .sqlx file>`
+          );
+        }
         const extractor =
           action?.extract?.platform === "mysql"
             ? this.executionOptions.mysqlExtract || runMysqlExtract

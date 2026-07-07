@@ -508,20 +508,9 @@ export class Session {
       this.actions.push(declaration);
       return declaration;
     }
-    const columnTypes = config.columnTypes || {};
-    if (Object.keys(columnTypes).length === 0) {
-      this.compileError(
-        new Error(
-          `Declaration "${config.name}" on connection "${connectionName}" requires ` +
-            "`columnTypes`; run `sqlanvil introspect " +
-            `${connectionName} ${config.schema || ""}.${config.name}\`.`
-        ),
-        filename,
-        declaration.getTarget()
-      );
-      this.actions.push(declaration);
-      return declaration;
-    }
+    // Empty columnTypes is allowed at COMPILE (the graph stays structurally valid — important
+    // for migrations, where hundreds of declarations get introspected incrementally); the
+    // extract fails at RUN time with the introspect command to fix it.
 
     if (this.projectConfig.warehouse !== "postgres" && this.projectConfig.warehouse !== "supabase") {
       this.compileError(
@@ -565,21 +554,30 @@ export class Session {
       mode === "runner-extract" &&
       (connection.platform === "bigquery" || connection.platform === "mysql")
     ) {
+      // An explicit `schema:` on the declaration names the SOURCE namespace (BigQuery dataset /
+      // MySQL database), overriding the connection default — so ONE connection per source
+      // project/host serves declarations across many datasets. The materialized table then
+      // keeps that name as its Postgres schema (`ods.zip_code` stays `ods.zip_code`), which
+      // also keeps Dataform-style schema-qualified refs resolving after a migration.
+      // Undeclared schema = the pre-1.22 behavior: connection.dataset + the `<conn>_ext`
+      // schema. NB the Declaration constructor above MUTATES config, renaming legacy
+      // `schema` -> `dataset` — read both.
+      const declaredSchema = config.schema || config.dataset;
       this.actions.push(
         new Extract(this, {
           filename,
           name: config.name,
-          schema: extSchema,
+          schema: declaredSchema || extSchema,
           connectionName,
           platform: connection.platform,
           project: connection.project,
-          dataset: connection.dataset,
-          // MySQL namespace: an explicit `schema:` on the declaration names the source database,
-          // falling back to the connection's `database`. NB the Declaration constructor above
-          // MUTATES config, renaming legacy `schema` -> `dataset` — read both.
+          dataset:
+            connection.platform === "bigquery"
+              ? declaredSchema || connection.dataset
+              : connection.dataset,
           database:
             connection.platform === "mysql"
-              ? config.schema || config.dataset || connection.database
+              ? declaredSchema || connection.database
               : undefined,
           sourceName: config.name,
           billingProject: connection.billingProject,
@@ -588,6 +586,23 @@ export class Session {
       );
       // The Extract (above) is the ref-able stand-in; the plain `declaration` built earlier is
       // intentionally NOT pushed, mirroring the FDW path.
+      return declaration;
+    }
+
+    // FDW mode from here on: the live foreign table can't exist without its column list, so
+    // (unlike runner-extract, which defers to run time) empty columnTypes is a compile error.
+    const columnTypes = config.columnTypes || {};
+    if (Object.keys(columnTypes).length === 0) {
+      this.compileError(
+        new Error(
+          `Declaration "${config.name}" on FDW connection "${connectionName}" requires ` +
+            "`columnTypes`; run `sqlanvil introspect " +
+            `${connectionName} ${config.schema || config.dataset || ""}.${config.name}\`.`
+        ),
+        filename,
+        declaration.getTarget()
+      );
+      this.actions.push(declaration);
       return declaration;
     }
 

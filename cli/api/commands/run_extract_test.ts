@@ -108,7 +108,12 @@ suite("runner extract hook", () => {
     const action = sqlanvil.ExecutionAction.create({
       target: { schema: "shop_mysql_ext", name: "orders" },
       type: "extract",
-      extract: { connectionName: "shop_mysql", platform: "mysql", sourceName: "orders" }
+      extract: {
+        connectionName: "shop_mysql",
+        platform: "mysql",
+        sourceName: "orders",
+        columnTypes: { id: "bigint" }
+      }
     });
     const actionResult: any = { tasks: [] };
     const status = await (runner as any).executeTask(
