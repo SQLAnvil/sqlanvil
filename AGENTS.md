@@ -32,7 +32,7 @@ below before authoring a `warehouse: mysql` project.
 warehouse: postgres            # flat string ("postgres" or "supabase") — NOT nested
 defaultDataset: public         # the Postgres SCHEMA
 defaultAssertionDataset: sqlanvil_assertions
-sqlanvilCoreVersion: 1.21.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
+sqlanvilCoreVersion: 1.22.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
 vars:
   someVar: value
 ```
@@ -237,17 +237,27 @@ sources); `platform: postgres` with `host`/`port`/`database`/`defaultSchema`; `p
 (>=1.18) with `host`/`port`/`database`). Secrets go in `.df-credentials.json`'s `connections.<name>`
 map (postgres/mysql: user/password; BigQuery: SA `credentials` or a keyless short-lived
 `accessToken`, >=1.14). Tag a declaration with `connection: "<name>"` + **`columnTypes` in
-POSTGRES types** (compile error without them) — scaffold via
+POSTGRES types** — scaffold via
 `sqlanvil introspect <conn> <schema.table> --output definitions/sources/<name>.sqlx` (maps
-BigQuery/Postgres/MySQL types to PG). The write warehouse must be postgres/supabase; connections
-are READ-ONLY sources (single write warehouse).
+BigQuery/Postgres/MySQL types to PG). Missing columnTypes: compile error on FDW mode; on
+runner-extract (>=1.22) it COMPILES and the extract fails at run with the introspect command.
+The write warehouse must be postgres/supabase; connections are READ-ONLY sources (single write
+warehouse).
 
 Two modes (`mode:` on the connection): **`fdw`** (default for bigquery/postgres — live foreign
 table in `<conn>_ext`, needs `wrappers` + Vault on the warehouse) and **`runner-extract`**
 (>=1.15 BigQuery; default and ONLY mode for mysql — `mode: fdw` on mysql is a compile error): the
-CLI reads the source at run time and materializes a plain `<conn>_ext.<name>` table (1M rows /
-512MB caps) — no Vault, no extensions, works on bare/ephemeral branches. Either way, downstream
-just `${ref("<name>")}`s it.
+CLI reads the source at run time and materializes a plain table (1M rows / 512MB caps) — no
+Vault, no extensions, works on bare/ephemeral branches. Since **1.22** a declaration's `schema:`
+overrides the connection's dataset/database AND names the schema the extract lands in
+(`schema: "ods", name: "zip_code"` → `ods.zip_code`; one connection per source project serves
+many datasets; schema-qualified `ref("ods","zip_code")` works). No `schema:` = legacy
+`<conn>_ext.<name>`. Either way, downstream just `${ref(...)}`s it.
+
+**Migrating a whole Dataform project?** `sqlanvil migrate-dataform <srcDir> <outDir>` (>=1.22)
+converts it: source dir is READ-ONLY, declarations become per-project runner-extract
+connections, targets get safe rewrites + inline `SQLANVIL-MIGRATE:` markers, and
+migration-report.{md,json} carries the to-do list (`validate` is the completion loop).
 
 ### 16. File exports and imports (`type: "export"` >=1.8, `type: "import"` >=1.12)
 
