@@ -386,6 +386,16 @@ const interactiveOption = option("interactive", {
   default: false
 });
 
+const targetWarehouseOption = option("target-warehouse", {
+  describe:
+    "Where the CONVERTED project runs: supabase/postgres = move off BigQuery (sources become " +
+    "named connections, SQL gets the dialect pass); bigquery = keep the SAME warehouse — a " +
+    "tooling swap with SQL and bigquery:{} blocks untouched.",
+  type: "string",
+  choices: ["supabase", "postgres", "bigquery"],
+  default: "supabase"
+});
+
 const warehouseOption = option("warehouse", {
   describe: "Target warehouse for the new project.",
   type: "string",
@@ -1483,10 +1493,12 @@ export function runCli() {
       {
         format: "migrate-dataform <source-dir> <out-dir>",
         description:
-          "Convert a Dataform/BigQuery project into a sqlanvil-on-Postgres project. The source " +
-          "directory is READ-ONLY; the converted project + migration-report.{md,json} land in " +
-          "<out-dir> (must be empty). Sources stay in BigQuery as named connections; target SQL " +
-          "gets safe rewrites + inline SQLANVIL-MIGRATE markers for dialect review.",
+          "Convert a Dataform/BigQuery project to sqlanvil. The source directory is READ-ONLY; " +
+          "the converted project + migration-report.{md,json} land in <out-dir> (must be empty). " +
+          "Default target (supabase/postgres) MOVES the warehouse: sources stay in BigQuery as " +
+          "named connections and target SQL gets safe rewrites + inline SQLANVIL-MIGRATE markers. " +
+          "--target-warehouse bigquery is a TOOLING SWAP: the project keeps running on the same " +
+          "BigQuery warehouse, SQL and bigquery:{} blocks untouched.",
         positionalOptions: [
           positionalOption("source-dir", {
             describe: "The Dataform project to convert (never modified)."
@@ -1495,11 +1507,16 @@ export function runCli() {
             describe: "Where the converted sqlanvil project is written (created; must be empty)."
           })
         ],
-        options: [],
-        processFn: async (argv: { "source-dir": string; "out-dir": string }) => {
+        options: [targetWarehouseOption],
+        processFn: async (argv: {
+          "source-dir": string;
+          "out-dir": string;
+          "target-warehouse": "supabase" | "postgres" | "bigquery";
+        }) => {
           const report = await migrateDataform({
             srcDir: argv["source-dir"],
-            outDir: argv["out-dir"]
+            outDir: argv["out-dir"],
+            targetWarehouse: argv[targetWarehouseOption.name]
           });
           printMigrationSummary(report, argv["out-dir"]);
           print(`Next: sqlanvil compile ${argv["out-dir"]}`);

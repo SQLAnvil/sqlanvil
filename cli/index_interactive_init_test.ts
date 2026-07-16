@@ -8,6 +8,7 @@ import { cliEntryPointPath } from "sa/cli/index_test_base";
 import {
   CONVERT_OUT_QUESTION,
   CONVERT_SOURCE_QUESTION,
+  CONVERT_TARGET_QUESTION,
   CREDS_DATABASE_QUESTION,
   CREDS_HOST_QUESTION,
   CREDS_PASSWORD_QUESTION,
@@ -180,6 +181,7 @@ suite("init --interactive", ({ afterEach }) => {
       [withDefault(INIT_MODE_QUESTION, "fresh")]: "convert",
       [CONVERT_SOURCE_QUESTION]: srcDir,
       [CONVERT_OUT_QUESTION]: outDir,
+      [withDefault(CONVERT_TARGET_QUESTION, "bigquery")]: "supabase",
       [withDefault(INIT_CONFIGURE_CREDS_QUESTION, "y")]: "n"
     };
 
@@ -195,5 +197,52 @@ suite("init --interactive", ({ afterEach }) => {
 
     // Source is read-only: same files, no additions.
     expect(fs.readdirSync(srcDir).sort()).deep.equals(sourceListingBefore);
+  });
+
+  test("convert flow keep-BigQuery (default) is a tooling swap — no creds Q&A, no warehouse key", async () => {
+    const srcDir = tmpDirFixture.createNewTmpDir();
+    const outDir = tmpDirFixture.createNewTmpDir();
+    const workDir = tmpDirFixture.createNewTmpDir();
+
+    fs.writeFileSync(
+      path.join(srcDir, "dataform.json"),
+      JSON.stringify({
+        warehouse: "bigquery",
+        defaultDatabase: "my-source-project",
+        defaultLocation: "US",
+        defaultSchema: "DataForm_DS"
+      })
+    );
+    fs.mkdirpSync(path.join(srcDir, "definitions"));
+    fs.writeFileSync(
+      path.join(srcDir, "definitions", "example.sqlx"),
+      'config { type: "view", bigquery: { partitionBy: "d" } }\nselect SAFE_CAST(1 as INT64) as x\n'
+    );
+
+    const testInputs = {
+      [withDefault(INIT_MODE_QUESTION, "fresh")]: "convert",
+      [CONVERT_SOURCE_QUESTION]: srcDir,
+      [CONVERT_OUT_QUESTION]: outDir,
+      [withDefault(CONVERT_TARGET_QUESTION, "bigquery")]: ""
+      // No INIT_CONFIGURE_CREDS_QUESTION entry: the BigQuery path must never ask it.
+    };
+
+    const result = await runInteractiveInit(workDir, testInputs);
+    expect(result.exitCode).equals(0);
+
+    const settings = loadYaml(
+      fs.readFileSync(path.join(outDir, "workflow_settings.yaml"), "utf8")
+    ) as any;
+    expect(settings).to.not.have.property("warehouse"); // BigQuery = core's implicit default
+    expect(settings.defaultProject).equals("my-source-project");
+    expect(settings.defaultLocation).equals("US");
+    expect(settings.defaultDataset).equals("DataForm_DS"); // case preserved (BQ-sensitive)
+    expect(settings).to.not.have.property("connections");
+
+    // SQL and bigquery:{} config pass through byte-identical.
+    expect(fs.readFileSync(path.join(outDir, "definitions", "example.sqlx"), "utf8")).equals(
+      'config { type: "view", bigquery: { partitionBy: "d" } }\nselect SAFE_CAST(1 as INT64) as x\n'
+    );
+    expect(fs.existsSync(path.join(outDir, ".df-credentials.json"))).equals(false);
   });
 });

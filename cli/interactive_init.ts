@@ -42,6 +42,8 @@ export const CONVERT_SOURCE_QUESTION =
   "Path to the Dataform project to convert (read-only, never modified)?";
 export const CONVERT_OUT_QUESTION =
   "Directory for the converted sqlanvil project (created; must be empty)?";
+export const CONVERT_TARGET_QUESTION =
+  "Target warehouse? (bigquery = keep running on BigQuery, tooling swap only; supabase/postgres = move off BigQuery)";
 
 export const SUPABASE_POOLER_HINT =
   "Use the SESSION POOLER connection (Supabase Dashboard -> Connect -> Session pooler): host " +
@@ -187,16 +189,38 @@ async function runConvertFlow(): Promise<number> {
     throw new Error("No usable source directory provided.");
   }
   const outDir = actuallyResolve(askRequired(CONVERT_OUT_QUESTION));
+  // Dataform projects are BigQuery projects, so keep-BigQuery (tooling swap) is the default;
+  // choosing supabase/postgres moves the warehouse (connections + dialect pass).
+  const targetWarehouse = askChoice(
+    CONVERT_TARGET_QUESTION,
+    ["bigquery", "supabase", "postgres"],
+    "bigquery"
+  ) as "bigquery" | "supabase" | "postgres";
 
   print("\nConverting...\n");
-  const report = await migrateDataform({ srcDir, outDir });
+  const report = await migrateDataform({ srcDir, outDir, targetWarehouse });
   printMigrationSummary(report, outDir);
 
-  // Converted projects target a Supabase warehouse; offer to wire credentials right away.
+  if (targetWarehouse === "bigquery") {
+    // Same warehouse — credentials come from gcloud ADC or a service-account key, not the
+    // Postgres credentials Q&A.
+    print("\nNext steps:");
+    print(`  1. sqlanvil compile ${outDir}`);
+    print(
+      "  2. Credentials: gcloud auth application-default login (ADC), or a service-account " +
+        `key in a gitignored ${CREDENTIALS_FILENAME}.`
+    );
+    print(
+      `  3. sqlanvil validate ${outDir}  (dry-runs every model against BigQuery; all-PASS = swap complete)`
+    );
+    return 0;
+  }
+
+  // Moving to Supabase/Postgres: offer to wire credentials right away.
   if (askYesNo(INIT_CONFIGURE_CREDS_QUESTION, true)) {
     const credentialsPath = path.join(outDir, CREDENTIALS_FILENAME);
     ensureGitignoreCoversCredentials(outDir);
-    fs.writeFileSync(credentialsPath, collectCredentials("supabase"));
+    fs.writeFileSync(credentialsPath, collectCredentials(targetWarehouse));
     printSuccess(`Credentials written to ${credentialsPath}`);
   }
 

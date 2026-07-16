@@ -36,6 +36,14 @@ export interface MigrateDataformOptions {
   outDir: string;
   /** Pinned in the generated workflow_settings.yaml. Defaults to the running core version. */
   coreVersion?: string;
+  /**
+   * Where the CONVERTED project runs. `supabase` (default) / `postgres` = move off BigQuery:
+   * declarations become named runner-extract connections and target SQL gets the dialect
+   * pass. `bigquery` = tooling swap only — the project keeps running on the SAME warehouse,
+   * so SQL bodies, `bigquery: {}` blocks, and declarations pass through untouched (only the
+   * compile-global rename and the settings-file conversion apply).
+   */
+  targetWarehouse?: "supabase" | "postgres" | "bigquery";
 }
 
 export interface SourceConnection {
@@ -62,6 +70,7 @@ export interface ConvertedFile {
 }
 
 export interface MigrationReport {
+  targetWarehouse: string;
   generator: string;
   sourceDir: string;
   sourceConfig: Record<string, unknown>;
@@ -369,7 +378,11 @@ ${description}    columnTypes: {
 export function convertTarget(
   source: string,
   jsMode: boolean,
+  dialect: "postgres" | "none" = "postgres",
 ): { content: string; findings: FileFinding[] } {
+  // dialect "none" = same-warehouse conversion (bigquery target): only the compile-global
+  // rename applies; SQL stays in its native dialect and BigQuery config keys stay valid.
+  const dialectPass = dialect === "postgres";
   const span = jsMode ? null : findConfigBlock(source);
   const findings: FileFinding[] = [];
   const lines = source.split("\n");
@@ -419,7 +432,7 @@ export function convertTarget(
     }
 
     // Postgres-inapplicable config keys: comment the key (and its {...} block) out.
-    if (inConfig && commentingConfigBlockDepth === 0) {
+    if (dialectPass && inConfig && commentingConfigBlockDepth === 0) {
       const m = CONFIG_BQ_KEYS.exec(line);
       if (m) {
         const note = `BigQuery-only setting — not applicable on Postgres (partitioning/clustering → postgres: {}; project qualifiers drop)`;
@@ -442,7 +455,7 @@ export function convertTarget(
     }
 
     // SQL rules (SQL bodies + js regions; config lines only get the config handling above).
-    if (!inConfig || jsMode) {
+    if (dialectPass && (!inConfig || jsMode)) {
       for (const rule of SQL_RULES) {
         rule.pattern.lastIndex = 0;
         if (!rule.pattern.test(line)) continue;
@@ -484,6 +497,7 @@ export function convertTarget(
 
 interface SourceProjectConfig {
   defaultProject: string | null;
+  defaultLocation: string | null;
   defaultDataset: string;
   defaultAssertionDataset: string | null;
   vars: Record<string, string> | null;
@@ -506,6 +520,7 @@ function readSourceConfig(srcDir: string): SourceProjectConfig {
   const s = (k: string) => (typeof raw[k] === "string" ? (raw[k] as string) : null);
   return {
     defaultProject: s("defaultProject") ?? s("defaultDatabase"),
+    defaultLocation: s("defaultLocation"),
     defaultDataset: s("defaultDataset") ?? s("defaultSchema") ?? "dataform",
     defaultAssertionDataset: s("defaultAssertionDataset") ?? s("assertionSchema"),
     vars: (raw.vars as Record<string, string>) ?? null,
@@ -526,12 +541,16 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
     throw new Error(`Output directory ${outDir} is not empty.`);
   }
 
+  const targetWarehouse = opts.targetWarehouse ?? "supabase";
+  const isBigQueryTarget = targetWarehouse === "bigquery";
+
   const sourceConfig = readSourceConfig(srcDir);
   const writer = new OutWriter(outDir);
   skippedForSafety = new Set<string>();
   const files = walkFiles(srcDir);
 
   const report: MigrationReport = {
+    targetWarehouse,
     generator: `sqlanvil migrate-dataform ${sqlanvilVersion}`,
     sourceDir: srcDir,
     sourceConfig: sourceConfig.raw,
@@ -566,11 +585,12 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
   const resolveDatabase = (db: string | null) =>
     !db || db === "<defaultDatabase>" ? sourceConfig.defaultProject ?? "UNKNOWN_PROJECT" : db;
 
-  // Source schemas (declarations) vs target schemas (materializing actions).
+  // Source schemas (declarations) vs target schemas (materializing actions). Connections
+  // only exist when MOVING warehouse — a bigquery target reads its declarations natively.
   const declarationSchemas = new Set<string>();
   const targetSchemas = new Set<string>();
   const connectionMap = new Map<string, SourceConnection>();
-  for (const f of sqlxFiles) {
+  for (const f of isBigQueryTarget ? [] : sqlxFiles) {
     if (f.parsed.type === "declaration") {
       const dataset = f.parsed.schema ?? sourceConfig.defaultDataset;
       const project = resolveDatabase(f.parsed.database);
@@ -606,6 +626,20 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
 
     if (rel.endsWith(".sqlx")) {
       const info = sqlxFiles.find(f => f.rel === rel)!;
+      if (isBigQueryTarget) {
+        // Same-warehouse conversion: declarations AND targets pass through untouched apart
+        // from the compile-global rename (dataform.projectConfig → sqlanvil.projectConfig).
+        const { content, findings } = convertTarget(info.source, false, "none");
+        writer.write(rel, content);
+        report.files.push({
+          file: rel,
+          action: info.parsed.type === "declaration" ? "declaration" : "target",
+          type: info.parsed.type ?? "(none)",
+          status: findings.length === 0 ? "clean" : "rewritten",
+          findings,
+        });
+        continue;
+      }
       if (info.parsed.type === "declaration") {
         const dataset = info.parsed.schema ?? sourceConfig.defaultDataset;
         const project = resolveDatabase(info.parsed.database);
@@ -648,10 +682,10 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
     if (rel.endsWith(".js") && (rel.startsWith("definitions/") || rel.startsWith("includes/"))) {
       report.inventory.jsFiles++;
       const source = fs.readFileSync(abs, "utf8");
-      const { content, findings } = convertTarget(source, true);
+      const { content, findings } = convertTarget(source, true, isBigQueryTarget ? "none" : "postgres");
       writer.write(rel, content);
       const isIncludes = rel.startsWith("includes/");
-      if (isIncludes && findings.length > 0) {
+      if (isIncludes && findings.length > 0 && !isBigQueryTarget) {
         report.warnings.push(
           `includes helper ${rel} emits BigQuery-flavored SQL — review its ${findings.length} finding(s)`,
         );
@@ -677,12 +711,23 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
   }
 
   // ---- workflow_settings.yaml ---------------------------------------------------------------
-  const settings: Record<string, unknown> = {
-    warehouse: "supabase",
-    defaultDataset: sourceConfig.defaultDataset.toLowerCase(),
-    defaultAssertionDataset: (sourceConfig.defaultAssertionDataset ?? "sqlanvil_assertions").toLowerCase(),
-    sqlanvilCoreVersion: opts.coreVersion ?? sqlanvilVersion,
-  };
+  // bigquery target: same warehouse, so project/location carry through and dataset ids keep
+  // their case (BigQuery datasets are case-sensitive; the lowercase fold is a PG-ism). The
+  // `warehouse:` key is omitted — BigQuery is core's implicit default, matching `init`.
+  const settings: Record<string, unknown> = isBigQueryTarget
+    ? {
+        ...(sourceConfig.defaultProject ? { defaultProject: sourceConfig.defaultProject } : {}),
+        ...(sourceConfig.defaultLocation ? { defaultLocation: sourceConfig.defaultLocation } : {}),
+        defaultDataset: sourceConfig.defaultDataset,
+        defaultAssertionDataset: sourceConfig.defaultAssertionDataset ?? "sqlanvil_assertions",
+        sqlanvilCoreVersion: opts.coreVersion ?? sqlanvilVersion,
+      }
+    : {
+        warehouse: targetWarehouse,
+        defaultDataset: sourceConfig.defaultDataset.toLowerCase(),
+        defaultAssertionDataset: (sourceConfig.defaultAssertionDataset ?? "sqlanvil_assertions").toLowerCase(),
+        sqlanvilCoreVersion: opts.coreVersion ?? sqlanvilVersion,
+      };
   if (sourceConfig.vars) settings.vars = sourceConfig.vars;
   if (report.connections.length > 0) {
     settings.connections = Object.fromEntries(
@@ -706,7 +751,7 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
     writer.write(
       "AGENTS.md",
       agentsMdContents({
-        warehouse: settings.warehouse as string,
+        warehouse: targetWarehouse,
         defaultDataset: settings.defaultDataset as string,
         version: opts.coreVersion ?? sqlanvilVersion,
         converted: true
@@ -758,6 +803,16 @@ export function renderReportMd(r: MigrationReport): string {
     lines.push(`  - ${t}: ${n}`);
   }
   lines.push("");
+  if (r.targetWarehouse === "bigquery") {
+    lines.push(`## Same-warehouse conversion (BigQuery → BigQuery)`);
+    lines.push("");
+    lines.push(
+      `This is a tooling swap: the project keeps running on the SAME BigQuery warehouse. SQL ` +
+        `bodies, \`bigquery: {}\` config blocks, and declarations passed through untouched; ` +
+        `only the compile global was renamed (\`dataform.projectConfig\` → ` +
+        `\`sqlanvil.projectConfig\`) and the settings file converted.`,
+    );
+  } else {
   lines.push(`## Source connections (${r.connections.length})`);
   lines.push("");
   lines.push(
@@ -787,6 +842,7 @@ export function renderReportMd(r: MigrationReport): string {
         `of BigQuery connections.`,
     );
   }
+  }
   lines.push("");
   lines.push(`## Target files (${targets.length})`);
   lines.push("");
@@ -807,7 +863,9 @@ export function renderReportMd(r: MigrationReport): string {
   lines.push(`## Declarations (${declarations.length})`);
   lines.push("");
   lines.push(
-    `Every declaration was rewritten to ride its connection. The BigQuery data does not move.`,
+    r.targetWarehouse === "bigquery"
+      ? `Declarations are unchanged — the sources are native to the warehouse.`
+      : `Every declaration was rewritten to ride its connection. The BigQuery data does not move.`,
   );
   if (r.warnings.length > 0) {
     lines.push("");
@@ -818,18 +876,34 @@ export function renderReportMd(r: MigrationReport): string {
   lines.push("");
   lines.push(`## Finish the migration`);
   lines.push("");
-  lines.push(`1. \`sqlanvil compile\` — should already succeed.`);
-  lines.push(
-    `2. Scaffold \`columnTypes\` for the declarations you actually read (see connections above).`,
-  );
-  lines.push(
-    `3. \`sqlanvil validate\` against your Postgres/Supabase warehouse — PASS/FAILURE/BLOCKED per ` +
-      `model is the migration to-do list. Work the flagged files until validate is green.`,
-  );
-  lines.push(
-    `4. This report is machine-readable (migration-report.json) — pointing an AI agent at it plus ` +
-      `the \`SQLANVIL-MIGRATE:\` markers is the fastest path through the dialect work.`,
-  );
+  if (r.targetWarehouse === "bigquery") {
+    lines.push(`1. \`sqlanvil compile\` — should already succeed.`);
+    lines.push(
+      `2. Credentials: \`gcloud auth application-default login\` (ADC), or a service-account ` +
+        `key in a gitignored \`.df-credentials.json\`.`,
+    );
+    lines.push(
+      `3. \`sqlanvil validate\` — dry-runs every model against BigQuery without executing; ` +
+        `all-PASS means the swap is complete.`,
+    );
+    lines.push(
+      `4. Compare \`sqlanvil compile\` output with \`dataform compile\` on the source for a ` +
+        `sample of actions — they should match apart from the compile-global rename.`,
+    );
+  } else {
+    lines.push(`1. \`sqlanvil compile\` — should already succeed.`);
+    lines.push(
+      `2. Scaffold \`columnTypes\` for the declarations you actually read (see connections above).`,
+    );
+    lines.push(
+      `3. \`sqlanvil validate\` against your Postgres/Supabase warehouse — PASS/FAILURE/BLOCKED per ` +
+        `model is the migration to-do list. Work the flagged files until validate is green.`,
+    );
+    lines.push(
+      `4. This report is machine-readable (migration-report.json) — pointing an AI agent at it plus ` +
+        `the \`SQLANVIL-MIGRATE:\` markers is the fastest path through the dialect work.`,
+    );
+  }
   lines.push("");
   return lines.join("\n");
 }

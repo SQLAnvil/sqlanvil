@@ -257,6 +257,66 @@ module.exports = { domainFromEmail };
     expect(md).to.contain("Schemas that are BOTH source and target");
   });
 
+  test("targetWarehouse bigquery: tooling swap — SQL/bigquery:{}/declarations untouched, settings carried", async () => {
+    const src = fixtureProject();
+    const before = snapshot(src);
+    const out = fs.mkdtempSync(path.join(os.tmpdir(), "sqlanvil-migrate-bq-"));
+    fs.rmdirSync(out);
+
+    const report = await migrateDataform({
+      srcDir: src,
+      outDir: out,
+      coreVersion: "9.9.9",
+      targetWarehouse: "bigquery"
+    });
+
+    // Source still byte-identical.
+    expect(snapshot(src)).deep.equals(before);
+    expect(report.targetWarehouse).equals("bigquery");
+
+    // Settings: same warehouse — project/location carried, dataset case kept, no warehouse
+    // key (BigQuery is core's implicit default), no connections.
+    const settings = fs.readFileSync(path.join(out, "workflow_settings.yaml"), "utf8");
+    expect(settings).to.contain("defaultProject: acme-analytics");
+    expect(settings).to.contain("defaultLocation: US");
+    expect(settings).to.contain("defaultDataset: dataform");
+    expect(settings).to.contain("defaultAssertionDataset: dataform_assertions");
+    expect(settings).to.contain("sqlanvilCoreVersion: 9.9.9");
+    expect(settings).to.not.contain("warehouse:");
+    expect(settings).to.not.contain("connections:");
+    expect(report.connections).to.have.length(0);
+
+    // Targets: BigQuery SQL and bigquery:{} config pass through byte-identical.
+    const daily = fs.readFileSync(path.join(out, "definitions/output/daily.sqlx"), "utf8");
+    expect(daily).equals(before.get("definitions/output/daily.sqlx"));
+    expect(daily).to.contain("bigquery: {");
+    expect(daily).to.contain("SAFE_CAST(");
+    expect(daily).to.contain("QUALIFY");
+    expect(daily).to.not.contain("SQLANVIL-MIGRATE");
+
+    // Declarations: no connection rewrite; only the compile-global rename applies anywhere.
+    const decl = fs.readFileSync(path.join(out, "definitions/sources/ods/customers.sqlx"), "utf8");
+    expect(decl).to.contain("database: sqlanvil.projectConfig.defaultDatabase");
+    expect(decl).to.not.contain("connection:");
+    expect(decl).to.not.contain("columnTypes");
+    const events = fs.readFileSync(path.join(out, "definitions/sources/raw/events.sqlx"), "utf8");
+    expect(events).equals(before.get("definitions/sources/raw/events.sqlx"));
+
+    // The compile-global rename still lands in .js files; includes stay warning-free.
+    const dyn = fs.readFileSync(path.join(out, "definitions/operations/dynamic.js"), "utf8");
+    expect(dyn).to.contain("sqlanvil.projectConfig.schemaSuffix");
+    expect(report.warnings.filter(w => w.includes("includes"))).to.have.length(0);
+
+    // Mode-aware report + the converted-project AGENTS.md.
+    const reportMd = fs.readFileSync(path.join(out, "migration-report.md"), "utf8");
+    expect(reportMd).to.contain("Same-warehouse conversion");
+    expect(reportMd).to.not.contain("Source connections");
+    expect(reportMd).to.contain("gcloud auth application-default login");
+    const agentsMd = fs.readFileSync(path.join(out, "AGENTS.md"), "utf8");
+    expect(agentsMd).to.contain("warehouse: **bigquery**");
+    expect(agentsMd).to.contain("converted from Dataform");
+  });
+
   test("refuses an output dir inside the source (and vice versa), and a non-empty output", async () => {
     const src = fixtureProject();
     for (const bad of [path.join(src, "out"), path.dirname(src)]) {
