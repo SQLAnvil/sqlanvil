@@ -32,7 +32,7 @@ below before authoring a `warehouse: mysql` project.
 warehouse: postgres            # flat string ("postgres" or "supabase") — NOT nested
 defaultDataset: public         # the Postgres SCHEMA
 defaultAssertionDataset: sqlanvil_assertions
-sqlanvilCoreVersion: 1.23.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
+sqlanvilCoreVersion: 1.24.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
 vars:
   someVar: value
 ```
@@ -258,6 +258,12 @@ many datasets; schema-qualified `ref("ods","zip_code")` works). No `schema:` = l
 converts it: source dir is READ-ONLY, declarations become per-project runner-extract
 connections, targets get safe rewrites + inline `SQLANVIL-MIGRATE:` markers, and
 migration-report.{md,json} carries the to-do list (`validate` is the completion loop).
+`--target-warehouse bigquery` (>=1.24) is the SAME-warehouse tooling swap instead: SQL,
+`bigquery:{}` blocks, and declarations pass through untouched (no connections, no dialect
+pass — only the settings conversion + the `dataform.`→`sqlanvil.projectConfig` rename);
+defaultProject/defaultLocation carry through and dataset casing is preserved. Generated
+projects (init all modes, migrate output) also ship an `AGENTS.md` + `CLAUDE.md` bridge
+(>=1.24) — never overwritten if the directory already has them.
 
 ### 16. File exports and imports (`type: "export"` >=1.8, `type: "import"` >=1.12)
 
