@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { dump as dumpYaml, load as loadYaml } from "js-yaml";
 
+import { agentsMdContents, claudeMdBridgeContents } from "sa/cli/api/commands/agents_md";
 import { version as sqlanvilVersion } from "sa/core/version";
 
 /**
@@ -53,7 +54,7 @@ export interface FileFinding {
 
 export interface ConvertedFile {
   file: string;
-  action: "declaration" | "target" | "copied" | "includes";
+  action: "declaration" | "target" | "copied" | "includes" | "generated";
   type?: string;
   status: "clean" | "rewritten" | "flagged";
   findings: FileFinding[];
@@ -697,6 +698,30 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
     );
   }
   writer.write("workflow_settings.yaml", dumpYaml(settings));
+
+  // Repo-scoped agent guidance for the CONVERTED project (with the converted-project
+  // addendum pointing at the migration report). If the source shipped its own AGENTS.md /
+  // CLAUDE.md, the walk copied it — keep the user's file and just note it.
+  if (!fs.existsSync(path.join(outDir, "AGENTS.md"))) {
+    writer.write(
+      "AGENTS.md",
+      agentsMdContents({
+        warehouse: settings.warehouse as string,
+        defaultDataset: settings.defaultDataset as string,
+        version: opts.coreVersion ?? sqlanvilVersion,
+        converted: true
+      })
+    );
+    report.files.push({ file: "AGENTS.md", action: "generated", status: "clean", findings: [] });
+  } else {
+    report.warnings.push(
+      "Source AGENTS.md copied as-is — its guidance targets Dataform; consider replacing it with the sqlanvil version (`sqlanvil init --bare` in an empty dir generates one)."
+    );
+  }
+  if (!fs.existsSync(path.join(outDir, "CLAUDE.md"))) {
+    writer.write("CLAUDE.md", claudeMdBridgeContents());
+    report.files.push({ file: "CLAUDE.md", action: "generated", status: "clean", findings: [] });
+  }
 
   report.skippedForSafety = [...skippedForSafety].sort();
   if (skippedForSafety.size > 0) {

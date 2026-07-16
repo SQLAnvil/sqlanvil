@@ -2,6 +2,7 @@ import * as fs from "fs";
 import { dump as dumpYaml } from "js-yaml";
 import * as path from "path";
 
+import { agentsMdContents, claudeMdBridgeContents } from "sa/cli/api/commands/agents_md";
 import { CREDENTIALS_FILENAME } from "sa/cli/api/commands/credentials";
 import { version } from "sa/core/version";
 import { sqlanvil } from "sa/protos/ts";
@@ -160,6 +161,27 @@ export async function init(
 
   fs.writeFileSync(gitignorePath, gitIgnoreContents);
   filesWritten.push(gitignorePath);
+
+  // Repo-scoped agent guidance (AGENTS.md standard) + the CLAUDE.md bridge. Written on every
+  // path including --bare (the agent-driven one); skipped if the directory already has them
+  // (init tolerates pre-existing non-project dirs — never clobber a repo's own guidance).
+  const agentsMdPath = path.join(projectDir, "AGENTS.md");
+  if (!fs.existsSync(agentsMdPath)) {
+    fs.writeFileSync(
+      agentsMdPath,
+      agentsMdContents({
+        warehouse,
+        defaultDataset: workflowSettings.defaultDataset || "public",
+        version
+      })
+    );
+    filesWritten.push(agentsMdPath);
+  }
+  const claudeMdPath = path.join(projectDir, "CLAUDE.md");
+  if (!fs.existsSync(claudeMdPath)) {
+    fs.writeFileSync(claudeMdPath, claudeMdBridgeContents());
+    filesWritten.push(claudeMdPath);
+  }
 
   // Postgres/Supabase/MySQL: scaffold a credentials template (the connection lives in a separate,
   // gitignored file — not in workflow_settings.yaml). BigQuery credentials come from gcloud / a
