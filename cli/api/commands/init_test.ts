@@ -219,6 +219,9 @@ suite("init", ({ afterEach }) => {
     expect(agentsMd).to.contain("`---` on its own line — NEVER `;`");
     expect(agentsMd).to.contain("Session pooler");
     expect(agentsMd).to.contain("sqlanvilCoreVersion:");
+    expect(agentsMd).to.contain("Metadata for AI/BI engines");
+    expect(agentsMd).to.contain("COMMENT ON TABLE|VIEW|MATERIALIZED VIEW|COLUMN");
+    expect(agentsMd).to.not.contain("NOT ENFORCED");
     expect(agentsMd).to.not.contain("MySQL/MariaDB specifics");
     expect(agentsMd).to.not.contain("converted from Dataform");
     // Version-stamped header.
@@ -234,6 +237,7 @@ suite("init", ({ afterEach }) => {
     const agentsMd = fs.readFileSync(path.join(projectDir, "AGENTS.md"), "utf8");
     expect(agentsMd).to.contain("MySQL/MariaDB specifics");
     expect(agentsMd).to.contain("AUTO-CREATES the matching unique index");
+    expect(agentsMd).to.contain("MySQL views can't carry comments");
     expect(agentsMd).to.not.contain("PostgreSQL specifics");
     expect(agentsMd).to.not.contain("Session pooler");
   });
@@ -248,6 +252,7 @@ suite("init", ({ afterEach }) => {
 
     const agentsMd = fs.readFileSync(path.join(projectDir, "AGENTS.md"), "utf8");
     expect(agentsMd).to.contain("warehouse: **bigquery**");
+    expect(agentsMd).to.contain("NOT ENFORCED");
     expect(agentsMd).to.not.contain("PostgreSQL specifics");
     expect(agentsMd).to.not.contain("MySQL/MariaDB specifics");
   });

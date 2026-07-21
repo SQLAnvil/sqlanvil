@@ -128,6 +128,27 @@ it gitignored.`);
   MySQL works as a SOURCE for a Postgres/Supabase project, not the other way).`);
   }
 
+  const commentMechanics = isPostgresLike
+    ? "`COMMENT ON TABLE|VIEW|MATERIALIZED VIEW|COLUMN`"
+    : isMysql
+    ? "table/column comments (tables + incrementals only — MySQL views can't carry comments)"
+    : "table + column descriptions (nested fields included)";
+  const constraintNote =
+    warehouse === "bigquery"
+      ? "append `NOT ENFORCED` (BigQuery stores them as catalog metadata for query engines)"
+      : "real enforced constraints";
+  sections.push(`## Metadata for AI/BI engines
+
+- \`description:\` + \`columns: {}\` persist into the warehouse catalog on every run as
+  ${commentMechanics} — BI copilots and text-to-SQL agents read them back from there. Name
+  join targets in column descriptions (\`customer_id: "Foreign key to
+  public.customers.customer_id."\`).
+- PK/FK constraints go in \`post_operations\` (no config field for them) — ${constraintNote};
+  on an incremental, wrap the \`ALTER\` in \`\${when(!incremental(), \\\`…\\\`)}\`.
+- \`assertions: { uniqueKey | uniqueKeys: [[…],[…]], nonNull, rowConditions }\` make key
+  claims TESTED on every run (\`uniqueKey\` and \`uniqueKeys\` are mutually exclusive).
+- Guide: https://sqlanvil.com/docs/guides/metadata/`);
+
   if (converted) {
     sections.push(`## This project was converted from Dataform
 
