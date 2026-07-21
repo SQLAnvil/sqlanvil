@@ -138,29 +138,45 @@ CALL marts.recalc()
 
 Independent; can coexist.
 
-### 9. Primary keys / one-time DDL on incrementals → wrap in `when(!incremental())`
+### 9. Primary/foreign keys / one-time DDL on incrementals → wrap in `when(!incremental())`
 An **unwrapped** `pre_operations`/`post_operations` block runs on **every** run of an incremental —
 the create *and* every append (it compiles into both the create-path and incremental-path ops). A
-bare `ALTER TABLE ... ADD PRIMARY KEY` errors on the second run (`multiple primary keys`). Wrap
-one-time DDL so it runs only on create + `--full-refresh`:
+bare `ALTER TABLE ... ADD PRIMARY KEY` (or `ADD CONSTRAINT ... FOREIGN KEY`) errors on the second
+run (`multiple primary keys`). Wrap one-time DDL so it runs only on create + `--full-refresh`:
 ```sqlx
 post_operations {
   ${when(!incremental(), `ALTER TABLE ${self()} ADD PRIMARY KEY (order_date)`)}
 }
 ```
-(The PK also gives the incremental upsert its `ON CONFLICT` target.) Matview post-ops re-run every
+(The PK also gives the incremental upsert its `ON CONFLICT` target.) Full-replace `table`s are
+recreated each run, so their constraint post-ops need no guard. Matview post-ops re-run every
 build — keep them idempotent (matviews can't have PKs anyway).
 
-### 10. Metadata + assertions (same as Dataform, works on PG)
-- `description:` (table) + `columns: { col: "..." }` (per-column) → `COMMENT ON
-  TABLE|VIEW|MATERIALIZED VIEW|COLUMN`. Document every table.
-- `assertions: { uniqueKey, uniqueKeys: [["a","b"],["c"]], nonNull: [...], rowConditions: [...] }`.
+### 10. Metadata for AI/BI engines + assertions (persists into the warehouse catalog)
+Text-to-SQL agents and BI copilots answer from **warehouse catalog metadata** — sqlanvil is how it
+gets there, re-applied on every run so rebuilds keep it. Document every model:
+- `description:` (object comment) + `columns: { col: "..." }` (per-column) → `COMMENT ON
+  TABLE|VIEW|MATERIALIZED VIEW|COLUMN`, read back from `pg_description`/`information_schema` by any
+  catalog-aware tool. (MySQL: tables/incrementals only — views can't carry comments. BigQuery
+  targets: table + column descriptions, nested fields included.)
+- **Name join targets in column descriptions** — `customer_id: "Foreign key to
+  public.customers.customer_id."` gives an engine the relationship map even before constraints.
+- **PK/FK constraints go in `post_operations`** (no config field for them) — real enforced
+  constraints on PG/MySQL; on a **BigQuery-target** project (≥1.24 tooling swap) append
+  `NOT ENFORCED`. `ALTER TABLE ${self()} ADD CONSTRAINT fk FOREIGN KEY (customer_id) REFERENCES
+  ${ref("customers")} (customer_id)` — on an incremental, wrap per delta #9.
+- `assertions: { uniqueKey, uniqueKeys: [["a","b"],["c"]], nonNull: [...], rowConditions: [...] }`
+  make key claims **tested** every run (`uniqueKey` and `uniqueKeys` are mutually exclusive).
   Standalone = `type: "assertion"` whose `SELECT` returns offending rows (passes iff zero rows).
+- Same metadata is queryable offline via the Parquet catalog artifacts (`sqlanvil query`, views
+  `actions`/`columns`/`dependencies`) and `sqlanvil docs`. Guide:
+  https://sqlanvil.com/docs/guides/metadata/
 
 ### 11. No BigQuery-isms, ever
 No `bigquery: {}`, `partitionBy`, `clusterBy`, `OPTIONS(...)`, `bigqueryPolicyTags`, backticked
-`` `project.dataset.table` ``, or `CREATE ... NOT ENFORCED`. Use the `postgres:` equivalents and
-double-quoted identifiers.
+`` `project.dataset.table` ``, or `... NOT ENFORCED` constraints. Use the `postgres:` equivalents and
+double-quoted identifiers. (`NOT ENFORCED` is correct only on a **BigQuery-target** project — see
+delta #10.)
 
 ### 12. CLI: `sqlanvil <verb>` (the installed CLI — no global `dataform`, no `npm run`)
 ```bash
