@@ -1,5 +1,12 @@
 {
-  "homepage": "https://github.com/sqlanvil/sqlanvil",
+  "homepage": "https://sqlanvil.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sqlanvil/sqlanvil.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sqlanvil/sqlanvil/issues"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "sqlanvil",
