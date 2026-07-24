@@ -4,7 +4,7 @@
 
 SQLAnvil is an open-source fork of [Dataform OSS](https://github.com/dataform-co/dataform) (Apache 2.0), extended with first-class PostgreSQL, Supabase, and MySQL/MariaDB support. Define your data transformations in SQLX, have SQLAnvil compile them to idiomatic SQL for your warehouse, and run, validate, and document the whole DAG from one CLI.
 
-> **SQLAnvil is not affiliated with or endorsed by Google.** The Dataform name and related marks are trademarks of Google LLC. See [NOTICE](NOTICE) for attribution.
+> **SQLAnvil is not affiliated with or endorsed by Google.** The Dataform name and related marks are trademarks of Google LLC. See [NOTICE](https://github.com/SQLAnvil/sqlanvil/blob/main/NOTICE) for attribution.
 
 ---
 
@@ -86,7 +86,7 @@ Full documentation at **[sqlanvil.com/docs](https://sqlanvil.com/docs/)**.
 - [Validate](https://sqlanvil.com/docs/guides/validate/) · [Named Environments](https://sqlanvil.com/docs/guides/environments/) · [Artifacts & Catalog](https://sqlanvil.com/docs/guides/artifacts/)
 - [Configs Reference](https://sqlanvil.com/docs/reference/configs/) · [What's New](https://sqlanvil.com/docs/whats-new/)
 
-Writing sqlanvil projects with an AI agent? Point it at [`AGENTS.md`](AGENTS.md) — it corrects
+Writing sqlanvil projects with an AI agent? Point it at [`AGENTS.md`](https://github.com/SQLAnvil/sqlanvil/blob/main/AGENTS.md) — it corrects
 the Dataform/BigQuery priors that otherwise produce broken sqlanvil code. Contributor/design
 docs live in the separate [`sqlanvil/docs`](https://github.com/sqlanvil/docs) repo.
 
@@ -123,12 +123,12 @@ bazel test //core/... //cli/...
 ```
 
 A Docker-based build container (`./scripts/docker-bazel`) remains available as an optional
-hermetic environment. See [contributing.md](contributing.md) for full instructions.
+hermetic environment. See [contributing.md](https://github.com/SQLAnvil/sqlanvil/blob/main/contributing.md) for full instructions.
 
 ---
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Apache License 2.0. See [LICENSE](https://github.com/SQLAnvil/sqlanvil/blob/main/LICENSE) and [NOTICE](https://github.com/SQLAnvil/sqlanvil/blob/main/NOTICE).
 
 SQLAnvil is a derivative of Dataform OSS (originally developed by Dataform Co and contributed to by Google LLC). It has been fully renamed and extended with first-class PostgreSQL/Supabase/MySQL support. Licensed under Apache License 2.0.
