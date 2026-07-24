@@ -64,7 +64,9 @@ def pkg_npm_tar(name, srcs = [], deps = []):
         name = name + "_tar",
         srcs = [":" + name],
         outs = [name + ".tar.gz"],
-        cmd = "tar -cvzf $(location {name}.tar.gz) -C $(location :{name})/.. --dereference {name}"
+        # Archive the file list, not the directory: a bare `package/` directory entry
+        # makes npm >=11 reject the tarball at publish time (E415 invalid path: package/).
+        cmd = "tar -cvzf $(location {name}.tar.gz) -C $(location :{name})/.. --dereference $$(cd $(location :{name})/.. && find -L {name} -type f | sort)"
             .format(name = name),
     )
 
