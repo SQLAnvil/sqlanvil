@@ -62,7 +62,7 @@ export interface FileFinding {
 
 export interface ConvertedFile {
   file: string;
-  action: "declaration" | "target" | "copied" | "includes" | "generated";
+  action: "declaration" | "target" | "copied" | "includes" | "generated" | "updated";
   type?: string;
   status: "clean" | "rewritten" | "flagged";
   findings: FileFinding[];
@@ -729,6 +729,12 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
         sqlanvilCoreVersion: opts.coreVersion ?? sqlanvilVersion,
       };
   if (sourceConfig.vars) settings.vars = sourceConfig.vars;
+  if (isBigQueryTarget) {
+    // A ready-made TEST environment so the first real runs can't touch production datasets:
+    // `sqlanvil run . --environment test` writes to `<dataset>_test`. Landing tests in a
+    // separate GCP project instead is one field away (environments.test.defaultDatabase).
+    settings.environments = { test: { schemaSuffix: "test" } };
+  }
   if (report.connections.length > 0) {
     settings.connections = Object.fromEntries(
       report.connections.map(c => [
@@ -743,6 +749,40 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
     );
   }
   writer.write("workflow_settings.yaml", dumpYaml(settings));
+
+  if (isBigQueryTarget && sourceConfig.defaultProject) {
+    // Local runs authenticate the Dataform way: gcloud Application Default Credentials. The
+    // ADC-mode credentials file holds NO secrets — just project + location — so generating it
+    // is safe (source credentials are still never copied) and makes the converted project
+    // immediately runnable for anyone with `gcloud auth application-default login`.
+    const adcCredentials: Record<string, string> = { projectId: sourceConfig.defaultProject };
+    if (sourceConfig.defaultLocation) {
+      adcCredentials.location = sourceConfig.defaultLocation;
+    }
+    writer.write(".df-credentials.json", `${JSON.stringify(adcCredentials, null, 2)}\n`);
+    report.files.push({
+      file: ".df-credentials.json",
+      action: "generated",
+      status: "clean",
+      findings: []
+    });
+    // The generated file must never be committed — extend (or create) the repo's .gitignore.
+    const gitignorePath = path.join(outDir, ".gitignore");
+    const existingGitignore = fs.existsSync(gitignorePath)
+      ? fs.readFileSync(gitignorePath, "utf8")
+      : "";
+    if (!existingGitignore.includes(".df-credentials")) {
+      const separator =
+        existingGitignore === "" || existingGitignore.endsWith("\n") ? "" : "\n";
+      fs.writeFileSync(gitignorePath, `${existingGitignore}${separator}.df-credentials*.json\n`);
+      report.files.push({
+        file: ".gitignore",
+        action: existingGitignore === "" ? "generated" : "updated",
+        status: "clean",
+        findings: []
+      });
+    }
+  }
 
   // Repo-scoped agent guidance for the CONVERTED project (with the converted-project
   // addendum pointing at the migration report). If the source shipped its own AGENTS.md /
@@ -879,15 +919,23 @@ export function renderReportMd(r: MigrationReport): string {
   if (r.targetWarehouse === "bigquery") {
     lines.push(`1. \`sqlanvil compile\` — should already succeed.`);
     lines.push(
-      `2. Credentials: \`gcloud auth application-default login\` (ADC), or a service-account ` +
-        `key in a gitignored \`.df-credentials.json\`.`,
+      `2. Authenticate the same way Dataform runs locally: \`gcloud auth application-default ` +
+        `login\` (ADC). A secretless \`.df-credentials.json\` (project + location only) was ` +
+        `generated for you — nothing else is needed. Service-account keys and keyless ` +
+        `\`accessToken\` auth are supported for CI (see the BigQuery guide).`,
     );
     lines.push(
-      `3. \`sqlanvil validate\` — dry-runs every model against BigQuery without executing; ` +
-        `all-PASS means the swap is complete.`,
+      `3. \`sqlanvil validate\` — read-only: dry-runs every model against BigQuery without ` +
+        `executing; all-PASS means the swap is complete.`,
     );
     lines.push(
-      `4. Compare \`sqlanvil compile\` output with \`dataform compile\` on the source for a ` +
+      `4. First real run in the scaffolded TEST environment — \`sqlanvil run . --environment ` +
+        `test\` writes to \`<dataset>_test\` datasets, leaving production untouched. To land ` +
+        `tests in a separate GCP project instead, set \`environments.test.defaultDatabase\` in ` +
+        `workflow_settings.yaml. Once verified: \`sqlanvil run .\`.`,
+    );
+    lines.push(
+      `5. Compare \`sqlanvil compile\` output with \`dataform compile\` on the source for a ` +
         `sample of actions — they should match apart from the compile-global rename.`,
     );
   } else {

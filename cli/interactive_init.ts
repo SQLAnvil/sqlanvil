@@ -1,4 +1,6 @@
+import { spawnSync } from "child_process";
 import * as fs from "fs";
+import { dump as dumpYaml, load as loadYaml } from "js-yaml";
 import * as path from "path";
 
 import { init } from "sa/cli/api";
@@ -44,6 +46,17 @@ export const CONVERT_OUT_QUESTION =
   "Directory for the converted sqlanvil project (created; must be empty)?";
 export const CONVERT_TARGET_QUESTION =
   "Target warehouse? (bigquery = keep running on BigQuery, tooling swap only; supabase/postgres = move off BigQuery)";
+export const BQ_AUTH_QUESTION =
+  "How should local runs authenticate to BigQuery? (adc = gcloud Application Default " +
+  "Credentials, like Dataform local runs; key = service-account key file; later)";
+export const BQ_AUTH_LOGIN_QUESTION =
+  "No Application Default Credentials found. Run `gcloud auth application-default login` now?";
+export const BQ_KEY_PATH_QUESTION = "Path to the service-account key JSON file?";
+export const BQ_TEST_TARGET_QUESTION =
+  "Where should test runs land before you touch production? (suffix = same project, " +
+  "`<dataset>_test` datasets; project = a separate GCP project; none = no test environment)";
+export const BQ_TEST_SUFFIX_QUESTION = "Dataset suffix for the test environment?";
+export const BQ_TEST_PROJECT_QUESTION = "GCP project ID for the test environment?";
 
 export const SUPABASE_POOLER_HINT =
   "Use the SESSION POOLER connection (Supabase Dashboard -> Connect -> Session pooler): host " +
@@ -175,6 +188,137 @@ function ensureGitignoreCoversCredentials(dir: string) {
   fs.writeFileSync(gitignorePath, `${existing}${separator}.df-credentials*.json\n`);
 }
 
+/**
+ * Is a usable Application Default Credential present? Uses gcloud's own check so the answer
+ * matches what the BigQuery client will find. Deterministic (false) under the test harness —
+ * tests drive the prompts, not the environment.
+ */
+function detectAdc(): boolean {
+  if (process.env.DATAFORM_CLI_TEST_INPUTS !== undefined) {
+    return false;
+  }
+  try {
+    const result = spawnSync("gcloud", ["auth", "application-default", "print-access-token"], {
+      stdio: "ignore",
+      timeout: 15000
+    });
+    return result.status === 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * BigQuery auth step — BEFORE anything runs against the warehouse. Local sqlanvil runs
+ * authenticate the same way Dataform local runs do: gcloud ADC by default, with a
+ * service-account key as the explicit alternative. The ADC-mode credentials file
+ * ({projectId, location}) holds no secrets and is written by the converter/init already.
+ */
+function runBigQueryAuthStep(projectDir: string) {
+  const mode = askChoice(BQ_AUTH_QUESTION, ["adc", "key", "later"], "adc");
+
+  if (mode === "adc") {
+    if (detectAdc()) {
+      printSuccess(
+        "Application Default Credentials detected — runs authenticate as your gcloud account."
+      );
+      return;
+    }
+    if (askYesNo(BQ_AUTH_LOGIN_QUESTION, true)) {
+      // Hand the terminal to gcloud (browser flow); fall through to guidance either way.
+      spawnSync("gcloud", ["auth", "application-default", "login"], { stdio: "inherit" });
+      if (detectAdc()) {
+        printSuccess("ADC configured — runs authenticate as your gcloud account.");
+        return;
+      }
+    }
+    print(
+      "Run `gcloud auth application-default login` before `sqlanvil validate` / `run` — no " +
+        "other credential setup is needed."
+    );
+    return;
+  }
+
+  if (mode === "key") {
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const keyPath = actuallyResolve(askRequired(BQ_KEY_PATH_QUESTION));
+      if (!fs.existsSync(keyPath)) {
+        printError(`${keyPath} does not exist.`);
+        continue;
+      }
+      try {
+        const keyContents = fs.readFileSync(keyPath, "utf8");
+        const parsed = JSON.parse(keyContents) as { client_email?: string };
+        if (!parsed.client_email) {
+          printError(`${keyPath} does not look like a service-account key (no client_email).`);
+          continue;
+        }
+        const credentialsPath = path.join(projectDir, CREDENTIALS_FILENAME);
+        const existing = fs.existsSync(credentialsPath)
+          ? (JSON.parse(fs.readFileSync(credentialsPath, "utf8")) as Record<string, string>)
+          : {};
+        ensureGitignoreCoversCredentials(projectDir);
+        fs.writeFileSync(
+          credentialsPath,
+          `${JSON.stringify({ ...existing, credentials: keyContents }, null, 2)}\n`
+        );
+        printSuccess(
+          `Runs authenticate as ${parsed.client_email} (key embedded in the gitignored ` +
+            `${CREDENTIALS_FILENAME}).`
+        );
+        return;
+      } catch (e) {
+        printError(`Could not read ${keyPath}: ${e instanceof Error ? e.message : e}`);
+      }
+    }
+    return;
+  }
+
+  print(
+    "Skipped. Before `sqlanvil validate` / `run`: `gcloud auth application-default login`, or " +
+      `add a service-account key as the \`credentials\` field of ${CREDENTIALS_FILENAME}.`
+  );
+}
+
+/**
+ * Test-isolation step: make the FIRST real runs land somewhere safe — a `_<suffix>` dataset
+ * suffix in the same project, or a separate GCP project — via the scaffolded `test`
+ * environment in workflow_settings.yaml. Production datasets stay untouched until the user
+ * deliberately runs without `--environment test`.
+ */
+function runBigQueryTestTargetStep(projectDir: string) {
+  const choice = askChoice(BQ_TEST_TARGET_QUESTION, ["suffix", "project", "none"], "suffix");
+  const settingsPath = path.join(projectDir, "workflow_settings.yaml");
+  const settings = (loadYaml(fs.readFileSync(settingsPath, "utf8")) || {}) as Record<string, any>;
+
+  if (choice === "none") {
+    if (settings.environments?.test) {
+      delete settings.environments.test;
+      if (Object.keys(settings.environments).length === 0) {
+        delete settings.environments;
+      }
+      fs.writeFileSync(settingsPath, dumpYaml(settings));
+    }
+    print("No test environment — runs go straight to the configured datasets.");
+    return;
+  }
+
+  const testEnv: Record<string, string> = {};
+  if (choice === "suffix") {
+    testEnv.schemaSuffix = ask(BQ_TEST_SUFFIX_QUESTION, "test");
+  } else {
+    testEnv.defaultDatabase = askRequired(BQ_TEST_PROJECT_QUESTION);
+  }
+  settings.environments = { ...(settings.environments || {}), test: testEnv };
+  fs.writeFileSync(settingsPath, dumpYaml(settings));
+  printSuccess(
+    choice === "suffix"
+      ? `Test runs write to \`<dataset>_${testEnv.schemaSuffix}\` datasets ` +
+          `(sqlanvil run . --environment test).`
+      : `Test runs land in project ${testEnv.defaultDatabase} (sqlanvil run . --environment test).`
+  );
+}
+
 async function runConvertFlow(): Promise<number> {
   let srcDir = "";
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -202,17 +346,32 @@ async function runConvertFlow(): Promise<number> {
   printMigrationSummary(report, outDir);
 
   if (targetWarehouse === "bigquery") {
-    // Same warehouse — credentials come from gcloud ADC or a service-account key, not the
-    // Postgres credentials Q&A.
+    // Same warehouse. BEFORE anything touches BigQuery: how runs authenticate (ADC like
+    // Dataform local runs, or a key), and where TEST runs land so production datasets stay
+    // untouched until everything is verified.
+    print("");
+    runBigQueryAuthStep(outDir);
+    print("");
+    runBigQueryTestTargetStep(outDir);
+
+    const hasTestEnv = fs.existsSync(path.join(outDir, "workflow_settings.yaml"))
+      ? !!((loadYaml(
+          fs.readFileSync(path.join(outDir, "workflow_settings.yaml"), "utf8")
+        ) || {}) as Record<string, any>).environments?.test
+      : false;
     print("\nNext steps:");
     print(`  1. sqlanvil compile ${outDir}`);
     print(
-      "  2. Credentials: gcloud auth application-default login (ADC), or a service-account " +
-        `key in a gitignored ${CREDENTIALS_FILENAME}.`
+      `  2. sqlanvil validate ${outDir}  (read-only dry-run of every model; all-PASS = swap complete)`
     );
-    print(
-      `  3. sqlanvil validate ${outDir}  (dry-runs every model against BigQuery; all-PASS = swap complete)`
-    );
+    if (hasTestEnv) {
+      print(
+        `  3. sqlanvil run ${outDir} --environment test  (first real run — production untouched)`
+      );
+      print(`  4. sqlanvil run ${outDir}  (once the test run is verified)`);
+    } else {
+      print(`  3. sqlanvil run ${outDir}`);
+    }
     return 0;
   }
 
@@ -272,9 +431,31 @@ async function runFreshFlow(defaultProjectDir: string): Promise<number> {
   });
   printInitResult(result);
 
+  if (warehouse === "bigquery") {
+    // Secretless ADC-mode credentials file (project + location only) + the auth step —
+    // BEFORE the next-steps suggest running anything.
+    const credentialsPath = path.join(projectDir, CREDENTIALS_FILENAME);
+    if (!fs.existsSync(credentialsPath)) {
+      ensureGitignoreCoversCredentials(projectDir);
+      fs.writeFileSync(
+        credentialsPath,
+        `${JSON.stringify(
+          {
+            projectId: projectConfig.defaultDatabase,
+            ...(projectConfig.defaultLocation ? { location: projectConfig.defaultLocation } : {})
+          },
+          null,
+          2
+        )}\n`
+      );
+    }
+    print("");
+    runBigQueryAuthStep(projectDir);
+  }
+
   const steps: string[] = [];
   if (warehouse === "bigquery") {
-    steps.push(`sqlanvil init-creds ${projectDir}  (BigQuery credentials)`);
+    // Auth handled above (ADC by default) — no separate credentials step.
   } else if (!credentialsJson) {
     steps.push(`Edit ${CREDENTIALS_FILENAME} (gitignored) with your warehouse credentials.`);
   }
