@@ -63,8 +63,28 @@ export function verifyObjectMatchesProto<Proto>(
     throw ReferenceError(`Expected a top-level object, but found an array`);
   }
 
+  // ProtobufJS's verify checks the TYPES of known fields ("partitionBy: string expected").
+  // Ignoring its result entirely (as upstream did) lets an OBJECT-valued scalar field — e.g. a
+  // dbt-style `partitionBy: {field, dataType, granularity}` — sail through (the toObject
+  // round-trip preserves it, so the typeof comparison below matches) and crash much later at
+  // binary encode with an inscrutable ERR_INVALID_ARG_TYPE. Throw a per-file config error for
+  // exactly that class. Everything else verify complains about stays lenient, because create()
+  // handles it faithfully: enum names as strings ("PARQUET"), coercible primitives, and
+  // map/array shape mismatches (which checkFields below reports as before).
+  const verificationError = protoType.verify(object);
+  if (verificationError && verifyErrorIsNonPrimitiveInScalarField(verificationError, object)) {
+    if (errorBehaviour === VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM) {
+      throw ReferenceError(
+        `Invalid property value: ${verificationError}, please report this to the sqlanvil team ` +
+          `at ${REPORT_ISSUE_URL}.`
+      );
+    }
+    throw ReferenceError(
+      `Invalid property value: ${verificationError}.` +
+        maybeGetDocsLinkPrefix(errorBehaviour, protoType)
+    );
+  }
   // Calling toObject on the object/JSON creates a version only contains the valid proto fields.
-  protoType.verify(object);
   const proto = protoType.create(object);
   const protoCastObject = protoType.toObject(proto);
 
@@ -110,6 +130,33 @@ export function verifyObjectMatchesProto<Proto>(
 
   checkFields(object, protoCastObject);
   return proto;
+}
+
+/**
+ * True only when a protobufjs verify error describes a non-primitive value (object/array) in a
+ * SCALAR-typed field — the one shape create() cannot coerce and binary encode crashes on.
+ * Message/map/repeated mismatches ("object expected", "array expected", "string{k:string}") are
+ * excluded; those flow through the legacy checkFields reporting. When the error path cannot be
+ * resolved against the input (e.g. repeated nesting without indices), stay lenient.
+ */
+function verifyErrorIsNonPrimitiveInScalarField(message: string, root: object): boolean {
+  if (/object expected|array expected|\{k:/.test(message)) {
+    return false;
+  }
+  const path = message.split(":")[0].trim().split(".");
+  let value: any = root;
+  for (const segment of path) {
+    if (Array.isArray(value)) {
+      value = value.find(
+        element => element !== null && typeof element === "object" && segment in element
+      );
+    }
+    if (value === null || typeof value !== "object" || !(segment in value)) {
+      return false;
+    }
+    value = value[segment];
+  }
+  return value !== null && typeof value === "object";
 }
 
 function maybeGetDocsLinkPrefix<Proto>(

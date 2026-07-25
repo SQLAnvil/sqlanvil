@@ -42,4 +42,38 @@ suite("verifyObjectMatchesProto", () => {
       /Unexpected property "actionDescriptor", or property value type of "number" is incorrect/
     );
   });
+
+  test("throws a clear error when a string field receives an object (dbt-style partitionBy)", () => {
+    // Regression: an object-valued partitionBy used to pass verification (typeof matched on
+    // both sides of the toObject round-trip) and crash much later at binary encode with
+    // ERR_INVALID_ARG_TYPE. See the acuantia migrate test, 2026-07-24.
+    expect(() => {
+      verifyObjectMatchesProto(
+        sqlanvil.ActionConfig.TableConfig,
+        { partitionBy: { field: "d", dataType: "date", granularity: "month" } } as any,
+        VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
+      );
+    }).to.throw(ReferenceError, /Invalid property value: partitionBy: string expected/);
+  });
+
+  test("accepts a valid config after the verify-result check", () => {
+    const proto = verifyObjectMatchesProto(
+      sqlanvil.ActionConfig.TableConfig,
+      { partitionBy: "DATE_TRUNC(d, MONTH)" } as any,
+      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
+    );
+    expect(proto.partitionBy).to.equal("DATE_TRUNC(d, MONTH)");
+  });
+
+  test("stays lenient for enum names, coercible primitives, and map values", () => {
+    // These all fail protobufjs verify but are faithfully handled by create() — they must
+    // NOT throw (string enum names are the documented config syntax).
+    expect(() =>
+      verifyObjectMatchesProto(
+        sqlanvil.ActionConfig.TableConfig,
+        { iceberg: { fileFormat: "PARQUET", bucketName: "b", connection: "c" } } as any,
+        VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
+      )
+    ).not.to.throw();
+  });
 });
