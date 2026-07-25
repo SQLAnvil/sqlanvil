@@ -4,12 +4,14 @@ import {
   dependencyBlocked,
   OrderedNode,
   parseShadowTimestamp,
+  rewriteSelfReferences,
   shadowSchemasToSweep,
   targetKey,
   topoOrder,
   validateShadowSuffix,
   ValidationStatus
 } from "sa/cli/api/commands/validate_graph";
+import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";
 
 suite("validate_graph", () => {
@@ -84,5 +86,77 @@ suite("validate_graph", () => {
       `public_sqlanvil_validate_${now - 2 * hour}`,
       `staging_sqlanvil_validate_${now - 5 * hour}`
     ]);
+  });
+
+  suite("rewriteSelfReferences", () => {
+    const SUFFIX = "sqlanvil_validate_123";
+    // Postgres-style rendering, mirroring resolveTarget's double-quote dialect.
+    const resolve = (t: sqlanvil.ITarget) => `"${t.schema}"."${t.name}"`;
+
+    test("rewrites only the action's own shadow reference; other refs keep the shadow", () => {
+      const graph: sqlanvil.ICompiledGraph = {
+        tables: [
+          sqlanvil.Table.create({
+            target: { schema: `looker_${SUFFIX}`, name: "hist" },
+            query:
+              `select * from "staging_${SUFFIX}"."events" ` +
+              `union all select * from "looker_${SUFFIX}"."hist" where ts < current_date`
+          })
+        ]
+      };
+      rewriteSelfReferences(graph, SUFFIX, resolve);
+      expect(graph.tables[0].query).to.equal(
+        `select * from "staging_${SUFFIX}"."events" ` +
+          `union all select * from "looker"."hist" where ts < current_date`
+      );
+    });
+
+    test("rewrites the incremental query's self-reference (MAX-watermark pattern)", () => {
+      const graph: sqlanvil.ICompiledGraph = {
+        tables: [
+          sqlanvil.Table.create({
+            target: { schema: `public_${SUFFIX}`, name: "inc" },
+            query: `select * from "src_${SUFFIX}"."raw"`,
+            incrementalQuery:
+              `select * from "src_${SUFFIX}"."raw" ` +
+              `where ts > (select max(ts) from "public_${SUFFIX}"."inc")`
+          })
+        ]
+      };
+      rewriteSelfReferences(graph, SUFFIX, resolve);
+      expect(graph.tables[0].query).to.equal(`select * from "src_${SUFFIX}"."raw"`);
+      expect(graph.tables[0].incrementalQuery).to.equal(
+        `select * from "src_${SUFFIX}"."raw" where ts > (select max(ts) from "public"."inc")`
+      );
+    });
+
+    test("leaves actions without the shadow suffix untouched", () => {
+      const graph: sqlanvil.ICompiledGraph = {
+        tables: [
+          sqlanvil.Table.create({
+            target: { schema: "public", name: "t" },
+            query: `select * from "public"."t"`
+          })
+        ]
+      };
+      rewriteSelfReferences(graph, SUFFIX, resolve);
+      expect(graph.tables[0].query).to.equal(`select * from "public"."t"`);
+    });
+
+    test("rewrites assertion self-references and same-named targets in other schemas survive", () => {
+      // A different action with the SAME name in another shadow schema must not be rewritten.
+      const graph: sqlanvil.ICompiledGraph = {
+        assertions: [
+          sqlanvil.Assertion.create({
+            target: { schema: `asserts_${SUFFIX}`, name: "a" },
+            query: `select * from "asserts_${SUFFIX}"."a" join "other_${SUFFIX}"."a" using (id)`
+          })
+        ]
+      };
+      rewriteSelfReferences(graph, SUFFIX, resolve);
+      expect(graph.assertions[0].query).to.equal(
+        `select * from "asserts"."a" join "other_${SUFFIX}"."a" using (id)`
+      );
+    });
   });
 });

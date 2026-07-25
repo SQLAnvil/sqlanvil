@@ -6,6 +6,7 @@ import * as path from "path";
 import * as dfapi from "sa/cli/api";
 import * as dbadapters from "sa/cli/api/dbadapters";
 import { sweepOrphanShadows, validate, ValidateDeps } from "sa/cli/api/commands/validate";
+import { rewriteSelfReferences } from "sa/cli/api/commands/validate_graph";
 import { readViaDuckdb, runDuckdbExport } from "sa/cli/api/dbadapters/duckdb_export";
 import { runDuckdbImport } from "sa/cli/api/dbadapters/duckdb_import";
 import { runScript } from "sa/cli/api/commands/script_run";
@@ -472,6 +473,39 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       expect(byName["leaf"].status).to.equal("BLOCKED");
       expect(byName["assert_leaf"].status).to.equal("BLOCKED");
       expect(await shadowExists()).to.equal(false);
+    });
+
+    test("self-reference reads the production relation after rewrite (issue #49)", { timeout: 30000 }, async () => {
+      // Prod relation exists; the graph is shadow-compiled (schema suffixed), and the model's
+      // query references its own target — the append/UNION-history pattern. Without the
+      // rewrite this FAILs (its own shadow stub cannot exist before it validates).
+      const SUFFIX = "sqlanvil_validate_9999999";
+      const prodSchema = "sa_integration_selfref";
+      const shadowSchema = `${prodSchema}_${SUFFIX}`;
+      await dbadapter.execute(`drop schema if exists "${prodSchema}" cascade`);
+      await dbadapter.execute(`drop schema if exists "${shadowSchema}" cascade`);
+      await dbadapter.execute(`create schema "${prodSchema}"`);
+      await dbadapter.execute(`create table "${prodSchema}"."hist" (id int, ts date)`);
+      try {
+        const graph: sqlanvil.ICompiledGraph = {
+          tables: [
+            sqlanvil.Table.create({
+              enumType: sqlanvil.TableType.TABLE,
+              target: { schema: shadowSchema, name: "hist" },
+              query:
+                `select id, ts from "${shadowSchema}"."hist" where ts < current_date`
+            })
+          ]
+        };
+        const executionSql = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+        rewriteSelfReferences(graph, SUFFIX, t => executionSql.resolveTarget(t));
+        expect(graph.tables[0].query).to.contain(`"${prodSchema}"."hist"`);
+        const results = await validate(graph, makeDeps());
+        expect(results[0].status).to.equal("PASS");
+      } finally {
+        await dbadapter.execute(`drop schema if exists "${prodSchema}" cascade`);
+        await dbadapter.execute(`drop schema if exists "${shadowSchema}" cascade`);
+      }
     });
 
     test("sweep drops an orphaned shadow schema from a prior killed run", { timeout: 30000 }, async () => {

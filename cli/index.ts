@@ -20,7 +20,11 @@ import { migrateDataform } from "sa/cli/api/commands/migrate_dataform";
 import { printMigrationSummary, runInteractiveInit } from "sa/cli/interactive_init";
 import { checkScriptAction } from "sa/cli/api/commands/script_env";
 import { sweepOrphanShadows, validate, ValidateDeps } from "sa/cli/api/commands/validate";
-import { ValidationResult, validateShadowSuffix } from "sa/cli/api/commands/validate_graph";
+import {
+  rewriteSelfReferences,
+  ValidationResult,
+  validateShadowSuffix
+} from "sa/cli/api/commands/validate_graph";
 import { IDbAdapter } from "sa/cli/api/dbadapters";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
@@ -537,6 +541,9 @@ async function runValidate(argv: any): Promise<number> {
     tags: argv[tagsOption.name]
   });
   const executionSql = new ExecutionSql(compiledGraph.projectConfig, dataformVersion);
+
+  // Self-references (`${self()}`) must read the PRODUCTION relation, not the shadow (issue #49).
+  rewriteSelfReferences(prunedGraph, shadowSuffix, target => executionSql.resolveTarget(target));
 
   // Best-effort teardown if the user Ctrl-C's mid-validation (the orchestrator's own finally
   // covers normal completion + errors; the orphan sweep covers hard kills).

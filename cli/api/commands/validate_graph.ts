@@ -98,6 +98,45 @@ export function dependencyBlocked(
   });
 }
 
+/**
+ * Rewrite each action's references to its OWN shadow-qualified target back to the production
+ * target. validate compiles the whole graph with the validation schemaSuffix, so a
+ * self-reference (`${self()}` — the classic append/UNION-history pattern) lands in the shadow
+ * namespace, where the action's own stub cannot exist yet (chicken-and-egg: the stub is only
+ * created after the action validates). A real run reads the LIVE relation; validation is
+ * read-only (EXPLAIN/dry-run + `LIMIT 0` stubs), so pointing self-references at the production
+ * relation is safe and matches run-time semantics. References to OTHER actions keep the shadow
+ * rewrite. Mutates the graph in place and returns it. See issue #49.
+ */
+export function rewriteSelfReferences(
+  graph: sqlanvil.ICompiledGraph,
+  shadowSuffix: string,
+  resolveTarget: (target: sqlanvil.ITarget) => string
+): sqlanvil.ICompiledGraph {
+  const suffix = `_${shadowSuffix}`;
+  for (const action of [...(graph.tables || []), ...(graph.assertions || [])]) {
+    const target = action.target;
+    if (!target?.schema?.endsWith(suffix)) {
+      continue;
+    }
+    const prodTarget = sqlanvil.Target.create({
+      ...target,
+      schema: target.schema.slice(0, -suffix.length)
+    });
+    const shadowName = resolveTarget(target);
+    const prodName = resolveTarget(prodTarget);
+    const rewrite = (sql: string) => sql.split(shadowName).join(prodName);
+    if (action.query) {
+      action.query = rewrite(action.query);
+    }
+    const table = action as sqlanvil.ITable;
+    if (table.incrementalQuery) {
+      table.incrementalQuery = rewrite(table.incrementalQuery);
+    }
+  }
+  return graph;
+}
+
 // --- Shadow-namespace naming + orphan detection (sqlanvil validate). ---
 
 /** Marker embedded in every validation shadow schema/database name, followed by a timestamp. */
