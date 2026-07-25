@@ -33,6 +33,7 @@ class FakeDeps implements ValidateDeps {
   public executed: string[] = [];
   public evaluated: string[] = [];
   public schemas: string[] = [];
+  public evaluateOp?: ValidateDeps["evaluateOp"];
   constructor(private readonly outcome: Map<string, "SUCCESS" | "FAILURE" | "throw">) {}
 
   public async listSchemas(): Promise<string[]> {
@@ -168,6 +169,76 @@ suite("validate orchestrator", () => {
       ]
     } as sqlanvil.ICompiledGraph;
   }
+
+  test("ops are stripped from evaluation and dry-run AFTER the stub, against it", async () => {
+    const opsGraph: sqlanvil.ICompiledGraph = {
+      tables: [
+        {
+          target: { schema: "s", name: "dim" },
+          query: "select 1 as id",
+          enumType: sqlanvil.TableType.TABLE,
+          postOps: ["ALTER TABLE s.dim ADD PRIMARY KEY (id) NOT ENFORCED"]
+        }
+      ]
+    } as sqlanvil.ICompiledGraph;
+    const deps = new FakeDeps(new Map());
+    const opCalls: string[] = [];
+    deps.evaluateOp = async (sql: string) => {
+      // The stub must already exist when the op is dry-run.
+      expect(deps.executed).to.include("STUB dim");
+      opCalls.push(sql);
+      return [{ status: SUCCESS }];
+    };
+    const origEvaluate = deps.evaluate.bind(deps);
+    deps.evaluate = async action => {
+      // The main evaluation must not see the ops.
+      expect((action as sqlanvil.ITable).postOps || []).to.eql([]);
+      return origEvaluate(action);
+    };
+    const results = await validate(opsGraph, deps);
+    expect(statusOf(results, "dim")).to.equal("PASS");
+    expect(opCalls).to.eql(["ALTER TABLE s.dim ADD PRIMARY KEY (id) NOT ENFORCED"]);
+  });
+
+  test("a failing op makes the action FAILURE and blocks dependents", async () => {
+    const opsGraph: sqlanvil.ICompiledGraph = {
+      tables: [
+        {
+          target: { schema: "s", name: "dim" },
+          query: "select 1 as id",
+          enumType: sqlanvil.TableType.TABLE,
+          postOps: ["ALTER TABLE nope"]
+        },
+        {
+          target: { schema: "s", name: "child" },
+          query: "select * from dim",
+          enumType: sqlanvil.TableType.TABLE,
+          dependencyTargets: [{ schema: "s", name: "dim" }]
+        }
+      ]
+    } as sqlanvil.ICompiledGraph;
+    const deps = new FakeDeps(new Map());
+    deps.evaluateOp = async () => [{ status: FAILURE, error: { message: "bad DDL" } }];
+    const results = await validate(opsGraph, deps);
+    expect(statusOf(results, "dim")).to.equal("FAILURE");
+    expect(statusOf(results, "child")).to.equal("BLOCKED");
+  });
+
+  test("without evaluateOp (Postgres/MySQL) ops are not dry-run and the action still passes", async () => {
+    const opsGraph: sqlanvil.ICompiledGraph = {
+      tables: [
+        {
+          target: { schema: "s", name: "dim" },
+          query: "select 1 as id",
+          enumType: sqlanvil.TableType.TABLE,
+          postOps: ["ALTER TABLE s.dim ADD PRIMARY KEY (id)"]
+        }
+      ]
+    } as sqlanvil.ICompiledGraph;
+    const deps = new FakeDeps(new Map());
+    const results = await validate(opsGraph, deps);
+    expect(statusOf(results, "dim")).to.equal("PASS");
+  });
 
   test("a passing script env-check is PASS; without a checker it degrades to SKIPPED", async () => {
     const deps = new FakeDeps(new Map());

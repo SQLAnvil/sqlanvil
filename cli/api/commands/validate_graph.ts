@@ -129,6 +129,10 @@ export function rewriteSelfReferences(
     if (action.query) {
       action.query = rewrite(action.query);
     }
+    // Pre/post-ops are deliberately NOT rewritten: they are dry-run AFTER the action's shadow
+    // stub is created (see validate.ts), so a self-referencing op — the `ALTER TABLE ${self()}
+    // ADD PRIMARY KEY … NOT ENFORCED` idiom — targets the fresh stub, exactly matching run
+    // order (ops execute against the just-created relation, which has no prior constraints).
     const table = action as sqlanvil.ITable;
     if (table.incrementalQuery) {
       table.incrementalQuery = rewrite(table.incrementalQuery);

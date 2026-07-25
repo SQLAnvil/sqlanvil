@@ -23,6 +23,13 @@ export const SHADOW_MAX_AGE_MS = 60 * 60 * 1000;
 export interface ValidateDeps {
   /** Adapter `evaluate()` — EXPLAINs/dry-runs the action, returning located results. */
   evaluate(action: sqlanvil.ITable | sqlanvil.IAssertion): Promise<sqlanvil.IQueryEvaluation[]>;
+  /**
+   * Dry-run a single pre/post-op statement. Ops are validated AFTER the action's shadow stub
+   * exists, so `ALTER TABLE ${self()} …` ops target the fresh stub — matching run order.
+   * Optional: only warehouses whose planner can dry-run DDL provide it (BigQuery); on
+   * Postgres/MySQL `EXPLAIN` rejects DDL, so ops are simply not validated there.
+   */
+  evaluateOp?(sql: string): Promise<sqlanvil.IQueryEvaluation[]>;
   /** Adapter `execute()` — runs a DDL statement (schema create/drop, stub create). */
   execute(sql: string): Promise<void>;
   validationStubSql(table: sqlanvil.ITable): string;
@@ -90,6 +97,26 @@ function tableType(enumType: sqlanvil.TableType): string {
 
 function depKeys(deps?: sqlanvil.ITarget[]): string[] {
   return (deps || []).map(targetKey);
+}
+
+/** A copy of the table with pre/post-ops removed — ops are dry-run separately (see above). */
+function stripOps(table: sqlanvil.ITable): sqlanvil.ITable {
+  const bare = sqlanvil.Table.create(table);
+  bare.preOps = [];
+  bare.postOps = [];
+  bare.incrementalPreOps = [];
+  bare.incrementalPostOps = [];
+  return bare;
+}
+
+/** Every pre/post-op statement of a table, both branches, in run order, empties dropped. */
+function collectOps(table: sqlanvil.ITable): string[] {
+  return [
+    ...(table.preOps || []),
+    ...(table.postOps || []),
+    ...(table.incrementalPreOps || []),
+    ...(table.incrementalPostOps || [])
+  ].filter(op => !!op && !!op.trim());
 }
 
 export async function validate(
@@ -199,26 +226,52 @@ export async function validate(
         continue;
       }
 
+      // Tables are evaluated WITHOUT their pre/post-ops: ops run against the freshly-created
+      // relation at run time, so they're dry-run separately after the stub exists (below).
+      // This also stops Postgres from `EXPLAIN`ing DDL ops, which it always rejected.
+      const evaluationAction =
+        node.kind === "table" ? stripOps(node.table) : node.action;
       const evaluations =
         node.kind === "script"
           ? await deps.checkScript(node.script)
-          : await deps.evaluate(node.action);
+          : await deps.evaluate(evaluationAction);
       const failed = evaluations.some(
         e => e.status === sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE
       );
-      const status: ValidationStatus = failed ? "FAILURE" : "PASS";
-      statusByKey.set(node.key, status);
-      results.push({ target: node.target, type: node.type, status, errors: evaluations });
+      let status: ValidationStatus = failed ? "FAILURE" : "PASS";
 
-      // Materialize an empty stub so later models resolve their ${ref()} to this relation.
+      // Materialize an empty stub so later models resolve their ${ref()} to this relation —
+      // and so this action's own ops can be dry-run against it.
+      let stubCreated = false;
       if (status === "PASS" && node.kind === "table") {
         try {
           await deps.execute(deps.validationStubSql(node.table));
+          stubCreated = true;
         } catch (e) {
           // Best-effort: the model's own SQL validated; if the empty-stub create fails (e.g. an
           // exotic query shape), downstream dependents simply surface their own missing-ref error.
         }
       }
+
+      // Dry-run the ops against the stub (self-referencing ALTERs see a fresh relation, like a
+      // real run). Only when the warehouse can dry-run DDL and the stub actually exists.
+      if (status === "PASS" && node.kind === "table" && stubCreated && deps.evaluateOp) {
+        for (const op of collectOps(node.table)) {
+          const opEvaluations = await deps.evaluateOp(op);
+          evaluations.push(...opEvaluations);
+          if (
+            opEvaluations.some(
+              e => e.status === sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE
+            )
+          ) {
+            status = "FAILURE";
+            break;
+          }
+        }
+      }
+
+      statusByKey.set(node.key, status);
+      results.push({ target: node.target, type: node.type, status, errors: evaluations });
     }
   } finally {
     if (!options.keepShadow) {

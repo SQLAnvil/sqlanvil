@@ -130,6 +130,23 @@ suite("validate_graph", () => {
       );
     });
 
+    test("does NOT rewrite pre/post-ops — they run against the shadow stub after it's created", () => {
+      const graph: sqlanvil.ICompiledGraph = {
+        tables: [
+          sqlanvil.Table.create({
+            target: { schema: `looker_${SUFFIX}`, name: "dim" },
+            query: `select id from "looker_${SUFFIX}"."dim"`,
+            postOps: [`ALTER TABLE "looker_${SUFFIX}"."dim" ADD PRIMARY KEY (id) NOT ENFORCED`]
+          })
+        ]
+      };
+      rewriteSelfReferences(graph, SUFFIX, resolve);
+      expect(graph.tables[0].query).to.equal(`select id from "looker"."dim"`);
+      expect(graph.tables[0].postOps[0]).to.equal(
+        `ALTER TABLE "looker_${SUFFIX}"."dim" ADD PRIMARY KEY (id) NOT ENFORCED`
+      );
+    });
+
     test("leaves actions without the shadow suffix untouched", () => {
       const graph: sqlanvil.ICompiledGraph = {
         tables: [

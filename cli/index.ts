@@ -565,6 +565,9 @@ async function runValidate(argv: any): Promise<number> {
           ? sqlanvil.Table.create(action as sqlanvil.ITable)
           : sqlanvil.Assertion.create(action as sqlanvil.IAssertion)
       ),
+    // Pre/post-ops are dry-run against the action's fresh shadow stub — only BigQuery's
+    // planner can dry-run DDL (Postgres/MySQL EXPLAIN rejects it, so ops aren't validated there).
+    evaluateOp: warehouse === "bigquery" ? (sql: string) => dbadapter.evaluate(sql) : undefined,
     execute: sql => dbadapter.execute(sql).then(() => undefined),
     validationStubSql: table => executionSql.validationStubSql(table),
     createSchemaSql: schema => executionSql.createSchemaSql(schema),
