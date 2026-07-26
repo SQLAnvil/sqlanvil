@@ -147,8 +147,21 @@ export function resolveConnection(projectDir: string, connectionName: string): R
       `Unknown connection "${connectionName}". Define it under \`connections:\` in workflow_settings.yaml.`
     );
   }
+  // BigQuery connections need no secrets from the credentials file: without a
+  // "connections.<name>" entry the client falls back to Application Default Credentials
+  // (`gcloud auth application-default login`) — Dataform parity, and what a freshly-cloned
+  // migrated project has before any .df-credentials.json exists. Postgres/MySQL connections
+  // carry host/user/password secrets, so for those the file stays required.
+  const bigqueryAdcFallback =
+    (definition.platform || "").toLowerCase() === "bigquery"
+      ? { name: connectionName, definition, credentials: {} }
+      : undefined;
+
   const credsPath = path.join(path.resolve(projectDir), ".df-credentials.json");
   if (!fs.existsSync(credsPath)) {
+    if (bigqueryAdcFallback) {
+      return bigqueryAdcFallback;
+    }
     throw new Error(`Missing .df-credentials.json in ${projectDir}.`);
   }
   const allCreds = JSON.parse(fs.readFileSync(credsPath, "utf8"));
@@ -156,6 +169,9 @@ export function resolveConnection(projectDir: string, connectionName: string): R
   // so the warehouse credentials can stay flat at the top level for `run` to read.
   const credentials = allCreds.connections && allCreds.connections[connectionName];
   if (!credentials) {
+    if (bigqueryAdcFallback) {
+      return bigqueryAdcFallback;
+    }
     throw new Error(
       `No credentials for connection "${connectionName}" in .df-credentials.json ` +
         `(expected a "connections.${connectionName}" entry).`

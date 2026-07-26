@@ -152,6 +152,39 @@ suite("introspect connection resolution", ({ afterEach }) => {
     fs.writeFileSync(path.join(dir, ".df-credentials.json"), JSON.stringify({ wh: {} }));
     expect(() => resolveConnection(dir, "legacy")).to.throw(/No credentials for connection "legacy"/);
   });
+
+  test("BigQuery connection falls back to ADC when .df-credentials.json is absent", () => {
+    // The migrated-project first-contact path: fresh clone, scripts/introspect_all.sh, no
+    // credentials file yet — BigQuery needs no secrets from it (ADC / gcloud login).
+    const dir = tmp.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(dir, "workflow_settings.yaml"),
+      `defaultDataset: public\nwarehouse: supabase\nconnections:\n  bq_src:\n    platform: bigquery\n    project: some-project\n    billingProject: some-project\n    mode: runner-extract`
+    );
+    const resolved = resolveConnection(dir, "bq_src");
+    expect(resolved.definition.platform).equals("bigquery");
+    expect(resolved.credentials).to.eql({});
+  });
+
+  test("BigQuery connection falls back to ADC when the file has no entry for it", () => {
+    const dir = tmp.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(dir, "workflow_settings.yaml"),
+      `defaultDataset: public\nwarehouse: supabase\nconnections:\n  bq_src:\n    platform: bigquery\n    project: some-project`
+    );
+    fs.writeFileSync(path.join(dir, ".df-credentials.json"), JSON.stringify({ host: "pooler" }));
+    const resolved = resolveConnection(dir, "bq_src");
+    expect(resolved.credentials).to.eql({});
+  });
+
+  test("Postgres connection still requires the credentials file", () => {
+    const dir = tmp.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(dir, "workflow_settings.yaml"),
+      `defaultDataset: public\nwarehouse: supabase\nconnections:\n  legacy:\n    platform: postgres\n    host: db.example.com`
+    );
+    expect(() => resolveConnection(dir, "legacy")).to.throw(/Missing .df-credentials.json/);
+  });
 });
 
 suite("introspect orchestrator", ({ afterEach }) => {
