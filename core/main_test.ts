@@ -1178,6 +1178,12 @@ connections:
   columnTypes: { zip_code: "text", lat: "float8" }
 }`
       );
+      // Referenced — unreferenced extracts are pruned from the graph (Dataform-parity).
+      fs.writeFileSync(
+        path.join(projectDir, "definitions", "zip_view.sqlx"),
+        `config { type: "view" }
+select * from \${ref("zip_codes")}`
+      );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
@@ -1240,6 +1246,12 @@ connections:
   columnTypes: { id: "bigint", email: "text" }
 }`
       );
+      // Referenced — unreferenced extracts are pruned from the graph (Dataform-parity).
+      fs.writeFileSync(
+        path.join(projectDir, "definitions", "shop_summary.sqlx"),
+        `config { type: "view" }
+select * from \${ref("orders")} join \${ref("customers")} using (id)`
+      );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
@@ -1258,6 +1270,71 @@ connections:
       // An explicit `schema:` on the declaration names the source database.
       const customers = extracts.find(e => e.target.name === "customers");
       expect(customers.database).equals("legacy_db");
+    });
+
+    test("unreferenced runner-extract declarations are pruned (Dataform-parity: inert until referenced)", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `defaultDataset: public
+warehouse: my_supabase
+connections:
+  my_supabase:
+    platform: supabase
+    defaultSchema: public
+  bq_src:
+    platform: bigquery
+    project: some-project
+    dataset: ods
+    mode: runner-extract`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      // Referenced, introspected: stays.
+      fs.writeFileSync(
+        path.join(projectDir, "definitions", "used.sqlx"),
+        `config {
+  type: "declaration",
+  connection: "bq_src",
+  name: "used",
+  columnTypes: { id: "bigint" }
+}`
+      );
+      // Unreferenced, introspected: pruned (nobody reads it — don't materialize it).
+      fs.writeFileSync(
+        path.join(projectDir, "definitions", "unused.sqlx"),
+        `config {
+  type: "declaration",
+  connection: "bq_src",
+  name: "unused",
+  columnTypes: { id: "bigint" }
+}`
+      );
+      // Unreferenced, empty columnTypes (source may not even exist yet): pruned, NOT an error.
+      fs.writeFileSync(
+        path.join(projectDir, "definitions", "future.sqlx"),
+        `config {
+  type: "declaration",
+  connection: "bq_src",
+  name: "future",
+  columnTypes: {}
+}`
+      );
+      fs.writeFileSync(
+        path.join(projectDir, "definitions", "consumer.sqlx"),
+        `config { type: "view" }
+select * from \${ref("used")}`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      const extracts = result.compile.compiledGraph.extracts;
+      expect(extracts.length).equals(1);
+      expect(extracts[0].target.name).equals("used");
+      // Pruned extracts also leave the graph's target list.
+      const targetNames = result.compile.compiledGraph.targets.map(t => t.name);
+      expect(targetNames).to.contain("used");
+      expect(targetNames).to.not.contain("unused");
+      expect(targetNames).to.not.contain("future");
     });
 
     test("mysql connection with explicit mode fdw is a compile error", () => {

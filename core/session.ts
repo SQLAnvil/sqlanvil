@@ -814,6 +814,8 @@ export class Session {
       )
     );
 
+    this.removeUnreferencedExtracts(compiledGraph);
+
     this.alterActionName(
       [].concat(
         compiledGraph.tables,
@@ -897,6 +899,51 @@ export class Session {
     });
 
     return compiledChunks;
+  }
+
+  // Dataform-parity declaration semantics: a declaration nothing references is inert. In
+  // runner-extract mode each declaration compiles to an Extract action, which a full run
+  // would materialize — so an unreferenced declaration (whose source table may deliberately
+  // not exist yet) would fail runs and copy tables nobody reads. Prune extracts with no
+  // dependents; adding a ref() later simply brings the extract back on the next compile.
+  // A referenced declaration whose source is missing still fails at RUN time — exactly like
+  // a hand-written `select * from bad_project.bad_table`.
+  private removeUnreferencedExtracts(compiledGraph: sqlanvil.ICompiledGraph) {
+    if (!compiledGraph.extracts?.length) {
+      return;
+    }
+    const referenced = new Set<string>();
+    []
+      .concat(
+        compiledGraph.tables,
+        compiledGraph.assertions,
+        compiledGraph.operations,
+        compiledGraph.notebooks,
+        compiledGraph.dataPreparations,
+        compiledGraph.exports,
+        compiledGraph.imports,
+        compiledGraph.scripts,
+        compiledGraph.tests
+      )
+      .forEach((action: { dependencyTargets?: sqlanvil.ITarget[] }) =>
+        (action.dependencyTargets || []).forEach(dependency =>
+          referenced.add(targetStringifier.stringify(dependency))
+        )
+      );
+    const prunedTargets = new Set(
+      compiledGraph.extracts
+        .filter(extract => !referenced.has(targetStringifier.stringify(extract.target)))
+        .map(extract => targetStringifier.stringify(extract.target))
+    );
+    if (prunedTargets.size === 0) {
+      return;
+    }
+    compiledGraph.extracts = compiledGraph.extracts.filter(
+      extract => !prunedTargets.has(targetStringifier.stringify(extract.target))
+    );
+    compiledGraph.targets = compiledGraph.targets.filter(
+      target => !prunedTargets.has(targetStringifier.stringify(target))
+    );
   }
 
   private fullyQualifyDependencies(actions: ActionProto[]) {

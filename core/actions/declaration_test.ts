@@ -304,6 +304,12 @@ actions:
       path.join(projectDir, "definitions/legacy_style.sqlx"),
       `config { type: "declaration", connection: "bq_acme", name: "no_schema", columnTypes: { id: "bigint" } }`
     );
+    // Referenced — unreferenced extracts are pruned from the graph (Dataform-parity).
+    fs.writeFileSync(
+      path.join(projectDir, "definitions/consumer.sqlx"),
+      `config { type: "view" }
+select * from \${ref("zip_code")} union all select * from \${ref("no_schema")}`
+    );
 
     const graph = runMainInVm(coreExecutionRequestFromPath(projectDir)).compile.compiledGraph;
     expect(asPlainObject(graph.graphErrors.compilationErrors)).deep.equals([]);
