@@ -166,7 +166,8 @@ module.exports = { domainFromEmail };
     expect(fs.readFileSync(path.join(out, "CLAUDE.md"), "utf8")).equals("@AGENTS.md\n");
     expect(report.files.filter(f => f.action === "generated").map(f => f.file)).to.have.members([
       "AGENTS.md",
-      "CLAUDE.md"
+      "CLAUDE.md",
+      "scripts/introspect_all.sh"
     ]);
 
     // workflow_settings: supabase + pinned core + both connections.
@@ -192,6 +193,17 @@ module.exports = { domainFromEmail };
     expect(decl2).to.contain('description: "Raw event stream"');
     expect(decl2).to.contain('connection: "bq_other_project"');
     expect(decl2).to.contain('schema: "raw_events"');
+
+    // Ready-to-run introspect script: one CONCRETE command per declaration (the report used
+    // to show only per-connection templates — acuantia migrate test finding #19).
+    const script = fs.readFileSync(path.join(out, "scripts/introspect_all.sh"), "utf8");
+    expect(script).to.contain(
+      'sqlanvil introspect bq_acme_analytics "ods.customers" --output "definitions/sources/ods/customers.sqlx"'
+    );
+    expect(script).to.contain('sqlanvil introspect bq_other_project');
+    expect(script).to.not.contain("<dataset>");
+    const reportMd = fs.readFileSync(path.join(out, "migration-report.md"), "utf8");
+    expect(reportMd).to.contain("scripts/introspect_all.sh");
 
     // Target rewrites + markers.
     const daily = fs.readFileSync(path.join(out, "definitions/output/daily.sqlx"), "utf8");
