@@ -202,6 +202,12 @@ module.exports = { domainFromEmail };
     );
     expect(script).to.contain('sqlanvil introspect bq_other_project');
     expect(script).to.not.contain("<dataset>");
+    // Resilient: failures are collected and summarized, not fatal on the first
+    // stale declaration (acuantia migrate finding: dropped table aborted all 881).
+    expect(script).to.not.contain("set -e");
+    expect(script).to.contain('run sqlanvil introspect bq_acme_analytics "ods.customers"');
+    expect(script).to.contain("failures=$((failures + 1))");
+    expect(script).to.contain('if [ "$failures" -gt 0 ]; then');
     const reportMd = fs.readFileSync(path.join(out, "migration-report.md"), "utf8");
     expect(reportMd).to.contain("scripts/introspect_all.sh");
 
