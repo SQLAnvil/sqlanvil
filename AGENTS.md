@@ -32,7 +32,7 @@ below before authoring a `warehouse: mysql` project.
 warehouse: postgres            # flat string ("postgres" or "supabase") — NOT nested
 defaultDataset: public         # the Postgres SCHEMA
 defaultAssertionDataset: sqlanvil_assertions
-sqlanvilCoreVersion: 1.26.2    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
+sqlanvilCoreVersion: 1.27.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
 vars:
   someVar: value
 ```
@@ -268,7 +268,11 @@ Vault, no extensions, works on bare/ephemeral branches. Since **1.22** a declara
 overrides the connection's dataset/database AND names the schema the extract lands in
 (`schema: "ods", name: "zip_code"` → `ods.zip_code`; one connection per source project serves
 many datasets; schema-qualified `ref("ods","zip_code")` works). No `schema:` = legacy
-`<conn>_ext.<name>`. Either way, downstream just `${ref(...)}`s it.
+`<conn>_ext.<name>`. Either way, downstream just `${ref(...)}`s it. Since **1.27** declarations
+are INERT until referenced (Dataform parity): an extract enters the graph only when some model
+`ref()`s its declaration, so pre-declaring a source catalog (even tables that don't exist yet) is
+safe — full runs never materialize or bill unconsumed sources; a REFERENCED declaration with a
+missing source still fails at run time, like any SQL against a missing table.
 
 **Migrating a whole Dataform project?** `sqlanvil migrate-dataform <srcDir> <outDir>` (>=1.22)
 converts it: source dir is READ-ONLY, declarations become per-project runner-extract
