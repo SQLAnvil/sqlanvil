@@ -99,6 +99,31 @@ export class Runner {
   private timedOut = false;
   private executionTask: Promise<sqlanvil.IRunResult>;
 
+  // Extracts are DAG roots, so an unfiltered run makes EVERY extract executable at once — each
+  // holds a warehouse connection (Supabase's session pooler caps clients, e.g. 15) and buffers
+  // source pages in memory, so unbounded fan-out exhausts the pooler and the heap. Cap them;
+  // other action types are already throttled by the warehouse adapter's connection pool.
+  private static readonly MAX_CONCURRENT_EXTRACTS = 4;
+  private runningExtracts = 0;
+  private readonly extractWaiters: Array<() => void> = [];
+
+  private async acquireExtractSlot(): Promise<void> {
+    if (this.runningExtracts < Runner.MAX_CONCURRENT_EXTRACTS) {
+      this.runningExtracts++;
+      return;
+    }
+    await new Promise<void>(resolve => this.extractWaiters.push(resolve));
+    this.runningExtracts++;
+  }
+
+  private releaseExtractSlot(): void {
+    this.runningExtracts--;
+    const next = this.extractWaiters.shift();
+    if (next) {
+      next();
+    }
+  }
+
   constructor(
     private readonly dbadapter: dbadapters.IDbAdapter,
     private readonly graph: sqlanvil.IExecutionGraph,
@@ -556,12 +581,17 @@ export class Runner {
           action?.extract?.platform === "mysql"
             ? this.executionOptions.mysqlExtract || runMysqlExtract
             : this.executionOptions.bigQueryExtract || runBigQueryExtract;
-        await extractor({
-          spec: action?.extract,
-          target: action?.target,
-          pg: this.executionOptions.warehouseConnection,
-          connectionCredentials: this.executionOptions.connectionCredentials || {}
-        });
+        await this.acquireExtractSlot();
+        try {
+          await extractor({
+            spec: action?.extract,
+            target: action?.target,
+            pg: this.executionOptions.warehouseConnection,
+            connectionCredentials: this.executionOptions.connectionCredentials || {}
+          });
+        } finally {
+          this.releaseExtractSlot();
+        }
         taskResult.status = sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL;
       } catch (e) {
         taskResult.status = this.cancelled

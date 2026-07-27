@@ -163,6 +163,18 @@ export class BigQueryDbAdapter implements IDbAdapter {
       .promise();
   }
 
+  /**
+   * Stream query results row-by-row (async-iterable, backpressure-aware) instead of buffering
+   * the whole result set — used by runner-extract to bound memory on large sources. Rows are the
+   * raw client rows (BigQuery date/numeric wrapper objects are NOT unwrapped here).
+   */
+  public queryStream(statement: string): NodeJS.ReadableStream {
+    return this.getClient().createQueryStream({
+      query: statement,
+      location: this.bigQueryCredentials.location || undefined
+    });
+  }
+
   public async executeRaw(
     statement: string,
     options: {

@@ -1,5 +1,5 @@
 import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
-import { loadRowsIntoPostgres } from "sa/cli/api/dbadapters/extract_load";
+import { createPgLoader } from "sa/cli/api/dbadapters/extract_load";
 import { sqlanvil } from "sa/protos/ts";
 
 /**
@@ -27,13 +27,29 @@ export interface BigQueryExtractArgs {
   disableSslForTestsOnly?: boolean;
 }
 
-/** BigQuery wraps DATE/TIME/TIMESTAMP/NUMERIC as `{ value: "..." }`; unwrap to a primitive for pg. */
-function coerce(v: any): any {
+/**
+ * Unwrap BigQuery client value wrappers to primitives Postgres accepts:
+ * - DATE/TIME/TIMESTAMP/DATETIME/GEOGRAPHY come back as `{ value: "..." }` objects;
+ * - NUMERIC/BIGNUMERIC come back as big.js `Big` instances — left alone, node-postgres
+ *   JSON.stringifies them into a QUOTED literal (`"55"`) that numeric columns reject, so
+ *   stringify losslessly and let Postgres cast the text.
+ * Buffers (BYTES) and arrays/plain objects pass through — pg handles bytea/array/json natively.
+ * Exported for tests.
+ */
+export function coerce(v: any): any {
   if (v === null || v === undefined) {
     return null;
   }
-  if (typeof v === "object" && v !== null && "value" in v) {
-    return (v as { value: unknown }).value;
+  if (typeof v === "object") {
+    if ("value" in v) {
+      return (v as { value: unknown }).value;
+    }
+    if (
+      v.constructor?.name === "Big" ||
+      (typeof v.s === "number" && typeof v.e === "number" && Array.isArray(v.c))
+    ) {
+      return v.toString();
+    }
   }
   return v;
 }
@@ -68,25 +84,47 @@ export async function runBigQueryExtract(args: BigQueryExtractArgs): Promise<{ r
   const byteCap = args.byteCap ?? DEFAULT_BYTE_CAP;
   const colList = cols.map(c => "`" + c + "`").join(", ");
   const fqn = "`" + `${spec.project}.${spec.dataset}.${spec.sourceName}` + "`";
-  const { rows } = await bq.execute(`select ${colList} from ${fqn}`, {
-    rowLimit: rowCap,
-    byteLimit: byteCap
-  });
-  if (rows.length >= rowCap) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `runner-extract: ${target.schema}.${target.name} truncated at ${rowCap} rows (source is larger).`
-    );
-  }
 
-  // Materialize into the warehouse.
-  await loadRowsIntoPostgres({
+  // STREAM source rows into the warehouse in batches instead of buffering the whole result —
+  // a run fires many extracts and a buffered 512MB result per extract OOMs the process. The
+  // async iterator gives backpressure: no new page is read while a batch is inserting.
+  const loader = await createPgLoader({
     pg: args.pg,
     target,
     columnTypes: spec.columnTypes,
-    rows,
     coerce,
     disableSslForTestsOnly: args.disableSslForTestsOnly
   });
-  return { rowCount: rows.length };
+  let rowCount = 0;
+  let bytes = 0;
+  let truncated = false;
+  try {
+    const stream = bq.queryStream(`select ${colList} from ${fqn}`);
+    let batch: any[] = [];
+    for await (const row of stream as unknown as AsyncIterable<any>) {
+      batch.push(row);
+      rowCount++;
+      bytes += Buffer.byteLength(JSON.stringify(row) ?? "", "utf8");
+      if (rowCount >= rowCap || bytes >= byteCap) {
+        truncated = true;
+        break;
+      }
+      if (batch.length >= loader.batchRows) {
+        await loader.loadBatch(batch);
+        batch = [];
+      }
+    }
+    if (batch.length > 0) {
+      await loader.loadBatch(batch);
+    }
+  } finally {
+    await loader.close();
+  }
+  if (truncated) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `runner-extract: ${target.schema}.${target.name} truncated at ${rowCount} rows / ${bytes} bytes (source is larger).`
+    );
+  }
+  return { rowCount };
 }

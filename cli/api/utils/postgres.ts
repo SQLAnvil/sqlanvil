@@ -84,14 +84,15 @@ export class PgPoolExecutor {
         console.error("Error thrown when releasing pg.Client", e.message, e.stack);
       }
     };
+    const onClientError = (err: Error) => {
+      // tslint:disable-next-line: no-console
+      console.error("pg.Client client error", err.message, err.stack);
+      // Errored connections cause issues when released back to the pool. Instead, close the connection
+      // by passing the error to release(). https://github.com/dataform-co/dataform/issues/914
+      releaseOnce(err);
+    };
     try {
-      client.on("error", err => {
-        // tslint:disable-next-line: no-console
-        console.error("pg.Client client error", err.message, err.stack);
-        // Errored connections cause issues when released back to the pool. Instead, close the connection
-        // by passing the error to release(). https://github.com/dataform-co/dataform/issues/914
-        releaseOnce(err);
-      });
+      client.on("error", onClientError);
 
       return await callback({
         execute: async (
@@ -138,6 +139,10 @@ export class PgPoolExecutor {
         }
       });
     } finally {
+      // The handler is scoped to this lock: pooled connections are REUSED, so a
+      // per-call listener left behind accumulates one entry per statement on the
+      // same physical client (MaxListenersExceededWarning on long batch loads).
+      client.removeListener("error", onClientError);
       releaseOnce();
     }
   }

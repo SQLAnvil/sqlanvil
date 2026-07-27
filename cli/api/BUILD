@@ -83,6 +83,7 @@ ts_test_suite(
         "commands/validate_test.ts",
         "commands/jit/rpc_test.ts",
         "dbadapters/bigquery_test.ts",
+        "dbadapters/bigquery_extract_test.ts",
         "dbadapters/duckdb_export_test.ts",
         "dbadapters/duckdb_export_integration_test.ts",
         "dbadapters/export_execution_sql_test.ts",
