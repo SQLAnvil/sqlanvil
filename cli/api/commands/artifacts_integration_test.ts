@@ -76,6 +76,10 @@ suite("artifacts integration", () => {
 
       const depCount = await queryParquet("select count(*) as n from dependencies", views);
       expect(Number(depCount[0].n)).to.equal(2);
+      // int64 aggregates come back JSON-serializable (Number, not BigInt) — `query --json`
+      // used to crash with "Do not know how to serialize a BigInt".
+      expect(typeof depCount[0].n).to.equal("number");
+      expect(() => JSON.stringify(depCount)).to.not.throw();
 
       const cols = await queryParquet("select column_name, description from columns", views);
       expect(cols).to.eql([{ column_name: "id", description: "the id" }]);

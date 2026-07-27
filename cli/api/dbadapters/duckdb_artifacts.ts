@@ -51,11 +51,23 @@ export interface ArtifactView {
  * Run `sql` over the given Parquet `views` (each exposed via `read_parquet`). Only pass views whose
  * files exist — a `read_parquet` over a non-matching glob errors at view creation.
  */
+// DuckDB returns int64 aggregates (count(*), sum(...)) as BigInt, which JSON.stringify
+// rejects — normalize to Number when safe, decimal string otherwise.
+const normalizeValue = (v: unknown): unknown =>
+  typeof v === "bigint"
+    ? v >= BigInt(Number.MIN_SAFE_INTEGER) && v <= BigInt(Number.MAX_SAFE_INTEGER)
+      ? Number(v)
+      : v.toString()
+    : v;
+
 export async function queryParquet(sql: string, views: ArtifactView[]): Promise<any[]> {
   return withDuckdb(async conn => {
     for (const view of views) {
       await runAsync(conn, `create view ${view.name} as select * from read_parquet('${view.glob}')`);
     }
-    return allAsync(conn, sql);
+    const rows = await allAsync(conn, sql);
+    return rows.map((row: any) =>
+      Object.fromEntries(Object.entries(row).map(([k, v]) => [k, normalizeValue(v)]))
+    );
   });
 }
