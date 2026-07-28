@@ -53,6 +53,13 @@ export function createYargsCli(cli: ICli) {
       (yargsChainer: yargs.Argv) => createOptionsChain(yargsChainer, command),
       async (argv: { [argumentName: string]: any }) => {
         const exitCode = await command.processFn(argv);
+        // process.exit() discards stdio the OS hasn't accepted yet, silently TRUNCATING
+        // any output larger than the pipe buffer (~64KB chunks) — e.g. `query --json` on a
+        // big project died mid-string at ~143KB. An empty write's callback fires only after
+        // everything queued before it has flushed; then exiting is safe. (Plain `return`
+        // isn't an option here: open handles — DB pools, watchers — would hang the process.)
+        await new Promise<void>(resolve => process.stdout.write("", () => resolve()));
+        await new Promise<void>(resolve => process.stderr.write("", () => resolve()));
         process.exit(exitCode);
       }
     );
