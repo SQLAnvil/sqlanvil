@@ -1555,9 +1555,10 @@ export function runCli() {
             projectDir: argv["project-dir"],
             write: !argv["dry-run"]
           });
-          const verb = argv["dry-run"] ? "would expand" : "expanded";
+          const verb = argv["dry-run"] ? "would rewrite" : "rewrote";
           print(
-            `${verb} ${result.expanded} star-except site(s) across ${result.files.length} file(s).`
+            `${verb} ${result.expanded} star-except site(s) and ${result.groupByAll} ` +
+              `GROUP BY ALL clause(s) across ${result.files.length} file(s).`
           );
           if (result.unresolved.length) {
             printError(`${result.unresolved.length} site(s) need a look:`);

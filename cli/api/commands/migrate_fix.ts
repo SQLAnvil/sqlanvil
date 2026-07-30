@@ -42,8 +42,10 @@ export interface UnresolvedSite {
 }
 
 export interface MigrateFixResult {
-  /** Sites rewritten, and the files they were in. */
+  /** `SELECT * EXCEPT` sites expanded. */
   expanded: number;
+  /** `GROUP BY ALL` clauses rewritten as ordinals. */
+  groupByAll: number;
   files: string[];
   /** Sites left alone, with why — these belong in the migration report. */
   unresolved: UnresolvedSite[];
@@ -244,7 +246,7 @@ function quoteIfNeeded(col: string): string {
 const MARKER = "-- sqlanvil:star-except";
 
 export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixResult> {
-  const result: MigrateFixResult = { expanded: 0, files: [], unresolved: [] };
+  const result: MigrateFixResult = { expanded: 0, groupByAll: 0, files: [], unresolved: [] };
   const touched = new Set<string>();
 
   // Sweep to a fixpoint: expanding one view lets its consumers resolve, since a star over a view
@@ -359,8 +361,121 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
     if (!changedThisPass || !opts.write) break;
   }
 
+  // GROUP BY ALL runs last: the ordinals depend on the select list, so any star has to have been
+  // expanded first or the numbering is unknowable.
+  for (const action of loadActions(opts.projectDir)) {
+    const { text, expanded, unresolved } = expandGroupByAll(action.source);
+    for (const u of unresolved) {
+      result.unresolved.push({ file: action.file, line: u.line, reason: u.reason });
+    }
+    if (!expanded) continue;
+    result.groupByAll += expanded;
+    touched.add(action.file);
+    if (opts.write) fs.writeFileSync(path.join(opts.projectDir, action.file), text);
+  }
+
   result.files = [...touched].sort();
   return result;
+}
+
+/**
+ * PostgreSQL aggregate functions. Only used to decide what `GROUP BY ALL` should group BY, so
+ * over-inclusion is harmless (an aggregate wrongly listed here is simply not grouped by, which
+ * PostgreSQL would reject loudly) while omission produces a query that runs and returns the
+ * wrong shape.
+ */
+const AGGREGATES = new Set([
+  "count", "sum", "avg", "min", "max", "array_agg", "string_agg", "bool_and", "bool_or", "every",
+  "stddev", "stddev_pop", "stddev_samp", "variance", "var_pop", "var_samp", "jsonb_agg",
+  "json_agg", "jsonb_object_agg", "json_object_agg", "corr", "covar_pop", "covar_samp",
+  "percentile_cont", "percentile_disc", "bit_and", "bit_or", "logical_and", "logical_or",
+  "any_value", "countif",
+]);
+
+/**
+ * Whether a select-list item belongs in the GROUP BY that replaces `GROUP BY ALL`.
+ *
+ * BigQuery groups by every item that is not an aggregate. Window functions have to be excluded
+ * too, and for a stronger reason: PostgreSQL rejects them in GROUP BY outright. The two cannot be
+ * told apart by name — `count(*)` is an aggregate and `count(*) over ()` is a window function —
+ * so the decision is made by looking past the call's closing paren (and past any FILTER clause)
+ * for an OVER.
+ */
+function isGroupable(item: Token[]): boolean {
+  for (let i = 0; i < item.length; i++) {
+    if (item[i].kind !== "word" || !AGGREGATES.has(item[i].text.toLowerCase())) continue;
+    if (item[i + 1]?.text !== "(") continue;
+    const close = matchBracket(item, i + 1);
+    if (close < 0) return false;
+    let after = close + 1;
+    if (isWord(item[after], "filter") && item[after + 1]?.text === "(") {
+      const filterClose = matchBracket(item, after + 1);
+      if (filterClose > 0) after = filterClose + 1;
+    }
+    if (!isWord(item[after], "over")) return false; // a real aggregate
+  }
+  // A window function over a non-aggregate — row_number(), lag(), … — is equally ungroupable.
+  return !item.some((t, i) => isWord(t, "over") && i > 0);
+}
+
+/**
+ * Whether a select-list item IS a star — `*` or `t.*` — rather than merely containing one.
+ *
+ * `count(*)` contains a `*` and is not a star; so does `amount * 2`. Testing for the character
+ * anywhere in the item reads every aggregate as a star, which silently declines to convert
+ * exactly the queries that need it most.
+ */
+function isStarItem(item: Token[]): boolean {
+  if (!item.length) return false;
+  if (item[0].text === "*") return true;
+  return item.length >= 3 && item[1].text === "." && item[2].text === "*";
+}
+
+/** Rewrite `GROUP BY ALL` as positional ordinals. */
+function expandGroupByAll(source: string): {
+  text: string;
+  expanded: number;
+  unresolved: Array<{ line: number; reason: string }>;
+} {
+  const toks = significant(tokenize(source));
+  const scopes = selectScopes(toks);
+  const edits: Array<{ start: number; end: number; out: string }> = [];
+  const unresolved: Array<{ line: number; reason: string }> = [];
+
+  for (let i = 0; i + 2 < toks.length; i++) {
+    if (!isWord(toks[i], "group") || !isWord(toks[i + 1], "by") || !isWord(toks[i + 2], "all")) {
+      continue;
+    }
+    const line = source.slice(0, toks[i].start).split("\n").length;
+    // The enclosing SELECT is the nearest one before this clause.
+    const scope = scopes.filter(s => s.select < i).pop();
+    if (!scope) continue;
+
+    const items = splitOnCommas(toks, scope.listStart, scope.listEnd);
+    if (items.some(([s, e]) => isStarItem(toks.slice(s, e)))) {
+      unresolved.push({
+        line,
+        reason:
+          "GROUP BY ALL over a select list containing `*` — the ordinals depend on how many " +
+          "columns the star expands to",
+      });
+      continue;
+    }
+    const ordinals = items
+      .map(([s, e], idx) => (isGroupable(toks.slice(s, e)) ? idx + 1 : null))
+      .filter((n): n is number => n !== null);
+    if (!ordinals.length) {
+      unresolved.push({ line, reason: "every select-list item is an aggregate" });
+      continue;
+    }
+    edits.push({ start: toks[i + 2].start, end: toks[i + 2].end, out: ordinals.join(", ") });
+  }
+
+  let text = source;
+  for (const e of edits.reverse()) {
+    text = text.slice(0, e.start) + e.out + text.slice(e.end);
+  }
+  return { text, expanded: edits.length, unresolved };
 }
 
 /** Columns of a CTE defined in the same file, by name. */

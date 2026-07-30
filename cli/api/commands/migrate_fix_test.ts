@@ -122,6 +122,44 @@ ${cols.map(c => `    ${c}: "text"`).join(",\n")}
     expect(reasons).to.contain('aliased "zz"');
   });
 
+  test("GROUP BY ALL becomes ordinals, excluding aggregates and window functions", async () => {
+    const dir = project({
+      "definitions/g.sqlx":
+        'config { type: "view" }\n\n' +
+        "select region, channel, sum(amount) as total, count(*) as n\nfrom t\ngroup by all\n",
+      // A window function is not an aggregate, and PostgreSQL rejects it in GROUP BY outright —
+      // `count(*)` and `count(*) over ()` cannot be told apart by name.
+      "definitions/w.sqlx":
+        'config { type: "view" }\n\n' +
+        "select a, count(*) over (partition by a) as running, max(b) as mx\nfrom t\ngroup by all\n",
+      // FILTER sits between the call and OVER.
+      "definitions/f.sqlx":
+        'config { type: "view" }\n\n' +
+        "select k, count(*) filter (where ok) over () as w\nfrom t\ngroup by all\n",
+    });
+
+    const result = await migrateFix({ projectDir: dir, write: true });
+    expect(result.groupByAll).equals(3);
+
+    // region and channel group; sum() and count() do not.
+    expect(read(dir, "definitions/g.sqlx")).to.contain("group by 1, 2");
+    // Only `a` groups: the window function is excluded as well as the aggregate.
+    expect(read(dir, "definitions/w.sqlx")).to.contain("group by 1");
+    // count(*) FILTER (...) OVER () is still a window function.
+    expect(read(dir, "definitions/f.sqlx")).to.contain("group by 1");
+  });
+
+  test("GROUP BY ALL over a star is reported — the ordinals are unknowable", async () => {
+    const dir = project({
+      "definitions/s.sqlx":
+        'config { type: "view" }\n\nselect *, count(*) as n from t group by all\n',
+    });
+    const result = await migrateFix({ projectDir: dir, write: true });
+    expect(result.groupByAll).equals(0);
+    expect(result.unresolved.map(u => u.reason).join()).to.contain("star expands");
+    expect(read(dir, "definitions/s.sqlx")).to.contain("group by all");
+  });
+
   test("dry run reports without touching the files", async () => {
     const dir = project({
       "definitions/src/t.sqlx": declaration("t", ["a", "junk"]),
