@@ -41,10 +41,54 @@ export interface PgLoader {
  * feeding row batches. Uses a SINGLE warehouse connection — extracts run concurrently in a run,
  * and per-extract pools multiply against Supabase's session-pooler client cap.
  */
+/** A source column and the identifier it materializes as. */
+export interface FoldedColumn {
+  /** As the source warehouse spells it — the key rows arrive under. */
+  source: string;
+  /** As the write warehouse stores it. */
+  target: string;
+}
+
+/**
+ * Map source columns onto the identifiers they materialize as, folding case.
+ *
+ * PostgreSQL folds unquoted identifiers to lower case and offers no case-insensitive identifier
+ * mode, while BigQuery resolves column names case-insensitively. Carrying `Email` across
+ * unchanged would mean writing `"Email"` at every reference for the rest of the project's life,
+ * and any reference the source happened to spell `email` would stop resolving — at RUN time, not
+ * compile time. Folding once, here, keeps the SQL that BigQuery accepted working unquoted, and
+ * lower-case identifiers are the PostgreSQL convention anyway.
+ *
+ * The source name is retained deliberately: rows arrive keyed by the ORIGINAL name, so reading
+ * them by the folded name yields undefined for every row — a table full of NULLs rather than an
+ * error, which is the worst way for this to go wrong.
+ */
+export function foldColumns(
+  columnTypes: { [key: string]: string },
+  target: { schema?: string | null; name?: string | null },
+): FoldedColumn[] {
+  const cols = Object.keys(columnTypes).map(source => ({ source, target: source.toLowerCase() }));
+  const byFolded = new Map<string, string[]>();
+  for (const c of cols) {
+    byFolded.set(c.target, [...(byFolded.get(c.target) ?? []), c.source]);
+  }
+  for (const [folded, sources] of byFolded) {
+    if (sources.length > 1) {
+      // Loud, because the alternative is one column silently overwriting the other.
+      throw new Error(
+        `Source ${target.schema}.${target.name} has columns that differ only in case ` +
+          `(${sources.join(", ")}); PostgreSQL folds them to the same identifier "${folded}". ` +
+          `Rename one at the source, or select them with distinct aliases.`,
+      );
+    }
+  }
+  return cols;
+}
+
 export async function createPgLoader(args: PgLoaderArgs): Promise<PgLoader> {
   const { target, columnTypes } = args;
-  const cols = Object.keys(columnTypes);
   const coerce = args.coerce || ((v: any) => (v === undefined ? null : v));
+  const cols = foldColumns(columnTypes, target);
 
   const pg = await PostgresDbAdapter.create(args.pg, {
     concurrencyLimit: 1,
@@ -52,7 +96,7 @@ export async function createPgLoader(args: PgLoaderArgs): Promise<PgLoader> {
   });
   try {
     const qualified = `${quoteIdent(target.schema)}.${quoteIdent(target.name)}`;
-    const colDefs = cols.map(c => `${quoteIdent(c)} ${columnTypes[c]}`).join(", ");
+    const colDefs = cols.map(c => `${quoteIdent(c.target)} ${columnTypes[c.source]}`).join(", ");
     await pg.execute(`create schema if not exists ${quoteIdent(target.schema)}`);
     // Drop whatever already holds the name — a FOREIGN table (the connection used `mode: fdw`
     // before) or a plain table (a previous extract run). The drops must match the relation kind:
@@ -78,7 +122,7 @@ export async function createPgLoader(args: PgLoaderArgs): Promise<PgLoader> {
     throw e;
   }
 
-  const colIdents = cols.map(quoteIdent).join(", ");
+  const colIdents = cols.map(c => quoteIdent(c.target)).join(", ");
   const qualified = `${quoteIdent(target.schema)}.${quoteIdent(target.name)}`;
   const batchRows = Math.max(1, Math.min(1000, Math.floor(MAX_PARAMS_PER_INSERT / cols.length)));
 
@@ -90,7 +134,8 @@ export async function createPgLoader(args: PgLoaderArgs): Promise<PgLoader> {
         const params: any[] = [];
         const tuples = batch.map((row, r) => {
           const placeholders = cols.map((c, ci) => `$${r * cols.length + ci + 1}`);
-          cols.forEach(c => params.push(coerce(row[c])));
+          // Read by the SOURCE name — the row arrives keyed as the warehouse spelled it.
+          cols.forEach(c => params.push(coerce(row[c.source])));
           return `(${placeholders.join(", ")})`;
         });
         await pg.execute(`insert into ${qualified} (${colIdents}) values ${tuples.join(", ")}`, {

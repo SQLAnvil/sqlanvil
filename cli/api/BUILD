@@ -90,6 +90,7 @@ ts_test_suite(
         "dbadapters/duckdb_export_integration_test.ts",
         "dbadapters/export_execution_sql_test.ts",
         "dbadapters/export_uri_test.ts",
+        "dbadapters/extract_load_test.ts",
         "dbadapters/duckdb_import_test.ts",
         "dbadapters/import_execution_sql_test.ts",
         "execution_sql_test.ts",

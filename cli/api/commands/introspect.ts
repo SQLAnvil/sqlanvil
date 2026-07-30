@@ -113,14 +113,22 @@ export function renderDeclarationSqlx(opts: RenderDeclarationOptions): string {
   }
   lines.push(`  name: ${quote(opts.name)},`);
 
-  const typeLines = opts.columns.map(function(c) { return `    ${keyToken(c.name)}: ${quote(c.type)}`; });
+  // Column names are folded to lower case, matching what runner-extract materializes. The
+  // declaration describes the table as it exists in the WRITE warehouse — that is what the
+  // project's SQL reads — not as the source warehouse spelled it. PostgreSQL folds unquoted
+  // identifiers, so a mixed-case name here would have to be quoted at every reference forever.
+  const typeLines = opts.columns.map(function(c) {
+    return `    ${keyToken(c.name.toLowerCase())}: ${quote(c.type)}`;
+  });
   const described = opts.columns.filter(function(c) { return !!c.description; });
   lines.push(`  columnTypes: {`);
   lines.push(typeLines.join(",\n"));
   lines.push(described.length > 0 ? `  },` : `  }`);
 
   if (described.length > 0) {
-    const descLines = described.map(function(c) { return `    ${keyToken(c.name)}: ${quote(c.description!)}`; });
+    const descLines = described.map(function(c) {
+      return `    ${keyToken(c.name.toLowerCase())}: ${quote(c.description!)}`;
+    });
     lines.push(`  columns: {`);
     lines.push(descLines.join(",\n"));
     lines.push(`  }`);
