@@ -4,6 +4,7 @@ import * as os from "os";
 import * as path from "path";
 
 import {
+  TodoClass,
   connectionNameFor,
   convertTarget,
   findConfigBlock,
@@ -504,6 +505,53 @@ SELECT 1`;
     // Not inside a string or a comment.
     expect(sql("select 'a `b` c' as lit")).to.contain("'a `b` c'");
     expect(sql("-- keep `this`\nselect 1")).to.contain("-- keep `this`");
+  });
+
+  test("the report hands over a class-first to-do list an agent can work", async () => {
+    const src = fs.mkdtempSync(path.join(os.tmpdir(), "sqlanvil-triage-src-"));
+    const out = fs.mkdtempSync(path.join(os.tmpdir(), "sqlanvil-triage-out-"));
+    fs.rmdirSync(out);
+    fs.outputFileSync(path.join(src, "workflow_settings.yaml"), "defaultProject: p\ndefaultDataset: d\n");
+    // Two constructs needing a decision, one mechanical, spread over two files — so the grouping
+    // has something to collapse.
+    fs.outputFileSync(
+      path.join(src, "definitions/a.sqlx"),
+      'config { type: "view" }\n\nselect STRUCT(1 as x) as s, GENERATE_UUID() as id, SAFE_DIVIDE(a, b) as r\n',
+    );
+    fs.outputFileSync(
+      path.join(src, "definitions/b.sqlx"),
+      'config { type: "view" }\n\nselect STRUCT(2 as y) as s from t QUALIFY row_number() over () = 1\n',
+    );
+    const report = await migrateDataform({ srcDir: src, outDir: out, coreVersion: "9.9.9" });
+
+    const byId = new Map(report.todo.map((t: TodoClass) => [t.id, t]));
+    // Grouped by construct, not by file: STRUCT appears in both files as ONE entry.
+    expect(byId.get("struct")!.count).equals(2);
+    expect(byId.get("struct")!.locations.map(l => l.file)).to.have.members([
+      "definitions/a.sqlx",
+      "definitions/b.sqlx",
+    ]);
+
+    // The distinction an agent needs: what it may do alone vs what to ask about.
+    expect(byId.get("struct")!.owner).equals("needs-decision");
+    expect(byId.get("qualify")!.owner).equals("mechanical");
+    expect(byId.get("generate-uuid")!.postgres).equals("gen_random_uuid()");
+
+    // Ordered worst-first so the list reads as a plan rather than an inventory.
+    const severities = report.todo.map((t: TodoClass) => t.severity);
+    expect(severities.indexOf("changes-meaning")).to.be.lessThan(
+      severities.lastIndexOf("blocks-compile") + 1,
+    );
+
+    // Automatic rewrites are reported separately, for review rather than trust.
+    expect(report.applied.length).to.be.greaterThan(0);
+
+    const md = fs.readFileSync(path.join(out, "migration-report.md"), "utf8");
+    expect(md).to.contain("## What is left to do");
+    expect(md).to.contain("### Needs a decision");
+    expect(md).to.contain("### Mechanical");
+    expect(md).to.contain("- [ ] **STRUCT / ARRAY of STRUCT** — 2 site(s)");
+    expect(md).to.contain("## Rewrites applied automatically");
   });
 
   test("COLLATE stripping and NOT ENFORCED constraints", () => {

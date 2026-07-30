@@ -58,6 +58,36 @@ export interface FileFinding {
   line: number;
   kind: "rewrite" | "flag";
   note: string;
+  /** Stable class id, so the report can group findings by construct rather than by file. */
+  class?: string;
+}
+
+/**
+ * How much trouble an unconverted construct causes. The third is the one to shout about: it
+ * neither fails to compile nor fails to run, it just returns different numbers.
+ */
+export type FindingSeverity = "blocks-compile" | "fails-at-run" | "changes-meaning";
+
+/**
+ * Who can finish the job. This is the distinction that matters when an agent and a person work
+ * the report together: `mechanical` items an agent can port unattended, `needs-decision` items
+ * cannot be answered from the SQL at all — they are questions about the business (is this feature
+ * still wanted, was that silent NULL deliberate, should this array become a table).
+ */
+export type FindingOwner = "mechanical" | "needs-decision";
+
+/** One construct, aggregated across every file it appears in — the unit of triage. */
+export interface TodoClass {
+  id: string;
+  title: string;
+  count: number;
+  severity: FindingSeverity;
+  owner: FindingOwner;
+  /** What to write instead, when there is a known-good answer. */
+  postgres?: string;
+  /** Why it is not automatic — the reasoning a person needs to make the call. */
+  why?: string;
+  locations: Array<{ file: string; lines: number[] }>;
 }
 
 export interface ConvertedFile {
@@ -81,6 +111,14 @@ export interface MigrationReport {
   files: ConvertedFile[];
   skippedForSafety: string[];
   warnings: string[];
+  /**
+   * What is left to do, grouped by construct and ordered worst-first — the handover. Triage
+   * happens by class, not by file: the question driving every decision is "how many sites does
+   * this have, and is it worth porting or descoping", which a per-file list cannot answer.
+   */
+  todo: TodoClass[];
+  /** Rewrites the converter applied, by class — so the automatic changes can be reviewed. */
+  applied: Array<{ id: string; title: string; count: number }>;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -249,6 +287,193 @@ interface Rule {
   replacement?: string;
   kind: "rewrite" | "flag";
   note: string;
+  /** Class id for report grouping; defaults to a slug of the note. */
+  id?: string;
+}
+
+/**
+ * Triage metadata per class. Kept in one table rather than spread across the rules because this
+ * is the part a person reads whole — it is the difference between a list of complaints and a
+ * plan of work.
+ *
+ * `owner: "needs-decision"` is doing real work here. Porting a large project, the residue that
+ * actually blocked progress was never syntax; it was questions no tool can answer — should this
+ * feature be migrated at all, was that silent NULL intentional, does this hash have to match the
+ * values BigQuery produced. Marking those distinctly lets an agent work the mechanical items
+ * unattended and bring only the genuine questions to the user.
+ */
+const CLASS_META: {
+  [id: string]: { title: string; severity: FindingSeverity; owner: FindingOwner; postgres?: string; why?: string };
+} = {
+  qualify: {
+    title: "QUALIFY clause",
+    severity: "blocks-compile",
+    owner: "mechanical",
+    postgres: "wrap the query and filter on the window function in an outer WHERE",
+    why: "PostgreSQL has no QUALIFY; the window result must be computed in a subquery first.",
+  },
+  struct: {
+    title: "STRUCT / ARRAY of STRUCT",
+    severity: "blocks-compile",
+    owner: "needs-decision",
+    postgres: "a child table joined back, jsonb, or eliminate the array entirely",
+    why:
+      "An array of structs IS a one-to-many relationship. A child table is usually the better " +
+      "model, and where the array is only ever UNNESTed straight back into a pivot it can be " +
+      "dropped altogether — but which of the three is right depends on what reads it.",
+  },
+  unnest: {
+    title: "UNNEST",
+    severity: "blocks-compile",
+    owner: "needs-decision",
+    postgres: "cross join unnest(array) — but only for arrays of scalars",
+    why: "PostgreSQL's unnest takes arrays only, so an UNNEST over structs depends on how the STRUCT above is resolved.",
+  },
+  "array-type": {
+    title: "ARRAY<T> type syntax",
+    severity: "blocks-compile",
+    owner: "mechanical",
+    postgres: "T[]",
+  },
+  "parse-date": {
+    title: "PARSE_DATE / PARSE_TIMESTAMP",
+    severity: "fails-at-run",
+    owner: "mechanical",
+    postgres: "to_date / to_timestamp, with the format tokens translated",
+    why:
+      "The format tokens differ (%B %Y → 'Month YYYY'). A wrong token does not fail the " +
+      "statement — it fails on the rows that do not match, so verify against real data.",
+  },
+  "format-date": {
+    title: "FORMAT_DATE / FORMAT_TIMESTAMP",
+    severity: "fails-at-run",
+    owner: "mechanical",
+    postgres: "to_char, with the format tokens translated",
+  },
+  "date-diff-unit": {
+    title: "DATE_DIFF with an unhandled unit",
+    severity: "blocks-compile",
+    owner: "mechanical",
+    postgres: "date subtraction, or EXTRACT(EPOCH FROM …) scaled to the unit",
+    why: "DAY and HOUR are converted automatically; other units need the right arithmetic per unit.",
+  },
+  "pseudo-column": {
+    title: "BigQuery pseudo-column",
+    severity: "blocks-compile",
+    owner: "needs-decision",
+    why: "_TABLE_SUFFIX / _PARTITIONTIME have no PostgreSQL analogue; the model usually needs restructuring.",
+  },
+  "export-data": {
+    title: "EXPORT DATA statement",
+    severity: "blocks-compile",
+    owner: "mechanical",
+    postgres: 'a sqlanvil `type: "export"` action',
+  },
+  scripting: {
+    title: "BigQuery scripting (EXECUTE IMMEDIATE)",
+    severity: "blocks-compile",
+    owner: "needs-decision",
+    postgres: "a PL/pgSQL DO block, or an operations action",
+    why: "Dynamic SQL rarely ports mechanically — the shape of the rewrite depends on what it is generating.",
+  },
+  "generate-uuid": {
+    title: "GENERATE_UUID()",
+    severity: "blocks-compile",
+    owner: "mechanical",
+    postgres: "gen_random_uuid()",
+  },
+  "group-by-all": {
+    title: "GROUP BY ALL",
+    severity: "blocks-compile",
+    owner: "mechanical",
+    postgres: "group by with explicit ordinals (1, 2, 5) for the non-aggregate select items",
+    why:
+      "Window functions must be excluded as well as aggregates — PostgreSQL rejects them in " +
+      "GROUP BY, and an aggregate followed by OVER is a window function, not an aggregate.",
+  },
+  "star-except": {
+    title: "SELECT * EXCEPT (…)",
+    severity: "blocks-compile",
+    owner: "mechanical",
+    postgres: "an explicit column list",
+    why:
+      "The column list comes from the source relation — a declaration's columnTypes, or another " +
+      "action's select list resolved recursively. Enumerating also means a column added upstream " +
+      "will no longer appear automatically.",
+  },
+  "not-enforced": {
+    title: "NOT ENFORCED constraint (translated, left commented)",
+    severity: "changes-meaning",
+    owner: "needs-decision",
+    postgres: "the constraint is written out above, commented",
+    why:
+      "BigQuery never checked these. Enforcing them may fail on data that has never been " +
+      "validated; dropping them loses the declared model. Enable per table, deliberately.",
+  },
+};
+
+/**
+ * Collapse per-file findings into the class-first to-do list and the applied-rewrites audit.
+ *
+ * Ordering is the point: worst severity first, then largest. A silently-wrong construct outranks
+ * a compile error however rare, because a compile error announces itself and a wrong number does
+ * not; and within a severity, the biggest class is where the leverage is — that is the ordering
+ * that turns an unbounded slog into a plan.
+ */
+export function buildTriage(report: MigrationReport): void {
+  const todo = new Map<string, TodoClass>();
+  const applied = new Map<string, { id: string; title: string; count: number }>();
+
+  for (const file of report.files) {
+    for (const f of file.findings ?? []) {
+      const id = f.class ?? classIdFor(f.note);
+      const meta = CLASS_META[id];
+      if (f.kind === "rewrite") {
+        const seen = applied.get(id) ?? { id, title: meta?.title ?? f.note, count: 0 };
+        seen.count++;
+        applied.set(id, seen);
+        // A rewrite that still needs a human eye (NOT ENFORCED is translated but left commented)
+        // belongs on the to-do list as well as in the audit.
+        if (!meta || meta.owner !== "needs-decision") continue;
+      }
+      const entry =
+        todo.get(id) ??
+        ({
+          id,
+          title: meta?.title ?? f.note,
+          count: 0,
+          severity: meta?.severity ?? "blocks-compile",
+          owner: meta?.owner ?? "mechanical",
+          postgres: meta?.postgres,
+          why: meta?.why,
+          locations: [],
+        } as TodoClass);
+      entry.count++;
+      const loc = entry.locations.find(l => l.file === file.file);
+      if (loc) loc.lines.push(f.line);
+      else entry.locations.push({ file: file.file, lines: [f.line] });
+      todo.set(id, entry);
+    }
+  }
+
+  const rank: { [k in FindingSeverity]: number } = {
+    "changes-meaning": 0,
+    "fails-at-run": 1,
+    "blocks-compile": 2,
+  };
+  report.todo = [...todo.values()].sort(
+    (a, b) => rank[a.severity] - rank[b.severity] || b.count - a.count,
+  );
+  report.applied = [...applied.values()].sort((a, b) => b.count - a.count);
+}
+
+/** Fall back to a stable slug when a rule carries no explicit class id. */
+function classIdFor(note: string): string {
+  return note
+    .slice(0, 40)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 /** Applied everywhere (config, sql, js): the compile-global rename. */
@@ -278,23 +503,39 @@ const SQL_RULES: Rule[] = [
     kind: "flag",
     note: "CURRENT_DATE('<tz>') — Postgres: (CURRENT_TIMESTAMP AT TIME ZONE '<tz>')::date",
   },
-  { pattern: /\bQUALIFY\b/gi, kind: "flag", note: "QUALIFY — rewrite as a subquery/CTE filter on the window function" },
-  { pattern: /\bUNNEST\s*\(/g, kind: "flag", note: "UNNEST — Postgres unnest() works on arrays only (no STRUCT arrays); verify semantics" },
-  { pattern: /\bSTRUCT\s*[(<]/g, kind: "flag", note: "STRUCT — no Postgres equivalent; consider jsonb or a composite type" },
-  { pattern: /\bARRAY\s*</g, kind: "flag", note: "ARRAY<T> type syntax — Postgres uses T[]" },
-  { pattern: /\bFORMAT_DATE\s*\(/g, kind: "flag", note: "FORMAT_DATE → TO_CHAR (different format tokens)" },
-  { pattern: /\bPARSE_DATE\s*\(/g, kind: "flag", note: "PARSE_DATE → TO_DATE (different format tokens)" },
-  { pattern: /\bFORMAT_TIMESTAMP\s*\(/g, kind: "flag", note: "FORMAT_TIMESTAMP → TO_CHAR (different format tokens)" },
+  { pattern: /\bQUALIFY\b/gi, kind: "flag", note: "QUALIFY — rewrite as a subquery/CTE filter on the window function",
+    id: "qualify", },
+  { pattern: /\bUNNEST\s*\(/g, kind: "flag", note: "UNNEST — Postgres unnest() works on arrays only (no STRUCT arrays); verify semantics",
+    id: "unnest", },
+  { pattern: /\bSTRUCT\s*[(<]/g, kind: "flag", note: "STRUCT — no Postgres equivalent; consider jsonb or a composite type",
+    id: "struct", },
+  { pattern: /\bARRAY\s*</g, kind: "flag", note: "ARRAY<T> type syntax — Postgres uses T[]",
+    id: "array-type", },
+  { pattern: /\bFORMAT_DATE\s*\(/g, kind: "flag", note: "FORMAT_DATE → TO_CHAR (different format tokens)",
+    id: "format-date", },
+  { pattern: /\bPARSE_DATE\s*\(/g, kind: "flag", note: "PARSE_DATE → TO_DATE (different format tokens)",
+    id: "parse-date", },
+  { pattern: /\bFORMAT_TIMESTAMP\s*\(/g, kind: "flag", note: "FORMAT_TIMESTAMP → TO_CHAR (different format tokens)",
+    id: "format-date", },
   {
     pattern: /\b(DATE_ADD|DATE_SUB|TIMESTAMP_ADD|TIMESTAMP_SUB|DATETIME_ADD|DATETIME_SUB)\s*\(/g,
     kind: "flag",
     note: "BigQuery date arithmetic — Postgres uses interval arithmetic (x + INTERVAL '1 day')",
   },
-  { pattern: /\bDATE_DIFF\s*\(/g, kind: "flag", note: "DATE_DIFF — Postgres: subtraction / EXTRACT(EPOCH FROM ...) depending on the part" },
-  { pattern: /_PARTITIONTIME|_PARTITIONDATE|_TABLE_SUFFIX/g, kind: "flag", note: "BigQuery pseudo-column has no Postgres equivalent" },
-  { pattern: /\bEXPORT\s+DATA\b/gi, kind: "flag", note: "EXPORT DATA — use a sqlanvil `type: \"export\"` action instead" },
-  { pattern: /\bEXECUTE\s+IMMEDIATE\b/gi, kind: "flag", note: "BigQuery scripting (EXECUTE IMMEDIATE) — rewrite as a PL/pgSQL DO block or operations" },
-  { pattern: /\bGENERATE_UUID\s*\(\s*\)/g, kind: "flag", note: "GENERATE_UUID() → gen_random_uuid()" },
+  { pattern: /\bDATE_DIFF\s*\(/g, kind: "flag", note: "DATE_DIFF — Postgres: subtraction / EXTRACT(EPOCH FROM ...) depending on the part",
+    id: "date-diff-unit", },
+  { pattern: /_PARTITIONTIME|_PARTITIONDATE|_TABLE_SUFFIX/g, kind: "flag", note: "BigQuery pseudo-column has no Postgres equivalent",
+    id: "pseudo-column", },
+  {
+    pattern: /\bEXPORT\s+DATA\b/gi,
+    kind: "flag",
+    note: 'EXPORT DATA — use a sqlanvil `type: "export"` action instead',
+    id: "export-data",
+  },
+  { pattern: /\bEXECUTE\s+IMMEDIATE\b/gi, kind: "flag", note: "BigQuery scripting (EXECUTE IMMEDIATE) — rewrite as a PL/pgSQL DO block or operations",
+    id: "scripting", },
+  { pattern: /\bGENERATE_UUID\s*\(\s*\)/g, kind: "flag", note: "GENERATE_UUID() → gen_random_uuid()",
+    id: "generate-uuid", },
   {
     pattern: /`[A-Za-z0-9_-]+\.[A-Za-z0-9_$]+\.[A-Za-z0-9_$]+`/g,
     kind: "flag",
@@ -936,7 +1177,7 @@ export function convertTarget(
     const called = applyCallRules(source, outsideConfig);
     if (called.text !== source) source = called.text;
     for (const a of called.applied) {
-      findings.push({ line: a.line, kind: "rewrite", note: a.note });
+      findings.push({ line: a.line, kind: "rewrite", note: a.note, class: classIdFor(a.note) });
     }
 
     // Text rules additionally exclude js regions: there, a backtick opens a template literal and
@@ -949,7 +1190,12 @@ export function convertTarget(
       textApplied,
     );
     for (const a of textApplied) {
-      findings.push({ line: a.line, kind: "rewrite", note: a.note });
+      findings.push({
+        line: a.line,
+        kind: "rewrite",
+        note: a.note,
+        class: a.note.startsWith("NOT ENFORCED") ? "not-enforced" : classIdFor(a.note),
+      });
     }
     span = jsMode ? null : findConfigBlock(source);
   }
@@ -1028,13 +1274,14 @@ export function convertTarget(
       for (const rule of SQL_RULES) {
         rule.pattern.lastIndex = 0;
         if (!rule.pattern.test(line)) continue;
+        const cls = rule.id ?? classIdFor(rule.note);
         if (rule.replacement !== undefined) {
           rule.pattern.lastIndex = 0;
           line = line.replace(rule.pattern, rule.replacement);
-          findings.push({ line: lineNo, kind: "rewrite", note: rule.note });
+          findings.push({ line: lineNo, kind: "rewrite", note: rule.note, class: cls });
           if (markersSafe) notesForLine.push(rule.note);
         } else {
-          findings.push({ line: lineNo, kind: "flag", note: rule.note });
+          findings.push({ line: lineNo, kind: "flag", note: rule.note, class: cls });
           if (markersSafe) notesForLine.push(rule.note);
         }
       }
@@ -1129,6 +1376,8 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
     files: [],
     skippedForSafety: [],
     warnings: [],
+    todo: [],
+    applied: [],
   };
 
   // ---- Pass 1: inventory + classification (static scan of literal configs) ----------------
@@ -1429,6 +1678,8 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
     );
   }
 
+  buildTriage(report);
+
   writer.write("migration-report.json", JSON.stringify(report, null, 2));
   writer.write("migration-report.md", renderReportMd(report));
   return report;
@@ -1503,6 +1754,75 @@ export function renderReportMd(r: MigrationReport): string {
     );
   }
   }
+  // ---- The handover: what is left, grouped by construct, worst first ----------------------
+  if (r.todo.length) {
+    const needing = r.todo.filter(t => t.owner === "needs-decision");
+    const mechanical = r.todo.filter(t => t.owner === "mechanical");
+    lines.push("");
+    lines.push(`## What is left to do`);
+    lines.push("");
+    lines.push(
+      `${r.todo.reduce((n, t) => n + t.count, 0)} site(s) across ${r.todo.length} construct(s). ` +
+        `Work them largest-first within each section — the ordering below already does that.`,
+    );
+    lines.push("");
+    lines.push(
+      `**${mechanical.reduce((n, t) => n + t.count, 0)} site(s) are mechanical** — one correct ` +
+        `answer, no judgement needed. **${needing.reduce((n, t) => n + t.count, 0)} site(s) need a ` +
+        `decision** that cannot be read off the SQL: whether a feature is still wanted, what a ` +
+        `structure should become, whether a behaviour was deliberate.`,
+    );
+
+    const severityLabel: { [k in FindingSeverity]: string } = {
+      "changes-meaning": "⚠ runs, but may return DIFFERENT RESULTS",
+      "fails-at-run": "fails when the action runs",
+      "blocks-compile": "fails to compile",
+    };
+    const section = (title: string, items: TodoClass[], preamble: string) => {
+      if (!items.length) return;
+      lines.push("");
+      lines.push(`### ${title}`);
+      lines.push("");
+      lines.push(preamble);
+      for (const t of items) {
+        lines.push("");
+        lines.push(`- [ ] **${t.title}** — ${t.count} site(s) · ${severityLabel[t.severity]}`);
+        if (t.postgres) lines.push(`      - PostgreSQL: ${t.postgres}`);
+        if (t.why) lines.push(`      - ${t.why}`);
+        const shown = t.locations.slice(0, 8);
+        for (const l of shown) {
+          lines.push(`      - \`${l.file}\` L${l.lines.slice(0, 6).join(", L")}`);
+        }
+        if (t.locations.length > shown.length) {
+          lines.push(`      - …and ${t.locations.length - shown.length} more file(s)`);
+        }
+      }
+    };
+    section(
+      "Needs a decision",
+      needing,
+      "Start here — these gate the rest, and each is a question for whoever owns the data, not " +
+        "something to work out from the code.",
+    );
+    section(
+      "Mechanical",
+      mechanical,
+      "These have one correct answer and can be worked through without further input.",
+    );
+  }
+
+  if (r.applied.length) {
+    lines.push("");
+    lines.push(`## Rewrites applied automatically`);
+    lines.push("");
+    lines.push(
+      `Listed so they can be reviewed rather than trusted — a converted project is worth reading ` +
+        `before it is run.`,
+    );
+    lines.push("");
+    for (const a of r.applied) lines.push(`- ${a.title} — ${a.count}`);
+  }
+
   lines.push("");
   lines.push(`## Target files (${targets.length})`);
   lines.push("");
