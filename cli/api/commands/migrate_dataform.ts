@@ -263,12 +263,10 @@ const GLOBAL_RULES: Rule[] = [
 
 /** SQL-body rules for TARGET files (materializing actions). Order matters. */
 const SQL_RULES: Rule[] = [
-  {
-    pattern: /\bSAFE_CAST\s*\(/g,
-    replacement: "CAST(",
-    kind: "rewrite",
-    note: "SAFE_CAST → CAST — Postgres CAST raises on bad input; verify the data or guard it",
-  },
+  // SAFE_CAST, SAFE_DIVIDE, COLLATE, REGEXP_EXTRACT, SPLIT, DATE_SUB/ADD/DIFF and UNIX_SECONDS
+  // are handled by CALL_RULES, which can reach their arguments. Do not add lexical rules for
+  // them here: a per-line rewrite of SAFE_CAST → CAST silently removes the NULL-on-bad-input
+  // behaviour that projects depend on.
   {
     pattern: /\bCURRENT_DATE\s*\(\s*\)/g,
     replacement: "CURRENT_DATE",
@@ -279,16 +277,6 @@ const SQL_RULES: Rule[] = [
     pattern: /\bCURRENT_DATE\s*\(\s*['"]/g,
     kind: "flag",
     note: "CURRENT_DATE('<tz>') — Postgres: (CURRENT_TIMESTAMP AT TIME ZONE '<tz>')::date",
-  },
-  {
-    pattern: /\bSAFE_DIVIDE\s*\(/g,
-    kind: "flag",
-    note: "SAFE_DIVIDE(a, b) — Postgres: a / NULLIF(b, 0)",
-  },
-  {
-    pattern: /\bSAFE_OFFSET\s*\(/g,
-    kind: "flag",
-    note: "array[SAFE_OFFSET(n)] — Postgres arrays are 1-based; use (split_part / arr[n+1])",
   },
   { pattern: /\bQUALIFY\b/gi, kind: "flag", note: "QUALIFY — rewrite as a subquery/CTE filter on the window function" },
   { pattern: /\bUNNEST\s*\(/g, kind: "flag", note: "UNNEST — Postgres unnest() works on arrays only (no STRUCT arrays); verify semantics" },
@@ -369,6 +357,304 @@ ${description}    columnTypes: {
   };
 }
 
+// ---------------------------------------------------------------------------------------------
+// Call rewrites
+//
+// The lexical rules above are per-line regex replacements, which cannot express a large class of
+// BigQuery→PostgreSQL ports: those needing the call's ARGUMENTS (SAFE_DIVIDE(a, b) → a / nullif
+// (b, 0)), those computing the replacement (arr[OFFSET(n)] → arr[n + 1]), and those spanning
+// LINES — a real project writes DATETIME(\n  cast(x as timestamp),\n  'America/Chicago'\n), which
+// a per-line matcher simply never sees. These run over the whole body instead.
+// ---------------------------------------------------------------------------------------------
+
+/** Replace a span with spaces so every offset in the string still lines up. */
+function blankSpan(text: string, start: number, end: number): string {
+  return text.slice(0, start) + " ".repeat(end - start) + text.slice(end);
+}
+
+/**
+ * A copy of `text` with everything a rule must not match blanked out, offsets preserved:
+ * comments always, and string literals unless `keepStrings`.
+ *
+ * `keepStrings` exists because the two hazards pull in opposite directions. Blanking literals
+ * stops a rule firing on SQL-looking text inside a string — but literal blanking depends on the
+ * quotes pairing up, and one unpaired apostrophe upstream swallows live SQL for the rest of the
+ * file. So tokens that cannot occur inside a literal (a `#` comment, an `r'…'` prefix) are
+ * matched with the literals left alone.
+ */
+function maskSql(text: string, keepStrings = false): string {
+  let out = text.replace(/--[^\n]*/g, m => " ".repeat(m.length));
+  out = out.replace(/\/\*[\s\S]*?\*\//g, m => " ".repeat(m.length));
+  if (!keepStrings) {
+    out = out.replace(/'(?:[^']|'')*'/g, m => `'${" ".repeat(Math.max(0, m.length - 2))}'`);
+  }
+  return out;
+}
+
+/** Index of the `)` closing the `(` at `open`, or -1. */
+function matchParen(text: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    if (text[i] === "(") depth++;
+    else if (text[i] === ")" && --depth === 0) return i;
+  }
+  return -1;
+}
+
+/**
+ * Split an argument list on top-level commas, locating the boundaries in `mask` but slicing the
+ * text from `src`. The two must be separate: a delimiter argument like `','` contains a comma,
+ * and splitting the raw text would read it as an argument separator. In the mask, literal
+ * contents are blanked, so only real separators remain.
+ */
+function splitArgs(src: string, mask: string, from: number, to: number): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = from;
+  for (let i = from; i < to; i++) {
+    const ch = mask[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    else if (ch === "," && depth === 0) {
+      parts.push(src.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  parts.push(src.slice(start, to).trim());
+  return parts;
+}
+
+interface CallRule {
+  /** Function name, matched case-insensitively. */
+  name: string;
+  /** PostgreSQL form, or null to leave the call alone (and flag it instead). */
+  rewrite(args: string[]): string | null;
+  note: string;
+}
+
+const INTERVAL_ARG = /^interval\s+(\d+)\s+([a-z]+)$/i;
+
+/** BigQuery type names and their PostgreSQL spellings. */
+const TYPE_NAMES: { [bq: string]: string } = {
+  string: "text",
+  int64: "bigint",
+  float64: "double precision",
+  numeric: "numeric",
+  bignumeric: "numeric",
+  bool: "boolean",
+  bytes: "bytea",
+  datetime: "timestamp",
+  timestamp: "timestamptz",
+};
+
+/** The PostgreSQL spelling of a cast target, or the input unchanged. */
+function pgType(bqType: string): string {
+  const t = bqType.trim().toLowerCase();
+  return TYPE_NAMES[t] ?? t;
+}
+
+const CALL_RULES: CallRule[] = [
+  {
+    // A plain CAST needs no guard, but its TARGET TYPE still has to be renamed — otherwise it
+    // reaches PostgreSQL as `type "int64" does not exist`. Handled here rather than as a lexical
+    // rule so the cast's argument can contain commas and newlines.
+    name: "cast",
+    note: "CAST(x AS <BigQuery type>) → the PostgreSQL type name",
+    rewrite(args) {
+      if (args.length !== 1) return null;
+      const m = /^([\s\S]*?)\s+as\s+([A-Za-z][\w ]*)$/i.exec(args[0]);
+      if (!m) return null;
+      const t = pgType(m[2]);
+      // Only rewrite when the name actually changes, so ordinary casts are left alone.
+      return t === m[2].trim().toLowerCase() ? null : `cast(${m[1]} as ${t})`;
+    },
+  },
+  {
+    // SAFE_CAST returns NULL rather than raising. Rewriting it to a bare CAST turns a silent
+    // NULL into a hard failure hours later, in code the converter itself wrote — and projects
+    // rely on the NULL deliberately, for sources carrying Excel error strings and the like.
+    // pg_input_is_valid (PostgreSQL 16+) asks exactly the question SAFE_CAST asks. The guard
+    // tests the text form while the cast applies to the value, so an already-numeric value
+    // converts normally rather than round-tripping through text.
+    name: "safe_cast",
+    note: "SAFE_CAST → guarded cast via pg_input_is_valid (NULL on bad input, as in BigQuery)",
+    rewrite(args) {
+      if (args.length !== 1) return null;
+      const m = /^([\s\S]*?)\s+as\s+([A-Za-z][\w ]*)$/i.exec(args[0]);
+      if (!m) return null;
+      const [, expr, type] = m;
+      const t = pgType(type);
+      if (t === "text") return `(${expr})::text`; // anything renders as text; no guard needed
+      return `(case when pg_input_is_valid((${expr})::text, '${t}') then (${expr})::${t} end)`;
+    },
+  },
+  {
+    name: "safe_divide",
+    note: "SAFE_DIVIDE(a, b) → a / nullif(b, 0)",
+    rewrite: args => (args.length === 2 ? `(${args[0]} / nullif(${args[1]}, 0))` : null),
+  },
+  {
+    // BigQuery's COLLATE(x, spec) is a FUNCTION; PostgreSQL's COLLATE is an operator taking a
+    // collation NAME, so the function form is a syntax error. An empty spec means "strip the
+    // collation", which is a no-op here.
+    name: "collate",
+    note: "COLLATE(x, '') → x (collation stripping is a no-op in PostgreSQL)",
+    rewrite: args =>
+      args.length === 2 && (args[1] === "''" || args[1] === '""') ? args[0] : null,
+  },
+  {
+    // Both return the first capture group when the pattern has one, and the whole match
+    // otherwise — so this is a rename, not a reinterpretation.
+    name: "regexp_extract",
+    note: "REGEXP_EXTRACT(x, pattern) → substring(x from pattern)",
+    rewrite: args => (args.length === 2 ? `substring(${args[0]} from ${args[1]})` : null),
+  },
+  {
+    // An EMPTY delimiter splits per character in BigQuery. PostgreSQL spells that as a NULL
+    // delimiter; an empty string would return the whole input as a single element instead.
+    name: "split",
+    note: "SPLIT(x, d) → string_to_array(x, d); an empty delimiter becomes NULL (per character)",
+    rewrite(args) {
+      if (args.length !== 2) return null;
+      const d = args[1] === "''" || args[1] === '""' ? "NULL" : args[1];
+      return `string_to_array(${args[0]}, ${d})`;
+    },
+  },
+  {
+    name: "date_sub",
+    note: "DATE_SUB(d, INTERVAL n unit) → (d - interval 'n unit')",
+    rewrite(args) {
+      if (args.length !== 2) return null;
+      const m = INTERVAL_ARG.exec(args[1]);
+      return m ? `(${args[0]} - interval '${m[1]} ${m[2].toLowerCase()}')` : null;
+    },
+  },
+  {
+    name: "date_add",
+    note: "DATE_ADD(d, INTERVAL n unit) → (d + interval 'n unit')",
+    rewrite(args) {
+      if (args.length !== 2) return null;
+      const m = INTERVAL_ARG.exec(args[1]);
+      return m ? `(${args[0]} + interval '${m[1]} ${m[2].toLowerCase()}')` : null;
+    },
+  },
+  {
+    name: "date_diff",
+    note: "DATE_DIFF(a, b, DAY|HOUR) → PostgreSQL date/epoch arithmetic",
+    rewrite(args) {
+      if (args.length !== 3) return null;
+      const unit = args[2].trim().toLowerCase();
+      if (unit === "day") return `(${args[0]}::date - ${args[1]}::date)`;
+      // BigQuery counts boundaries CROSSED, not whole hours elapsed, so both sides are
+      // truncated before subtracting; dividing the raw interval is off by one whenever the
+      // minutes do not line up.
+      if (unit === "hour") {
+        return (
+          `(extract(epoch from date_trunc('hour', ${args[0]})` +
+          ` - date_trunc('hour', ${args[1]})) / 3600)::bigint`
+        );
+      }
+      return null;
+    },
+  },
+  {
+    name: "unix_seconds",
+    note: "UNIX_SECONDS(ts) → extract(epoch from ts)::bigint",
+    rewrite: args => (args.length === 1 ? `extract(epoch from ${args[0]})::bigint` : null),
+  },
+];
+
+/**
+ * Apply the call rules over a whole body, right-to-left so earlier offsets stay valid.
+ * `mask` is the offset-preserving copy used for MATCHING; arguments are read from `text`
+ * itself, since the mask blanks string literals and would hide a regex pattern, an interval
+ * unit or a timezone name.
+ */
+export function applyCallRules(
+  text: string,
+  isRewritableOffset: (offset: number) => boolean,
+): { text: string; applied: Array<{ line: number; note: string }> } {
+  const applied: Array<{ line: number; note: string }> = [];
+  interface Site {
+    start: number;
+    end: number;
+    out: string;
+    note: string;
+  }
+  let result = text;
+
+  // Calls nest — SAFE_DIVIDE(CAST(a AS FLOAT64), b) is two sites, and the outer one encloses the
+  // inner. Rewriting both in a single pass is not possible (the outer's offsets move), and
+  // rewriting only the outermost leaves BigQuery syntax in its arguments. So: apply the
+  // non-overlapping innermost sites, then rescan. Each pass strictly reduces the number of
+  // BigQuery constructs, so this terminates; the cap is a backstop against a rule that rewrites
+  // to something it matches again.
+  for (let pass = 0; pass < 10; pass++) {
+    const mask = maskSql(result);
+    const sites: Site[] = [];
+    for (const rule of CALL_RULES) {
+      const finder = new RegExp(`\\b${rule.name}\\s*\\(`, "gi");
+      let m: RegExpExecArray | null;
+      while ((m = finder.exec(mask)) !== null) {
+        const open = m.index + m[0].length - 1;
+        const close = matchParen(mask, open);
+        if (close < 0 || !isRewritableOffset(m.index)) continue;
+        const out = rule.rewrite(splitArgs(result, mask, open + 1, close));
+        if (out === null) continue;
+        sites.push({ start: m.index, end: close + 1, out, note: rule.note });
+      }
+    }
+    if (!sites.length) break;
+
+    // Descending start = innermost first, so the enclosing call is left for the next pass and
+    // reads arguments that have already been ported.
+    sites.sort((a, b) => b.start - a.start);
+    const seen: Site[] = [];
+    for (const s of sites) {
+      if (seen.some(p => s.start < p.end && p.start < s.end)) continue; // overlaps one applied
+      seen.push(s);
+      applied.push({ line: result.slice(0, s.start).split("\n").length, note: s.note });
+      result = result.slice(0, s.start) + s.out + result.slice(s.end);
+    }
+  }
+
+  // Array subscripts: BigQuery is 0-based, PostgreSQL 1-based. SAFE_OFFSET needs no separate
+  // handling — it differs from OFFSET only in returning NULL rather than erroring out of range,
+  // which is what a PostgreSQL subscript already does.
+  const before = result;
+  result = result.replace(
+    /\[\s*(?:SAFE_)?OFFSET\s*\(\s*([^()]*?)\s*\)\s*\]/gi,
+    (_all, idx: string) => (/^\d+$/.test(idx) ? `[${Number(idx) + 1}]` : `[(${idx}) + 1]`),
+  );
+  if (result !== before) {
+    applied.push({ line: 1, note: "array[OFFSET(n)] → array[n + 1] (PostgreSQL is 1-based)" });
+  }
+
+  // PostgreSQL will not subscript a function result: string_to_array(x, '@')[1] is a syntax
+  // error and the call has to be parenthesised first. Worth doing here rather than in each
+  // rule, since the subscript may be what a rule's own output ended up next to.
+  result = parenthesiseSubscriptedCalls(result);
+
+  return { text: result, applied };
+}
+
+/** `f(...)[i]` → `(f(...))[i]`, which PostgreSQL requires. */
+function parenthesiseSubscriptedCalls(text: string): string {
+  const finder = /\b[A-Za-z_]\w*\s*\(/g;
+  const spans: Array<{ start: number; end: number }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = finder.exec(text)) !== null) {
+    const close = matchParen(text, m.index + m[0].length - 1);
+    if (close < 0) continue;
+    if (/^\s*\[/.test(text.slice(close + 1))) spans.push({ start: m.index, end: close + 1 });
+  }
+  let out = text;
+  for (const s of spans.reverse()) {
+    out = `${out.slice(0, s.start)}(${out.slice(s.start, s.end)})${out.slice(s.end)}`;
+  }
+  return out;
+}
+
 /**
  * The dialect pass for TARGET files (and .js/includes with jsMode): safe lexical rewrites
  * applied in place; every rewrite and every recognized-but-untranslatable construct gets an
@@ -383,8 +669,28 @@ export function convertTarget(
   // dialect "none" = same-warehouse conversion (bigquery target): only the compile-global
   // rename applies; SQL stays in its native dialect and BigQuery config keys stay valid.
   const dialectPass = dialect === "postgres";
-  const span = jsMode ? null : findConfigBlock(source);
+  let span = jsMode ? null : findConfigBlock(source);
   const findings: FileFinding[] = [];
+
+  // Call rewrites go first, over the whole body: they need the arguments and can span lines,
+  // neither of which the per-line rules below can do. Config keys are handled separately, so
+  // the config block is excluded — but js regions are NOT, because shared helpers build SQL in
+  // template literals and are otherwise invisible to the dialect pass entirely.
+  if (dialectPass) {
+    const configSpan = span;
+    const called = applyCallRules(
+      source,
+      off => !configSpan || off < configSpan.start || off >= configSpan.end,
+    );
+    if (called.text !== source) {
+      source = called.text;
+      span = jsMode ? null : findConfigBlock(source);
+    }
+    for (const a of called.applied) {
+      findings.push({ line: a.line, kind: "rewrite", note: a.note });
+    }
+  }
+
   const lines = source.split("\n");
   const jsLines = jsMode ? new Set<number>() : jsBlockLines(source);
 

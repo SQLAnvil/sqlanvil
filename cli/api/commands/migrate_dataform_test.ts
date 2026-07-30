@@ -5,6 +5,7 @@ import * as path from "path";
 
 import {
   connectionNameFor,
+  convertTarget,
   findConfigBlock,
   migrateDataform,
   parseSqlxConfig
@@ -213,10 +214,18 @@ module.exports = { domainFromEmail };
 
     // Target rewrites + markers.
     const daily = fs.readFileSync(path.join(out, "definitions/output/daily.sqlx"), "utf8");
-    expect(daily).to.contain("CAST(amount AS NUMERIC)");
+    // SAFE_CAST keeps its NULL-on-bad-input behaviour via pg_input_is_valid. Rewriting it to a
+    // bare CAST (as this did before) turns a silent NULL into a run-time failure in code the
+    // converter itself wrote — and projects rely on the NULL for sources with known-bad values.
+    expect(daily).to.contain(
+      "(case when pg_input_is_valid((amount)::text, 'numeric') then (amount)::numeric end)",
+    );
     expect(daily).to.not.match(/SAFE_CAST\s*\(/); // the explanatory marker may name SAFE_CAST
     expect(daily).to.contain("CURRENT_DATE AS today");
-    expect(daily).to.contain("-- SQLANVIL-MIGRATE: SAFE_DIVIDE");
+    // SAFE_DIVIDE is now rewritten rather than flagged — it needs the arguments, which the
+    // per-line lexical rules cannot reach.
+    expect(daily).to.contain("(a / nullif(b, 0))");
+    expect(daily).to.not.match(/SAFE_DIVIDE\s*\(/);
     expect(daily).to.contain("-- SQLANVIL-MIGRATE: QUALIFY");
     // bigquery block commented out with a config-context marker.
     expect(daily).to.contain("// SQLANVIL-MIGRATE: BigQuery-only setting");
@@ -237,7 +246,11 @@ module.exports = { domainFromEmail };
     expect(tricky).to.not.match(/^\s*,\s*$/m); // no orphaned separator comma outside comments
     expect(tricky).to.match(/^\/\/\s*,\s*$/m); // it was commented out instead
     // In-line rewrites still apply inside js{} (safe); only marker LINES are suppressed there.
-    expect(tricky).to.contain("CAST(x AS INT64)");
+    // SAFE_CAST inside a js template gets the same guard, and INT64 becomes bigint — a helper
+    // that builds SQL is still SQL, and leaving it alone was invisible until run time.
+    expect(tricky).to.contain(
+      "(case when pg_input_is_valid((x)::text, 'bigint') then (x)::bigint end)",
+    );
     expect(tricky.split("js {")[1].split("}")[0]).to.not.contain("SQLANVIL-MIGRATE");
     expect(tricky).to.contain('id: "the id"'); // columns survived the comma handling
 
@@ -249,8 +262,12 @@ module.exports = { domainFromEmail };
     // .js files get one top-of-file summary block, never inline markers.
     const inc = fs.readFileSync(path.join(out, "includes/functions.js"), "utf8");
     expect(inc.startsWith("/* SQLANVIL-MIGRATE")).equals(true);
-    expect(inc).to.contain("SAFE_OFFSET");
     expect(inc.split("*/")[1]).to.not.contain("SQLANVIL-MIGRATE");
+    // Shared helpers build SQL in template literals, so they need the dialect pass as much as a
+    // .sqlx does — `split(x, d)[SAFE_OFFSET(n)]` here failed two views on every run of a real
+    // migration while looking like an unconverted .sqlx problem.
+    expect(inc).to.contain("(string_to_array(${email}, '@'))[2]");
+    expect(inc.split("*/")[1]).to.not.contain("SAFE_OFFSET");
 
     // Credentials and artifacts never copied.
     for (const secret of [".df-credentials.json", "service_account_key.json", ".env", "compile_output.json"]) {
@@ -398,5 +415,64 @@ SELECT 1`;
     );
     expect(decl.database).equals("<defaultDatabase>");
     expect(connectionNameFor("My-Proj")).equals("bq_my_proj");
+  });
+
+  test("call rewrites reach the arguments, and span lines", () => {
+    const sql = (body: string) => convertTarget(`config { type: "view" }\n\n${body}\n`, false).content;
+
+    // A per-line regex cannot see this call at all — and a real project writes it this way.
+    expect(
+      sql("select DATE_DIFF(\n  a,\n  b,\n  DAY\n) as days"),
+    ).to.contain("(a::date - b::date)");
+
+    // BigQuery's HOUR counts boundaries CROSSED. Truncating both sides is what makes the two
+    // agree; dividing the raw interval is off by one whenever the minutes do not line up.
+    expect(sql("select DATE_DIFF(a, b, HOUR) as h")).to.contain("date_trunc('hour', a)");
+
+    expect(sql("select SAFE_DIVIDE(a, b) as r")).to.contain("(a / nullif(b, 0))");
+    expect(sql("select DATE_SUB(CURRENT_DATE, interval 7 day) as d"))
+      .to.contain("(CURRENT_DATE - interval '7 day')");
+    expect(sql("select REGEXP_EXTRACT(f, '[^/]+$') as name"))
+      .to.contain("substring(f from '[^/]+$')");
+
+    // COLLATE(x, '') is a FUNCTION in BigQuery and a syntax error in PostgreSQL; an empty
+    // collation means "strip", which is a no-op here.
+    expect(sql("select COLLATE(name, '') as name")).to.contain("select name as name");
+
+    // An EMPTY delimiter splits per character. PostgreSQL spells that NULL — an empty string
+    // would return the whole input as one element and silently change the result.
+    expect(sql("select SPLIT(sku, '') as chars")).to.contain("string_to_array(sku, NULL)");
+    expect(sql("select SPLIT(v, ',') as parts")).to.contain("string_to_array(v, ',')");
+
+    // 0-based → 1-based, and the call must be parenthesised: PostgreSQL will not subscript a
+    // function result directly.
+    expect(sql("select SPLIT(email, '@')[SAFE_OFFSET(1)] as domain"))
+      .to.contain("(string_to_array(email, '@'))[2]");
+
+    // Type names are renamed even without SAFE_CAST, or they arrive as `type "int64" does not
+    // exist` at run time.
+    expect(sql("select CAST(x AS INT64) as n")).to.contain("cast(x as bigint)");
+
+    // Nested calls: the inner rewrite lands before the outer one reads its arguments.
+    expect(sql("select SAFE_DIVIDE(CAST(a AS FLOAT64), b) as r"))
+      .to.contain("(cast(a as double precision) / nullif(b, 0))");
+  });
+
+  test("call rewrites leave strings, comments and config alone", () => {
+    const out = (body: string) => convertTarget(body, false).content;
+
+    // A rule must not fire inside a string literal or a comment.
+    const inString = out(`config { type: "view" }\n\nselect 'SAFE_DIVIDE(a, b)' as lit\n`);
+    expect(inString).to.contain("'SAFE_DIVIDE(a, b)'");
+    const inComment = out(`config { type: "view" }\n\n-- SAFE_DIVIDE(a, b)\nselect 1\n`);
+    expect(inComment).to.contain("-- SAFE_DIVIDE(a, b)");
+
+    // Config keys have their own handling; the dialect pass must not reach into the block.
+    const inConfig = out(`config {\n  type: "view",\n  description: "uses SPLIT(x, y)"\n}\n\nselect 1\n`);
+    expect(inConfig).to.contain('description: "uses SPLIT(x, y)"');
+
+    // An unresolvable form is left for the report rather than half-rewritten.
+    expect(out(`config { type: "view" }\n\nselect DATE_DIFF(a, b, MONTH) as m\n`))
+      .to.contain("DATE_DIFF(a, b, MONTH)");
   });
 });
