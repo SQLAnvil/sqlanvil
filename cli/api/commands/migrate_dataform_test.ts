@@ -475,4 +475,48 @@ SELECT 1`;
     expect(out(`config { type: "view" }\n\nselect DATE_DIFF(a, b, MONTH) as m\n`))
       .to.contain("DATE_DIFF(a, b, MONTH)");
   });
+
+  test("lexical rules: BigQuery quoting, raw strings, # comments, DAYOFWEEK", () => {
+    const sql = (body: string) => convertTarget(`config { type: "view" }\n\n${body}\n`, false).content;
+
+    // In BigQuery a backtick always quotes an identifier and a double quote always opens a
+    // string — the exact opposite of PostgreSQL for the latter, which is why leaving them gives
+    // `column "select" does not exist`.
+    expect(sql("select `my col` from t")).to.contain('"my col"');
+    expect(sql(`select * from t where kind in ("a", "b")`)).to.contain("in ('a', 'b')");
+
+    // A qualified name is a reference to re-point, not a quoting fix — PostgreSQL has no third
+    // naming level — so it is left for the report.
+    expect(sql("select 1 from `proj.dataset.table`")).to.contain("`proj.dataset.table`");
+
+    // PostgreSQL has no raw-string prefix and reads the r as a type name.
+    expect(sql("select regexp_replace(x, r'\\s+', ' ') as y")).to.contain("'\\s+'");
+    expect(sql("select regexp_replace(x, r'\\s+', ' ') as y")).to.not.contain("r'");
+
+    // BigQuery accepts # line comments; PostgreSQL has only --.
+    expect(sql("# a note\nselect 1")).to.contain("-- a note");
+
+    // BigQuery numbers the week from 1 = Sunday, PostgreSQL's dow from 0 — so the + 1 keeps
+    // existing comparisons against 1 and 7 meaning weekend.
+    expect(sql("select EXTRACT(DAYOFWEEK FROM d) as dw"))
+      .to.contain("(extract(dow from d) + 1)");
+
+    // Not inside a string or a comment.
+    expect(sql("select 'a `b` c' as lit")).to.contain("'a `b` c'");
+    expect(sql("-- keep `this`\nselect 1")).to.contain("-- keep `this`");
+  });
+
+  test("lexical rules leave js regions alone — there, quotes are JavaScript", () => {
+    // A backtick opens a template literal and a double quote a JS string; rewriting either as
+    // SQL quoting produces a file that no longer parses as JavaScript.
+    const withJs = convertTarget(
+      'config { type: "view" }\n\njs {\n  const t = `SELECT "x" FROM y`;\n}\n\nselect 1\n',
+      false,
+    ).content;
+    expect(withJs).to.contain('const t = `SELECT "x" FROM y`;');
+
+    // Same for a whole .js file (jsMode).
+    const asJs = convertTarget('const q = `SELECT "a" FROM t`;\n', true).content;
+    expect(asJs).to.contain('`SELECT "a" FROM t`');
+  });
 });

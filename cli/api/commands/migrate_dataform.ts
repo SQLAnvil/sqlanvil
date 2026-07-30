@@ -638,6 +638,142 @@ export function applyCallRules(
   return { text: result, applied };
 }
 
+/** Offset spans of `js { … }` blocks: there, backticks and double quotes are JavaScript. */
+export function jsBlockSpans(source: string): Array<{ start: number; end: number }> {
+  const spans: Array<{ start: number; end: number }> = [];
+  const re = /(^|\n)\s*js\s*\{/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(source))) {
+    const open = source.indexOf("{", m.index + m[0].length - 1);
+    const close = matchParenLike(source, open, "{", "}");
+    spans.push({ start: m.index, end: close < 0 ? source.length : close + 1 });
+  }
+  return spans;
+}
+
+function matchParenLike(text: string, open: number, o: string, c: string): number {
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    if (text[i] === o) depth++;
+    else if (text[i] === c && --depth === 0) return i;
+  }
+  return -1;
+}
+
+/**
+ * Lexical rewrites that need the whole body rather than a line, applied in a deliberate order.
+ *
+ * Two of these rest on BigQuery being unambiguous where PostgreSQL is not: a backtick always
+ * quotes an IDENTIFIER, and a double quote always opens a STRING. That makes both mechanical —
+ * but only in SQL. Inside a `js { … }` block or a .js file the same characters are JavaScript
+ * (template literals and string literals), so `isSqlOffset` excludes those regions entirely.
+ */
+function applyTextRules(
+  text: string,
+  isSqlOffset: (offset: number) => boolean,
+  applied: Array<{ line: number; note: string }>,
+): string {
+  const note = (offset: number, n: string) =>
+    applied.push({ line: text.slice(0, offset).split("\n").length, note: n });
+
+  /**
+   * Match `pattern` against `mask` — so a rule cannot fire inside a comment or a single-quoted
+   * string — and splice the replacement into `src` at the same offsets. Captures can be taken
+   * straight from the mask match: maskSql only blanks single-quoted contents and comments, so
+   * anything a rule here captures (a backtick token, a double-quoted token) is intact, and a
+   * match that WAS blanked simply never occurs.
+   */
+  const rewrite = (
+    src: string,
+    mask: string,
+    pattern: RegExp,
+    replace: (m: RegExpExecArray) => string | null,
+    ruleNote: string,
+  ): string => {
+    const edits: Array<{ start: number; end: number; out: string }> = [];
+    let m: RegExpExecArray | null;
+    pattern.lastIndex = 0;
+    while ((m = pattern.exec(mask)) !== null) {
+      if (!isSqlOffset(m.index)) continue;
+      const sub = replace(m);
+      if (sub !== null) edits.push({ start: m.index, end: m.index + m[0].length, out: sub });
+    }
+    let out = src;
+    for (const e of edits.reverse()) {
+      note(e.start, ruleNote);
+      out = out.slice(0, e.start) + e.out + out.slice(e.end);
+    }
+    return out;
+  };
+
+  let result = text;
+
+  // 1. `#` line comments first, so the mask can blank them for every rule after this one.
+  //    Matched with literals INTACT: a `#` cannot occur inside one, and blanking literals
+  //    depends on the quotes pairing, which one stray apostrophe upstream breaks.
+  result = rewrite(
+    result,
+    maskSql(result, true),
+    /(?<![\w"'])#[^\n]*/g,
+    m => `--${m[0].slice(1)}`,
+    "# line comment → -- (PostgreSQL has no # comment)",
+  );
+
+  // 2. Raw-string prefixes. Also outside the literal, so literals stay intact here too.
+  //    Dropping the prefix is correct rather than merely syntactic: with
+  //    standard_conforming_strings a plain literal leaves backslashes alone, which is what the
+  //    regex bodies these wrap actually want.
+  result = rewrite(
+    result,
+    maskSql(result, true),
+    /(?<![A-Za-z0-9_])[rR](?=['"])/g,
+    () => "",
+    "r'…' raw string → '…' (no raw-string prefix in PostgreSQL)",
+  );
+
+  // 3. Double-quoted strings → single-quoted. In BigQuery a double quote never quotes an
+  //    identifier, so every one of these is a string; in PostgreSQL it never quotes a string, so
+  //    leaving them produces `column "select" does not exist`.
+  //
+  //    MUST run before the backtick rule below, which PRODUCES double quotes — reverse the order
+  //    and a `col` identifier becomes "col" and then 'col', silently turning a column reference
+  //    into a string literal.
+  result = rewrite(
+    result,
+    maskSql(result, true),
+    /"([^"\n]*)"/g,
+    m => (m[1].includes("${") || m[1].includes("'") ? null : `'${m[1]}'`),
+    'BigQuery "string" → \'string\' (double quotes are identifiers in PostgreSQL)',
+  );
+
+  // 4. Backtick identifiers → double quotes. Skipped when the token is a qualified
+  //    project.dataset.table name (PostgreSQL has no third level, so that is a reference to
+  //    re-point, not a quoting fix) or contains a ${…} interpolation.
+  result = rewrite(
+    result,
+    maskSql(result),
+    /`([^`\n]+)`/g,
+    m => (m[1].includes(".") || m[1].includes("${") ? null : `"${m[1]}"`),
+    "`identifier` → \"identifier\"",
+  );
+
+  // 5. EXTRACT(DAYOFWEEK FROM x). BigQuery numbers from 1 = Sunday; PostgreSQL's dow from
+  //    0 = Sunday — so the + 1 keeps existing comparisons against 1 and 7 meaning weekend.
+  for (;;) {
+    const mask = maskSql(result);
+    const m = /\bextract\s*\(\s*dayofweek\s+from\s+/i.exec(mask);
+    if (!m || !isSqlOffset(m.index)) break;
+    const close = matchParen(mask, mask.indexOf("(", m.index));
+    if (close < 0) break;
+    const inner = result.slice(m.index + m[0].length, close).trim();
+    note(m.index, "EXTRACT(DAYOFWEEK FROM x) → extract(dow from x) + 1 (BigQuery is 1-based)");
+    result =
+      result.slice(0, m.index) + `(extract(dow from ${inner}) + 1)` + result.slice(close + 1);
+  }
+
+  return result;
+}
+
 /** `f(...)[i]` → `(f(...))[i]`, which PostgreSQL requires. */
 function parenthesiseSubscriptedCalls(text: string): string {
   const finder = /\b[A-Za-z_]\w*\s*\(/g;
@@ -677,18 +813,29 @@ export function convertTarget(
   // the config block is excluded — but js regions are NOT, because shared helpers build SQL in
   // template literals and are otherwise invisible to the dialect pass entirely.
   if (dialectPass) {
-    const configSpan = span;
-    const called = applyCallRules(
-      source,
-      off => !configSpan || off < configSpan.start || off >= configSpan.end,
-    );
-    if (called.text !== source) {
-      source = called.text;
-      span = jsMode ? null : findConfigBlock(source);
-    }
+    const outsideConfig = (off: number) => {
+      const s = jsMode ? null : findConfigBlock(source);
+      return !s || off < s.start || off >= s.end;
+    };
+    const called = applyCallRules(source, outsideConfig);
+    if (called.text !== source) source = called.text;
     for (const a of called.applied) {
       findings.push({ line: a.line, kind: "rewrite", note: a.note });
     }
+
+    // Text rules additionally exclude js regions: there, a backtick opens a template literal and
+    // a double quote a JS string, so treating them as SQL quoting would break the JavaScript.
+    const textApplied: Array<{ line: number; note: string }> = [];
+    const jsSpans = jsMode ? [{ start: 0, end: source.length }] : jsBlockSpans(source);
+    source = applyTextRules(
+      source,
+      off => outsideConfig(off) && !jsSpans.some(s => off >= s.start && off < s.end),
+      textApplied,
+    );
+    for (const a of textApplied) {
+      findings.push({ line: a.line, kind: "rewrite", note: a.note });
+    }
+    span = jsMode ? null : findConfigBlock(source);
   }
 
   const lines = source.split("\n");
