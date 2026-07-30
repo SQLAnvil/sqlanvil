@@ -77,6 +77,7 @@ ts_test_suite(
         "commands/run_extract_test.ts",
         "commands/run_import_test.ts",
         "commands/run_script_test.ts",
+        "commands/migrate_fix_test.ts",
         "commands/sql_lex_test.ts",
         "commands/script_env_test.ts",
         "commands/test_test.ts",

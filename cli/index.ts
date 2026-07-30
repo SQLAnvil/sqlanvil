@@ -17,6 +17,7 @@ import { safeWriteArtifacts, TARGET_DIR } from "sa/cli/api/commands/artifacts";
 import { buildDocsModel, renderDocsHtml } from "sa/cli/api/commands/docs";
 import { ArtifactView, queryParquet } from "sa/cli/api/dbadapters/duckdb_artifacts";
 import { migrateDataform } from "sa/cli/api/commands/migrate_dataform";
+import { migrateFix } from "sa/cli/api/commands/migrate_fix";
 import { printMigrationSummary, runInteractiveInit } from "sa/cli/interactive_init";
 import { checkScriptAction } from "sa/cli/api/commands/script_env";
 import { sweepOrphanShadows, validate, ValidateDeps } from "sa/cli/api/commands/validate";
@@ -1531,6 +1532,40 @@ export function runCli() {
           printMigrationSummary(report, argv["out-dir"]);
           print(`Next: sqlanvil compile ${argv["out-dir"]}`);
           return 0;
+        }
+      },
+      {
+        format: "migrate-fix [project-dir]",
+        description:
+          "Finish a converted project's dialect work, AFTER `scripts/introspect_all.sh` has run. " +
+          "Expands `SELECT * EXCEPT (...)` into explicit column lists, which needs the source " +
+          "columns that only exist once declarations have been introspected — so this is the " +
+          "third phase of a migration (convert, introspect, fix), not part of the conversion. " +
+          "Re-runnable; reports anything it could not resolve instead of guessing.",
+        positionalOptions: [projectDirMustExistOption],
+        options: [
+          option("dry-run", {
+            describe: "Report what would change without writing.",
+            type: "boolean",
+            default: false
+          })
+        ],
+        processFn: async (argv: { "project-dir": string; "dry-run": boolean }) => {
+          const result = await migrateFix({
+            projectDir: argv["project-dir"],
+            write: !argv["dry-run"]
+          });
+          const verb = argv["dry-run"] ? "would expand" : "expanded";
+          print(
+            `${verb} ${result.expanded} star-except site(s) across ${result.files.length} file(s).`
+          );
+          if (result.unresolved.length) {
+            printError(`${result.unresolved.length} site(s) need a look:`);
+            for (const u of result.unresolved) {
+              printError(`  ${u.file}:${u.line} — ${u.reason}`);
+            }
+          }
+          return result.unresolved.length ? 1 : 0;
         }
       }
     ]
