@@ -506,6 +506,43 @@ SELECT 1`;
     expect(sql("-- keep `this`\nselect 1")).to.contain("-- keep `this`");
   });
 
+  test("COLLATE stripping and NOT ENFORCED constraints", () => {
+    const sql = (body: string) => convertTarget(`config { type: "table" }\n\n${body}\n`, false).content;
+
+    // BigQuery's COLLATE(x, spec) is a FUNCTION and PostgreSQL's is an operator taking a
+    // collation NAME, so the function form is a syntax error outright. An empty spec means
+    // "strip the collation", which is a no-op here — both spellings unwrap to x.
+    expect(sql("select COLLATE(name, '') as name")).to.contain("select name as name");
+    expect(sql("select name COLLATE '' as name")).to.contain("select name as name");
+
+    // NOT ENFORCED is advisory in BigQuery and has no PostgreSQL equivalent. Translated and
+    // commented: enforcing it silently would fail on data that has never been checked, and
+    // dropping it silently would lose the declared model.
+    const one = sql("select 1 as id\npost_operations {\n  ALTER TABLE ${self()} ADD PRIMARY KEY (id) NOT ENFORCED;\n}");
+    expect(one).to.contain("-- ALTER TABLE ${self()} ADD PRIMARY KEY (id);");
+    expect(one).to.not.match(/^\s*ALTER TABLE/m); // nothing left executable
+    expect(one).to.contain("-- BigQuery declared the constraint below NOT ENFORCED");
+    // The clause is gone from the SQL; the explanation names it on purpose.
+    const executable = one.split("\n").filter(l => !/^\s*(--|\/\/)/.test(l));
+    expect(executable.join("\n")).to.not.contain("NOT ENFORCED");
+
+    // Multi-action form, and the DROP preamble is omitted — PostgreSQL has no DROP PRIMARY KEY,
+    // so leaving it in would break the statement the moment someone uncommented it.
+    const many = sql(
+      "select 1 as id\npost_operations {\n  ALTER TABLE t\n    DROP PRIMARY KEY IF EXISTS,\n" +
+        "    ADD PRIMARY KEY (a, b) NOT ENFORCED,\n" +
+        "    ADD CONSTRAINT fk FOREIGN KEY (c) REFERENCES o(c) NOT ENFORCED;\n}",
+    );
+    expect(many).to.contain("--   ADD PRIMARY KEY (a, b),");
+    expect(many).to.contain("--   ADD CONSTRAINT fk FOREIGN KEY (c) REFERENCES o(c);");
+    expect(many).to.not.contain("DROP PRIMARY KEY");
+
+    // An ALTER TABLE with no NOT ENFORCED is left exactly as it was.
+    const plain = sql("select 1 as id\npost_operations {\n  ALTER TABLE t ADD COLUMN x int;\n}");
+    expect(plain).to.contain("ALTER TABLE t ADD COLUMN x int;");
+    expect(plain).to.not.contain("-- ALTER TABLE");
+  });
+
   test("lexical rules leave js regions alone — there, quotes are JavaScript", () => {
     // A backtick opens a template literal and a double quote a JS string; rewriting either as
     // SQL quoting produces a file that no longer parses as JavaScript.

@@ -757,7 +757,18 @@ function applyTextRules(
     "`identifier` → \"identifier\"",
   );
 
-  // 5. EXTRACT(DAYOFWEEK FROM x). BigQuery numbers from 1 = Sunday; PostgreSQL's dow from
+  // 5. The OPERATOR form of collation stripping. (The function form, COLLATE(x, ''), is a call
+  //    rule.) PostgreSQL's COLLATE takes a collation NAME, so an empty one is not expressible —
+  //    and does not need to be, since stripping is a no-op here.
+  result = rewrite(
+    result,
+    maskSql(result, true),
+    /\s+collate\s+(''|"")/gi,
+    () => "",
+    "x COLLATE '' → x (collation stripping is a no-op in PostgreSQL)",
+  );
+
+  // 6. EXTRACT(DAYOFWEEK FROM x). BigQuery numbers from 1 = Sunday; PostgreSQL's dow from
   //    0 = Sunday — so the + 1 keeps existing comparisons against 1 and 7 meaning weekend.
   for (;;) {
     const mask = maskSql(result);
@@ -771,7 +782,112 @@ function applyTextRules(
       result.slice(0, m.index) + `(extract(dow from ${inner}) + 1)` + result.slice(close + 1);
   }
 
+  return rewriteUnenforcedConstraints(result, isSqlOffset, applied);
+}
+
+const UNENFORCED_HEADER = [
+  "BigQuery declared the constraint below NOT ENFORCED — advisory metadata for BI tools,",
+  "never checked by the warehouse. PostgreSQL has no unenforced constraint, so the real",
+  "equivalent is written out here and left commented: uncommenting enforces it, and it will",
+  "fail if the data violates it. A foreign key also needs the referenced table's own key to",
+  "exist, so enable those upstream first.",
+];
+
+/**
+ * `ALTER TABLE … ADD … NOT ENFORCED` → the PostgreSQL form, commented out.
+ *
+ * BigQuery never checks these; they exist so BI tools can infer the join model. PostgreSQL has
+ * no equivalent — a key is either real and enforced, or absent — so there is no faithful
+ * automatic port. Enforcing them silently is the wrong default: a project that has run for years
+ * with unchecked keys very likely has rows that violate them, and the migration would fail on
+ * data rather than on syntax. Dropping them silently loses the declared model.
+ *
+ * So the constraint is translated and commented, which keeps the intent visible in the code and
+ * makes enabling it a deliberate, per-table decision.
+ *
+ * Two things change while translating, so that uncommenting is not itself a trap:
+ *   - NOT ENFORCED is removed (no such clause).
+ *   - `DROP PRIMARY KEY IF EXISTS` / `DROP CONSTRAINT IF EXISTS` preambles are dropped:
+ *     PostgreSQL has no `DROP PRIMARY KEY`, and these tables are rebuilt by each run anyway.
+ */
+function rewriteUnenforcedConstraints(
+  text: string,
+  isSqlOffset: (offset: number) => boolean,
+  applied: Array<{ line: number; note: string }>,
+): string {
+  const mask = maskSql(text);
+  const sites: Array<{ start: number; end: number; out: string }> = [];
+  const finder = /\bALTER\s+TABLE\b/gi;
+  let m: RegExpExecArray | null;
+
+  while ((m = finder.exec(mask)) !== null) {
+    // The statement runs to the first top-level semicolon.
+    let depth = 0;
+    let end = mask.length;
+    for (let i = m.index; i < mask.length; i++) {
+      if (mask[i] === "(") depth++;
+      else if (mask[i] === ")") depth--;
+      else if (mask[i] === ";" && depth === 0) {
+        end = i + 1;
+        break;
+      }
+    }
+    finder.lastIndex = end; // never reconsider this statement
+    const stmt = text.slice(m.index, end);
+    if (!/NOT\s+ENFORCED/i.test(stmt) || !isSqlOffset(m.index)) continue;
+
+    const body = stmt.replace(/;\s*$/, "").replace(/^ALTER\s+TABLE\s*/i, "");
+    const firstAction = /\b(ADD|DROP|ALTER)\b/i.exec(body);
+    if (!firstAction) continue;
+    const target = body.slice(0, firstAction.index).trim();
+    const actions = splitTopLevel(body.slice(firstAction.index))
+      .map(a => a.trim())
+      .filter(a => /^ADD\b/i.test(a))
+      .map(a => a.replace(/\s*\bNOT\s+ENFORCED\b/gi, "").trim());
+    if (!actions.length) continue;
+
+    const lineStart = text.lastIndexOf("\n", m.index) + 1;
+    const indent = /^[ \t]*/.exec(text.slice(lineStart))![0];
+    const commented = [
+      ...UNENFORCED_HEADER.map(l => `-- ${l}`),
+      ...(actions.length === 1
+        ? [`-- ALTER TABLE ${target} ${actions[0]};`]
+        : [
+            `-- ALTER TABLE ${target}`,
+            ...actions.map((a, i) => `--   ${a}${i === actions.length - 1 ? ";" : ","}`),
+          ]),
+    ].join(`\n${indent}`);
+    sites.push({ start: m.index, end, out: commented });
+  }
+
+  let result = text;
+  for (const s of sites.reverse()) {
+    applied.push({
+      line: text.slice(0, s.start).split("\n").length,
+      note:
+        "NOT ENFORCED constraint → PostgreSQL equivalent, commented out " +
+        "(enforcing it may fail on data that has never been checked)",
+    });
+    result = result.slice(0, s.start) + s.out + result.slice(s.end);
+  }
   return result;
+}
+
+/** Split on top-level commas (no string awareness needed: callers pass masked-safe input). */
+function splitTopLevel(s: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of s) {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      parts.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  parts.push(cur);
+  return parts;
 }
 
 /** `f(...)[i]` → `(f(...))[i]`, which PostgreSQL requires. */
