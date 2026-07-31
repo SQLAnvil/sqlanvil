@@ -37,7 +37,8 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       const executedGraph = await dfapi.run(dbadapter, executionGraph).result();
 
       const actionMap = keyBy(executedGraph.actions, v => targetAsReadableString(v.target));
-      expect(Object.keys(actionMap).length).eql(20);
+      // 21 since example_incremental_insert_overwrite joined the shared project fixture.
+      expect(Object.keys(actionMap).length).eql(21);
 
       // Check the status of action execution.
       const expectedFailedActions = [
@@ -126,6 +127,51 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
         ]);
         expect(incrementalRows.length).equals(runIteration.expectedIncrementalRows);
         expect(incrementalMergeRows.length).equals(runIteration.expectedIncrementalMergeRows);
+      }
+    });
+
+    // insert_overwrite (upstream #2195) is BigQuery-only, and its SQL is a `MERGE … ON FALSE`
+    // script with a scripting block and a temp table — the kind of thing goldens can assert the
+    // TEXT of while the semantics are wrong. This runs it and counts rows.
+    test("incremental insert_overwrite replaces partitions", { timeout: 60000 }, async () => {
+      const compiledGraph = await compile(
+        "tests/integration/bigquery_project",
+        "insert_overwrite"
+      );
+      await cleanWarehouse(compiledGraph, dbadapter);
+
+      const adapter = new ExecutionSql(
+        compiledGraph.projectConfig,
+        compiledGraph.sqlanvilCoreVersion
+      );
+      // Full build writes all four rows; the incremental run recomputes only the 2026-01-01
+      // partition and produces a single row for it, so a correct overwrite lands on 3.
+      for (const expectedRows of [4, 3]) {
+        const executionGraph = await dfapi.build(
+          compiledGraph,
+          { actions: ["example_incremental_insert_overwrite"] },
+          dbadapter
+        );
+        const runResult = await dfapi.run(dbadapter, executionGraph).result();
+        expect(sqlanvil.RunResult.ExecutionStatus[runResult.status]).eql(
+          sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL],
+          runResult.actions
+            .map(action =>
+              action.tasks.map(task => task.errorMessage).filter(Boolean).join("\n")
+            )
+            .filter(Boolean)
+            .join("\n")
+        );
+        const rows = await getTableRows(
+          {
+            database: PROJECT_ID,
+            schema: "sa_integration_test_insert_overwrite",
+            name: "example_incremental_insert_overwrite"
+          },
+          adapter,
+          dbadapter
+        );
+        expect(rows.length).equals(expectedRows);
       }
     });
 

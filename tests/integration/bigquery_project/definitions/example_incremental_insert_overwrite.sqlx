@@ -1,0 +1,26 @@
+WITH example_data AS (
+SELECT d AS d, val AS val
+FROM
+  (SELECT DATE '2026-01-01' AS d, 'a' AS val) UNION ALL
+  (SELECT DATE '2026-01-01' AS d, 'b' AS val) UNION ALL
+  (SELECT DATE '2026-01-02' AS d, 'c' AS val) UNION ALL
+  (SELECT DATE '2026-01-03' AS d, 'd' AS val)
+)
+
+config {
+  type: "incremental",
+  incrementalStrategy: "insert_overwrite",
+  bigquery: {
+    partitionBy: "d"
+  },
+  hermetic: false
+}
+
+SELECT d, val
+FROM example_data
+
+-- The incremental run recomputes ONE partition (2026-01-01) and produces FEWER rows for it than
+-- the table already holds. That asymmetry is the point: insert_overwrite must replace the
+-- partition, leaving 3 rows. An append would leave 5, and a merge with no uniqueKey would too —
+-- so the row count alone distinguishes the strategy from every other outcome.
+${ when(incremental(), `WHERE d = DATE '2026-01-01' AND val = 'a'`, `WHERE true`) }
