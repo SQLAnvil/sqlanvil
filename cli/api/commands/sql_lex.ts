@@ -324,6 +324,9 @@ export function relationsIn(toks: Token[], start: number, end: number): Relation
           toks[j].kind === "backtick-ident" ||
           toks[j].text === ".")
       ) {
+        // `as` ends the name and begins the alias — without this the two run together and the
+        // relation reads as `orders` + `as` + `o`.
+        if (isWord(toks[j], "as")) break;
         if (toks[j].kind === "word" && JOIN_NOISE.has(toks[j].text.toLowerCase())) break;
         parts.push(toks[j]);
         j++;

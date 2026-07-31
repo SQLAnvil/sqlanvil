@@ -106,6 +106,13 @@ suite("sql_lex", () => {
     // No explicit alias: SQL exposes the relation under its own trailing name.
     expect(rel("select 1 from schema.orders")[0].alias).equals("orders");
 
+    // `as` ends the relation name. Without that, the name and alias run together and any caller
+    // that reconstructs the relation gets `ordersaso` — which is how a marker naming the source
+    // would end up unusable.
+    const aliased = rel("select 1 from schema.orders as o");
+    expect(aliased[0].tokens.map(t => t.text).join("")).equals("schema.orders");
+    expect(aliased[0].alias).equals("o");
+
     // A derived table is a relation too, and its alias is what a qualified star binds to.
     const derived = rel("select 1 from (select * from t) as d");
     expect(derived[0].subquery).equals(true);

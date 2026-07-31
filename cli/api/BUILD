@@ -79,6 +79,7 @@ ts_test_suite(
         "commands/run_script_test.ts",
         "commands/migrate_fix_test.ts",
         "commands/sql_lex_test.ts",
+        "commands/struct_arrays_test.ts",
         "commands/script_env_test.ts",
         "commands/test_test.ts",
         "commands/validate_graph_test.ts",
