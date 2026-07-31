@@ -94,8 +94,8 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
       bigquery: {
         partitionBy: "DATE(ts)",
         incrementalPredicates: [
-          "DATAFORM_DEST.ts >= '2024-01-01'",
-          "DATAFORM_SOURCE.ts >= '2024-01-01'"
+          "T.ts >= '2024-01-01'",
+          "S.ts >= '2024-01-01'"
         ]
       }
     };
@@ -117,6 +117,24 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
     const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
     const sql = tasks.build().map(t => t.statement).join("\n;\n");
     const expectedSql = fs.readFileSync("cli/api/goldens/insert_overwrite_extend.sql", "utf8");
+    expect(sql).to.equal(expectedSql.trim());
+  });
+
+  // Upstream shipped goldens/insert_overwrite_simple_column.sql with no test referencing it. The
+  // case is worth covering: a bare column partition rather than an expression like DATE(ts), which
+  // is what most partitioned tables actually use.
+  test("generates INSERT_OVERWRITE script for a bare column partition", () => {
+    const table = {
+      ...baseTable,
+      incrementalStrategy: sqlanvil.IncrementalStrategy.INSERT_OVERWRITE,
+      bigquery: { partitionBy: "date_col" }
+    };
+    const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
+    const sql = tasks.build().map(t => t.statement).join("\n;\n");
+    const expectedSql = fs.readFileSync(
+      "cli/api/goldens/insert_overwrite_simple_column.sql",
+      "utf8"
+    );
     expect(sql).to.equal(expectedSql.trim());
   });
 

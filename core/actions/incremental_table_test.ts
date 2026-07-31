@@ -1122,6 +1122,36 @@ SELECT 1 AS id`
       );
     });
 
+    test("compilation fails with insert_overwrite on a non-BigQuery warehouse", () => {
+      // Only the BigQuery adapter can execute this strategy. Upstream's check asks for
+      // `bigquery.partitionBy`, which on a Postgres project sends the user to set a BigQuery-only
+      // option; saying nothing at all would be worse, because the strategy would be accepted and
+      // then silently fall through to a MERGE — a run that succeeds and writes the wrong rows.
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `defaultProject: dataform\ndefaultDataset: analytics\ndefaultAssertionDataset: assertions\nwarehouse: postgres`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/incremental.sqlx"),
+        `config {
+          type: "incremental",
+          incrementalStrategy: "insert_overwrite"
+        }
+        SELECT 1`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+      const messages = result.compile.compiledGraph.graphErrors.compilationErrors.map(e => e.message);
+      expect(messages.join("\n")).contains(
+        "IncrementalStrategy 'insert_overwrite' is currently BigQuery-only"
+      );
+      // Specifically NOT the partitionBy message — that would be a dead end on Postgres.
+      expect(messages.join("\n")).does.not.contain("requires 'partitionBy' to be set");
+    });
+
     test("compiles successfully with merge and uniqueKey", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
