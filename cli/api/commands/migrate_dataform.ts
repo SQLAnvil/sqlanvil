@@ -3,6 +3,7 @@ import * as path from "path";
 import { dump as dumpYaml, load as loadYaml } from "js-yaml";
 
 import { agentsMdContents, claudeMdBridgeContents } from "sa/cli/api/commands/agents_md";
+import { tokenize } from "sa/cli/api/commands/sql_lex";
 import { version as sqlanvilVersion } from "sa/core/version";
 
 /**
@@ -386,7 +387,7 @@ const CLASS_META: {
     title: "GROUP BY ALL",
     severity: "blocks-compile",
     owner: "mechanical",
-    postgres: "group by with explicit ordinals (1, 2, 5) for the non-aggregate select items",
+    postgres: "`sqlanvil migrate-fix` rewrites it as ordinals (group by 1, 2, 5)",
     why:
       "Window functions must be excluded as well as aggregates — PostgreSQL rejects them in " +
       "GROUP BY, and an aggregate followed by OVER is a window function, not an aggregate.",
@@ -395,7 +396,7 @@ const CLASS_META: {
     title: "SELECT * EXCEPT (…)",
     severity: "blocks-compile",
     owner: "mechanical",
-    postgres: "an explicit column list",
+    postgres: "`sqlanvil migrate-fix` expands it, once introspect has scaffolded the columns",
     why:
       "The column list comes from the source relation — a declaration's columnTypes, or another " +
       "action's select list resolved recursively. Enumerating also means a column added upstream " +
@@ -502,6 +503,21 @@ const SQL_RULES: Rule[] = [
     pattern: /\bCURRENT_DATE\s*\(\s*['"]/g,
     kind: "flag",
     note: "CURRENT_DATE('<tz>') — Postgres: (CURRENT_TIMESTAMP AT TIME ZONE '<tz>')::date",
+  },
+  // These two are fixed by `sqlanvil migrate-fix`, not here: both need the source columns, which
+  // only exist once declarations have been introspected. Flagged so they appear in the report
+  // immediately rather than surfacing later as a surprise.
+  {
+    pattern: /\*\s*except\s*\(/gi,
+    kind: "flag",
+    note: "SELECT * EXCEPT — run `sqlanvil migrate-fix` after introspect to expand it",
+    id: "star-except",
+  },
+  {
+    pattern: /\bGROUP\s+BY\s+ALL\b/gi,
+    kind: "flag",
+    note: "GROUP BY ALL — run `sqlanvil migrate-fix` after introspect to rewrite it",
+    id: "group-by-all",
   },
   { pattern: /\bQUALIFY\b/gi, kind: "flag", note: "QUALIFY — rewrite as a subquery/CTE filter on the window function",
     id: "qualify", },
@@ -1180,13 +1196,20 @@ export function convertTarget(
       findings.push({ line: a.line, kind: "rewrite", note: a.note, class: classIdFor(a.note) });
     }
 
-    // Text rules additionally exclude js regions: there, a backtick opens a template literal and
-    // a double quote a JS string, so treating them as SQL quoting would break the JavaScript.
+    // Text rules additionally exclude js regions and `${...}` interpolations: in both, a backtick
+    // opens a template literal and a double quote a JS string. Rewriting `${ref("x")}` to
+    // `${ref('x')}` happens to stay valid JavaScript, which is precisely why it is worth
+    // excluding deliberately rather than relying on luck — a name containing an apostrophe would
+    // not survive the same treatment.
     const textApplied: Array<{ line: number; note: string }> = [];
     const jsSpans = jsMode ? [{ start: 0, end: source.length }] : jsBlockSpans(source);
+    const templates = tokenize(source).filter(t => t.kind === "template");
     source = applyTextRules(
       source,
-      off => outsideConfig(off) && !jsSpans.some(s => off >= s.start && off < s.end),
+      off =>
+        outsideConfig(off) &&
+        !jsSpans.some(s => off >= s.start && off < s.end) &&
+        !templates.some(t => off >= t.start && off < t.end),
       textApplied,
     );
     for (const a of textApplied) {

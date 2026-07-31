@@ -1,7 +1,13 @@
 import * as fs from "fs-extra";
 import * as path from "path";
 
-import { findConfigBlock, parseSqlxConfig } from "sa/cli/api/commands/migrate_dataform";
+import {
+  findConfigBlock,
+  MigrationReport,
+  parseSqlxConfig,
+  renderReportMd,
+  TodoClass,
+} from "sa/cli/api/commands/migrate_dataform";
 import {
   isWord,
   matchBracket,
@@ -375,7 +381,68 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
   }
 
   result.files = [...touched].sort();
+  if (opts.write) updateMigrationReport(opts.projectDir, result);
   return result;
+}
+
+/**
+ * Fold this phase's outcome back into migration-report.{json,md}.
+ *
+ * The report is the handover document for the whole migration, not a record of what the converter
+ * did on one afternoon. Leaving it to describe phase one means it keeps listing work that has
+ * since been done and omits what replaced it — so whoever picks the project up, agent or person,
+ * is reading a stale list. Both classes this phase owns are rewritten from what actually remains.
+ */
+function updateMigrationReport(projectDir: string, result: MigrateFixResult): void {
+  const jsonPath = path.join(projectDir, "migration-report.json");
+  if (!fs.existsSync(jsonPath)) return; // not a converted project, or the report was moved
+  let report: MigrationReport;
+  try {
+    report = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+  } catch {
+    return; // a corrupt report is not worth failing the fix over
+  }
+  if (!Array.isArray(report.todo)) return;
+
+  const OWNED = new Set(["star-except", "group-by-all"]);
+  const remaining = new Map<string, TodoClass>();
+  for (const site of result.unresolved) {
+    const id = /GROUP BY ALL/i.test(site.reason) || /star expands/i.test(site.reason)
+      ? "group-by-all"
+      : "star-except";
+    const prior = report.todo.find(t => t.id === id);
+    const entry =
+      remaining.get(id) ??
+      ({
+        id,
+        title: prior?.title ?? id,
+        count: 0,
+        severity: prior?.severity ?? "blocks-compile",
+        // What is left is precisely what the tool could NOT decide, so it needs a person.
+        owner: "needs-decision",
+        postgres: prior?.postgres,
+        why: site.reason,
+        locations: [],
+      } as TodoClass);
+    entry.count++;
+    const loc = entry.locations.find(l => l.file === site.file);
+    if (loc) loc.lines.push(site.line);
+    else entry.locations.push({ file: site.file, lines: [site.line] });
+    remaining.set(id, entry);
+  }
+
+  report.todo = [...report.todo.filter(t => !OWNED.has(t.id)), ...remaining.values()];
+  const applied = (n: number, id: string, title: string) => {
+    if (!n) return;
+    const seen = report.applied.find(a => a.id === id);
+    if (seen) seen.count = n;
+    else report.applied.push({ id, title, count: n });
+  };
+  applied(result.expanded, "star-except", "SELECT * EXCEPT expanded (migrate-fix)");
+  applied(result.groupByAll, "group-by-all", "GROUP BY ALL rewritten as ordinals (migrate-fix)");
+
+  fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2));
+  fs.writeFileSync(path.join(projectDir, "migration-report.md"), renderReportMd(report));
 }
 
 /**

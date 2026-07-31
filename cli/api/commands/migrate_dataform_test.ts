@@ -603,5 +603,14 @@ SELECT 1`;
     // Same for a whole .js file (jsMode).
     const asJs = convertTarget('const q = `SELECT "a" FROM t`;\n', true).content;
     expect(asJs).to.contain('`SELECT "a" FROM t`');
+
+    // And inside a ${...} interpolation, which is JavaScript too. Rewriting ref("x") to ref('x')
+    // happens to stay valid JS — which is exactly why it must be excluded deliberately rather
+    // than by luck, since a name containing an apostrophe would not survive it.
+    const withRef = convertTarget(
+      'config { type: "view" }\n\nselect 1 from ${ref("orders")}\n',
+      false,
+    ).content;
+    expect(withRef).to.contain('${ref("orders")}');
   });
 });

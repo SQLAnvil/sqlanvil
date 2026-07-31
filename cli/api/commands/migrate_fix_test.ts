@@ -160,6 +160,76 @@ ${cols.map(c => `    ${c}: "text"`).join(",\n")}
     expect(read(dir, "definitions/s.sqlx")).to.contain("group by all");
   });
 
+  test("folds its outcome back into the migration report", async () => {
+    // The report is the handover document for the WHOLE migration. If it keeps describing what
+    // the converter saw, it lists work already done and omits what replaced it — so whoever
+    // picks the project up next is reading a stale list.
+    const dir = project({
+      "definitions/src/t.sqlx": declaration("t", ["a", "junk"]),
+      "definitions/ok.sqlx": 'config { type: "view" }\n\nselect * except (junk) from ${ref("t")}\n',
+      "definitions/stuck.sqlx":
+        'config { type: "view" }\n\nselect * except (nope) from ${ref("t")}\n',
+      "migration-report.json": JSON.stringify({
+        targetWarehouse: "supabase",
+        generator: "test",
+        sourceDir: "x",
+        sourceConfig: {},
+        inventory: { sqlxFiles: 3, jsFiles: 0, byType: {} },
+        connections: [],
+        overlappingSchemas: [],
+        files: [],
+        skippedForSafety: [],
+        warnings: [],
+        todo: [
+          {
+            id: "star-except",
+            title: "SELECT * EXCEPT (…)",
+            count: 2,
+            severity: "blocks-compile",
+            owner: "mechanical",
+            locations: [],
+          },
+          {
+            id: "qualify",
+            title: "QUALIFY clause",
+            count: 1,
+            severity: "blocks-compile",
+            owner: "mechanical",
+            locations: [],
+          },
+        ],
+        applied: [],
+      }),
+    });
+
+    await migrateFix({ projectDir: dir, write: true });
+    const report = JSON.parse(read(dir, "migration-report.json"));
+
+    // The class is rewritten from what ACTUALLY remains — one site, not the original two.
+    const star = report.todo.find((t: any) => t.id === "star-except");
+    expect(star.count).equals(1);
+    expect(star.locations[0].file).equals("definitions/stuck.sqlx");
+    // And what is left is by definition what the tool could not decide.
+    expect(star.owner).equals("needs-decision");
+
+    // Classes this phase does not own are untouched.
+    expect(report.todo.find((t: any) => t.id === "qualify").count).equals(1);
+
+    // The expansion it did do is auditable.
+    expect(report.applied.find((a: any) => a.id === "star-except").count).equals(1);
+    expect(read(dir, "migration-report.md")).to.contain("## What is left to do");
+  });
+
+  test("a project with no report is left alone", async () => {
+    const dir = project({
+      "definitions/src/t.sqlx": declaration("t", ["a", "junk"]),
+      "definitions/vw.sqlx": 'config { type: "view" }\n\nselect * except (junk) from ${ref("t")}\n',
+    });
+    const result = await migrateFix({ projectDir: dir, write: true });
+    expect(result.expanded).equals(1);
+    expect(fs.existsSync(path.join(dir, "migration-report.json"))).equals(false);
+  });
+
   test("dry run reports without touching the files", async () => {
     const dir = project({
       "definitions/src/t.sqlx": declaration("t", ["a", "junk"]),
