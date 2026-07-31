@@ -2,8 +2,12 @@ syntax = "proto3";
 
 package sqlanvil;
 
+// Restored after upstream #2104 dropped it: sqlanvil's ProjectConfig.connections is a
+// map<string, ConnectionConfig>, and ConnectionConfig lives in configs.proto. configs.proto
+// does not import core.proto, so this does not reintroduce the cycle #2104 was fixing.
 import "configs.proto";
 import "extension.proto";
+
 import "google/protobuf/struct.proto";
 
 option java_package = "com.sqlanvil.protos";
@@ -42,8 +46,15 @@ message ProjectConfig {
 
   string warehouse_connection = 24;
 
+  // Upstream #2220 assigns this field number 24, which sqlanvil already shipped as
+  // warehouse_connection (released in 1.x, and stored inside every compiled graph a Cloud
+  // pinned release replays). Renumbering ours would silently misread those; renumbering the
+  // incoming field costs only wire-compat with upstream, which is not a thing we have.
+  bool preserve_governance_controls = 25;
+
   reserved 3, 4, 6, 8, 10, 12, 13;
 }
+
 
 message CompileConfig {
   // Required.
@@ -55,7 +66,8 @@ message CompileConfig {
   // Project configuration overrides.
   ProjectConfig project_config_override = 3;
 
-  // Override compilation timeout settings.
+  // Override top-level compilation timeout (the single compile worker that
+  // runs once per invocation).
   int32 timeout_millis = 6;
 
   Extension extension = 10;
@@ -95,6 +107,8 @@ message BigQueryOptions {
   TableFormat table_format = 9;
   FileFormat file_format = 10;
   string storage_uri = 11;
+  repeated string incremental_predicates = 12;
+  bool preserve_governance_controls = 13;
 }
 
 message GraphErrors {
@@ -179,6 +193,18 @@ enum OnSchemaChange {
   SYNCHRONIZE = 3;
 }
 
+enum IncrementalStrategy {
+  // Strategy is unspecified. Defaults to MERGE if uniqueKey is configured,
+  // or APPEND otherwise.
+  INCREMENTAL_STRATEGY_UNSPECIFIED = 0;
+  // MERGE strategy. Matches rows based on uniqueKey to update existing row
+  // or insert new ones.
+  MERGE = 1;
+  // INSERT_OVERWRITE strategy. Overwrites entire partitions in the target
+  // table that are present in the new staging data.
+  INSERT_OVERWRITE = 2;
+}
+
 message Table {
   // For legacy compatability reasons, both incremental tables and views are
   // configured in compiled graphs via the Table proto.
@@ -214,6 +240,11 @@ message Table {
   repeated string incremental_post_ops = 29;
 
   string jit_code = 38;
+
+  // The incremental strategy to use when updating the incremental table.
+  // Upstream #2195 assigns 39, which sqlanvil already uses for `postgres` below — same
+  // collision and same reasoning as preserve_governance_controls in ProjectConfig.
+  IncrementalStrategy incremental_strategy = 42;
 
   // Warehouse specific features.
   BigQueryOptions bigquery = 22;

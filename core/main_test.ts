@@ -1804,6 +1804,7 @@ publish("name", {
                           incrementalPostOps: ["post_op"],
                           incrementalPreOps: ["pre_op"],
                           incrementalQuery: "SELECT 1",
+                          incrementalStrategy: "INCREMENTAL_STRATEGY_UNSPECIFIED",
                           protected: false,
                           onSchemaChange: "IGNORE"
                         }
@@ -1869,6 +1870,7 @@ publish("name", {
               ...(tableType === "incremental"
                 ? {
                     incrementalQuery: "SELECT * FROM `defaultProject.defaultDataset.operation`",
+                    incrementalStrategy: "INCREMENTAL_STRATEGY_UNSPECIFIED",
                     protected: false,
                     onSchemaChange: "IGNORE"
                   }
@@ -1918,6 +1920,7 @@ publish("name", {
                 incrementalQuery: "SELECT 1",
                 protected: true,
                 onSchemaChange: "IGNORE",
+                incrementalStrategy: "INCREMENTAL_STRATEGY_UNSPECIFIED",
               }
             ]);
           }); 
@@ -2782,6 +2785,75 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).equals(1);
       expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains("storing compilation error as requested!");
       expect(result.compile.compiledGraph.targets?.map(t => t.name)).deep.equals(["sample-action", "e", "file"]);
+    });
+    
+    test("preserveGovernanceControls propagates to compiled graph", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        VALID_WORKFLOW_SETTINGS_YAML
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/file.sqlx"),
+        `
+config {
+  type: "table",
+  preserveGovernanceControls: true
+}
+select 1 as a`
+      );
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      expect(result.compile.compiledGraph.tables[0].bigquery.preserveGovernanceControls).equals(true);
+    });
+
+    test("preserveGovernanceControls in workflow_settings.yaml propagates to compiled graph", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `
+defaultProject: "project"
+defaultDataset: "dataset"
+preserveGovernanceControls: true`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/file.sqlx"),
+        `
+config {
+  type: "table"
+}
+select 1 as a`
+      );
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      expect(result.compile.compiledGraph.tables[0].bigquery.preserveGovernanceControls).equals(true);
+    });
+
+    test("preserveGovernanceControls on table overrides workflow_settings.yaml", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `
+defaultProject: "project"
+defaultDataset: "dataset"
+preserveGovernanceControls: true`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/file.sqlx"),
+        `
+config {
+  type: "table",
+  partitionBy: "somePartition",
+  preserveGovernanceControls: false
+}
+select 1 as a`
+      );
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      expect(result.compile.compiledGraph.tables[0].bigquery.preserveGovernanceControls).equals(false);
     });
   });
 });

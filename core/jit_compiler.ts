@@ -73,7 +73,12 @@ function jitCompileAssertion(
   const jctx: JitContext<IActionContext> = new SqlActionJitContext(
     adapter, request,
   );
-  return mainBody(jctx).then(query => sqlanvil.JitAssertionResult.create({ query }));
+  // Upstream #2221: an assertion's main body may return either the bare query string or an
+  // already-shaped result object. Normalise both, then build the proto message as we always
+  // have — returning a plain object here would skip proto defaulting and validation.
+  return mainBody(jctx).then(result =>
+    sqlanvil.JitAssertionResult.create(typeof result === "string" ? { query: result } : result)
+  );
 }
 
 function jitCompileIncrementalTable(

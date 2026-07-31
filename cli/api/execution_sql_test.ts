@@ -87,6 +87,39 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
     expect(procedureSql).to.equal(expectedSql.trim());
   });
 
+  test("generates INSERT_OVERWRITE script for IGNORE strategy", () => {
+    const table = {
+      ...baseTable,
+      incrementalStrategy: sqlanvil.IncrementalStrategy.INSERT_OVERWRITE,
+      bigquery: {
+        partitionBy: "DATE(ts)",
+        incrementalPredicates: [
+          "DATAFORM_DEST.ts >= '2024-01-01'",
+          "DATAFORM_SOURCE.ts >= '2024-01-01'"
+        ]
+      }
+    };
+    const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
+    const sql = tasks.build().map(t => t.statement).join("\n;\n");
+    const expectedSql = fs.readFileSync("cli/api/goldens/insert_overwrite_ignore.sql", "utf8");
+    expect(sql).to.equal(expectedSql.trim());
+  });
+
+  test("generates INSERT_OVERWRITE script for EXTEND strategy", () => {
+    const table = {
+      ...baseTable,
+      incrementalStrategy: sqlanvil.IncrementalStrategy.INSERT_OVERWRITE,
+      onSchemaChange: sqlanvil.OnSchemaChange.EXTEND,
+      bigquery: {
+        partitionBy: "DATE(ts)"
+      }
+    };
+    const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
+    const sql = tasks.build().map(t => t.statement).join("\n;\n");
+    const expectedSql = fs.readFileSync("cli/api/goldens/insert_overwrite_extend.sql", "utf8");
+    expect(sql).to.equal(expectedSql.trim());
+  });
+
   test("validate: table stub wraps the query + LIMIT 0 (BigQuery)", () => {
     expect(
       executionSql.validationStubSql({

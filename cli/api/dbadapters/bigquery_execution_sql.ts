@@ -152,19 +152,7 @@ from (${query}) as insertions`;
           default:
             tasks.add(
               Task.statement(
-                table.uniqueKey && table.uniqueKey.length > 0
-                  ? this.mergeInto(
-                      table.target,
-                      tableMetadata?.fields.map(f => f.name),
-                      this.getIncrementalQuery(table),
-                      table.uniqueKey,
-                      table.bigquery && table.bigquery.updatePartitionFilter
-                    )
-                  : this.insertInto(
-                      table.target,
-                      tableMetadata?.fields.map(f => f.name).map(column => `\`${column}\``),
-                      this.getIncrementalQuery(table)
-                    )
+                this.getIncrementalDmlStatement(table, tableMetadata?.fields.map(f => f.name) || [])
               )
             );
             break;
@@ -480,20 +468,118 @@ DROP TABLE IF EXISTS ${emptyTempTableName};
       create or replace view ${this.resolveTarget(target)} as ${query}`;
   }
 
+  /**
+   * Which DML an incremental append runs, by strategy (upstream #2195).
+   *
+   * MERGE (and the unspecified default) is what sqlanvil has always done: match on uniqueKey, or
+   * plain INSERT when there is no key. INSERT_OVERWRITE replaces whole partitions instead — the
+   * right shape when a run recomputes a date range rather than upserting rows.
+   */
+  private getIncrementalDmlStatement(table: sqlanvil.ITable, columns: string[]): string {
+    const incrementalQuery = this.getIncrementalQuery(table);
+
+    switch (table.incrementalStrategy) {
+      case sqlanvil.IncrementalStrategy.INSERT_OVERWRITE:
+        return this.insertOverwrite(table.target, columns, incrementalQuery, table.bigquery);
+      case sqlanvil.IncrementalStrategy.MERGE:
+      default:
+        if (table.uniqueKey && table.uniqueKey.length > 0) {
+          return this.mergeInto(
+            table.target,
+            columns,
+            incrementalQuery,
+            table.uniqueKey,
+            table.bigquery
+          );
+        }
+        return this.insertInto(
+          table.target,
+          columns.map(column => `\`${column}\``),
+          incrementalQuery
+        );
+    }
+  }
+
+  private buildIncrementalPredicatesString(incrementalPredicates?: string[] | null): string {
+    const valid = incrementalPredicates?.filter(p => p.trim() !== "") ?? [];
+    if (valid.length === 0) {
+      return "";
+    }
+    return `and ${valid.map(p => `(${p})`).join(" and ")}`;
+  }
+
+  /**
+   * INSERT_OVERWRITE: stage the incremental query, then replace every partition the staged rows
+   * touch. `MERGE … ON FALSE` is the BigQuery idiom for it — nothing ever matches, so
+   * NOT MATCHED BY SOURCE deletes the destination rows in those partitions and NOT MATCHED BY
+   * TARGET inserts the staged ones, atomically.
+   *
+   * Requires `bigquery.partitionBy`; without a partition column there is nothing to scope the
+   * delete to and this would truncate the table. `incremental_table.ts` rejects that at compile
+   * time, so reaching here without one is a bug rather than a user error.
+   */
+  private insertOverwrite(
+    target: sqlanvil.ITarget,
+    columns: string[],
+    query: string,
+    bigquery?: sqlanvil.IBigQueryOptions
+  ): string {
+    const partitionBy = bigquery?.partitionBy;
+    const updatePartitionFilter = bigquery?.updatePartitionFilter;
+    const incrementalPredicatesString = this.buildIncrementalPredicatesString(
+      bigquery?.incrementalPredicates
+    );
+    const stagingTableUnqualified = `staging_table_temp_${this.uniqueIdGenerator()}`;
+    const backtickedColumns = columns.map(column => `\`${column}\``);
+
+    return `CREATE OR REPLACE TEMP TABLE \`${stagingTableUnqualified}\` AS (
+  ${query}
+);
+
+BEGIN
+  DECLARE partitions_for_replacement DEFAULT (
+    ARRAY(
+      SELECT DISTINCT ${partitionBy}
+      FROM \`${stagingTableUnqualified}\`
+      WHERE ${partitionBy} IS NOT NULL
+    )
+  );
+
+  MERGE ${this.resolveTarget(target)} T
+  USING \`${stagingTableUnqualified}\` S
+  ON FALSE
+  WHEN NOT MATCHED BY SOURCE AND ${partitionBy} IN UNNEST(partitions_for_replacement)${
+      updatePartitionFilter ? ` and T.${updatePartitionFilter}` : ""
+    }${incrementalPredicatesString ? ` ${incrementalPredicatesString}` : ""}
+  THEN
+    DELETE
+  WHEN NOT MATCHED BY TARGET THEN
+    INSERT (${backtickedColumns.join(",")}) VALUES (${backtickedColumns.join(",")});
+END;
+
+DROP TABLE IF EXISTS \`${stagingTableUnqualified}\`;`;
+  }
+
   private mergeInto(
     target: sqlanvil.ITarget,
     columns: string[],
     query: string,
     uniqueKey: string[],
-    updatePartitionFilter: string
+    bigquery?: sqlanvil.IBigQueryOptions
   ) {
+    const updatePartitionFilter = bigquery?.updatePartitionFilter;
+    const incrementalPredicatesString = this.buildIncrementalPredicatesString(
+      bigquery?.incrementalPredicates
+    );
     const backtickedColumns = columns.map(column => `\`${column}\``);
     return `
 merge ${this.resolveTarget(target)} T
 using (${query}
 ) S
 on ${uniqueKey.map(uniqueKeyCol => `T.${uniqueKeyCol} = S.${uniqueKeyCol}`).join(` and `)}
-  ${updatePartitionFilter ? `and T.${updatePartitionFilter}` : ""}
+  ${updatePartitionFilter ? `and T.${updatePartitionFilter}` : ""}${
+      incrementalPredicatesString ? `\n  ${incrementalPredicatesString}` : ""
+    }
 when matched then
   update set ${columns.map(column => `\`${column}\` = S.${column}`).join(",")}
 when not matched then

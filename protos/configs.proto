@@ -76,6 +76,11 @@ message WorkflowSettings {
 
   // Optional. Named environments (dev/staging/prod) selected with `--environment`.
   map<string, Environment> environments = 19;
+
+  // Optional. If set to true, governance controls (e.g. Data Policies) will be
+  // preserved on BigQuery tables. BigQuery only — no other warehouse has the concept.
+  // Upstream #2220 numbers this 18, which sqlanvil already uses for `connections`.
+  bool preserve_governance_controls = 20;
 }
 
 // A named environment (dev/staging/prod). Holds only NON-SECRET overrides plus a
@@ -343,6 +348,11 @@ message ActionConfig {
 
     // MySQL/MariaDB specific options (engine/charset/collation + indexes).
     MysqlOptions mysql = 27;
+
+    // Optional. If true, preserves existing BigQuery column governance controls
+    // (e.g. data policy) when recreating a table. Upstream #2220 numbers this 25,
+    // already taken here by `postgres`.
+    optional bool preserve_governance_controls = 28;
   }
 
   message Metadata {
@@ -456,6 +466,18 @@ message ActionConfig {
     SYNCHRONIZE = 3;
   }
 
+  enum IncrementalStrategy {
+    // Strategy is unspecified. Defaults to MERGE if uniqueKey is configured,
+    // or APPEND otherwise.
+    INCREMENTAL_STRATEGY_UNSPECIFIED = 0;
+    // MERGE strategy. Matches rows based on uniqueKey to update existing rows
+    // or insert new ones.
+    INCREMENTAL_STRATEGY_MERGE = 1;
+    // INSERT_OVERWRITE strategy. Overwrites entire partitions in the target
+    // table that are present in the new staging data.
+    INCREMENTAL_STRATEGY_INSERT_OVERWRITE = 2;
+  }
+
   message IncrementalTableConfig {
     // The name of the incremental table.
     string name = 1;
@@ -566,6 +588,13 @@ message ActionConfig {
 
     // MySQL/MariaDB specific options (engine/charset/collation + indexes).
     MysqlOptions mysql = 30;
+
+    // Optional. The incremental strategy to use when updating the table.
+    // Upstream #2195 numbers these 28/29, already taken here by `postgres`/`supabase`.
+    IncrementalStrategy incremental_strategy = 31;
+
+    // Array of SQL-based predicates for when incremental updates are applied.
+    repeated string incremental_predicates = 32;
   }
 
   message AssertionConfig {

@@ -202,6 +202,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
       partitionExpirationDays: config.partitionExpirationDays,
       requirePartitionFilter: config.requirePartitionFilter,
       additionalOptions: config.additionalOptions,
+      incrementalPredicates: config.incrementalPredicates,
       ...(config.iceberg ? {
         connection: getConnectionForIcebergTable(
           config.iceberg.connection,
@@ -228,6 +229,10 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     }
 
     this.proto.onSchemaChange = this.mapOnSchemaChange(config.onSchemaChange);
+    this.proto.incrementalStrategy = this.mapIncrementalStrategy(config.incrementalStrategy);
+
+    this.checkIncrementalStrategyRequirements(config);
+    this.checkMutuallyExclusivePredicates(config);
 
     if (config.reservation) {
       if (!this.proto.actionDescriptor) {
@@ -699,6 +704,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
             "partitionExpirationDays",
             "requirePartitionFilter",
             "additionalOptions",
+            "incrementalPredicates",
             "iceberg"
           ]),
           "BigQuery table config"
@@ -764,6 +770,96 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
         return sqlanvil.OnSchemaChange.SYNCHRONIZE;
       default:
         throw new Error(`OnSchemaChange value "${onSchemaChange}" is not supported`);
+    }
+  }
+
+  private mapIncrementalStrategy(
+    incrementalStrategy?: string | number
+  ): sqlanvil.IncrementalStrategy {
+    if (!incrementalStrategy) {
+      return sqlanvil.IncrementalStrategy.INCREMENTAL_STRATEGY_UNSPECIFIED;
+    }
+
+    if (typeof incrementalStrategy === "number") {
+      switch (incrementalStrategy) {
+        case sqlanvil.ActionConfig.IncrementalStrategy.INCREMENTAL_STRATEGY_UNSPECIFIED:
+          return sqlanvil.IncrementalStrategy.INCREMENTAL_STRATEGY_UNSPECIFIED;
+        case sqlanvil.ActionConfig.IncrementalStrategy.INCREMENTAL_STRATEGY_MERGE:
+          return sqlanvil.IncrementalStrategy.MERGE;
+        case sqlanvil.ActionConfig.IncrementalStrategy.INCREMENTAL_STRATEGY_INSERT_OVERWRITE:
+          return sqlanvil.IncrementalStrategy.INSERT_OVERWRITE;
+        default:
+          throw new Error(`IncrementalStrategy value "${incrementalStrategy}" is not supported`);
+      }
+    }
+
+    switch (incrementalStrategy.toString().toUpperCase()) {
+      case "INCREMENTAL_STRATEGY_UNSPECIFIED":
+        return sqlanvil.IncrementalStrategy.INCREMENTAL_STRATEGY_UNSPECIFIED;
+      case "MERGE":
+        return sqlanvil.IncrementalStrategy.MERGE;
+      case "INSERT_OVERWRITE":
+        return sqlanvil.IncrementalStrategy.INSERT_OVERWRITE;
+      default:
+        throw new Error(`IncrementalStrategy value "${incrementalStrategy}" is not supported`);
+    }
+  }
+
+  private checkIncrementalStrategyRequirements(config: sqlanvil.ActionConfig.IIncrementalTableConfig) {
+    switch (this.proto.incrementalStrategy) {
+      case sqlanvil.IncrementalStrategy.INSERT_OVERWRITE:
+        // Upstream's check asks for `bigquery.partitionBy`, which only makes sense on BigQuery.
+        // On the other warehouses that message would send the user to set a BigQuery-only option
+        // on a Postgres table; worse, saying nothing would accept the config and silently fall
+        // through to a MERGE, writing different data than asked for. Fail with the real reason.
+        if ((this.session.projectConfig.warehouse || "bigquery").toLowerCase() !== "bigquery") {
+          this.session.compileError(
+            new Error(
+              `IncrementalStrategy 'insert_overwrite' is currently BigQuery-only. On ` +
+                `${this.session.projectConfig.warehouse} use the default 'merge' strategy with a ` +
+                `uniqueKey, or delete the rows you are replacing in a pre_operations block.`
+            ),
+            config.filename,
+            this.proto.target
+          );
+          break;
+        }
+        if (!this.proto.bigquery || !this.proto.bigquery.partitionBy) {
+          this.session.compileError(
+            new Error(`IncrementalStrategy 'insert_overwrite' requires 'partitionBy' to be set`),
+            config.filename,
+            this.proto.target
+          );
+        }
+        break;
+      case sqlanvil.IncrementalStrategy.MERGE:
+        if (!this.proto.uniqueKey || this.proto.uniqueKey.length === 0) {
+          this.session.compileError(
+            new Error(`IncrementalStrategy 'merge' requires 'uniqueKey' to be set`),
+            config.filename,
+            this.proto.target
+          );
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  private checkMutuallyExclusivePredicates(config: sqlanvil.ActionConfig.IIncrementalTableConfig) {
+    if (
+      this.proto.bigquery &&
+      this.proto.bigquery.updatePartitionFilter &&
+      this.proto.bigquery.incrementalPredicates &&
+      this.proto.bigquery.incrementalPredicates.length > 0
+    ) {
+      this.session.compileError(
+        new Error(
+          `incrementalPredicates and updatePartitionFilter cannot be both set. Use only incrementalPredicates.`
+        ),
+        config.filename,
+        this.proto.target
+      );
     }
   }
 }

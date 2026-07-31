@@ -62,6 +62,8 @@ node_modules(
 ts_test_suite(
     name = "tests",
     srcs = [
+        "tasks_test.ts",
+        "utils_test.ts",
         "commands/artifact_rows_test.ts",
         "commands/artifacts_integration_test.ts",
         "commands/build_export_test.ts",
@@ -95,7 +97,6 @@ ts_test_suite(
         "dbadapters/duckdb_import_test.ts",
         "dbadapters/import_execution_sql_test.ts",
         "execution_sql_test.ts",
-        "utils_test.ts",
     ],
     data = [
         ":node_modules",
