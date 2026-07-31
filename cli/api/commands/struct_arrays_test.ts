@@ -1,6 +1,10 @@
 import { expect } from "chai";
 
-import { chooseStrategies, findStructArrays } from "sa/cli/api/commands/struct_arrays";
+import {
+  chooseStrategies,
+  findStructArrays,
+  suggestedSql,
+} from "sa/cli/api/commands/struct_arrays";
 import { suite, test } from "sa/testing";
 
 suite("struct_arrays", () => {
@@ -66,6 +70,32 @@ select decimals from \${ref("eav")}
     ]);
     expect(sites[0].strategy).equals("child-table");
     expect(sites[0].rationale).to.contain("child table");
+  });
+
+  test("the suggested SQL names the real columns, relation and join key", () => {
+    // Advice ("consider a child table") leaves the reader to work out the join key and field
+    // list, which is the part that takes the time. The construct already says both.
+    const [site] = findStructArrays("definitions/eav.sqlx", producer);
+    expect(site.correlation).deep.equals({ sourceColumn: "row_id", parentColumn: "row_id" });
+
+    const collapse = suggestedSql({
+      ...site,
+      strategy: "collapse",
+      rationale: "",
+      consumers: [{ file: "definitions/flat.sqlx", unnestOnly: true }],
+    });
+    expect(collapse).to.contain("max(value) filter (where key =");
+    expect(collapse).to.contain("raw_decimal");
+
+    const child = suggestedSql({
+      ...site,
+      strategy: "child-table",
+      rationale: "",
+      consumers: [{ file: "definitions/x.sqlx", unnestOnly: false }],
+    });
+    expect(child).to.contain("row_id as row_id");
+    expect(child).to.contain("key");
+    expect(child).to.contain("join");
   });
 
   test("an unread array is reported as droppable rather than ported", () => {

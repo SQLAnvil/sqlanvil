@@ -502,6 +502,10 @@ SELECT 1`;
     expect(sql("select EXTRACT(DAYOFWEEK FROM d) as dw"))
       .to.contain("(extract(dow from d) + 1)");
 
+    // After AS a double-quoted token is an ALIAS, not a string. Converting `x as "key"` to
+    // `x as 'key'` is not valid SQL anywhere, and quietly turns a column name into a literal.
+    expect(sql('select attribute_code as "key" from t')).to.contain('as "key"');
+
     // Not inside a string or a comment.
     expect(sql("select 'a `b` c' as lit")).to.contain("'a `b` c'");
     expect(sql("-- keep `this`\nselect 1")).to.contain("-- keep `this`");

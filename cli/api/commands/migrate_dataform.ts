@@ -4,6 +4,11 @@ import { dump as dumpYaml, load as loadYaml } from "js-yaml";
 
 import { agentsMdContents, claudeMdBridgeContents } from "sa/cli/api/commands/agents_md";
 import { tokenize } from "sa/cli/api/commands/sql_lex";
+import {
+  chooseStrategies,
+  findStructArrays,
+  suggestedSql,
+} from "sa/cli/api/commands/struct_arrays";
 import { version as sqlanvilVersion } from "sa/core/version";
 
 /**
@@ -88,6 +93,11 @@ export interface TodoClass {
   postgres?: string;
   /** Why it is not automatic — the reasoning a person needs to make the call. */
   why?: string;
+  /**
+   * Concrete SQL to write, per site, when the construct is specific enough to generate it.
+   * Advice leaves the reader to work out the join key and field list; that is the slow part.
+   */
+  sql?: Array<{ file: string; line: number; note: string; sql: string }>;
   locations: Array<{ file: string; lines: number[] }>;
 }
 
@@ -421,6 +431,50 @@ const CLASS_META: {
  * not; and within a severity, the biggest class is where the leverage is — that is the ordering
  * that turns an unbounded slog into a plan.
  */
+/**
+ * Replace the generic STRUCT flag with a per-site recommendation and the SQL to write.
+ *
+ * Runs over the CONVERTED project rather than per file, because the strategy depends on who reads
+ * the column — which is a whole-project question and the reason the flag could never answer it.
+ */
+function analyseStructArrays(report: MigrationReport, outDir: string): void {
+  const files = report.files
+    .filter(f => f.file.endsWith(".sqlx"))
+    .map(f => {
+      try {
+        return { file: f.file, source: fs.readFileSync(path.join(outDir, f.file), "utf8") };
+      } catch {
+        return null;
+      }
+    })
+    .filter((f): f is { file: string; source: string } => f !== null);
+
+  const raw = files.flatMap(f => findStructArrays(f.file, f.source));
+  if (!raw.length) return;
+  const sites = chooseStrategies(raw, files);
+
+  // The generic flag is replaced: it said "consider jsonb or a composite type" for every site,
+  // which is the same sentence whether the array is dead weight or load-bearing.
+  report.todo = report.todo.filter(t => t.id !== "struct");
+  const meta = CLASS_META.struct;
+  report.todo.push({
+    id: "struct",
+    title: meta.title,
+    count: sites.length,
+    severity: meta.severity,
+    owner: meta.owner,
+    postgres: "per site below — collapse, a child table, or jsonb",
+    why: meta.why,
+    sql: sites.map(s => ({
+      file: s.file,
+      line: s.line,
+      note: `${s.strategy} — ${s.rationale}`,
+      sql: suggestedSql(s),
+    })),
+    locations: sites.map(s => ({ file: s.file, lines: [s.line] })),
+  });
+}
+
 export function buildTriage(report: MigrationReport): void {
   const todo = new Map<string, TodoClass>();
   const applied = new Map<string, { id: string; title: string; count: number }>();
@@ -998,8 +1052,14 @@ function applyTextRules(
   result = rewrite(
     result,
     maskSql(result, true),
-    /"([^"\n]*)"/g,
-    m => (m[1].includes("${") || m[1].includes("'") ? null : `'${m[1]}'`),
+    /(\bas\s+)?"([^"\n]*)"/gi,
+    m => {
+      // After AS the token is an ALIAS, not a string — `x as "key"` names a column. Converting
+      // it to `x as 'key'` is not valid SQL anywhere, and quietly turns a column name into a
+      // string literal in the one place a reader is least likely to look.
+      if (m[1]) return null;
+      return m[2].includes("${") || m[2].includes("'") ? null : `'${m[2]}'`;
+    },
     'BigQuery "string" → \'string\' (double quotes are identifiers in PostgreSQL)',
   );
 
@@ -1702,6 +1762,9 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
   }
 
   buildTriage(report);
+  // After buildTriage: it rebuilds report.todo from the findings, so an entry pushed before
+  // it would be discarded.
+  analyseStructArrays(report, outDir);
 
   writer.write("migration-report.json", JSON.stringify(report, null, 2));
   writer.write("migration-report.md", renderReportMd(report));
@@ -1818,6 +1881,14 @@ export function renderReportMd(r: MigrationReport): string {
         }
         if (t.locations.length > shown.length) {
           lines.push(`      - …and ${t.locations.length - shown.length} more file(s)`);
+        }
+        for (const s of t.sql ?? []) {
+          lines.push("");
+          lines.push(`      \`${s.file}\` L${s.line} — ${s.note}`);
+          lines.push("");
+          lines.push("      ```sql");
+          for (const l of s.sql.split("\n")) lines.push(`      ${l}`);
+          lines.push("      ```");
         }
       }
     };
