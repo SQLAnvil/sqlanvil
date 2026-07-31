@@ -32,7 +32,7 @@ below before authoring a `warehouse: mysql` project.
 warehouse: postgres            # flat string ("postgres" or "supabase") — NOT nested
 defaultDataset: public         # the Postgres SCHEMA
 defaultAssertionDataset: sqlanvil_assertions
-sqlanvilCoreVersion: 1.28.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
+sqlanvilCoreVersion: 1.29.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
 vars:
   someVar: value
 ```
@@ -137,6 +137,11 @@ CALL marts.recalc()
 - `assertions: { uniqueKey: ["id"] }` = generates a uniqueness **assertion**. A quality check.
 
 Independent; can coexist.
+
+**`incrementalStrategy` (≥1.29) is BigQuery-only.** `"insert_overwrite"` replaces whole partitions
+instead of upserting rows, and needs `bigquery: { partitionBy }`. On postgres/supabase/mysql it is a
+**compile error** — don't reach for it there; use the default merge with a `uniqueKey`, or delete the
+rows you are replacing in a `pre_operations` block.
 
 ### 9. Primary/foreign keys / one-time DDL on incrementals → wrap in `when(!incremental())`
 An **unwrapped** `pre_operations`/`post_operations` block runs on **every** run of an incremental —
