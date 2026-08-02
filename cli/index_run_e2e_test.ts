@@ -27,7 +27,7 @@ suite("run e2e", ({ afterEach }) => {
 
     // Initialize a project using the CLI, don't install packages.
     await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION])
+      execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION, "--warehouse", "bigquery", "--bare"])
     );
 
     // Install packages manually to get around bazel read-only sandbox issues.
@@ -199,7 +199,7 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
       const packageJsonPath = path.join(projectDir, "package.json");
 
       await getProcessResult(
-        execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION])
+        execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION, "--warehouse", "bigquery", "--bare"])
       );
 
       const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
@@ -399,7 +399,7 @@ SELECT 1 as id
       const packageJsonPath = path.join(projectDir, "package.json");
 
       await getProcessResult(
-        execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION])
+        execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION, "--warehouse", "bigquery", "--bare"])
       );
 
       // Remove sqlanvilCoreVersion so we can use the local package.
@@ -498,7 +498,7 @@ SELECT 1 as id
 
     // Initialize a project using the CLI, don't install packages.
     await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION])
+      execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION, "--warehouse", "bigquery", "--bare"])
     );
 
     // Install packages manually to get around bazel read-only sandbox issues.
@@ -575,7 +575,7 @@ select 1
 
     // Initialize a project using the CLI, don't install packages.
     await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION])
+      execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION, "--warehouse", "bigquery", "--bare"])
     );
 
     // Install packages manually to get around bazel read-only sandbox issues.
@@ -657,7 +657,7 @@ select 2
       const packageJsonPath = path.join(projectDir, "package.json");
 
       await getProcessResult(
-        execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION])
+        execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION, "--warehouse", "bigquery", "--bare"])
       );
 
       const workflowSettings = sqlanvil.WorkflowSettings.create(
