@@ -42,6 +42,13 @@ export function prune(
     ),
     scripts: (compiledGraph.scripts || []).filter(action =>
       includedActionNames.has(targetAsReadableString(action.target))
+    ),
+    // `targets` is declarative output — nothing downstream reads it — but `compile` prints it, so
+    // leaving it whole made `compile --actions x --json` emit a filtered action list beside a full
+    // target list, describing a graph that was never produced. Upstream fixed the same omission in
+    // dataform 3.0.63 (#2212); this is that fix, written against our own action set.
+    targets: (compiledGraph.targets || []).filter(target =>
+      includedActionNames.has(targetAsReadableString(target))
     )
   };
 }
