@@ -308,6 +308,28 @@ export function validateNoMixedCompilationMode(
   }
 }
 
+// sqlanvil has no run-time JiT compiler. The authoring surface (.jitCode() on table/view/
+// incremental/operation/assertion, and jitData()) came in with upstream syncs (#2109/#2170/
+// #2182), but the runtime that executes it — upstream #2211, released in dataform 3.0.64 —
+// was deliberately not merged: its Runner rewrite drops the per-action `withClientLock`
+// lease, which is a no-op for BigQuery's stateless REST client but would demote our postgres
+// and mysql adapters from one pooled connection per action to one per statement, silently
+// breaking temp tables, session GUCs, and transactions spanning pre_operations -> main ->
+// post_operations. See the 3.0.64 note in version.bzl for the full rationale.
+//
+// Until a JiT runtime is written against the leased-connection model, reject JiT at compile
+// time. The alternative is worse: build.ts never copies jitCode onto the ExecutionAction and
+// run.ts has no JiT path, so a JiT action would compile clean and then quietly do nothing.
+// Throwing (rather than only recording) matters — Session.compile() catches per action,
+// attributes the error to the right file/target, and drops the action from the graph.
+export function rejectJitCompilation(feature: string): never {
+  throw new Error(
+    `${feature} is not supported by sqlanvil: there is no run-time JiT compiler, so a JiT ` +
+      `action would compile successfully and then never execute. Generate the SQL at ` +
+      `compile time instead — use .query() (or a type: "operations" action).`
+  );
+}
+
 /**
  * Checks if the Cloud Resource connection has a valid format.
  * @param connection String to be validated.

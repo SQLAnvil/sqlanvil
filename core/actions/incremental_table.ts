@@ -31,6 +31,7 @@ import {
   resolveActionsConfigFilename,
   strictKeysOf,
   toResolvable,
+  rejectJitCompilation,
   validateConnectionFormat,
   validateNoMixedCompilationMode,
   validateQueryString,
@@ -593,6 +594,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
   }
 
   private compileJit() {
+    rejectJitCompilation("Incremental table .jitCode()");
     validateNoMixedCompilationMode(
       this.session,
       this.getFileName(),

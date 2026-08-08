@@ -2143,7 +2143,10 @@ assert("name", {
         ]);
       });
 
-      test("jitCode correctly populates the jitCode field", () => {
+      // sqlanvil has no run-time JiT compiler (upstream #2211 was deliberately not merged —
+      // see the 3.0.64 note in version.bzl), so .jitCode() must fail loudly at compile time
+      // rather than produce an assertion that compiles clean and then never executes.
+      test("jitCode is rejected at compile time", () => {
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
@@ -2158,26 +2161,13 @@ assert("name").jitCode(ctx => "jit");`
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
-        expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-        expect(asPlainObject(result.compile.compiledGraph.assertions)).deep.equals([
-          {
-            actionDescriptor: {
-              compilationMode: "ACTION_COMPILATION_MODE_JIT"
-            },
-            canonicalTarget: {
-              database: "defaultProject",
-              name: "name",
-              schema: "defaultDataset"
-            },
-            fileName: "definitions/assert.js",
-            jitCode: 'ctx => "jit"',
-            target: {
-              database: "defaultProject",
-              name: "name",
-              schema: "defaultDataset"
-            }
-          }
-        ]);
+        expect(
+          result.compile.compiledGraph.graphErrors.compilationErrors.some(e =>
+            e.message.includes("Assertion .jitCode() is not supported by sqlanvil")
+          )
+        ).equals(true);
+        // The rejected action must not survive into the graph.
+        expect(asPlainObject(result.compile.compiledGraph.assertions)).deep.equals([]);
       });
 
       test("fails when both jitCode and query are set on an assertion", () => {
@@ -2260,8 +2250,11 @@ assert("name", {
       });
     });
 
+    // jitData() only ever feeds the JiT compilation context, and sqlanvil has no JiT runtime
+    // to consume it (upstream #2211 was deliberately not merged — see the 3.0.64 note in
+    // version.bzl), so it is rejected at compile time alongside .jitCode().
     suite("jitData", () => {
-      test("jitData is added to the compiled graph", () => {
+      test("jitData is rejected at compile time", () => {
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
@@ -2271,103 +2264,17 @@ assert("name", {
         fs.writeFileSync(
           path.join(projectDir, "definitions/jit.js"),
           `
-sqlanvil.jitData("key", {
-  "number": 123,
-  "string": "value",
-  "boolean": true,
-  "struct": {
-    "nestedKey": "nestedValue"
-  },
-  "list": [
-    "a",
-    "b",
-    "c"
-  ],
-  "null": null,
-  "undef": undefined,
-});`
-        );
-        const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
-
-        expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-        expect(result.compile.compiledGraph.jitData).to.deep.equal(
-          google.protobuf.Struct.create({
-            fields: {
-              key: google.protobuf.Value.create({
-                structValue: google.protobuf.Struct.create({
-                  fields: {
-                    number: google.protobuf.Value.create({ numberValue: 123 }),
-                    string: google.protobuf.Value.create({ stringValue: "value" }),
-                    boolean: google.protobuf.Value.create({ boolValue: true }),
-                    struct: google.protobuf.Value.create({
-                      structValue: google.protobuf.Struct.create({
-                        fields: {
-                          nestedKey: google.protobuf.Value.create({ stringValue: "nestedValue" })
-                        }
-                      })
-                    }),
-                    list: google.protobuf.Value.create({
-                      listValue: google.protobuf.ListValue.create({
-                        values: [
-                          google.protobuf.Value.create({ stringValue: "a" }),
-                          google.protobuf.Value.create({ stringValue: "b" }),
-                          google.protobuf.Value.create({ stringValue: "c" })
-                        ]
-                      })
-                    }),
-                    null: google.protobuf.Value.create({
-                      nullValue: google.protobuf.NullValue.NULL_VALUE
-                    }),
-                    undef: google.protobuf.Value.create({
-                      nullValue: google.protobuf.NullValue.NULL_VALUE
-                    }),
-                  }
-                })
-              })
-            }
-          })
-        );
-      });
-
-      test("jitData with duplicate key throws error", () => {
-        const projectDir = tmpDirFixture.createNewTmpDir();
-        fs.writeFileSync(
-          path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
-        );
-        fs.mkdirSync(path.join(projectDir, "definitions"));
-        fs.writeFileSync(
-          path.join(projectDir, "definitions/jit.js"),
-          `
-sqlanvil.jitData("key", 1);
-sqlanvil.jitData("key", 2);
-`
+sqlanvil.jitData("key", {"number": 123});`
         );
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
         expect(
-          result.compile.compiledGraph.graphErrors.compilationErrors.map(e => e.message)
-        ).to.deep.equal(["JiT context data with key key already exists."]);
-      });
-
-      test("jitData with unsupported type throws error", () => {
-        const projectDir = tmpDirFixture.createNewTmpDir();
-        fs.writeFileSync(
-          path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
-        );
-        fs.mkdirSync(path.join(projectDir, "definitions"));
-        fs.writeFileSync(
-          path.join(projectDir, "definitions/jit.js"),
-          `
-sqlanvil.jitData("key", {test: () => {}});
-`
-        );
-        const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
-
-        expect(
-          result.compile.compiledGraph.graphErrors.compilationErrors.map(e => e.message)
-        ).to.deep.equal(["Unsupported value: () => {}"]);
+          result.compile.compiledGraph.graphErrors.compilationErrors.some(e =>
+            e.message.includes("jitData() is not supported by sqlanvil")
+          )
+        ).equals(true);
+        // Nothing may reach the compiled graph's jit context.
+        expect(result.compile.compiledGraph.jitData?.fields ?? {}).to.deep.equal({});
       });
     });
     suite("markdown in description", () => {

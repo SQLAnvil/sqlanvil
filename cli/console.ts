@@ -578,13 +578,22 @@ function printExecutedActionErrors(
   executedAction: sqlanvil.IActionResult,
   executionAction: sqlanvil.IExecutionAction
 ) {
-  const failingTasks = executedAction.tasks.filter(
-    task => task.status === sqlanvil.TaskResult.ExecutionStatus.FAILED
-  );
-  failingTasks.forEach((task, i) => {
-    executionAction.tasks[i].statement.split("\n").forEach(line => {
-      writeStdErr(`${DEFAULT_PROMPT}${line}`, 1);
-    });
+  // executedAction.tasks is positionally aligned with executionAction.tasks (run.ts pushes
+  // exactly one result per planned task, in order), so a failing task's statement must be
+  // looked up by its true index. Filtering first and then indexing by the *filtered*
+  // position printed the wrong SQL whenever an earlier task succeeded — a failure in the
+  // main statement after a passing pre_operation reported the pre_operation's SQL — and
+  // threw on `.statement` of undefined once more tasks failed than the plan had entries.
+  executedAction.tasks.forEach((task, i) => {
+    if (task.status !== sqlanvil.TaskResult.ExecutionStatus.FAILED) {
+      return;
+    }
+    const statement = executionAction.tasks[i]?.statement;
+    if (statement) {
+      statement.split("\n").forEach(line => {
+        writeStdErr(`${DEFAULT_PROMPT}${line}`, 1);
+      });
+    }
     printError(task.errorMessage, 1);
   });
 }

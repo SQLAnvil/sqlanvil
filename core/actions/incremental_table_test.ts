@@ -962,8 +962,11 @@ select \${incremental()} as is_incremental`
     expect(compiledTable.target.database).equals("");
   });
 
+  // sqlanvil has no run-time JiT compiler (upstream #2211 was deliberately not merged — see
+  // the 3.0.64 note in version.bzl), so .jitCode() must fail loudly at compile time rather
+  // than produce an action that compiles clean and then silently never executes.
   suite("jit compilation", () => {
-    test("jit compilation is supported", () => {
+    test("jitCode is rejected at compile time", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), VALID_WORKFLOW_SETTINGS_YAML);
       fs.mkdirSync(path.join(projectDir, "definitions"));
@@ -974,36 +977,16 @@ select \${incremental()} as is_incremental`
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
-      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-      expect(asPlainObject(result.compile.compiledGraph.tables)).deep.equals([
-        {
-          target: {
-            database: "defaultProject",
-            schema: "defaultDataset",
-            name: "incremental"
-          },
-          canonicalTarget: {
-            database: "defaultProject",
-            schema: "defaultDataset",
-            name: "incremental"
-          },
-          type: "incremental",
-          enumType: "INCREMENTAL",
-          disabled: false,
-          protected: false,
-          hermeticity: "NON_HERMETIC",
-          onSchemaChange: "IGNORE",
-          fileName: "definitions/incremental.js",
-          incrementalStrategy: "INCREMENTAL_STRATEGY_UNSPECIFIED",
-          jitCode: '(ctx) => Promise.resolve({query: "select 1", incrementalQuery: "select 1"})',
-          actionDescriptor: {
-            compilationMode: "ACTION_COMPILATION_MODE_JIT"
-          }
-        }
-      ]);
+      expect(
+        result.compile.compiledGraph.graphErrors.compilationErrors.some(e =>
+          e.message.includes("Incremental table .jitCode() is not supported by sqlanvil")
+        )
+      ).equals(true);
+      // The rejected action must not survive into the graph.
+      expect(asPlainObject(result.compile.compiledGraph.tables)).deep.equals([]);
     });
 
-    test("jit compilation fails if query is also provided", () => {
+    test("jitCode is rejected even when a query is also provided", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), VALID_WORKFLOW_SETTINGS_YAML);
       fs.mkdirSync(path.join(projectDir, "definitions"));
@@ -1014,8 +997,11 @@ select \${incremental()} as is_incremental`
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
-      expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).greaterThan(0);
-      expect(result.compile.compiledGraph.graphErrors.compilationErrors.some(e => e.message.includes("Cannot mix AoT and JiT compilation"))).equals(true);
+      expect(
+        result.compile.compiledGraph.graphErrors.compilationErrors.some(e =>
+          e.message.includes("Incremental table .jitCode() is not supported by sqlanvil")
+        )
+      ).equals(true);
     });
 
     test("mysql action config can be parsed and compiled", () => {

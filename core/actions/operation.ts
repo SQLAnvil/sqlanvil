@@ -11,6 +11,7 @@ import {
   nativeRequire,
   resolvableAsActionConfigTarget,
   resolvableAsTarget,
+  rejectJitCompilation,
   resolveActionsConfigFilename,
   toResolvable
 } from "sa/core/utils";
@@ -379,6 +380,7 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
   }
 
   private compileJit() {
+    rejectJitCompilation("Operation .jitCode()");
     if (!!this.contextableQueries) {
       const err = new Error(`Cannot mix AoT and JiT compilation in action: ${this.contextableQueries}`);
       this.session.compileError(err, this.getFileName());

@@ -714,6 +714,10 @@ export class Session {
   }
 
   public jitData(key: string, data: unknown): void {
+    // Rejected for the same reason as .jitCode() — jitData() only ever feeds the JiT
+    // compilation context, and sqlanvil has no JiT runtime to consume it. See
+    // rejectJitCompilation in core/utils.ts and the 3.0.64 note in version.bzl.
+    utils.rejectJitCompilation("jitData()");
 
     if (this.jitContextData.fields[key] !== undefined) {
       throw new Error(`JiT context data with key ${key} already exists.`);

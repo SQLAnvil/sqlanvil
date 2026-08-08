@@ -32,7 +32,7 @@ below before authoring a `warehouse: mysql` project.
 warehouse: postgres            # flat string ("postgres" or "supabase") — NOT nested
 defaultDataset: public         # the Postgres SCHEMA
 defaultAssertionDataset: sqlanvil_assertions
-sqlanvilCoreVersion: 1.29.1    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
+sqlanvilCoreVersion: 1.30.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
 vars:
   someVar: value
 ```
@@ -142,6 +142,10 @@ Independent; can coexist.
 instead of upserting rows, and needs `bigquery: { partitionBy }`. On postgres/supabase/mysql it is a
 **compile error** — don't reach for it there; use the default merge with a `uniqueKey`, or delete the
 rows you are replacing in a `pre_operations` block.
+
+**`.jitCode()` / `jitData()` are compile errors (≥1.30).** Dataform's just-in-time compilation has no
+runtime in sqlanvil, so these are rejected rather than accepted and never executed (which is what
+happened before 1.30). Generate SQL at compile time — `.query()`, or a `type: "operations"` action.
 
 ### 9. Primary/foreign keys / one-time DDL on incrementals → wrap in `when(!incremental())`
 An **unwrapped** `pre_operations`/`post_operations` block runs on **every** run of an incremental —

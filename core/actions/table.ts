@@ -36,6 +36,7 @@ import {
   strictKeysOf,
   toResolvable,
   validateConnectionFormat,
+  rejectJitCompilation,
   validateNoMixedCompilationMode,
   validateQueryString,
   validateStorageUriFormat,
@@ -558,6 +559,7 @@ export class Table extends ActionBuilder<sqlanvil.Table> {
   }
 
   private compileJit() {
+    rejectJitCompilation("Table .jitCode()");
     validateNoMixedCompilationMode(
       this.session,
       this.getFileName(),

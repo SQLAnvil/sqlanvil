@@ -23,6 +23,7 @@ import {
   resolveActionsConfigFilename,
   strictKeysOf,
   toResolvable,
+  rejectJitCompilation,
   validateNoMixedCompilationMode,
   validateQueryString,
 } from "sa/core/utils";
@@ -555,6 +556,7 @@ export class View extends ActionBuilder<sqlanvil.Table> {
   }
 
   private compileJit() {
+    rejectJitCompilation("View .jitCode()");
     validateNoMixedCompilationMode(
       this.session,
       this.getFileName(),

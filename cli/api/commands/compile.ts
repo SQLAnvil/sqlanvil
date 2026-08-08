@@ -94,7 +94,14 @@ export async function compile(
   compiledGraph = sqlanvil.CompiledGraph.create(decodedResult.compile.compiledGraph);
 
   if (workflowSettingsSqlanvilCoreVersion) {
-    fs.rmSync(temporaryProjectPath, { recursive: true });
+    // fs-extra's removeSync, not node's fs.rmSync. Node's recursive rm goes through its
+    // internal rimraf, which hands a Buffer path to readdirSync; the rules_nodejs 3.8.0
+    // node_patches shim that `bazel run` injects only handles strings, so every
+    // `./scripts/run compile` of a project pinning sqlanvilCoreVersion died on cleanup.
+    // fs-extra@9 uses its own vendored rimraf and passes strings throughout. The published
+    // bundle never loads node_patches, so this was dev-only — but there is no reason to
+    // depend on node's rimraf here.
+    fs.removeSync(temporaryProjectPath);
   }
 
   return compiledGraph;

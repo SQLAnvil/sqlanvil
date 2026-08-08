@@ -306,8 +306,11 @@ ${exampleBuiltInAssertionsAsYaml.inputActionConfigBlock}
     );
   });
 
+  // sqlanvil has no run-time JiT compiler (upstream #2211 was deliberately not merged — see
+  // the 3.0.64 note in version.bzl), so .jitCode() must fail loudly at compile time rather
+  // than produce an action that compiles clean and then silently never executes.
   suite("jit compilation", () => {
-    test("jit compilation is supported", () => {
+    test("jitCode is rejected at compile time", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), VALID_WORKFLOW_SETTINGS_YAML);
       fs.mkdirSync(path.join(projectDir, "definitions"));
@@ -324,75 +327,16 @@ ${exampleBuiltInAssertionsAsYaml.inputActionConfigBlock}
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
-      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-      expect(asPlainObject(result.compile.compiledGraph.tables)).deep.equals([
-        {
-          target: {
-            database: "defaultProject",
-            schema: "defaultDataset",
-            name: "viewF"
-          },
-          canonicalTarget: {
-            database: "defaultProject",
-            schema: "defaultDataset",
-            name: "viewF"
-          },
-          type: "view",
-          enumType: "VIEW",
-          disabled: false,
-          hermeticity: "NON_HERMETIC",
-          fileName: "definitions/view.js",
-          jitCode: 'function jitF(jctx) {\n          return Promise.resolve(\"select 1\");\n        }',
-          actionDescriptor: {
-            compilationMode: "ACTION_COMPILATION_MODE_JIT"
-          }
-        },
-        {
-          target: {
-            database: "defaultProject",
-            schema: "defaultDataset",
-            name: "viewArrow"
-          },
-          canonicalTarget: {
-            database: "defaultProject",
-            schema: "defaultDataset",
-            name: "viewArrow"
-          },
-          type: "view",
-          enumType: "VIEW",
-          disabled: false,
-          hermeticity: "NON_HERMETIC",
-          fileName: "definitions/view.js",
-          jitCode: '(jctx) => Promise.resolve(\"select 1\")',
-          actionDescriptor: {
-            compilationMode: "ACTION_COMPILATION_MODE_JIT"
-          }
-        },
-        {
-          target: {
-            database: "defaultProject",
-            schema: "defaultDataset",
-            name: "viewStr"
-          },
-          canonicalTarget: {
-            database: "defaultProject",
-            schema: "defaultDataset",
-            name: "viewStr"
-          },
-          type: "view",
-          enumType: "VIEW",
-          disabled: false,
-          hermeticity: "NON_HERMETIC",
-          fileName: "definitions/view.js",
-          jitCode: '(jctx) => Promise.resolve(\"select 1\")',
-          actionDescriptor: {
-            compilationMode: "ACTION_COMPILATION_MODE_JIT"
-          }
-        }
-      ]);
+      // Every JiT form — named function, arrow, and string — is rejected alike, and none
+      // of the three actions survives into the graph.
+      const jitErrors = result.compile.compiledGraph.graphErrors.compilationErrors.filter(e =>
+        e.message.includes("View .jitCode() is not supported by sqlanvil")
+      );
+      expect(jitErrors.length).equals(3);
+      expect(asPlainObject(result.compile.compiledGraph.tables)).deep.equals([]);
     });
 
-    test("jit compilation fails if query is also provided", () => {
+    test("jitCode is rejected even when a query is also provided", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), VALID_WORKFLOW_SETTINGS_YAML);
       fs.mkdirSync(path.join(projectDir, "definitions"));
@@ -403,8 +347,11 @@ ${exampleBuiltInAssertionsAsYaml.inputActionConfigBlock}
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
-      expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).greaterThan(0);
-      expect(result.compile.compiledGraph.graphErrors.compilationErrors.some(e => e.message.includes("Cannot mix AoT and JiT compilation"))).equals(true);
+      expect(
+        result.compile.compiledGraph.graphErrors.compilationErrors.some(e =>
+          e.message.includes("View .jitCode() is not supported by sqlanvil")
+        )
+      ).equals(true);
     });
 
     test("materialized view postgres options (refreshPolicy, noData) compile through view config", () => {

@@ -9,6 +9,7 @@ import {
   nativeRequire,
   resolvableAsActionConfigTarget,
   resolvableAsTarget,
+  rejectJitCompilation,
   resolveActionsConfigFilename,
   toResolvable,
   validateQueryString
@@ -326,10 +327,7 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
     }
 
     if (this.contextableJitCode) {
-      if (!this.proto.actionDescriptor) {
-        this.proto.actionDescriptor = {};
-      }
-      this.proto.jitCode = this.contextableJitCode.toString();
+      rejectJitCompilation("Assertion .jitCode()");
     } else {
       this.proto.query = context.apply(this.contextableQuery);
       validateQueryString(this.session, this.proto.query, this.proto.fileName);
