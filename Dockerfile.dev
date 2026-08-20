@@ -1,8 +1,12 @@
-# Dev container for building sqlanvil on Linux.
+# Dev container for building sqlanvil on Linux. FALLBACK — native Bazel is the
+# primary path on macOS and Linux alike (see CLAUDE.md); nothing routine uses this.
 #
-# Why: the pinned Bazel 5.4 + 2022-era rules_proto/protobuf chain does not
-# build on macOS Tahoe (wrapped_clang missing LC_UUID, Apple SDK header
-# conflicts with old protobuf). On Linux those issues don't apply.
+# Why it's kept: a hermetic Linux toolchain for reproducibility, and insurance for
+# the next time a macOS/CLT update breaks the native build (it happened once — the
+# Bazel 5.4-era wrapped_clang/LC_UUID breakage, since resolved). scripts/docker-bazel
+# wraps it; the release runbook (docs repo, npm_publishing.md) documents it as the
+# fallback build path. The image installs Bazelisk, which reads .bazelversion, so it
+# tracks Bazel upgrades without edits here.
 #
 # Build the image once:
 #   docker build -f Dockerfile.dev -t sqlanvil-dev .
