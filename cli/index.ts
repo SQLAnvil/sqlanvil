@@ -156,6 +156,7 @@ interface FormatArgv {
   "project-dir": string;
   actions?: string[];
   check: boolean;
+  "ignore-js-files": boolean;
 }
 
 interface IntrospectArgv {
@@ -416,6 +417,7 @@ const verboseOptionName = "verbose";
 const dryRunOptionName = "dry-run";
 const runTestsOptionName = "run-tests";
 const checkOptionName = "check";
+const ignoreJsFilesOptionName = "ignore-js-files";
 
 const actionRetryLimitName = "action-retry-limit";
 
@@ -1396,10 +1398,16 @@ export function runCli() {
             describe: "Check if files are formatted correctly without modifying them.",
             type: "boolean",
             default: false
+          }),
+          option(ignoreJsFilesOptionName, {
+            describe: "If set, the formatter will not consider javascript files (.js).",
+            type: "boolean",
+            default: false
           })
         ],
         processFn: async (argv: FormatArgv) => {
-          let actions = ["{definitions,includes}/**/*.{js,sqlx}"];
+          const extensions = argv[ignoreJsFilesOptionName] ? "*.sqlx" : "*.{js,sqlx}";
+          let actions = [`{definitions,includes}/**/${extensions}`];
           if (actionsOption.name in argv && argv[actionsOption.name].length > 0) {
             actions = argv[actionsOption.name];
           }

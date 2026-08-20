@@ -98,5 +98,7 @@ suite("help command", () => {
     expect(output).to.include("--check");
     expect(output).to.include("Check if files are formatted correctly without modifying them.");
     expect(output).to.include("--actions");
+    expect(output).to.include("--ignore-js-files");
+    expect(output).to.include("the formatter will not consider javascript files (.js)");
   });
 });

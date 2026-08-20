@@ -38,4 +38,47 @@ SQLANVIL_VERSION = "1.30.0"
 # it indexed executionAction.tasks by the *filtered* failing-task position, so a failure after a
 # passing pre_operation printed the wrong SQL. Upstream's `?.` only silences the crash; ours is
 # fixed to index by true task position.
-DF_VERSION = "3.0.64"
+#
+# 3.0.65 reviewed; one commit taken. Six upstream commits:
+#
+#   * #2227 `format --ignore-js-files`. TAKEN (adapted to our inline `option(...)` idiom rather
+#     than upstream's INamedOption const). Restricts the default formatter glob to `*.sqlx`, which
+#     matters more here than upstream — sqlanvil projects lean on `includes/*.js`.
+#
+#   * #2243 / #2246 / #2249 PropertyGraph (proto surface, action class, review follow-up).
+#     NOT TAKEN. Two hard field-number collisions: upstream assigns ActionConfig.property_graph = 9
+#     (we ship rls_policy = 9; next free is 16) and CompiledGraph.property_graphs = 16 (we ship
+#     `repeated Import imports = 16`; next free is 19). Renumbering isn't worth it: SQL/PGQ property
+#     graphs are BigQuery-only with no Postgres or MySQL equivalent, so it would be dead weight in
+#     three of four adapters. And upstream hasn't finished it — at tag 3.0.65 nothing in
+#     session.ts / actions/index.ts / main.ts / build.ts / run.ts constructs a PropertyGraph, so
+#     it is unreachable from a project. Revisit only if it lands wired AND a target warehouse
+#     other than BigQuery grows SQL/PGQ.
+#
+#   * #2223 "Wire assertion actions into the JiT compilation runtime" and #2185 "JiT test suite".
+#     NOT TAKEN — both are downstream of #2211, declined above; there is no JiT runtime here to
+#     wire into (no `jit` reference exists in run.ts, cli/index.ts, or the dbadapters). Note
+#     protos/jit.proto is UNCHANGED in 3.0.65 and we already carry
+#     JIT_COMPILATION_TARGET_TYPE_ASSERTION = 4 and JitAssertionResult, so proto parity costs
+#     nothing and there is no numbering debt to pay later.
+#
+#     3.0.65 also finishes what #2211 started: it DELETES withClientLock from the IDbAdapter
+#     interface (cli/api/dbadapters/index.ts) and from the BigQuery adapter, and strips the
+#     corresponding stubs from tests/api/api.spec.ts. Explicitly NOT TAKEN — that is free upstream
+#     (theirs was `callback(this)`) but we have six real implementation sites (postgres.ts,
+#     mysql.ts, utils/postgres.ts, utils/mysql.ts, the interface, and bigquery.ts) and run.ts
+#     leases one pooled connection per action through it. See the note at core/utils.ts:331.
+#
+#   * #2250 version bump only.
+#
+# Divergence watch: upstream's Runner has now moved far enough that their own tests call
+# `Runner.resume(...)`, a static factory we do not have. Expect every future upstream run.ts
+# change to conflict.
+#
+# JiT — DECIDED (3.0.65): sqlanvil does not build a JiT runtime, and JiT commits stay declined as
+# a standing policy rather than a per-release judgement call. The open question from the 3.0.64
+# note ("wire a runtime, or reject at compile time") is resolved in favour of rejecting. What
+# remains is mechanical: .jitCode()/.jitData() are still exposed with nothing behind them, so they
+# should be rejected at COMPILE time so a user cannot reach a dead path. Until that guard lands,
+# calling .jitCode() compiles cleanly and then silently does nothing at run time.
+DF_VERSION = "3.0.65"
