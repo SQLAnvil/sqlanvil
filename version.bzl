@@ -77,8 +77,9 @@ SQLANVIL_VERSION = "1.30.0"
 #
 # JiT — DECIDED (3.0.65): sqlanvil does not build a JiT runtime, and JiT commits stay declined as
 # a standing policy rather than a per-release judgement call. The open question from the 3.0.64
-# note ("wire a runtime, or reject at compile time") is resolved in favour of rejecting. What
-# remains is mechanical: .jitCode()/.jitData() are still exposed with nothing behind them, so they
-# should be rejected at COMPILE time so a user cannot reach a dead path. Until that guard lands,
-# calling .jitCode() compiles cleanly and then silently does nothing at run time.
+# note ("wire a runtime, or reject at compile time") is resolved in favour of rejecting — and the
+# guard is already in place: rejectJitCompilation (core/utils.ts, landed in 1.30.0) throws at
+# compile time from .jitCode() on all five action classes and from jitData(), with the error
+# attributed to the right file/target by Session.compile(). Tested in the per-action tests and
+# main_test.ts. Nothing mechanical remains; future JiT upstream commits are declined on sight.
 DF_VERSION = "3.0.65"
