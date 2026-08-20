@@ -2,7 +2,7 @@
 # SemVer line). DF_VERSION is the upstream dataform-co/dataform release this fork
 # is synced to — surfaced as metadata (e.g. `sqlanvil --version`), not the package
 # version. Bump SQLANVIL_VERSION for sqlanvil releases; bump DF_VERSION on upstream syncs.
-SQLANVIL_VERSION = "1.30.0"
+SQLANVIL_VERSION = "1.31.0"
 # 3.0.64 reviewed; taken selectively. Four upstream commits:
 #
 #   * #2228 protobufjs 7.6.3 -> 7.6.5. TAKEN (we were on 7.6.4 for the direct dep and 7.5.8 for
