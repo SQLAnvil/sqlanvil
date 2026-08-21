@@ -73,7 +73,12 @@ SQLANVIL_VERSION = "1.31.0"
 #
 # Divergence watch: upstream's Runner has now moved far enough that their own tests call
 # `Runner.resume(...)`, a static factory we do not have. Expect every future upstream run.ts
-# change to conflict.
+# change to conflict. When taking any future run.ts / cli index.ts change, preserve our
+# `--timeout` semantics: it is COMPILE-ONLY here (all four commands pass it solely to
+# compile(); the run command's RunConfig never carries timeoutMillis). #2211 silently
+# redefined it upstream as a whole-command deadline that cancels in-flight work with no
+# message — reported as upstream issue #2247 ("breaking existing runs without any error
+# output"). Do not import that redefinition.
 #
 # JiT — DECIDED (3.0.65): sqlanvil does not build a JiT runtime, and JiT commits stay declined as
 # a standing policy rather than a per-release judgement call. The open question from the 3.0.64
