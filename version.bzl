@@ -2,7 +2,7 @@
 # SemVer line). DF_VERSION is the upstream dataform-co/dataform release this fork
 # is synced to — surfaced as metadata (e.g. `sqlanvil --version`), not the package
 # version. Bump SQLANVIL_VERSION for sqlanvil releases; bump DF_VERSION on upstream syncs.
-SQLANVIL_VERSION = "1.31.0"
+SQLANVIL_VERSION = "1.32.0"
 # 3.0.64 reviewed; taken selectively. Four upstream commits:
 #
 #   * #2228 protobufjs 7.6.3 -> 7.6.5. TAKEN (we were on 7.6.4 for the direct dep and 7.5.8 for
@@ -53,7 +53,8 @@ SQLANVIL_VERSION = "1.31.0"
 #     three of four adapters. And upstream hasn't finished it — at tag 3.0.65 nothing in
 #     session.ts / actions/index.ts / main.ts / build.ts / run.ts constructs a PropertyGraph, so
 #     it is unreachable from a project. Revisit only if it lands wired AND a target warehouse
-#     other than BigQuery grows SQL/PGQ.
+#     other than BigQuery grows SQL/PGQ. (3.0.66 wired it — see below — the second condition
+#     still doesn't hold.)
 #
 #   * #2223 "Wire assertion actions into the JiT compilation runtime" and #2185 "JiT test suite".
 #     NOT TAKEN — both are downstream of #2211, declined above; there is no JiT runtime here to
@@ -80,6 +81,40 @@ SQLANVIL_VERSION = "1.31.0"
 # message — reported as upstream issue #2247 ("breaking existing runs without any error
 # output"). Do not import that redefinition.
 #
+# 3.0.66 reviewed; four commits taken, one of them partially. Ten upstream commits:
+#
+#   * #2236 incremental table + metadata.extraProperties. TAKEN, adapted. Reproduced here first:
+#     `type: "incremental", onSchemaChange: "IGNORE", metadata: { extraProperties: {...} }` failed
+#     with `Unexpected property "priority"` (a plain `table` with the same block compiled fine).
+#     protobufjs's verify() returns at its FIRST error — the enum-as-string — so the nested
+#     Struct never got normalized. Upstream replaced its verify() call with fromObject(); we KEEP
+#     our verify() call (it backs the object-in-scalar-field guard, see common/protos/index.ts)
+#     and add the fromObject() normalization pass after it, plus a Struct.fromObject monkey-patch
+#     mirroring Struct.verify. Their view/assertion tests taken verbatim; the incremental one
+#     rewritten against our expected shape.
+#
+#   * #2252 `--dot` emitted `"x" [label="x";` for operations (missing `]`). TAKEN — reproduced.
+#
+#   * #2245 vm2 3.11.4 -> 3.11.6. TAKEN.
+#
+#   * #2256 "Restore --timeout as compile-only; add --execution-timeout" — upstream's fix for our
+#     issue #2247. TAKEN in part. The *restore* is a no-op here: --timeout never changed. Taken:
+#     `run --execution-timeout` (wired to RunConfig.timeoutMillis, which Runner already honoured
+#     but nothing set), the top-level "Run timed out / Run cancelled." stderr line so exit 1 is
+#     never silent, and the `(reason)` suffix on per-action SKIPPED lines. NOT taken: the
+#     "--timeout only bounds compilation" advisory (there was no semantics change to warn about
+#     here) and the JiT-timeout wording.
+#
+#   * #2251 / #2253 / #2255 PropertyGraph wired into compile, build and DDL execution. NOT TAKEN.
+#     This trips the "lands wired" half of the 3.0.65 revisit condition, but not the other half:
+#     SQL/PGQ is still BigQuery-only, and the field-number collisions (ActionConfig 9,
+#     CompiledGraph 16) are unchanged. Still declined.
+#
+#   * #2248 / #2254 OpenLineage RunEvents to Knowledge Catalog Lineage (new cli/api/lineage/,
+#     ~1,500 lines incl. tests, GCP-only sink). NOT TAKEN — lineage is a standing won't-build.
+#
+#   * #2257 version bump only.
+#
 # JiT — DECIDED (3.0.65): sqlanvil does not build a JiT runtime, and JiT commits stay declined as
 # a standing policy rather than a per-release judgement call. The open question from the 3.0.64
 # note ("wire a runtime, or reject at compile time") is resolved in favour of rejecting — and the
@@ -87,4 +122,4 @@ SQLANVIL_VERSION = "1.31.0"
 # compile time from .jitCode() on all five action classes and from jitData(), with the error
 # attributed to the right file/target by Session.compile(). Tested in the per-action tests and
 # main_test.ts. Nothing mechanical remains; future JiT upstream commits are declined on sight.
-DF_VERSION = "3.0.65"
+DF_VERSION = "3.0.66"

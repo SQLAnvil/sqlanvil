@@ -423,6 +423,8 @@ export function printExecutedAction(
       return;
     }
     case sqlanvil.ActionResult.ExecutionStatus.SKIPPED: {
+      const skipReason = executedAction.tasks?.[0]?.errorMessage;
+      const skipSuffix = skipReason ? ` (${skipReason})` : "";
       switch (executionAction.type) {
         case "table": {
           writeStdOut(
@@ -430,7 +432,7 @@ export function printExecutedAction(
               executionAction.target,
               executionAction.tableType,
               executionAction.tasks.length === 0
-            )}`
+            )}${skipSuffix}`
           );
           return;
         }
@@ -439,7 +441,7 @@ export function printExecutedAction(
             `${warningOutput("Skipping assertion execution: ")} ${assertionString(
               executionAction.target,
               executionAction.tasks.length === 0
-            )}`
+            )}${skipSuffix}`
           );
           return;
         }
@@ -448,7 +450,7 @@ export function printExecutedAction(
             `${warningOutput("Skipping operation execution: ")} ${operationString(
               executionAction.target,
               executionAction.tasks.length === 0
-            )}`
+            )}${skipSuffix}`
           );
           return;
         }
@@ -565,7 +567,7 @@ export function dotRepresentation(graph: sqlanvil.ICompiledGraph, interactive: b
 
   graph.operations?.forEach(operation => {
     const nodeName = `${formatTarget(operation.target)}`;
-    nodes.push(`"${nodeName}" [label="${formatTarget(operation.target)}"`);
+    nodes.push(`"${nodeName}" [label="${formatTarget(operation.target)}"]`);
     operation.dependencyTargets?.forEach(dependencyTarget => {
       edges.push(`"${formatTarget(dependencyTarget)}" -> "${nodeName}"`);
     });

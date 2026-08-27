@@ -392,6 +392,41 @@ actions:
     );
   });
 
+  test("onSchemaChange combined with metadata.extraProperties as a plain object", () => {
+    // Regression for upstream #2236: verify() bails out at the onSchemaChange enum before it
+    // reaches the Struct, so extraProperties used to fail with "Unexpected property".
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), VALID_WORKFLOW_SETTINGS_YAML);
+    fs.mkdirSync(path.join(projectDir, "definitions"));
+    fs.writeFileSync(
+      path.join(projectDir, "definitions/incremental.sqlx"),
+      `config {
+  type: "incremental",
+  onSchemaChange: "IGNORE",
+  metadata: {
+    extraProperties: {
+      priority: "high"
+    }
+  }
+}
+SELECT 1`
+    );
+
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+    expect(asPlainObject(result.compile.compiledGraph.tables[0]).onSchemaChange).equals("IGNORE");
+    expect(
+      asPlainObject(result.compile.compiledGraph.tables[0].actionDescriptor.metadata)
+    ).deep.equals({
+      extraProperties: {
+        fields: {
+          priority: { stringValue: "high" }
+        }
+      }
+    });
+  });
+
   suite("Iceberg incremental table options", () => {
     const setupFiles = (projectDir: string, filename: string, fileContents: string, wsContent: string) => {
       fs.writeFileSync(

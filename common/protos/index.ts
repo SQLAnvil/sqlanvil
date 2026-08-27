@@ -32,6 +32,7 @@ const Struct = google.protobuf.Struct;
 
 // Save references to the original generated methods
 const originalVerify = Struct.verify;
+const originalFromObject = Struct.fromObject;
 
 // Monkey Patching Methods
 Struct.verify = function (object: any) {
@@ -44,6 +45,22 @@ Struct.verify = function (object: any) {
     object.fields = fields;
   }
   return originalVerify.call(this, object);
+};
+
+// Same normalization on the fromObject path. verify() alone is not enough: protobufjs's verify
+// returns at the FIRST error, so a message with an earlier enum-typed field given as a string
+// (e.g. onSchemaChange: "IGNORE") never reaches a nested Struct, which then stays a plain object
+// and trips checkFields below ("Unexpected property ..."). Upstream #2236.
+Struct.fromObject = function (object: any) {
+  if (object && typeof object === "object" && !("fields" in object)) {
+    const fields: { [key: string]: any } = {};
+    for (const [k, v] of Object.entries(object)) {
+      fields[k] = unknownToValueShallow(v);
+    }
+    Object.keys(object).forEach(key => delete object[key]);
+    object.fields = fields;
+  }
+  return originalFromObject.call(this, object);
 };
 
 // This is a minimalist Typescript equivalent for the validation part of Profobuf's JsonFormat's
@@ -83,6 +100,14 @@ export function verifyObjectMatchesProto<Proto>(
       `Invalid property value: ${verificationError}.` +
         maybeGetDocsLinkPrefix(errorBehaviour, protoType)
     );
+  }
+  // Walk the object through fromObject so every nested google.protobuf.Struct gets its plain-object
+  // form normalized (Struct.fromObject above), regardless of whether verify() bailed out earlier.
+  try {
+    protoType.fromObject(object);
+  } catch {
+    // fromObject can throw a TypeError on invalid field types; checkFields below reports those
+    // as a formatted ReferenceError instead.
   }
   // Calling toObject on the object/JSON creates a version only contains the valid proto fields.
   const proto = protoType.create(object);

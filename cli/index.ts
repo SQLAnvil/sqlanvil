@@ -145,6 +145,7 @@ interface RunArgv extends ProjectConfigArgv {
   "include-dependents"?: boolean;
   json: boolean;
   timeout: number | null;
+  "execution-timeout": number | null;
   tags?: string[];
   "job-labels"?: { [key: string]: string };
   // Read but not declared on `run` (undefined at runtime today).
@@ -323,6 +324,18 @@ const dotOutputOption = option(
 
 const timeoutOption = option("timeout", {
   describe: "Duration to allow project compilation to complete. Examples: '1s', '10m', etc.",
+  type: "string",
+  default: null,
+  coerce: (rawTimeoutString: string | null) =>
+    rawTimeoutString ? parseDuration(rawTimeoutString) : null
+});
+
+// Deliberately separate from --timeout, which is and stays compile-only (upstream #2247/#2256).
+const executionTimeoutOption = option("execution-timeout", {
+  describe:
+    "Wall-clock deadline for the entire run (compile + all actions). When it fires, " +
+    "in-flight actions are cancelled and pending actions are skipped. Off by default. " +
+    "Examples: '10m', '2h'.",
   type: "string",
   default: null,
   coerce: (rawTimeoutString: string | null) =>
@@ -1124,6 +1137,7 @@ export function runCli() {
           credentialsOption,
           jsonOutputOption,
           timeoutOption,
+          executionTimeoutOption,
           tagsOption,
           bigqueryJobLabelsOption,
           noArtifactsOption,
@@ -1233,7 +1247,8 @@ export function runCli() {
               actions: argv[actionsOption.name],
               includeDependencies: argv[includeDepsOption.name],
               includeDependents: argv[includeDependentsOption.name],
-              tags: argv[tagsOption.name]
+              tags: argv[tagsOption.name],
+              timeoutMillis: argv[executionTimeoutOption.name] || undefined
             },
             dbadapter
           );
@@ -1336,6 +1351,17 @@ export function runCli() {
           runner.onChange(printExecutedGraph);
           const runResult = await runner.result();
           printExecutedGraph(runResult);
+          if (!argv[jsonOutputOption.name]) {
+            if (runResult.status === sqlanvil.RunResult.ExecutionStatus.TIMED_OUT) {
+              const executionTimeoutMillis = argv[executionTimeoutOption.name];
+              const suffix = executionTimeoutMillis
+                ? ` after ${executionTimeoutMillis / 1000} seconds (--execution-timeout)`
+                : "";
+              printError(`Run timed out${suffix}.`);
+            } else if (runResult.status === sqlanvil.RunResult.ExecutionStatus.CANCELLED) {
+              printError("Run cancelled.");
+            }
+          }
           if (!(argv as any)[noArtifactsOption.name]) {
             await safeWriteArtifacts(compiledGraph, argv[projectDirOption.name], {
               runResult,

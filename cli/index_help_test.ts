@@ -88,6 +88,9 @@ suite("help command", () => {
     expect(output).to.include("--include-dependents");
     expect(output).to.include("--tags");
     expect(output).to.include("--job-labels");
+    expect(output).to.include("--timeout");
+    expect(output).to.include("--execution-timeout");
+    expect(output).to.include("Wall-clock deadline for the entire run");
   });
 
    test("shows help for 'format' command", async () => {
