@@ -665,6 +665,10 @@ export class View extends ActionBuilder<sqlanvil.Table> {
           strictKeysOf<ILegacyViewBigqueryConfig>()(["labels", "additionalOptions", "partitionBy", "clusterBy",]),
           "BigQuery view config"
         );
+        // Shallow-clone before the delete-loop below so we don't mutate a caller-shared object
+        // (`publish("v1", shared); publish("v2", shared)` must not strip v2's bigquery block).
+        // Upstream #2260 fixed this in LegacyConfigConverter but not here.
+        unverifiedConfig.bigquery = { ...unverifiedConfig.bigquery };
         if (!!unverifiedConfig.bigquery.labels) {
           unverifiedConfig.labels = unverifiedConfig.bigquery.labels;
           delete unverifiedConfig.bigquery.labels;

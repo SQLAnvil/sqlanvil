@@ -446,4 +446,55 @@ SELECT 1 AS id, 'x' AS title`
       });
     });
   });
+
+  suite("shared config", () => {
+    test("a shared config object can be reused across publish() calls without losing fields", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        VALID_WORKFLOW_SETTINGS_YAML
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/shared.js"),
+        `
+const shared = {
+  type: "view",
+  materialized: true,
+  bigquery: { partitionBy: "event_date", clusterBy: ["user_id"], labels: { team: "data" } },
+  assertions: { uniqueKey: "id", nonNull: "id" }
+};
+publish("v1", shared).query(_ => "SELECT 1 AS id, DATE '2024-01-01' AS event_date, 'u1' AS user_id");
+publish("v2", shared).query(_ => "SELECT 2 AS id, DATE '2024-01-01' AS event_date, 'u2' AS user_id");
+publish("v3", shared).query(_ => "SELECT 3 AS id, DATE '2024-01-01' AS event_date, 'u3' AS user_id");
+`
+      );
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+
+      const bigqueryBlocks = result.compile.compiledGraph.tables.map(t =>
+        asPlainObject(t.bigquery)
+      );
+      const expectedBigquery = {
+        partitionBy: "event_date",
+        clusterBy: ["user_id"],
+        labels: { team: "data" }
+      };
+      expect(bigqueryBlocks).deep.equals([expectedBigquery, expectedBigquery, expectedBigquery]);
+
+      const assertionNames = result.compile.compiledGraph.assertions
+        .map(a => a.target.name)
+        .sort();
+      expect(assertionNames).deep.equals([
+        "defaultDataset_v1_assertions_rowConditions",
+        "defaultDataset_v1_assertions_uniqueKey_0",
+        "defaultDataset_v2_assertions_rowConditions",
+        "defaultDataset_v2_assertions_uniqueKey_0",
+        "defaultDataset_v3_assertions_rowConditions",
+        "defaultDataset_v3_assertions_uniqueKey_0"
+      ]);
+    });
+  });
 });

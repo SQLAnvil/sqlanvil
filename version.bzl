@@ -2,7 +2,7 @@
 # SemVer line). DF_VERSION is the upstream dataform-co/dataform release this fork
 # is synced to — surfaced as metadata (e.g. `sqlanvil --version`), not the package
 # version. Bump SQLANVIL_VERSION for sqlanvil releases; bump DF_VERSION on upstream syncs.
-SQLANVIL_VERSION = "1.32.0"
+SQLANVIL_VERSION = "1.32.1"
 # 3.0.64 reviewed; taken selectively. Four upstream commits:
 #
 #   * #2228 protobufjs 7.6.3 -> 7.6.5. TAKEN (we were on 7.6.4 for the direct dep and 7.5.8 for
@@ -122,4 +122,26 @@ SQLANVIL_VERSION = "1.32.0"
 # compile time from .jitCode() on all five action classes and from jitData(), with the error
 # attributed to the right file/target by Session.compile(). Tested in the per-action tests and
 # main_test.ts. Nothing mechanical remains; future JiT upstream commits are declined on sight.
-DF_VERSION = "3.0.66"
+# 3.0.67 reviewed; one commit taken, extended. Seven upstream commits:
+#
+#   * #2260 LegacyConfigConverter mutated caller-shared configs. TAKEN, and extended. A JS
+#     `const shared = {type: "table", bigquery: {...}, assertions: {...}}` reused across
+#     `publish("t1", shared); publish("t2", shared)` left t2/t3 with an EMPTY bigquery block:
+#     Session.publish spreads the config into a fresh top-level object per call, but the nested
+#     `bigquery` / `assertions` objects stay shared, and the converter's hoist-then-delete loop
+#     stripped them on the first pass. Regression from upstream #1780 (3.0.10) — present here
+#     too. Upstream's fix (shallow-clone both nested objects before mutating) applied cleanly,
+#     test taken verbatim. EXTENDED: upstream missed core/actions/view.ts, which has its own
+#     hoist-then-delete loop over `bigquery` (labels/additionalOptions/partitionBy/clusterBy)
+#     outside the converter, so a shared materialized-view config still lost its partitioning
+#     on the second publish. Same one-line clone added there, with a mirrored view test.
+#     Not reported upstream yet (see below).
+#
+#   * #2259 / #2261 / #2262 / #2263 / #2264 OpenLineage emitter hardening (endpoint routing,
+#     retry, structured errors, DATAFORM_LINEAGE_DEBUG, UNAUTHENTICATED skip, tests). NOT TAKEN —
+#     all land in cli/api/lineage/, which does not exist here; lineage is a standing won't-build.
+#
+#   * #2265 version bump only.
+#
+# Nothing else in the release touches core/, cli/index.ts, run.ts, or the dbadapters.
+DF_VERSION = "3.0.67"
