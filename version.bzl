@@ -2,7 +2,7 @@
 # SemVer line). DF_VERSION is the upstream dataform-co/dataform release this fork
 # is synced to — surfaced as metadata (e.g. `sqlanvil --version`), not the package
 # version. Bump SQLANVIL_VERSION for sqlanvil releases; bump DF_VERSION on upstream syncs.
-SQLANVIL_VERSION = "1.32.1"
+SQLANVIL_VERSION = "1.32.2"
 # 3.0.64 reviewed; taken selectively. Four upstream commits:
 #
 #   * #2228 protobufjs 7.6.3 -> 7.6.5. TAKEN (we were on 7.6.4 for the direct dep and 7.5.8 for
@@ -144,4 +144,28 @@ SQLANVIL_VERSION = "1.32.1"
 #   * #2265 version bump only.
 #
 # Nothing else in the release touches core/, cli/index.ts, run.ts, or the dbadapters.
-DF_VERSION = "3.0.67"
+# 3.0.68 reviewed; one commit taken. Four upstream commits:
+#
+#   * #2271 ref()/resolve() compilation errors blamed on "index.js". TAKEN, verbatim. Reproduced
+#     here first: `SELECT 1 FROM ${ref("FOO")}` in definitions/mytable.sqlx produced a
+#     CompilationError with fileName "index.js" (their regression test went red against our
+#     tree before the fix). Session.resolve calls compileError() with no explicit path, so it
+#     fell through to getCallerFile(); under vm2 >= 3.11.3 the sandbox strips CallSite file
+#     paths, and our __sqlanvil_current_file getter (cli/vm/compile.ts) is a module-LOAD stack —
+#     by the time an action's callback runs inside Session.compile() the sqlx module has already
+#     exited, so the top of the stack is the index.js entry. Fix tracks the current action's file
+#     on the Session around action.compile() in compileGraphChunk and lets compileError() prefer
+#     it over the caller-file fallback. Explicit-path callers are unchanged.
+#
+#   * #2258 PropertyGraph ref()/DAG dependencies and #2268 PropertyGraph CLI/E2E coverage. NOT
+#     TAKEN — PropertyGraph is a standing decline (BigQuery-only; proto field-number collisions,
+#     see the 3.0.65 note). #2258's `Session.resolveTarget` extraction is a refactor of resolve()
+#     that exists only to serve PropertyGraph.resolveRefIntoDataSource; nothing else calls it, so
+#     it is not carried. #2268's prune.ts / graphs.ts / console.ts hunks are all propertyGraphs
+#     plumbing. #2268's new prune_test.ts is PropertyGraph-shaped throughout; not taken either.
+#
+#   * #2276 version bump only.
+#
+# Nothing in the release touches core/actions/, cli/index.ts, run.ts, or the dbadapters. The
+# view.ts shared-config gap noted under 3.0.67 is still unfixed upstream in 3.0.68.
+DF_VERSION = "3.0.68"
