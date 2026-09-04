@@ -667,7 +667,8 @@ export class View extends ActionBuilder<sqlanvil.Table> {
         );
         // Shallow-clone before the delete-loop below so we don't mutate a caller-shared object
         // (`publish("v1", shared); publish("v2", shared)` must not strip v2's bigquery block).
-        // Upstream #2260 fixed this in LegacyConfigConverter but not here.
+        // Upstream #2260 fixed this in LegacyConfigConverter but not here; upstream #2273 (our
+        // #2267) later added the same clone at this spot.
         unverifiedConfig.bigquery = { ...unverifiedConfig.bigquery };
         if (!!unverifiedConfig.bigquery.labels) {
           unverifiedConfig.labels = unverifiedConfig.bigquery.labels;

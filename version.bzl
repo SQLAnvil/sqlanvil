@@ -135,7 +135,8 @@ SQLANVIL_VERSION = "1.32.2"
 #     hoist-then-delete loop over `bigquery` (labels/additionalOptions/partitionBy/clusterBy)
 #     outside the converter, so a shared materialized-view config still lost its partitioning
 #     on the second publish. Same one-line clone added there, with a mirrored view test.
-#     Not reported upstream yet (see below).
+#     Reported upstream as #2267; fixed by #2273 (post-3.0.68, identical one-line clone +
+#     view_test). Already carried here — expect a no-op when 3.0.69 is reviewed.
 #
 #   * #2259 / #2261 / #2262 / #2263 / #2264 OpenLineage emitter hardening (endpoint routing,
 #     retry, structured errors, DATAFORM_LINEAGE_DEBUG, UNAUTHENTICATED skip, tests). NOT TAKEN —
@@ -167,5 +168,6 @@ SQLANVIL_VERSION = "1.32.2"
 #   * #2276 version bump only.
 #
 # Nothing in the release touches core/actions/, cli/index.ts, run.ts, or the dbadapters. The
-# view.ts shared-config gap noted under 3.0.67 is still unfixed upstream in 3.0.68.
+# view.ts shared-config gap noted under 3.0.67 (our #2267) is fixed upstream by #2273, which
+# is after 3.0.68 and will show up in 3.0.69.
 DF_VERSION = "3.0.68"
