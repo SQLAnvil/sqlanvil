@@ -170,4 +170,14 @@ SQLANVIL_VERSION = "1.32.2"
 # Nothing in the release touches core/actions/, cli/index.ts, run.ts, or the dbadapters. The
 # view.ts shared-config gap noted under 3.0.67 (our #2267) is fixed upstream by #2273, which
 # is after 3.0.68 and will show up in 3.0.69.
+#
+# Carried ahead of 3.0.69 (2026-09-06): Session.declare passed the caller's config object straight
+# into Declaration, whose verifyConfig renames database/schema -> project/dataset and replaces
+# `columns` with protos IN PLACE — so a shared sources object in includes/ read back
+# `undefined.undefined.orders` after declare(). publish()/operate()/assert() already spread theirs.
+# Reported upstream as #2280; fixed by #2283 (shallow-clone in declare() + declaration_test).
+# Same clone applied here at the top of declare() so the connection (FDW / runner-extract) paths
+# keep reading the caller's untouched object; the two "constructor MUTATES config" comments in
+# those paths are gone. Test taken verbatim (red here before the fix). Expect a no-op when
+# 3.0.69 is reviewed.
 DF_VERSION = "3.0.68"

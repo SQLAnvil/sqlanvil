@@ -495,17 +495,23 @@ export class Session {
     const filename = config.filename || utils.getCallerFile(this.rootDir);
     const connectionName = config.connection;
     const warehouseConnection = this.projectConfig.warehouseConnection;
+    // Shallow-clone before handing the config to Declaration: verifyConfig renames
+    // `database`/`schema` -> `project`/`dataset` and replaces `columns` with protos IN PLACE, so
+    // passing the caller's object through would mutate a shared sources list (upstream #2280 /
+    // #2283). publish(), operate() and assert() already spread theirs. The connection paths below
+    // keep reading the caller's untouched `config`.
+    const declarationConfig = !!config && typeof config === "object" ? { ...config } : config;
 
     // No connection, or it points at the warehouse itself => plain declaration.
     if (!connectionName || connectionName === warehouseConnection) {
-      const declaration = new Declaration(this, config, filename);
+      const declaration = new Declaration(this, declarationConfig, filename);
       this.actions.push(declaration);
       return declaration;
     }
 
     const connections = this.projectConfig.connections || {};
     const connection = connections[connectionName];
-    const declaration = new Declaration(this, config, filename);
+    const declaration = new Declaration(this, declarationConfig, filename);
     if (!connection) {
       this.compileError(
         new Error(`Unknown connection "${connectionName}" on declaration "${config.name}".`),
@@ -567,8 +573,7 @@ export class Session {
       // keeps that name as its Postgres schema (`ods.zip_code` stays `ods.zip_code`), which
       // also keeps Dataform-style schema-qualified refs resolving after a migration.
       // Undeclared schema = the pre-1.22 behavior: connection.dataset + the `<conn>_ext`
-      // schema. NB the Declaration constructor above MUTATES config, renaming legacy
-      // `schema` -> `dataset` — read both.
+      // schema. Accept both the legacy `schema` and the modern `dataset` spelling.
       const declaredSchema = config.schema || config.dataset;
       this.actions.push(
         new Extract(this, {
@@ -662,9 +667,8 @@ export class Session {
       connection.platform === "bigquery"
         ? { table: bqTable }
         : {
-            // NB the Declaration constructor MUTATES config, renaming legacy `schema` ->
-            // `dataset` — read both, else an explicit source schema silently falls back
-            // to the connection default.
+            // Accept both the legacy `schema` and the modern `dataset` spelling, else an
+            // explicit source schema silently falls back to the connection default.
             schema_name:
               config.schema || config.dataset || connection.defaultSchema || "public",
             table_name: config.name
