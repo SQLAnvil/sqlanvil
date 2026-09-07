@@ -180,4 +180,34 @@ SQLANVIL_VERSION = "1.32.3"
 # keep reading the caller's untouched object; the two "constructor MUTATES config" comments in
 # those paths are gone. Test taken verbatim (red here before the fix). Expect a no-op when
 # 3.0.69 is reviewed.
-DF_VERSION = "3.0.68"
+#
+# 3.0.69 reviewed (2026-09-07); one commit taken. Six upstream commits:
+#
+#   * #2273 View.verifyConfig shallow-clones `bigquery` before its hoist-then-delete loop.
+#     ALREADY HERE — this is upstream's fix for our #2267, carried under 3.0.67 (same one-line
+#     clone in view.ts, same test "a shared config object can be reused across publish()
+#     calls without losing fields"). No-op.
+#
+#   * #2283 Session.declare shallow-clones its config. ALREADY HERE — carried ahead on
+#     2026-09-06 (see above); our clone sits at the top of declare() so both Declaration call
+#     sites and the connection paths share it. Upstream's declaration_test is the one we took
+#     verbatim. No-op.
+#
+#   * #2163 dependabot: fast-xml-parser 5.5.6 -> 5.7.3 (transitive, via @google-cloud/storage).
+#     TAKEN. Our yarn.lock had diverged (fast-xml-builder 1.1.4, no path-expression-matcher
+#     ^1.5.0 / xml-naming), so the hunk didn't apply; the four replaced entries and three new
+#     ones (@nodable/entities, anynum, xml-naming) were lifted from 3.0.69's lockfile instead
+#     and verified with `yarn install --frozen-lockfile` under Bazel's yarn 1.13. Dev-tree
+#     hygiene only: nothing in core/ or cli/ imports @google-cloud/storage and it is not in
+#     either published package layer.
+#
+#   * #2275 tags on PropertyGraph actions and #2281 includeDependentAssertions=false on
+#     PropertyGraph refs. NOT TAKEN — PropertyGraph is a standing decline (BigQuery-only; proto
+#     field-number collisions, see the 3.0.65 note); core/actions/property_graph.ts does not
+#     exist here. #2275's prune.ts hunk drops the `"tags" in action` guard purely so
+#     propertyGraphs pass through; not carried.
+#
+#   * #2284 version bump only.
+#
+# Nothing else in the release touches core/, cli/index.ts, run.ts, or the dbadapters.
+DF_VERSION = "3.0.69"
