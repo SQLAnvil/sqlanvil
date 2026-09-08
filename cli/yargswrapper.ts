@@ -12,14 +12,14 @@ export interface ICommand {
   positionalOptions: Array<INamedOption<yargs.PositionalOptions>>;
   options: Array<INamedOption<yargs.Options>>;
   // Each command annotates its own handler with a command-specific argv interface
-  // (see cli/index.ts). The wrapper plumbing stays argv-agnostic; the compile-time
+  // (see cli/commands/*). The wrapper plumbing stays argv-agnostic; the compile-time
   // safety lives in those annotated handler bodies.
   processFn: (argv: any) => Promise<number>;
 }
 
 export interface INamedOption<T, TName extends string = string> {
   // TName is captured as a string literal by the `option`/`positionalOption`
-  // factories in cli/index.ts, so `argv[someOption.name]` indexes a typed argv
+  // factories below, so `argv[someOption.name]` indexes a typed argv
   // interface by the exact flag name instead of a widened `string`.
   name: TName;
   option: T;

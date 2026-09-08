@@ -1,0 +1,15 @@
+export { compileCommand } from "sa/cli/commands/compile_command";
+export { docsCommand } from "sa/cli/commands/docs_command";
+export { formatCommand } from "sa/cli/commands/format_command";
+export { helpCommand } from "sa/cli/commands/help_command";
+export { initCommand } from "sa/cli/commands/init_command";
+export { initCredsCommand } from "sa/cli/commands/init_creds_command";
+export { inspectCommand } from "sa/cli/commands/inspect_command";
+export { installCommand } from "sa/cli/commands/install_command";
+export { introspectCommand } from "sa/cli/commands/introspect_command";
+export { migrateDataformCommand } from "sa/cli/commands/migrate_dataform_command";
+export { migrateFixCommand } from "sa/cli/commands/migrate_fix_command";
+export { queryCommand } from "sa/cli/commands/query_command";
+export { runCommand } from "sa/cli/commands/run_command";
+export { testCommand } from "sa/cli/commands/test_command";
+export { validateCommand } from "sa/cli/commands/validate_command";

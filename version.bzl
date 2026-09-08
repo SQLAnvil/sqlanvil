@@ -210,4 +210,22 @@ SQLANVIL_VERSION = "1.32.4"
 #   * #2284 version bump only.
 #
 # Nothing else in the release touches core/, cli/index.ts, run.ts, or the dbadapters.
+#
+# Carried ahead of 3.0.70 (2026-09-08): upstream #2286 decomposes the monolithic cli/index.ts
+# into cli/commands/<name>_command.ts + cli/common_options.ts + cli/project_config_options.ts,
+# with index.ts only registering commands. Pure refactor, no behaviour change. Could NOT be
+# applied as a patch — our index.ts had 15 commands to upstream's 9 and ~1,100 divergent lines —
+# so the same split was redone by hand on our file, mirroring upstream's layout and file names
+# so future upstream CLI commits land against matching files. Deviations from upstream's cut:
+# the selection flags (actions/tags/include-*) and credentials/json/timeout/quiet/no-artifacts
+# live in common_options.ts because validate/run/compile/format share them here (upstream keeps
+# most of them private to run_command.ts); the environment helpers
+# (projectConfigOverrideWithEnvironment, credentialsPathWithEnvironment) sit alongside; the
+# artifact commands share cli/commands/artifact_views.ts; runValidate is exported from
+# validate_command.ts for run --dry-run. Exported option consts gained explicit
+# INamedOption<yargs.Options, "<flag>"> annotations (Bazel's declaration emit rejects the
+# inferred yargs types — TS2742). Verified: `help` output for all 15 commands is byte-identical
+# to the published 1.32.4 CLI; all //cli tests pass (incl. compile + run_e2e); smoke project
+# compile/query/inspect/docs/run --dry-run behave identically. When 3.0.70 is reviewed, expect
+# #2286 to be a no-op and later cli/commands/* commits to apply with path-only fuzz.
 DF_VERSION = "3.0.69"
