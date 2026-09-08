@@ -77,6 +77,18 @@ export function workflowSettingsAsProjectConfig(
   workflowSettings: sqlanvil.WorkflowSettings
 ): sqlanvil.ProjectConfig {
   const projectConfig = sqlanvil.ProjectConfig.create();
+  // A bare number in YAML (`defaultDataset: 12345`) survives proto verification as a number and
+  // only blows up much later, inside the binary encoder, as an ERR_INVALID_ARG_TYPE with no
+  // pointer back to the settings file. Reject it here by name instead (upstream #1846).
+  for (const key of ["defaultProject", "defaultDataset"] as const) {
+    const value: unknown = workflowSettings[key];
+    if (value !== undefined && value !== null && typeof value !== "string") {
+      throw Error(
+        `Workflow settings error: ${key} must be a string (got ${JSON.stringify(value)}); ` +
+          `quote the value in workflow_settings.yaml.`
+      );
+    }
+  }
   if (workflowSettings.defaultProject) {
     projectConfig.defaultDatabase = workflowSettings.defaultProject;
   }

@@ -788,6 +788,40 @@ someKey: and an extra: colon
       );
     });
 
+    // Upstream #1846 (unmerged): a numeric defaultProject/defaultDataset used to surface as an
+    // ERR_INVALID_ARG_TYPE from the proto encoder, long after the settings were read.
+    test(`fails clearly when workflow_settings.yaml has a non-string defaultDataset`, () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `
+defaultProject: defaultProject
+defaultDataset: 12345
+defaultLocation: US
+`
+      );
+
+      expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
+        "Workflow settings error: defaultDataset must be a string (got 12345)"
+      );
+    });
+
+    test(`fails clearly when workflow_settings.yaml has a non-string defaultProject`, () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `
+defaultProject: 12345
+defaultDataset: defaultDataset
+defaultLocation: US
+`
+      );
+
+      expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
+        "Workflow settings error: defaultProject must be a string (got 12345)"
+      );
+    });
+
     test(`fails when a valid workflow_settings.yaml base level is an array`, () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), "- someArrayEntry");

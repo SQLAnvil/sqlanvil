@@ -228,4 +228,14 @@ SQLANVIL_VERSION = "1.32.4"
 # to the published 1.32.4 CLI; all //cli tests pass (incl. compile + run_e2e); smoke project
 # compile/query/inspect/docs/run --dry-run behave identically. When 3.0.70 is reviewed, expect
 # #2286 to be a no-op and later cli/commands/* commits to apply with path-only fuzz.
+#
+# Carried from an UNMERGED upstream PR (2026-09-08): #1846 (open since 2024-09) — a numeric
+# `defaultProject`/`defaultDataset` in workflow_settings.yaml crashed much later in the proto
+# encoder ("The \"string\" argument must be of type string ... Received type number"). Reproduced
+# here first. Taken in spirit, not verbatim: upstream checks `typeof !== "string"` inside
+# Session.compile(), which would also reject an ABSENT value; ours sits in
+# workflowSettingsAsProjectConfig, fires only when the key is present and not a string, and
+# names the YAML key ("Workflow settings error: defaultDataset must be a string (got 12345)").
+# Both upstream tests adapted into core/main_test.ts. If #1846 ever merges, expect a conflict
+# in session.ts to resolve by keeping ours.
 DF_VERSION = "3.0.69"
