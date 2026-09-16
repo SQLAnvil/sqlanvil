@@ -238,4 +238,32 @@ SQLANVIL_VERSION = "1.32.5"
 # names the YAML key ("Workflow settings error: defaultDataset must be a string (got 12345)").
 # Both upstream tests adapted into core/main_test.ts. If #1846 ever merges, expect a conflict
 # in session.ts to resolve by keeping ours.
+#
+# Reviewed ahead of 3.0.70 (2026-09-16):
+#
+#   * #2299 dependabot: js-yaml 4.3.0 -> 4.3.2. TAKEN. Not dev-tree hygiene this time:
+#     @sqlanvil/core bundles js-yaml from our yarn.lock (external_deps = []), so published core
+#     1.32.5 ships 4.3.0, which is open to two HIGH CPU-exhaustion advisories on untrusted YAML —
+#     GHSA-5p4m-2wfm-xmqj (!!omap, fixed 4.3.1) and GHSA-2883-xcg3-v3hh (empty merge sources slip
+#     past maxTotalMergeKeys, fixed 4.3.2). core parses workflow_settings.yaml / actions.yaml, and
+#     the Cloud runner compiles customer repos with it. The package.json hunk applied; the yarn.lock
+#     hunk didn't (its strip-ansi re-split doesn't match our lockfile), so only the js-yaml entry
+#     was lifted. Verified: `bazel run @nodejs//:yarn install -- --frozen-lockfile`; //core/... and
+#     //cli/api/... pass; the rebuilt core bundle contains 4.3.2's "abnormal merge sequence size"
+#     guard (absent from the published 1.32.5 bundle). The CLI already takes js-yaml as an external
+#     `^4.2.0` range, so fresh CLI installs resolved 4.3.2 regardless.
+#
+#   * #2313 removes typedoc + typedoc-plugin-markdown from package.json (Dependabot alert on the
+#     marked@1.0.0 they pin) and has scripts/regenerate_docs fetch them on the fly with
+#     `npx --yes -p typedoc@0.17.8 -p typedoc-plugin-markdown@2.2.17 typedoc`. DECLINED. Upstream
+#     treats its reference docs as frozen; ours regenerate on every release (reference pages for
+#     sqlanvil-docs and sqlanvil-com). The npx form is broken: typedoc 0.17.8 only peers on
+#     `typescript >=3.8.3`, so npx installs TypeScript 7.0.2 beside it and typedoc crashes on load
+#     ("Cannot read properties of undefined (reading 'ClassDeclaration')"); adding
+#     `-p typescript@3.8.3` didn't change what npx resolved. It only appears to work from our repo
+#     root because the local typedoc is still installed. No runtime exposure to decline: typedoc is
+#     dev-only, not in either published package or the Bazel build, and only reads our own doc
+#     comments. If an alert ever needs clearing, move typedoc + a pinned typescript@3.8.3 into
+#     tools/typedoc/package.json beside postprocess.py rather than taking this. At the 3.0.70 sync,
+#     resolve package.json / yarn.lock conflicts around typedoc by keeping ours.
 DF_VERSION = "3.0.69"
