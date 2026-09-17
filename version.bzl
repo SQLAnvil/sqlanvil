@@ -306,4 +306,50 @@ SQLANVIL_VERSION = "1.32.6"
 #     these reach @sqlanvil/core's bundle or the CLI's published dependencies. Verified: frozen
 #     install passes; the rebuilt core bundle is byte-identical and bundle.d.ts matches 1.32.6's,
 #     so pbjs/pbts output is unchanged under jsdoc 4 (the tests were all Bazel cache hits).
-DF_VERSION = "3.0.69"
+# 3.0.70 reviewed (2026-09-17); 27 upstream commits, nine of them reviewed ahead (above):
+# #2299, #2300, #2311, #2313, #2316, #2317 taken, #2312 and the typedoc removal declined, #2286
+# carried into 1.32.5. The rest:
+#
+#   * #2314 preserveGovernanceControls on INCREMENTAL tables. TAKEN, renumbered. We already shipped
+#     the flag on TableConfig (28) and WorkflowSettings (20) from #2220, but — exactly like upstream
+#     before this fix — never on IncrementalTableConfig, where a full refresh recreates the table and
+#     is precisely when BigQuery data policies would be lost. Upstream numbers it 30, which we ship
+#     as `mysql`; ours is 33. Same precedence as table.ts (action config, then workflow settings,
+#     then false). Upstream's test is in their split main_extensions_test.ts; ours are two in
+#     core/main_test.ts (propagates, and overrides workflow settings). Quirk worth knowing: with
+#     preserveGovernanceControls FALSE and no other BigQuery field set, protobufjs drops the whole
+#     `bigquery` block, so the override test sets partitionBy too — upstream's table test does the
+#     same for the same reason. Still inert at execution here (nothing in cli/ reads it; it is
+#     compile-time metadata for a hosted runner), as it already was for tables.
+#
+#   * #2293 Go module bumps (grpc 1.27.0 -> 1.40.1, x/net 2019 snapshot -> 0.18.0, x/text 0.3.2 ->
+#     0.14.0) + `--nobazel_run_linker` in scripts/run. TAKEN verbatim; MODULE.bazel matched
+#     upstream's exactly. Build, protos regen and all suites green afterwards.
+#
+#   * #2291 scope --quiet to `compile`. TAKEN in spirit. run/test/validate each read
+#     argv["quiet"] without declaring the option, so the value was always undefined — a dead read
+#     here too. Upstream dropped the reads; we did the same and additionally defaulted
+#     printCompiledGraphErrors' `quietCompilation` parameter, rather than deleting the shared
+#     option (compile still declares it, and our validate/format share the rest of common_options).
+#
+#   * #2297 tslint -> eslint and #2315 prettier 1.x -> 3.9.4. NOT TAKEN for now. These are the base
+#     of the declined #2312 formatting gate: together they rewrite scripts/lint, delete tslint.json,
+#     add an eslint config and reformat broadly. We keep tslint plus the narrow eslint rule that
+#     guards core/ against Node built-in imports. tslint is deprecated upstream-of-us, so this is a
+#     deliberate deferral, not a permanent decline — take it as its own change when the reformat
+#     churn is affordable, not inside a sync.
+#
+#   * #2306 strongly-typed yargs commands and #2290 help/yargs encapsulation. NOT TAKEN. Both
+#     rewrite cli/yargswrapper.ts and cli/index.ts against upstream's 9-command shape; ours carries
+#     15 commands and already got explicit INamedOption<..., "flag"> annotations during the #2286
+#     split (Bazel's declaration emit forced them, TS2742). Re-examine if our CLI typing ever hurts.
+#
+#   * Test-suite restructuring: #2287, #2289, #2285, #2294, #2295, #2296, #2301, #2302, #2304,
+#     #2305, #2308. NOT TAKEN. All are splits/moves of upstream test files (plus GCP-credential
+#     tagging and their property-graph suites) against files we have diverged from — #2308 in
+#     particular rewrites cli/index_compile_test.ts wholesale, where we hold our own suites. Our
+#     own CLI e2e flakiness is the sandboxed real `npm install`, which none of these address.
+#
+#   * #2318 version bump only.
+#
+DF_VERSION = "3.0.70"
