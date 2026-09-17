@@ -288,8 +288,9 @@ SQLANVIL_VERSION = "1.32.6"
 #     protobufjs encode into sandbox-local Uint8Arrays (no-op outside the sandbox). We have been
 #     exposed since taking protobufjs 7.6.5 (#2228, 3.0.64). Measured here on a 400-table /
 #     40,000-documented-column Postgres project with the published 1.32.6 CLI, swapping only
-#     @sqlanvil/core: 11.9s -> 6.7s per compile (3 runs each), compiled JSON byte-identical. The
-#     rest of the 6.7s is outside this path (catalog artifacts are written on every compile).
+#     @sqlanvil/core: with artifacts off and runs interleaved, 16.8-19.1s -> 7.6-9.2s per compile
+#     (~2x; an earlier pair with artifacts on read 11.9s -> 6.7s — absolute times drift with
+#     machine state, the ratio holds). Compiled JSON byte-identical.
 #     BUILD gains @npm//@types/node for `global`. //common, //core, //cli/api and
 #     //cli:index_compile_test pass.
 #
