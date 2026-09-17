@@ -2,4 +2,4 @@
 set -e
 
 bazel build //packages/@sqlanvil/cli:bin
-./bazel-bin/packages/@sqlanvil/cli/bin.sh "$@"
+./bazel-bin/packages/@sqlanvil/cli/bin.sh --nobazel_run_linker "$@"
