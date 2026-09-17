@@ -1,10 +1,59 @@
-import { util } from "protobufjs";
+import { configure, util } from "protobufjs";
 
 import { google } from "sa/protos/ts";
 
 const CONFIGS_PROTO_DOCUMENTATION_URL =
   "https://github.com/sqlanvil/docs/blob/main/reference/configs.md";
 const REPORT_ISSUE_URL = "https://github.com/sqlanvil/sqlanvil/issues";
+
+/**
+ * Whether `candidate` is a `Buffer` class belonging to a realm other than this one.
+ *
+ * A `Buffer` from another realm does not share this realm's `Uint8Array`, so its prototype fails
+ * an `instanceof` check against it.
+ */
+export function isForeignBuffer(candidate: any): boolean {
+  try {
+    if (!candidate?.prototype) {
+      return false;
+    }
+    return !(candidate.prototype instanceof Uint8Array);
+  } catch (e) {
+    // A `Buffer` we cannot even introspect is certainly not one of ours.
+    return true;
+  }
+}
+
+/**
+ * Makes protobufjs encode into plain `Uint8Array`s rather than `Buffer`s when `bufferClass` does
+ * not belong to this realm.
+ *
+ * protobufjs decides once, at load time, whether to encode into a Node `Buffer` or a plain
+ * `Uint8Array`, by looking at `global.Buffer`. Since protobufjs 7.6.0 that lookup reads the global
+ * directly rather than going through `require("buffer")`, which changes the answer inside the vm2
+ * sandbox the CLI compiles projects in: `require("buffer")` is blocked there, but `global.Buffer`
+ * resolves to the *host* class, reachable through vm2's membrane.
+ *
+ * Encoding through that membrane is pathologically slow: every `Buffer` call crosses the sandbox
+ * boundary, and the buffer that comes back is a proxy read one bridged access at a time. A
+ * `Uint8Array` allocated inside the sandbox never crosses the boundary. The encoded bytes are
+ * identical either way; only the container type differs. Outside a sandbox this is a no-op, so the
+ * host keeps protobufjs's native `Buffer` fast paths.
+ *
+ * Upstream #2300 (issue #2298).
+ *
+ * @returns whether protobufjs was reconfigured.
+ */
+export function avoidForeignBufferEncoding(bufferClass: any): boolean {
+  if (!isForeignBuffer(bufferClass)) {
+    return false;
+  }
+  (util as any).Buffer = null;
+  configure();
+  return true;
+}
+
+avoidForeignBufferEncoding(typeof global === "undefined" ? undefined : (global as any).Buffer);
 
 export interface IProtoClass<IProto, Proto> {
   new (): Proto;
