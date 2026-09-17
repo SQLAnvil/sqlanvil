@@ -267,7 +267,12 @@ function formatStackTraceForQuietCompilation(compileError: sqlanvil.ICompilation
   return "";
 }
 
-export function printCompiledGraphErrors(graphErrors: sqlanvil.IGraphErrors, quietCompilation: boolean) {
+export function printCompiledGraphErrors(
+  graphErrors: sqlanvil.IGraphErrors,
+  // Only `compile` declares --quiet; run/test/validate used to read an undeclared flag that was
+  // always undefined (upstream #2291).
+  quietCompilation: boolean = false
+) {
   if (graphErrors.compilationErrors && graphErrors.compilationErrors.length > 0) {
     printError("Compilation errors:", 1);
     graphErrors.compilationErrors.forEach(compileError => {

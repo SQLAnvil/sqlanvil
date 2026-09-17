@@ -11,7 +11,6 @@ import {
   jsonOutputOption,
   projectConfigOverrideWithEnvironment,
   projectDirMustExistOption,
-  quietCompileOption,
   timeoutOption
 } from "sa/cli/common_options";
 import {
@@ -57,7 +56,7 @@ export const testCommand: ICommand = {
       timeoutMillis: argv[timeoutOption.name] || undefined
     });
     if (compiledGraphHasErrors(compiledGraph)) {
-      printCompiledGraphErrors(compiledGraph.graphErrors, argv[quietCompileOption.name]);
+      printCompiledGraphErrors(compiledGraph.graphErrors);
       return 1;
     }
     if (!argv[jsonOutputOption.name]) {

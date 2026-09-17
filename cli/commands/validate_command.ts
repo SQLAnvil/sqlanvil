@@ -23,7 +23,6 @@ import {
   projectConfigOverrideWithEnvironment,
   projectDirMustExistOption,
   projectDirOption,
-  quietCompileOption,
   tagsOption,
   timeoutOption
 } from "sa/cli/common_options";
@@ -100,7 +99,7 @@ export async function runValidate(argv: any): Promise<number> {
     timeoutMillis: argv[timeoutOption.name] || undefined
   });
   if (compiledGraphHasErrors(compiledGraph)) {
-    printCompiledGraphErrors(compiledGraph.graphErrors, argv[quietCompileOption.name]);
+    printCompiledGraphErrors(compiledGraph.graphErrors);
     return 1;
   }
   if (!argv[jsonOutputOption.name]) {

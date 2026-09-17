@@ -21,7 +21,6 @@ import {
   projectConfigOverrideWithEnvironment,
   projectDirMustExistOption,
   projectDirOption,
-  quietCompileOption,
   tagsOption,
   timeoutOption
 } from "sa/cli/common_options";
@@ -213,7 +212,7 @@ export const runCommand: ICommand = {
       }
     }
     if (compiledGraphHasErrors(compiledGraph)) {
-      printCompiledGraphErrors(compiledGraph.graphErrors, argv[quietCompileOption.name]);
+      printCompiledGraphErrors(compiledGraph.graphErrors);
       return 1;
     }
     const warehouse = compiledGraph.projectConfig.warehouse || "bigquery";
