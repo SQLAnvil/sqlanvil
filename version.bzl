@@ -266,4 +266,18 @@ SQLANVIL_VERSION = "1.32.6"
 #     comments. If an alert ever needs clearing, move typedoc + a pinned typescript@3.8.3 into
 #     tools/typedoc/package.json beside postprocess.py rather than taking this. At the 3.0.70 sync,
 #     resolve package.json / yarn.lock conflicts around typedoc by keeping ours.
+#
+#   * #2312 enforces prettier formatting on upstream PRs: scripts/lint gains a `prettier --check`
+#     over .ts files changed since the branch point, a new scripts/format, a .prettierignore, and
+#     run_tests_on_cloudbuild calls lint. DECLINED. Contributor tooling only; no engine or user
+#     change. It doesn't fit here: (1) it sits on #2297 (tslint -> eslint, prettier 1.x -> 3.9.4),
+#     not taken — our lint/run_tests still run tslint and we're on prettier ^1.14.2, so the hunks
+#     don't apply and a forced check would format by 1.x rules; (2) its gate lives in
+#     run_tests_on_cloudbuild, upstream's Cloud Build runner, while our CI is
+#     .github/workflows/test.yaml (run_tests / run_integration_tests); (3) BASE_REF prefers
+#     `upstream/main`, which in our clone is dataform's main, so it would check every .ts file
+#     changed since the last upstream merge (217 at review) instead of the branch's own changes.
+#     The one worthwhile piece, `bazel run @nodejs//:yarn -- --frozen-lockfile` in run_tests and
+#     run_integration_tests (fail CI on an out-of-sync yarn.lock instead of rewriting it), can be
+#     taken on its own. At the 3.0.70 sync, keep our scripts/lint and scripts/run_tests*.
 DF_VERSION = "3.0.69"
