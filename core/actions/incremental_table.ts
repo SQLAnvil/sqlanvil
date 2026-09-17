@@ -204,6 +204,10 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
       requirePartitionFilter: config.requirePartitionFilter,
       additionalOptions: config.additionalOptions,
       incrementalPredicates: config.incrementalPredicates,
+      preserveGovernanceControls:
+        config.preserveGovernanceControls ??
+        session.projectConfig.preserveGovernanceControls ??
+        false,
       ...(config.iceberg ? {
         connection: getConnectionForIcebergTable(
           config.iceberg.connection,

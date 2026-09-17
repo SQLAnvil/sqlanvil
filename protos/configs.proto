@@ -595,6 +595,11 @@ message ActionConfig {
 
     // Array of SQL-based predicates for when incremental updates are applied.
     repeated string incremental_predicates = 32;
+
+    // Optional. If true, preserves existing BigQuery column governance controls
+    // (e.g. data policy) when recreating a table. Upstream #2314 numbers this 30,
+    // already taken here by `mysql`.
+    optional bool preserve_governance_controls = 33;
   }
 
   message AssertionConfig {
