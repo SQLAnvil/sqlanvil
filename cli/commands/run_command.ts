@@ -12,12 +12,12 @@ import { SupabaseDbAdapter } from "sa/cli/api/dbadapters/supabase";
 import { runValidate } from "sa/cli/commands/validate_command";
 import {
   actionsOption,
+  artifactsOption,
   credentialsOption,
   credentialsPathWithEnvironment,
   includeDependentsOption,
   includeDepsOption,
   jsonOutputOption,
-  noArtifactsOption,
   projectConfigOverrideWithEnvironment,
   projectDirMustExistOption,
   projectDirOption,
@@ -47,6 +47,7 @@ interface RunArgv extends ProjectConfigArgv {
   "run-tests"?: boolean;
   "action-retry-limit": number;
   actions?: string[];
+  artifacts: boolean;
   credentials: string;
   "full-refresh": boolean;
   graph?: string;
@@ -146,7 +147,7 @@ export const runCommand: ICommand = {
     executionTimeoutOption,
     tagsOption,
     bigqueryJobLabelsOption,
-    noArtifactsOption,
+    artifactsOption,
     ...ProjectConfigOptions.allYargsOptions
   ],
   processFn: async (argv: RunArgv) => {
@@ -369,7 +370,7 @@ export const runCommand: ICommand = {
         printError("Run cancelled.");
       }
     }
-    if (!(argv as any)[noArtifactsOption.name]) {
+    if (argv[artifactsOption.name] !== false) {
       await safeWriteArtifacts(compiledGraph, argv[projectDirOption.name], {
         runResult,
         runId: Date.now(),

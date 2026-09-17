@@ -4,10 +4,10 @@ import { compile, prune } from "sa/cli/api";
 import { safeWriteArtifacts } from "sa/cli/api/commands/artifacts";
 import {
   actionsOption,
+  artifactsOption,
   includeDependentsOption,
   includeDepsOption,
   jsonOutputOption,
-  noArtifactsOption,
   projectConfigOverrideWithEnvironment,
   projectDirMustExistOption,
   quietCompileOption,
@@ -35,6 +35,7 @@ interface CompileArgv extends ProjectConfigArgv {
   timeout: number | null;
   quiet: boolean;
   verbose: boolean;
+  artifacts: boolean;
   actions?: string[];
   tags?: string[];
   "include-deps"?: boolean;
@@ -111,7 +112,7 @@ export const compileCommand: ICommand = {
     compileTagsOption,
     compileIncludeDepsOption,
     compileIncludeDependentsOption,
-    noArtifactsOption,
+    artifactsOption,
     option(
       verboseOptionName,
       {
@@ -170,7 +171,7 @@ export const compileCommand: ICommand = {
         return true;
       }
       // Write the queryable catalog (best-effort) for `sqlanvil query` / `inspect`.
-      if (!(argv as any)[noArtifactsOption.name]) {
+      if (argv[artifactsOption.name] !== false) {
         await safeWriteArtifacts(compiledGraph, projectDir, { warn: print });
       }
       return false;

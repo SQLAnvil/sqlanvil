@@ -139,15 +139,16 @@ export const timeoutOption: INamedOption<yargs.Options, "timeout"> = option("tim
     rawTimeoutString ? parseDuration(rawTimeoutString) : null
 });
 
-export const noArtifactsOption: INamedOption<yargs.Options, "no-artifacts"> = option(
-  "no-artifacts",
-  {
-    describe:
-      "Skip writing the queryable Parquet artifacts under target/ (catalog on compile; run history " +
-      "on run).",
-    type: "boolean"
-  }
-);
+// Declared as the positive `artifacts` so yargs' own boolean negation produces the documented
+// `--no-artifacts`. Declaring "no-artifacts" instead made yargs read the flag as a negation of an
+// undeclared `artifacts` and reject it in strict mode ("Unknown argument: artifacts").
+export const artifactsOption: INamedOption<yargs.Options, "artifacts"> = option("artifacts", {
+  describe:
+    "Write the queryable Parquet artifacts under target/ (catalog on compile; run history on " +
+    "run). Pass --no-artifacts to skip them.",
+  type: "boolean",
+  default: true
+});
 
 export const quietCompileOption: INamedOption<yargs.Options, "quiet"> = option("quiet", {
   describe: "Less verbose compilation output. Example usage: 'sqlanvil compile --quiet'",

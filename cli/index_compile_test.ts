@@ -519,6 +519,29 @@ suite("compile node selection", ({ afterEach }) => {
     expect(result.exitCode).not.equals(0);
     expect(result.stderr).contains("--include-deps");
   });
+
+  test("artifacts are written by default", async () => {
+    const projectDir = await setupSelectionProject();
+    const result = await getProcessResult(
+      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json"])
+    );
+    expect(result.exitCode, result.stderr).equals(0);
+    expect(fs.existsSync(path.join(projectDir, "target", "catalog"))).equals(true);
+  });
+
+  // --no-artifacts was declared as an option literally named "no-artifacts", which yargs read as
+  // a negation of an undeclared "artifacts" and rejected in strict mode, so the documented flag
+  // never worked (broken at least since 1.32.4).
+  test("--no-artifacts is accepted and skips writing target/", async () => {
+    const projectDir = await setupSelectionProject();
+    const result = await getProcessResult(
+      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json", "--no-artifacts"])
+    );
+    expect(result.exitCode, result.stderr).equals(0);
+    expect(result.stderr).does.not.contain("Unknown argument");
+    expect(tableNames(result.stdout)).deep.equals(["downstream", "midstream", "upstream"]);
+    expect(fs.existsSync(path.join(projectDir, "target"))).equals(false);
+  });
 });
 
 suite("extension config", ({ afterEach }) => {
