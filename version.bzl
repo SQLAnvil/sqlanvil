@@ -280,4 +280,29 @@ SQLANVIL_VERSION = "1.32.6"
 #     The one worthwhile piece, `bazel run @nodejs//:yarn -- --frozen-lockfile` in run_tests and
 #     run_integration_tests (fail CI on an out-of-sync yarn.lock instead of rewriting it), can be
 #     taken on its own. At the 3.0.70 sync, keep our scripts/lint and scripts/run_tests*.
+#
+#   * #2300 compile ~4x slower since protobufjs 7.6 (issue #2298). TAKEN, verbatim apart from the
+#     comment. protobufjs >= 7.6.0 reads `global.Buffer` directly, which inside the CLI's vm2
+#     compile sandbox resolves to the HOST Buffer, so encoding the compiled graph crosses the vm2
+#     membrane on every write. common/protos now detects a foreign-realm Buffer and makes
+#     protobufjs encode into sandbox-local Uint8Arrays (no-op outside the sandbox). We have been
+#     exposed since taking protobufjs 7.6.5 (#2228, 3.0.64). Measured here on a 400-table /
+#     40,000-documented-column Postgres project with the published 1.32.6 CLI, swapping only
+#     @sqlanvil/core: 11.9s -> 6.7s per compile (3 runs each), compiled JSON byte-identical. The
+#     rest of the 6.7s is outside this path (catalog artifacts are written on every compile).
+#     BUILD gains @npm//@types/node for `global`. //common, //core, //cli/api and
+#     //cli:index_compile_test pass.
+#
+#   * #2317 form-data 2.5.5 -> 2.5.6 (GHSA-hmw2-7cc7-3qxx, CRLF injection) and #2316 jsdoc
+#     ^3.6.11 -> ^4.0.5. BOTH TAKEN, together with #2311 (drop `request` + `@types/request`),
+#     which #2317 silently depends on: upstream's lockfile had already lost `request`, ours still
+#     carried form-data 2.3.3 (request) and 2.5.1 (@types/request) as well as 2.5.5 — all three
+#     under GHSA-hmw2, the first two also under the CRITICAL GHSA-fjxv-7rqg-78g4. Nothing here
+#     imports `request`. Removing it (Bazel yarn 1.13 `remove`) leaves one form-data, via
+#     retry-request -> @types/request@^2.48.8, lifted to 2.5.6 + hasown 2.0.4 from upstream's
+#     lockfile. jsdoc: the root ^3.6.11 was only a leftover beside protobufjs-cli's own ^4, and
+#     dropping it removes taffydb 2.6.2 (GHSA-mxhp-79qh-mcx6, no fix). All dev-tree: none of
+#     these reach @sqlanvil/core's bundle or the CLI's published dependencies. Verified: frozen
+#     install passes; the rebuilt core bundle is byte-identical and bundle.d.ts matches 1.32.6's,
+#     so pbjs/pbts output is unchanged under jsdoc 4 (the tests were all Bazel cache hits).
 DF_VERSION = "3.0.69"
