@@ -124,3 +124,14 @@ git rebase upstream/main
 ```
 
 The rename sweep is complete. Upstream merges/cherry-picks should be straightforward (resolve any remaining conflicts on a case-by-case basis).
+
+Because we take upstream **selectively**, security pins in `package.json` → `resolutions` drift
+without anything flagging it — upstream adds them via Dependabot PRs that land on their `main`
+between tagged releases. Check on every sync:
+
+```bash
+./scripts/check_upstream_resolutions          # exit 1 lists what we are missing
+```
+
+The full sync procedure (conflict playbook, verification, clean-up) lives in the `SQLAnvil/docs`
+repo: [`upstream_merge_guide.md`](https://github.com/SQLAnvil/docs/blob/main/upstream_merge_guide.md).

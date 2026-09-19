@@ -1,0 +1,100 @@
+#!/bin/bash
+set -euo pipefail
+
+####################################################################################################
+# Compare our package.json "resolutions" block against upstream dataform-co/dataform.
+#
+# WHY THIS EXISTS
+# Upstream adds security pins to `resolutions` via Dependabot PRs that land on their `main`
+# between tagged releases. Because sqlanvil takes upstream selectively rather than merging every
+# tag wholesale, those pins are easy to miss — they are a one-line package.json change buried in
+# a release diff, and nothing about a normal sync draws attention to them.
+#
+# On 2026-09-19 we found the fork three pins behind (braces / brace-expansion / linkify-it), all
+# three resolving versions with advisories, and all three reaching the build because yarn.lock is
+# consumed by yarn_install in WORKSPACE. Upstream PR #2327 supplied only one of the three.
+#
+# USAGE
+#   ./scripts/check_upstream_resolutions            # compare against upstream/main
+#   ./scripts/check_upstream_resolutions 3.0.70     # compare against a specific tag
+#   ./scripts/check_upstream_resolutions --no-fetch # skip the network fetch
+#
+# EXIT CODES
+#   0  our resolutions cover everything upstream pins
+#   1  upstream pins something we do not, or pins it tighter  -> action needed
+#   2  could not read one side (bad ref, missing remote)
+####################################################################################################
+
+REF="upstream/main"
+FETCH=1
+for arg in "$@"; do
+    case "$arg" in
+        --no-fetch) FETCH=0 ;;
+        -h|--help) sed -n '5,25p' "$0"; exit 0 ;;
+        *) REF="$arg" ;;
+    esac
+done
+
+cd "$(dirname "$0")/.."
+
+if ! git remote get-url upstream >/dev/null 2>&1; then
+    echo "ERROR: no 'upstream' remote. Add it:" >&2
+    echo "  git remote add upstream https://github.com/dataform-co/dataform.git" >&2
+    exit 2
+fi
+
+if [[ "$FETCH" == "1" ]]; then
+    echo "Fetching upstream..."
+    git fetch --quiet upstream --tags
+fi
+
+if ! git cat-file -e "${REF}:package.json" 2>/dev/null; then
+    echo "ERROR: cannot read ${REF}:package.json (bad ref?)" >&2
+    exit 2
+fi
+
+ours=$(git show HEAD:package.json 2>/dev/null || cat package.json)
+theirs=$(git show "${REF}:package.json")
+
+OURS="$ours" THEIRS="$theirs" REF="$REF" python3 <<'PY'
+import json, os, sys
+
+ours = json.loads(os.environ["OURS"]).get("resolutions", {})
+theirs = json.loads(os.environ["THEIRS"]).get("resolutions", {})
+ref = os.environ["REF"]
+
+missing = {k: v for k, v in theirs.items() if k not in ours}
+differing = {k: (ours[k], v) for k, v in theirs.items() if k in ours and ours[k] != v}
+extra = {k: v for k, v in ours.items() if k not in theirs}
+
+print(f"ours: {len(ours)} resolutions | {ref}: {len(theirs)}\n")
+
+if missing:
+    print(f"MISSING -- upstream pins these, we do not ({len(missing)}):")
+    for k, v in missing.items():
+        print(f'    "{k}": "{v}",')
+    print()
+
+if differing:
+    print(f"DIFFERENT -- same key, different pin ({len(differing)}):")
+    for k, (o, t) in differing.items():
+        print(f"    {k}\n        ours: {o}\n        {ref}: {t}")
+    print()
+
+# Extra pins are normal and expected: sqlanvil carries adapters (pg, mysql) upstream does not,
+# so it legitimately pins things they never see. Reported for awareness, never a failure.
+if extra:
+    print(f"ours only -- expected, sqlanvil-specific ({len(extra)}):")
+    for k, v in extra.items():
+        print(f"    {k}: {v}")
+    print()
+
+if missing or differing:
+    print("ACTION: add the missing/differing pins to package.json, then:")
+    print("    yarn install                      # regenerate yarn.lock")
+    print("    bazel test //core/... //cli/... --config=macos-cpp")
+    print("Check the advisory for each before assuming it is only a version bump.")
+    sys.exit(1)
+
+print("OK: resolutions cover everything upstream pins.")
+PY
