@@ -38,6 +38,7 @@ if (argv.types) {
 }
 
 // Filter out dependencies.
+delete result.devDependencies;
 result.dependencies = externalDependencies.reduce((acc, key) => {
   if (!result.dependencies[key]) {
     throw new Error("Dependency does not appear to be installed in root package.json: " + key);
