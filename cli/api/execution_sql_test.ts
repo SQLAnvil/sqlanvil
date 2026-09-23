@@ -75,6 +75,49 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
     expect(procedureSql).to.equal(expectedSql.trim());
   });
 
+  // BigQuery rejects a DECLARE that follows any other statement in a block, at parse time
+  // (upstream dataform-co/dataform#2307).
+  test("places all DECLARE statements before any executable statement in generated procedure body", () => {
+    for (const strategy of [
+      sqlanvil.OnSchemaChange.FAIL,
+      sqlanvil.OnSchemaChange.EXTEND,
+      sqlanvil.OnSchemaChange.SYNCHRONIZE
+    ]) {
+      const table = {
+        ...baseTable,
+        onSchemaChange: strategy,
+        uniqueKey: ["id"]
+      };
+      const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
+      const createProcedureSql = tasks.build()[0].statement;
+      expect(createProcedureSql).to.include("CREATE OR REPLACE PROCEDURE");
+
+      const procedureBody = createProcedureSql.split("BEGIN\n")[1].split("\nEND;")[0];
+      const statements = procedureBody
+        .split(";")
+        .map(s =>
+          s
+            .split("\n")
+            .filter(line => !line.trim().startsWith("--"))
+            .join("\n")
+            .trim()
+        )
+        .filter(s => s.length > 0);
+
+      let seenNonDeclare = false;
+      for (const stmt of statements) {
+        if (stmt.toUpperCase().startsWith("DECLARE ")) {
+          expect(
+            seenNonDeclare,
+            `DECLARE statement appeared after non-DECLARE statement in strategy ${sqlanvil.OnSchemaChange[strategy]}: "${stmt}"`
+          ).to.equal(false);
+        } else {
+          seenNonDeclare = true;
+        }
+      }
+    }
+  });
+
   test("generates simple merge for IGNORE strategy", () => {
     const table = {
       ...baseTable,

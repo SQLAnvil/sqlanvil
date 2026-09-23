@@ -298,17 +298,28 @@ CREATE OR REPLACE TABLE ${emptyTempTableName} AS (
 );`;
   }
 
+  // BigQuery only allows DECLARE at the start of a block, so every variable the procedure uses is
+  // declared here, ahead of the temp-table CREATE (upstream dataform-co/dataform#2307).
+  private declareSchemaChangeVariablesSql(onSchemaChange: sqlanvil.OnSchemaChange): string {
+    let sql = `
+-- Declare variables for schema comparison and strategy execution.
+DECLARE sqlanvil_columns ARRAY<STRING>;
+DECLARE temp_table_columns ARRAY<STRUCT<column_name STRING, data_type STRING>>;
+DECLARE columns_added ARRAY<STRUCT<column_name STRING, data_type STRING>>;
+DECLARE columns_removed ARRAY<STRING>;`;
+
+    if (onSchemaChange === sqlanvil.OnSchemaChange.SYNCHRONIZE) {
+      sql += `\nDECLARE invalid_removed_columns ARRAY<STRING>;`;
+    }
+    return sql;
+  }
+
   private compareSchemasSql(
     target: sqlanvil.ITarget,
     emptyTempTableTarget: sqlanvil.ITarget
   ): string {
     return `
 -- Compare schemas
-DECLARE sqlanvil_columns ARRAY<STRING>;
-DECLARE temp_table_columns ARRAY<STRUCT<column_name STRING, data_type STRING>>;
-DECLARE columns_added ARRAY<STRUCT<column_name STRING, data_type STRING>>;
-DECLARE columns_removed ARRAY<STRING>;
-
 SET sqlanvil_columns = (
   SELECT IFNULL(ARRAY_AGG(DISTINCT column_name), [])
   FROM \`${target.database}.${target.schema}.INFORMATION_SCHEMA.COLUMNS\`
@@ -368,7 +379,6 @@ ${this.alterTableAddColumnsSql(qualifiedTargetTableName)}
       case sqlanvil.OnSchemaChange.SYNCHRONIZE:
         const uniqueKeys = table.uniqueKey || [];
         sql += `
-DECLARE invalid_removed_columns ARRAY<STRING>;
 SET invalid_removed_columns = (
   SELECT IFNULL(ARRAY_AGG(col), []) FROM UNNEST(columns_removed) AS col WHERE col IN UNNEST(${JSON.stringify(uniqueKeys)})
 );
@@ -423,7 +433,9 @@ DROP TABLE IF EXISTS ${emptyTempTableName};
   ): string {
     const emptyTempTableName = this.resolveTarget(emptyTempTableTarget);
     const query = this.getIncrementalQuery(table);
+    const onSchemaChange = table.onSchemaChange || sqlanvil.OnSchemaChange.IGNORE;
     const statements: string[] = [
+      this.declareSchemaChangeVariablesSql(onSchemaChange),
       this.createEmptyTempTableSql(emptyTempTableName, query),
       this.compareSchemasSql(
         table.target,
