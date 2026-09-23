@@ -2,7 +2,7 @@
 # SemVer line). DF_VERSION is the upstream dataform-co/dataform release this fork
 # is synced to — surfaced as metadata (e.g. `sqlanvil --version`), not the package
 # version. Bump SQLANVIL_VERSION for sqlanvil releases; bump DF_VERSION on upstream syncs.
-SQLANVIL_VERSION = "1.32.7"
+SQLANVIL_VERSION = "1.32.8"
 # 3.0.64 reviewed; taken selectively. Four upstream commits:
 #
 #   * #2228 protobufjs 7.6.3 -> 7.6.5. TAKEN (we were on 7.6.4 for the direct dep and 7.5.8 for
@@ -351,5 +351,22 @@ SQLANVIL_VERSION = "1.32.7"
 #     own CLI e2e flakiness is the sandboxed real `npm install`, which none of these address.
 #
 #   * #2318 version bump only.
+#
+# Carried ahead of the next upstream tag (2026-09-22), three commits from upstream main:
+#
+#   * #2319 (fixes #2307) hoist DECLAREs in the onSchemaChange procedure. TAKEN by hand into
+#     bigquery_execution_sql.ts (sqlanvil_columns; upstream's prettier reformat of the two files
+#     left out). FAIL/EXTEND/SYNCHRONIZE on BigQuery generated a DECLARE after CREATE TABLE, which
+#     BigQuery rejects at parse time, so every such run failed. Shipped in 1.32.8. Upstream's
+#     ordering test taken; red here before the fix.
+#
+#   * #2337 debug 3.2.6 -> 3.2.7 in yarn.lock (via promise-pool-executor). TAKEN. Lockfile-only,
+#     so check_upstream_resolutions cannot see it; npm installs of the CLI already got 3.2.7.
+#
+#   * #2338 devDependencies split + gen_package_json deletes devDependencies. TAKEN, re-derived
+#     for our tree (pg, pg-query-stream, mysql2, @duckdb/node-api, google-auth-library stay
+#     runtime). Generated @sqlanvil/cli package.json byte-identical before and after.
+#
+# Expect all three as no-ops when the next upstream tag is reviewed.
 #
 DF_VERSION = "3.0.70"
