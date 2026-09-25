@@ -1,6 +1,5 @@
-import * as fs from "fs";
+import * as fs from "fs-extra";
 import * as path from "path";
-import * as rimraf from "rimraf";
 
 import { IHookHandler } from "sa/testing";
 
@@ -29,7 +28,10 @@ export class TmpDirFixture {
 
   private rmTmpDirs() {
     for (const tmpPath of this.tmpDirPaths) {
-      rimraf.sync(tmpPath);
+      // fs-extra's removeSync, not node's fs.rmSync: on Node 20, rmSync recurses through node's
+      // internal rimraf, which hands readdirSync a Buffer path that the rules_nodejs node_patches
+      // shim rejects ("paths[0] must be of type string"). See cli/api/commands/compile.ts.
+      fs.removeSync(tmpPath);
     }
   }
 }

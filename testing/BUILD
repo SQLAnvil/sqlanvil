@@ -19,13 +19,13 @@ ts_library(
     deps = [
         "//:modules-fix",
         "@npm//@types/diff",
+        "@npm//@types/fs-extra",
         "@npm//@types/json-stable-stringify",
         "@npm//@types/node",
-        "@npm//@types/rimraf",
         "@npm//chalk",
         "@npm//diff",
+        "@npm//fs-extra",
         "@npm//json-stable-stringify",
-        "@npm//rimraf",
     ],
 )
 

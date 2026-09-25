@@ -12,9 +12,7 @@ ts_library(
         "//testing",
         "@npm//@types/node",
         "@npm//@types/pg",
-        "@npm//@types/uuid",
         "@npm//pg",
         "@npm//promise-pool-executor",
-        "@npm//uuid",
     ],
 )
