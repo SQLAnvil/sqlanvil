@@ -267,7 +267,11 @@ function createEscapedStatements(nodes: Array<string | SyntaxTreeNode>) {
 const SQL_STATEMENT_ESCAPERS = new Map([
   [
     SyntaxTreeNodeType.SQL_COMMENT,
-    (str: string) => str.replace(/`/g, "\\`").replace(/\${/g, "\\${")
+    (str: string) =>
+      str
+        .replace(/\\/g, "\\\\")
+        .replace(/`/g, "\\`")
+        .replace(/\${/g, "\\${")
   ],
   [
     SyntaxTreeNodeType.SQL_LITERAL_STRING,
