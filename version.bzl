@@ -369,4 +369,54 @@ SQLANVIL_VERSION = "1.32.8"
 #
 # Expect all three as no-ops when the next upstream tag is reviewed.
 #
-DF_VERSION = "3.0.70"
+# 3.0.71 reviewed (2026-09-25); 18 upstream commits. Already here, so no-ops: #2319, #2337 and
+# #2338 (carried ahead above), and the #2324 linkify-it, #2325 brace-expansion and #2327 braces
+# pins (4e23301f, found by check_upstream_resolutions on 2026-09-19). The rest:
+#
+#   * #2339 backslashes in sqlx SQL comments. TAKEN. The comment escaper handled ` and ${ but not
+#     a backslash in front of them, so `-- note \`` closed the generated template literal and the
+#     whole file failed with "SyntaxError: Unexpected identifier". Upstream's test is in
+#     core/main_test.ts (red here before the fix); the common_v2 fixture and projects.spec
+#     expectations are verbatim. With #2340, the only difference in core's bundle from 1.32.8.
+#
+#   * #2340 removes the unused extractJsBlocks (two CodeQL ReDoS alerts upstream). TAKEN.
+#
+#   * #2332 parse-duration ^1.0.0 -> 2.1.6 (HIGH ReDoS GHSA-hcrg-fc28-fcg5; there is no 1.x fix).
+#     TAKEN, with an "engines" field upstream lacks. The CLI declares parse-duration, so installs
+#     resolved a vulnerable 1.x. 2.x is ESM-only and the CLI bundle require()s it at load time,
+#     which needs require(esm): Node ^20.19 || >=22.12. Measured on the packed CLI: it runs on
+#     20.20.2, 22.23.3 and 24.15.0; on 20.18.0 and 18.20.8 every command dies with ERR_REQUIRE_ESM,
+#     where 1.32.8 ran. Both are EOL and the Cloud runner is node:22. Bundling it instead would
+#     mean loosening packages/rollup.config.js, which externalizes every third-party import.
+#
+#   * #2330 minimatch transitive updates, vsce removed, js-beautify 1.15.4, eslint 8 -> 10 with a
+#     flat config and an @eslint/plugin-kit pin. TAKEN, adapted. js-beautify is a published CLI
+#     dependency, now pinned exactly as upstream does. eslint keeps our narrow scope, the core/
+#     sandbox guard (tslint lints the rest; #2297 stays deferred): .eslintrc.js became
+#     eslint.config.js with the same overrides plus upstream's parser shim. "Update transitive
+#     deps" applied to our lockfile: every entry with an advisory and a fix inside its declared
+#     range was re-resolved (minimatch, node-forge, tmp, fast-uri, js-yaml 3 via tslint, mysql2,
+#     browserslist, ajv, ...). Against the GitHub advisory database the lockfile went from 46
+#     vulnerable package/advisory pairs to 3 (upstream's 3.0.71 lockfile: 10). The 3 need a major:
+#     marked 1.0.0 via typedoc 0.17.8 (see #2313 above) and semver 5.6.0, an exact pin.
+#
+#   * #2331 serialize-javascript ^7.1.1, #2333 @google-cloud/storage/**/uuid 14.0.2, #2335
+#     markdown-it 14.3.1 + mdurl 2.0.0. TAKEN. Under yarn v1 the scoped uuid pin made our lockfile
+#     oscillate, failing every --frozen-lockfile install, until our own unused root uuid and
+#     @types/uuid devDependencies were dropped; upstream has neither.
+#
+#   * #2326 removes rimraf and #2336 ts-loader. TAKEN. TmpDirFixture deletes with fs-extra's
+#     removeSync rather than upstream's fs.rmSync: on our Node 20.20.2 toolchain (upstream's is
+#     24.13) rmSync hands the rules_nodejs node_patches a Buffer path, and 28 suites failed in
+#     teardown. cli/api/commands/compile.ts carries the same workaround.
+#
+#   * #2341 deletes .github/workflows/test.yaml. TAKEN. It never ran here — the Actions API shows
+#     zero runs, though it was present for PRs #36-#43 — being Cloud Build step syntax. The #2312
+#     note above calling it "our CI" was wrong.
+#
+#   * #2342 reformats every .ts file with prettier 3. NOT TAKEN: formatting only, and it rides on
+#     #2315 (prettier 1 -> 3), deferred at 3.0.70 together with #2297.
+#
+#   * #2334 version bump only.
+#
+DF_VERSION = "3.0.71"
