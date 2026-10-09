@@ -12,7 +12,7 @@ authority for the version you have installed: `sqlanvil help` lists the commands
 
 ```bash
 npm install -g @sqlanvil/cli
-sqlanvil --version    # sqlanvil 1.32.9 (Dataform core 3.0.71)
+sqlanvil --version    # sqlanvil 1.32.10 (Dataform core 3.0.71)
 ```
 
 Requires Node.js 20.19+ or 22.12+. `--version` reports the sqlanvil release and the Dataform core

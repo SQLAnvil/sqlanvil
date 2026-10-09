@@ -2,7 +2,7 @@
 # SemVer line). DF_VERSION is the upstream dataform-co/dataform release this fork
 # is synced to — surfaced as metadata (e.g. `sqlanvil --version`), not the package
 # version. Bump SQLANVIL_VERSION for sqlanvil releases; bump DF_VERSION on upstream syncs.
-SQLANVIL_VERSION = "1.32.9"
+SQLANVIL_VERSION = "1.32.10"
 # 3.0.64 reviewed; taken selectively. Four upstream commits:
 #
 #   * #2228 protobufjs 7.6.3 -> 7.6.5. TAKEN (we were on 7.6.4 for the direct dep and 7.5.8 for
@@ -421,5 +421,10 @@ SQLANVIL_VERSION = "1.32.9"
 #
 # Shipped in 1.32.9: #2339 and #2340 in core's bundle; parse-duration 2.1.6, js-beautify 1.15.4
 # and the Node engines floor in the CLI's package.json. The rest is build and dev-tree only.
+#
+# Shipped in 1.32.10 (no upstream change; DF_VERSION stays 3.0.71): `run --job-prefix` is a
+# registered flag again (it was read but never declared, so strict mode rejected it), corrected
+# --database-suffix and validate help text, and @sqlanvil/cli now ships cli/README.md (the CLI
+# reference) as its README, as upstream did in #2364.
 #
 DF_VERSION = "3.0.71"

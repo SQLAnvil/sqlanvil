@@ -32,7 +32,7 @@ below before authoring a `warehouse: mysql` project.
 warehouse: postgres            # flat string ("postgres" or "supabase") — NOT nested
 defaultDataset: public         # the Postgres SCHEMA
 defaultAssertionDataset: sqlanvil_assertions
-sqlanvilCoreVersion: 1.32.9    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
+sqlanvilCoreVersion: 1.32.10   # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
 vars:
   someVar: value
 ```
@@ -197,7 +197,7 @@ sqlanvil run       <projectDir> --credentials ... --actions <name> --include-dep
 sqlanvil validate  <projectDir> --credentials ...      # EXPLAIN-validate the whole DAG without executing
 sqlanvil test      <projectDir> --credentials ...
 ```
-Install with `npm i -g @sqlanvil/cli` (needs Node 20.19+ or 22.12+). (Working from a sqlanvil repo checkout instead of the installed CLI? Use `./scripts/run <verb>` in place of `sqlanvil <verb>`.)
+Install with `npm i -g @sqlanvil/cli` (needs Node 20.19+ or 22.12+). Every command and flag: [`cli/README.md`](cli/README.md) (also at sqlanvil.com/docs/reference/cli). (Working from a sqlanvil repo checkout instead of the installed CLI? Use `./scripts/run <verb>` in place of `sqlanvil <verb>`.)
 Boot a local PG with `./tools/postgres/run-postgres-db.sh`.
 
 **`validate` / `run --dry-run` (>=1.9):** walks the DAG in dependency order, `EXPLAIN`-checks each
