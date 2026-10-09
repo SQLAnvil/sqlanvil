@@ -58,6 +58,24 @@ interface ILegacyDeclarationConfig extends sqlanvil.ActionConfig.DeclarationConf
  * // definitions/file.js
  * declare("name")
  * ```
+ *
+ * **Naming the declaration:**
+ *
+ * A declaration's name must match the existing table it points at. In a SQLX file it defaults to the
+ * file's name: `definitions/name.sqlx` declares a table called `name`. Set `name` in the config when
+ * the file is named differently from the table. Other actions then `ref()` it by that name:
+ *
+ * ```sql
+ * -- definitions/sources/app_customers.sqlx
+ * config {
+ *   type: "declaration",
+ *   schema: "app",
+ *   name: "customers"
+ * }
+ * ```
+ *
+ * An action configs file or the Javascript API has no filename to default to, so `name` is
+ * required there.
  */
 export class Declaration extends ActionBuilder<sqlanvil.Declaration> {
   /** @hidden Hold a reference to the Session instance. */
