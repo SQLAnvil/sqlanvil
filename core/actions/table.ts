@@ -88,8 +88,26 @@ export type JitTableResult = string | sqlanvil.IJitTableResult;
  *
  * Note: When using the Javascript API, methods in this class can be accessed by the returned value.
  * This is where `query` comes from.
+ *
+ * **Naming the table:**
+ *
+ * By default a table is named after its file: `definitions/name.sqlx` creates a table called
+ * `name`. Set `name` in the config to override that. The table is created under the new name, and
+ * other actions `ref()` it by that name, not by the filename:
+ *
+ * ```sql
+ * -- definitions/sales/daily.sqlx
+ * config {
+ *   type: "table",
+ *   name: "daily_sales"
+ * }
+ * SELECT 1
+ * ```
+ *
+ * `name` works the same way next to `filename` in an action configs file. In the Javascript API
+ * the name is the first argument to `table()`.
  */
-export class Table extends ActionBuilder<sqlanvil.Table> {
+export class Tableextends ActionBuilder<sqlanvil.Table> {
   /** @hidden Hold a reference to the Session instance. */
   public session: Session;
   /**
