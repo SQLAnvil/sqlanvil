@@ -86,6 +86,24 @@ export type JitViewResult = string | sqlanvil.IJitTableResult;
  *
  * Note: When using the Javascript API, methods in this class can be accessed by the returned value.
  * This is where `query` comes from.
+ *
+ * **Naming the view:**
+ *
+ * By default a view is named after its file: `definitions/name.sqlx` creates a view called
+ * `name`. Set `name` in the config to override that. The view is created under the new name, and
+ * other actions `ref()` it by that name, not by the filename:
+ *
+ * ```sql
+ * -- definitions/sales/daily.sqlx
+ * config {
+ *   type: "view",
+ *   name: "daily_sales"
+ * }
+ * SELECT column FROM someTable
+ * ```
+ *
+ * `name` works the same way next to `filename` in an action configs file. In the Javascript API
+ * the name is the first argument.
  */
 export class View extends ActionBuilder<sqlanvil.Table> {
   /** @hidden Hold a reference to the Session instance. */
