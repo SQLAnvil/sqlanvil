@@ -100,7 +100,7 @@ pkg_bundle(
 
 copy_file(
     name = "readme",
-    src = "//:README.md",
+    src = "//cli:README.md",
     out = "README.md",
 )
 

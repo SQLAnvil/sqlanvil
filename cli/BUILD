@@ -1,9 +1,12 @@
 load("//tools:ts_library.bzl", "ts_library")
-load("//tools/common:copy.bzl", "copy_file")
 load("//testing:index.bzl", "ts_test_suite")
 load("//tools:node_modules.bzl", "node_modules")
 
 package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "README.md",
+])
 
 ts_library(
     name = "cli",
@@ -114,10 +117,4 @@ ts_test_suite(
         "@npm//js-yaml",
         "@npm//ts-mockito",
     ],
-)
-
-copy_file(
-    name = "readme",
-    src = "//:README.md",
-    out = "README.md",
 )

@@ -184,8 +184,8 @@ export async function runValidate(argv: any): Promise<number> {
 export const validateCommand: ICommand = {
   format: `validate [${projectDirMustExistOption.name}]`,
   description:
-    "Validate the project's SQL against the warehouse planner (EXPLAIN/dry-run) without " +
-    "executing. Postgres/Supabase/MySQL only.",
+    "Validate the project's SQL against the warehouse planner without executing: EXPLAIN on " +
+    "Postgres/Supabase/MySQL, a dry run on BigQuery.",
   positionalOptions: [projectDirMustExistOption],
   options: [
     actionsOption,

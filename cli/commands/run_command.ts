@@ -57,9 +57,9 @@ interface RunArgv extends ProjectConfigArgv {
   "execution-timeout": number | null;
   tags?: string[];
   "job-labels"?: { [key: string]: string };
+  "job-prefix"?: string;
   // Read but not declared on `run` (undefined at runtime today).
   quiet?: boolean;
-  "job-prefix"?: string;
 }
 
 const fullRefreshOption = option("full-refresh", {
@@ -90,7 +90,8 @@ const executionTimeoutOption = option("execution-timeout", {
 });
 
 const jobPrefixOption = option("job-prefix", {
-  describe: "Adds an additional prefix in the form of `sqlanvil-${jobPrefix}-`.",
+  describe:
+    "BigQuery only. Adds a prefix to BigQuery job IDs, in the form `sqlanvil-${jobPrefix}-`.",
   type: "string",
   default: null
 });
@@ -140,11 +141,11 @@ export const runCommand: ICommand = {
     graphFileOption,
     includeDepsOption,
     includeDependentsOption,
-    credentialsOption,
     jsonOutputOption,
     timeoutOption,
     executionTimeoutOption,
     tagsOption,
+    jobPrefixOption,
     bigqueryJobLabelsOption,
     artifactsOption,
     ...ProjectConfigOptions.allYargsOptions

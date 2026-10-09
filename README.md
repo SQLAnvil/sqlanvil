@@ -84,7 +84,7 @@ Full documentation at **[sqlanvil.com/docs](https://sqlanvil.com/docs/)**.
 - Warehouses: [PostgreSQL](https://sqlanvil.com/docs/guides/postgres/) · [Supabase](https://sqlanvil.com/docs/guides/supabase/) · [MySQL/MariaDB](https://sqlanvil.com/docs/guides/mysql/) · [BigQuery](https://sqlanvil.com/docs/guides/bigquery/)
 - [Cross-warehouse sources](https://sqlanvil.com/docs/guides/foreign-wrappers/) · [File Imports](https://sqlanvil.com/docs/guides/imports/) · [File Exports](https://sqlanvil.com/docs/guides/exports/) · [Python Script Actions](https://sqlanvil.com/docs/guides/python-actions/)
 - [Validate](https://sqlanvil.com/docs/guides/validate/) · [Named Environments](https://sqlanvil.com/docs/guides/environments/) · [Artifacts & Catalog](https://sqlanvil.com/docs/guides/artifacts/)
-- [Configs Reference](https://sqlanvil.com/docs/reference/configs/) · [What's New](https://sqlanvil.com/docs/whats-new/)
+- [CLI Reference](https://sqlanvil.com/docs/reference/cli/) ([also in this repo](cli/README.md)) · [Configs Reference](https://sqlanvil.com/docs/reference/configs/) · [What's New](https://sqlanvil.com/docs/whats-new/)
 
 Writing sqlanvil projects with an AI agent? Point it at [`AGENTS.md`](https://github.com/SQLAnvil/sqlanvil/blob/main/AGENTS.md) — it corrects
 the Dataform/BigQuery priors that otherwise produce broken sqlanvil code. Contributor/design
