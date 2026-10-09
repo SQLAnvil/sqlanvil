@@ -107,7 +107,7 @@ export type JitTableResult = string | sqlanvil.IJitTableResult;
  * `name` works the same way next to `filename` in an action configs file. In the Javascript API
  * the name is the first argument to `table()`.
  */
-export class Tableextends ActionBuilder<sqlanvil.Table> {
+export class Table extends ActionBuilder<sqlanvil.Table> {
   /** @hidden Hold a reference to the Session instance. */
   public session: Session;
   /**
