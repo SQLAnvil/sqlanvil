@@ -343,6 +343,11 @@ SQLANVIL_VERSION = "1.32.10"
 #     rewrite cli/yargswrapper.ts and cli/index.ts against upstream's 9-command shape; ours carries
 #     15 commands and already got explicit INamedOption<..., "flag"> annotations during the #2286
 #     split (Bazel's declaration emit forced them, TS2742). Re-examine if our CLI typing ever hurts.
+#     MISSED FIX (found 2026-10-09): #2306 also registered `run --job-prefix`, which every release
+#     back to upstream #1449 (2023) defined and read but never declared, so strict yargs rejected
+#     it. Declining the refactor dropped that fix with it; we fixed it ourselves in 1.32.10. When
+#     declining a refactor, diff its user-visible behavior (here, the flags registered per
+#     command) as well as its structure.
 #
 #   * Test-suite restructuring: #2287, #2289, #2285, #2294, #2295, #2296, #2301, #2302, #2304,
 #     #2305, #2308. NOT TAKEN. All are splits/moves of upstream test files (plus GCP-credential
@@ -422,8 +427,9 @@ SQLANVIL_VERSION = "1.32.10"
 # Shipped in 1.32.9: #2339 and #2340 in core's bundle; parse-duration 2.1.6, js-beautify 1.15.4
 # and the Node engines floor in the CLI's package.json. The rest is build and dev-tree only.
 #
-# Shipped in 1.32.10 (no upstream change; DF_VERSION stays 3.0.71): `run --job-prefix` is a
-# registered flag again (it was read but never declared, so strict mode rejected it), corrected
+# Shipped in 1.32.10 (no upstream change; DF_VERSION stays 3.0.71): `run --job-prefix` is now a
+# registered flag (it was read but never declared, so strict mode rejected it; upstream fixed the
+# same bug inside #2306, which we declined, see the 3.0.70 notes above), corrected
 # --database-suffix and validate help text, and @sqlanvil/cli now ships cli/README.md (the CLI
 # reference) as its README, as upstream did in #2364.
 #
