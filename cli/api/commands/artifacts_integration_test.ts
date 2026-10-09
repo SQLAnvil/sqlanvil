@@ -20,20 +20,20 @@ suite("artifacts integration", () => {
             target: { schema: "s", name: "src" },
             enumType: sqlanvil.TableType.TABLE,
             tags: ["daily"],
-            actionDescriptor: { columns: [{ path: ["id"], description: "the id" }] }
+            actionDescriptor: { columns: [{ path: ["id"], description: "the id" }] },
           },
           {
             target: { schema: "s", name: "v" },
             enumType: sqlanvil.TableType.VIEW,
-            dependencyTargets: [{ schema: "s", name: "src" }]
-          }
+            dependencyTargets: [{ schema: "s", name: "src" }],
+          },
         ],
         assertions: [
-          { target: { schema: "s", name: "a" }, dependencyTargets: [{ schema: "s", name: "v" }] }
+          { target: { schema: "s", name: "a" }, dependencyTargets: [{ schema: "s", name: "v" }] },
         ],
         operations: [],
         exports: [],
-        declarations: []
+        declarations: [],
       } as sqlanvil.ICompiledGraph;
 
       const runResult: sqlanvil.IRunResult = {
@@ -43,15 +43,15 @@ suite("artifacts integration", () => {
             target: { schema: "s", name: "src" },
             status: sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL,
             timing: { startTimeMillis: 1000, endTimeMillis: 1400 } as any,
-            tasks: []
+            tasks: [],
           },
           {
             target: { schema: "s", name: "v" },
             status: sqlanvil.ActionResult.ExecutionStatus.FAILED,
             timing: { startTimeMillis: 1400, endTimeMillis: 1600 } as any,
-            tasks: [{ errorMessage: "boom" } as any]
-          }
-        ]
+            tasks: [{ errorMessage: "boom" } as any],
+          },
+        ],
       } as sqlanvil.IRunResult;
 
       await writeArtifacts(graph, dir, { runResult, runId: 123 });
@@ -61,17 +61,17 @@ suite("artifacts integration", () => {
         { name: "actions", glob: path.join(t, "catalog/actions.parquet") },
         { name: "dependencies", glob: path.join(t, "catalog/dependencies.parquet") },
         { name: "columns", glob: path.join(t, "catalog/columns.parquet") },
-        { name: "runs", glob: path.join(t, "runs/*.parquet") }
+        { name: "runs", glob: path.join(t, "runs/*.parquet") },
       ];
 
       const byType = await queryParquet(
         "select type, count(*) as n from actions group by type order by type",
-        views
+        views,
       );
       expect(byType.map((r: any) => `${r.type}:${Number(r.n)}`)).to.eql([
         "assertion:1",
         "table:1",
-        "view:1"
+        "view:1",
       ]);
 
       const depCount = await queryParquet("select count(*) as n from dependencies", views);
@@ -86,7 +86,7 @@ suite("artifacts integration", () => {
 
       const runs = await queryParquet(
         "select status, error_message, duration_millis from runs",
-        views
+        views,
       );
       expect(runs.length).to.equal(2);
       const failed = runs.find((r: any) => r.status === "FAILED");
@@ -106,12 +106,18 @@ suite("artifacts integration", () => {
       expect(html).to.contain("the id");
 
       // Empty rowsets still produce queryable (0-row) Parquet.
-      const emptyGraph = { tables: [], operations: [], assertions: [], exports: [], declarations: [] } as sqlanvil.ICompiledGraph;
+      const emptyGraph = {
+        tables: [],
+        operations: [],
+        assertions: [],
+        exports: [],
+        declarations: [],
+      } as sqlanvil.ICompiledGraph;
       const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), "sa-artifacts-empty-"));
       try {
         await writeArtifacts(emptyGraph, dir2);
         const n = await queryParquet("select count(*) as n from actions", [
-          { name: "actions", glob: path.join(dir2, "target/catalog/actions.parquet") }
+          { name: "actions", glob: path.join(dir2, "target/catalog/actions.parquet") },
         ]);
         expect(Number(n[0].n)).to.equal(0);
       } finally {

@@ -54,14 +54,14 @@ export const WRAPPER_PROVIDERS: { [name: string]: IProviderPreset } = {
     extension: "wrappers",
     wrapper: "bigquery_wrapper",
     handler: "big_query_fdw_handler",
-    validator: "big_query_fdw_validator"
+    validator: "big_query_fdw_validator",
   },
   postgres_fdw: {
     extension: "postgres_fdw",
     wrapper: "postgres_fdw",
     handler: "",
-    validator: ""
-  }
+    validator: "",
+  },
 };
 
 export interface IResolvedWrapper {
@@ -77,27 +77,27 @@ export function resolveWrapper(config: IWrapperConfig): IResolvedWrapper {
     if (!preset) {
       throw new Error(
         `Unknown wrapper provider "${config.provider}". Supported providers: ${Object.keys(
-          WRAPPER_PROVIDERS
-        ).join(", ")}.`
+          WRAPPER_PROVIDERS,
+        ).join(", ")}.`,
       );
     }
     return preset;
   }
   if (!config.wrapper) {
     throw new Error(
-      `wrapper "${config.name}" must set either "provider" or an explicit "wrapper" extension name.`
+      `wrapper "${config.name}" must set either "provider" or an explicit "wrapper" extension name.`,
     );
   }
   if (!config.handler || !config.validator) {
     throw new Error(
-      `wrapper "${config.name}" without a "provider" preset must also set "handler" and "validator".`
+      `wrapper "${config.name}" without a "provider" preset must also set "handler" and "validator".`,
     );
   }
   return {
     extension: config.wrapper,
     wrapper: config.wrapper,
     handler: config.handler,
-    validator: config.validator
+    validator: config.validator,
   };
 }
 
@@ -112,7 +112,7 @@ export class Wrapper extends ActionBuilder<sqlanvil.Operation> {
 
     const target = sqlanvil.Target.create({ name: config.name });
     this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, {
-      validateTarget: true
+      validateTarget: true,
     });
     this.proto.canonicalTarget = this.applySessionToTarget(target, session.canonicalProjectConfig);
     this.proto.fileName = config.filename || "";
@@ -134,19 +134,19 @@ export class Wrapper extends ActionBuilder<sqlanvil.Operation> {
       serverOptionsMap.sa_key_id = this.config.credential.saKeyId;
     }
     const optionsArray = Object.entries(serverOptionsMap).map(
-      ([k, v]) => `${k} '${String(v).replace(/'/g, "''")}'`
+      ([k, v]) => `${k} '${String(v).replace(/'/g, "''")}'`,
     );
     const optionsStr = optionsArray.length > 0 ? ` options (${optionsArray.join(", ")})` : "";
 
     const queries = [`create extension if not exists "${resolved.extension}" cascade`];
     if (resolved.handler && resolved.validator) {
       queries.push(
-        `do $$ begin if not exists (select 1 from pg_foreign_data_wrapper where fdwname = '${resolved.wrapper}') then create foreign data wrapper ${resolved.wrapper} handler ${resolved.handler} validator ${resolved.validator}; end if; end $$`
+        `do $$ begin if not exists (select 1 from pg_foreign_data_wrapper where fdwname = '${resolved.wrapper}') then create foreign data wrapper ${resolved.wrapper} handler ${resolved.handler} validator ${resolved.validator}; end if; end $$`,
       );
     }
     queries.push(`drop server if exists "${this.config.server}" cascade`);
     queries.push(
-      `create server "${this.config.server}" foreign data wrapper "${resolved.wrapper}"${optionsStr}`
+      `create server "${this.config.server}" foreign data wrapper "${resolved.wrapper}"${optionsStr}`,
     );
 
     if (this.config.userMappingConnection) {
@@ -157,7 +157,7 @@ export class Wrapper extends ActionBuilder<sqlanvil.Operation> {
       const passwordToken = "${SA_CONN:" + conn + ":password}";
       queries.push(
         `create user mapping for current_user server "${this.config.server}" ` +
-          `options (user '${userToken}', password '${passwordToken}')`
+          `options (user '${userToken}', password '${passwordToken}')`,
       );
     }
 
@@ -166,7 +166,7 @@ export class Wrapper extends ActionBuilder<sqlanvil.Operation> {
     return verifyObjectMatchesProto(
       sqlanvil.Operation,
       this.proto,
-      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
     );
   }
 }

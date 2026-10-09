@@ -21,7 +21,7 @@ suite("duckdb export integration", ({ afterEach }) => {
       .sort((a, b) => a.id - b.id);
     expect(rows).deep.equals([
       { id: 1, name: "a" },
-      { id: 2, name: "b" }
+      { id: 2, name: "b" },
     ]);
   });
 

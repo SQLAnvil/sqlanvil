@@ -25,7 +25,7 @@ suite("readExtensionConfigFromWorkflowSettings", ({ afterEach }) => {
     const projectDir = tmpDirFixture.createNewTmpDir();
     fs.writeFileSync(
       path.join(projectDir, "workflow_settings.yaml"),
-      dumpYaml({ defaultProject: "sqlanvil" })
+      dumpYaml({ defaultProject: "sqlanvil" }),
     );
     expect(readExtensionConfigFromWorkflowSettings(projectDir)).to.equal(undefined);
   });
@@ -41,7 +41,7 @@ suite("readExtensionConfigFromWorkflowSettings", ({ afterEach }) => {
           name: "test-extension",
           compilationMode: "PROLOGUE",
         },
-      })
+      }),
     );
     const result = readExtensionConfigFromWorkflowSettings(projectDir);
     expect(result.name).to.equal("test-extension");
@@ -57,7 +57,7 @@ suite("readExtensionConfigFromWorkflowSettings", ({ afterEach }) => {
     const projectDir = tmpDirFixture.createNewTmpDir();
     fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), "invalid: yaml: [");
     expect(() => readExtensionConfigFromWorkflowSettings(projectDir)).to.throw(
-      "workflow_settings.yaml is not a valid YAML file"
+      "workflow_settings.yaml is not a valid YAML file",
     );
   });
 });
@@ -75,7 +75,7 @@ suite("reconstructColumnDef", () => {
     columnDefault: null,
     extra: "",
     collationName: null,
-    generationExpression: null
+    generationExpression: null,
   };
   test("NOT NULL preserved", () => {
     expect(reconstructColumnDef({ ...base, isNullable: "NO" })).to.equal("int NOT NULL");
@@ -88,18 +88,18 @@ suite("reconstructColumnDef", () => {
       reconstructColumnDef({
         ...base,
         columnType: "varchar(20)",
-        collationName: "utf8mb4_unicode_ci"
-      })
+        collationName: "utf8mb4_unicode_ci",
+      }),
     ).to.equal("varchar(20) COLLATE utf8mb4_unicode_ci NULL");
   });
   test("auto_increment", () => {
     expect(reconstructColumnDef({ ...base, isNullable: "NO", extra: "auto_increment" })).to.equal(
-      "int NOT NULL AUTO_INCREMENT"
+      "int NOT NULL AUTO_INCREMENT",
     );
   });
   test("literal string default is quoted", () => {
     expect(
-      reconstructColumnDef({ ...base, columnType: "varchar(10)", columnDefault: "x" })
+      reconstructColumnDef({ ...base, columnType: "varchar(10)", columnDefault: "x" }),
     ).to.equal("varchar(10) NULL DEFAULT 'x'");
   });
   test("numeric default is bare", () => {
@@ -111,8 +111,8 @@ suite("reconstructColumnDef", () => {
         ...base,
         columnType: "char(36)",
         extra: "DEFAULT_GENERATED",
-        columnDefault: "uuid()"
-      })
+        columnDefault: "uuid()",
+      }),
     ).to.equal("char(36) NULL DEFAULT (uuid())");
   });
   test("expression default (CURRENT_TIMESTAMP) is bare", () => {
@@ -121,8 +121,8 @@ suite("reconstructColumnDef", () => {
         ...base,
         columnType: "datetime",
         extra: "DEFAULT_GENERATED",
-        columnDefault: "CURRENT_TIMESTAMP"
-      })
+        columnDefault: "CURRENT_TIMESTAMP",
+      }),
     ).to.equal("datetime NULL DEFAULT CURRENT_TIMESTAMP");
   });
   test("on update current_timestamp", () => {
@@ -131,8 +131,8 @@ suite("reconstructColumnDef", () => {
         ...base,
         columnType: "datetime",
         extra: "DEFAULT_GENERATED on update CURRENT_TIMESTAMP",
-        columnDefault: "CURRENT_TIMESTAMP"
-      })
+        columnDefault: "CURRENT_TIMESTAMP",
+      }),
     ).to.equal("datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
   });
   test("generated stored column", () => {
@@ -141,8 +141,8 @@ suite("reconstructColumnDef", () => {
         ...base,
         isNullable: "NO",
         extra: "STORED GENERATED",
-        generationExpression: "(a + b)"
-      })
+        generationExpression: "(a + b)",
+      }),
     ).to.equal("int GENERATED ALWAYS AS ((a + b)) STORED NOT NULL");
   });
 });

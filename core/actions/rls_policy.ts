@@ -25,23 +25,30 @@ export class RlsPolicy extends ActionBuilder<sqlanvil.Operation> {
     this.config = config;
 
     if (!config.name) {
-      throw new Error(`RLS policies must have a populated 'name' field (the Postgres policy name).`);
+      throw new Error(
+        `RLS policies must have a populated 'name' field (the Postgres policy name).`,
+      );
     }
     if (!config.table) {
       throw new Error(`RLS policy "${config.name}" must have a populated 'table' field.`);
     }
-    const tableTarget = this.applySessionToTarget(sqlanvil.Target.create({ name: config.table }), session.projectConfig);
+    const tableTarget = this.applySessionToTarget(
+      sqlanvil.Target.create({ name: config.table }),
+      session.projectConfig,
+    );
     const target = sqlanvil.Target.create({ name: `${config.table}_policy_${config.name}` });
-    this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, { validateTarget: true });
+    this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, {
+      validateTarget: true,
+    });
     this.proto.canonicalTarget = this.applySessionToTarget(target, session.canonicalProjectConfig);
     this.proto.fileName = config.filename || "";
 
     // Automatically establish a compiler dependency on the parent table!
     this.proto.dependencyTargets.push(tableTarget);
-    (config.dependencyTargets || []).forEach(dependencyTarget =>
+    (config.dependencyTargets || []).forEach((dependencyTarget) =>
       this.proto.dependencyTargets.push(
-        configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
-      )
+        configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget)),
+      ),
     );
   }
 
@@ -59,9 +66,8 @@ export class RlsPolicy extends ActionBuilder<sqlanvil.Operation> {
     const policyName = `"${this.config.name}"`;
 
     const command = this.config.command ? this.config.command.toUpperCase() : "ALL";
-    const roles = this.config.roles && this.config.roles.length > 0
-      ? this.config.roles.join(", ")
-      : "PUBLIC";
+    const roles =
+      this.config.roles && this.config.roles.length > 0 ? this.config.roles.join(", ") : "PUBLIC";
 
     const usingClause = this.config.using ? ` USING (${this.config.using})` : "";
     const withCheckClause = this.config.withCheck ? ` WITH CHECK (${this.config.withCheck})` : "";
@@ -70,7 +76,7 @@ export class RlsPolicy extends ActionBuilder<sqlanvil.Operation> {
     const queries = [
       `alter table ${resolvedTable} enable row level security`,
       `drop policy if exists ${policyName} on ${resolvedTable}`,
-      `create policy ${policyName} on ${resolvedTable} for ${command} to ${roles}${usingClause}${withCheckClause}`
+      `create policy ${policyName} on ${resolvedTable} for ${command} to ${roles}${usingClause}${withCheckClause}`,
     ];
 
     this.proto.queries = queries;
@@ -78,7 +84,7 @@ export class RlsPolicy extends ActionBuilder<sqlanvil.Operation> {
     return verifyObjectMatchesProto(
       sqlanvil.Operation,
       this.proto,
-      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
     );
   }
 }

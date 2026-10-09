@@ -60,7 +60,7 @@ function enumName(enumObject: { [k: string]: number }, value: number | undefined
   if (value === undefined || value === null) {
     return "UNKNOWN";
   }
-  const match = Object.keys(enumObject).find(k => enumObject[k] === value);
+  const match = Object.keys(enumObject).find((k) => enumObject[k] === value);
   return match || String(value);
 }
 
@@ -100,7 +100,7 @@ function actionRow(action: any, type: string): ActionRow {
     tags: JSON.stringify(action.tags || []),
     disabled: !!action.disabled,
     file_name: action.fileName || "",
-    description: descriptor.description || ""
+    description: descriptor.description || "",
   };
 }
 
@@ -110,7 +110,7 @@ function pushDeps(action: any, out: DependencyRow[]): void {
       from_target_key: key(action.target),
       to_target_key: key(dep),
       from_readable: targetAsReadableString(action.target),
-      to_readable: targetAsReadableString(dep)
+      to_readable: targetAsReadableString(dep),
     });
   }
 }
@@ -122,7 +122,7 @@ function pushColumns(action: any, out: ColumnRow[]): void {
       target_key: key(action.target),
       readable_name: targetAsReadableString(action.target),
       column_name: (column.path || []).join("."),
-      description: column.description || ""
+      description: column.description || "",
     });
   }
 }
@@ -166,14 +166,11 @@ export function catalogRows(compiledGraph: sqlanvil.ICompiledGraph): CatalogRows
 
 /** Flatten a run result into one row per action result. */
 export function runRows(runResult: sqlanvil.IRunResult, runId: number): RunRow[] {
-  const runStatus = enumName(
-    sqlanvil.RunResult.ExecutionStatus as any,
-    runResult.status as any
-  );
-  return (runResult.actions || []).map(action => {
+  const runStatus = enumName(sqlanvil.RunResult.ExecutionStatus as any, runResult.status as any);
+  return (runResult.actions || []).map((action) => {
     const start = toMillis(action.timing && action.timing.startTimeMillis);
     const end = toMillis(action.timing && action.timing.endTimeMillis);
-    const failedTask = (action.tasks || []).find(t => !!t.errorMessage);
+    const failedTask = (action.tasks || []).find((t) => !!t.errorMessage);
     return {
       run_id: runId,
       run_status: runStatus,
@@ -183,7 +180,7 @@ export function runRows(runResult: sqlanvil.IRunResult, runId: number): RunRow[]
       start_millis: start,
       end_millis: end,
       duration_millis: start && end ? end - start : 0,
-      error_message: (failedTask && failedTask.errorMessage) || ""
+      error_message: (failedTask && failedTask.errorMessage) || "",
     };
   });
 }

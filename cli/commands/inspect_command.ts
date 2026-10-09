@@ -3,7 +3,7 @@ import { prettyJsonStringify } from "sa/cli/api/utils";
 import {
   NO_ARTIFACTS,
   printArtifactRows,
-  resolveArtifactViews
+  resolveArtifactViews,
 } from "sa/cli/commands/artifact_views";
 import { jsonOutputOption, projectDirOption } from "sa/cli/common_options";
 import { print, printError } from "sa/cli/console";
@@ -17,7 +17,7 @@ async function runInspect(projectDir: string, json: boolean): Promise<number> {
   }
   const actionsByType = await queryParquet(
     "select type, count(*) as n from actions group by type order by type",
-    views
+    views,
   );
   let latestRun: any = null;
   let failures: any[] = [];
@@ -28,13 +28,13 @@ async function runInspect(projectDir: string, json: boolean): Promise<number> {
         "count(*) filter (where status = 'FAILED') as failed, " +
         "max(end_millis) - min(start_millis) as wall_ms " +
         "from runs where run_id = (select max(run_id) from runs) group by run_id, run_status",
-      views
+      views,
     );
     latestRun = latest[0] || null;
     failures = await queryParquet(
       "select readable_name, error_message from runs " +
         "where run_id = (select max(run_id) from runs) and status = 'FAILED' limit 20",
-      views
+      views,
     );
   }
 
@@ -49,7 +49,7 @@ async function runInspect(projectDir: string, json: boolean): Promise<number> {
   } else {
     print(
       `\nLatest run (${latestRun.run_status}): ${latestRun.succeeded} succeeded, ` +
-        `${latestRun.failed} failed, ${latestRun.wall_ms}ms`
+        `${latestRun.failed} failed, ${latestRun.wall_ms}ms`,
     );
     if (failures.length > 0) {
       print("\nFailures:");
@@ -67,5 +67,5 @@ export const inspectCommand: ICommand = {
   positionalOptions: [projectDirOption],
   options: [jsonOutputOption],
   processFn: async (argv: any) =>
-    runInspect(argv[projectDirOption.name], argv[jsonOutputOption.name])
+    runInspect(argv[projectDirOption.name], argv[jsonOutputOption.name]),
 };

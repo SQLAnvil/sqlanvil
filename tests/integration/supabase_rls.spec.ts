@@ -32,9 +32,9 @@ suite("@sqlanvil/integration/supabase-rls", { parallel: true }, ({ before, after
         port: SupabaseFixture.port,
         database: SupabaseFixture.database,
         user: SupabaseFixture.user,
-        password: SupabaseFixture.password
+        password: SupabaseFixture.password,
       },
-      { disableSslForTestsOnly: true }
+      { disableSslForTestsOnly: true },
     );
 
     await dbadapter.execute(`drop schema if exists "${SCHEMA}" cascade`).catch(() => undefined);
@@ -78,9 +78,14 @@ suite("@sqlanvil/integration/supabase-rls", { parallel: true }, ({ before, after
     expect(executedGraph.status).equals(
       sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL,
       executedGraph.actions
-        .map(action => action.tasks.map(task => task.errorMessage).filter(Boolean).join("\n"))
+        .map((action) =>
+          action.tasks
+            .map((task) => task.errorMessage)
+            .filter(Boolean)
+            .join("\n"),
+        )
         .filter(Boolean)
-        .join("\n")
+        .join("\n"),
     );
 
     // Let the authenticated role reach the table at all; RLS then governs rows.
@@ -100,12 +105,14 @@ suite("@sqlanvil/integration/supabase-rls", { parallel: true }, ({ before, after
       database: SupabaseFixture.database,
       user: SupabaseFixture.user,
       password: SupabaseFixture.password,
-      ssl: false
+      ssl: false,
     });
     await client.connect();
     try {
       await client.query("begin");
-      await client.query(`set local request.jwt.claims = '{"sub":"${OWNER_A}","role":"authenticated"}'`);
+      await client.query(
+        `set local request.jwt.claims = '{"sub":"${OWNER_A}","role":"authenticated"}'`,
+      );
       await client.query("set local role authenticated");
       const res = await client.query(`select owner::text as owner from "${SCHEMA}"."documents"`);
       await client.query("rollback");
@@ -114,7 +121,7 @@ suite("@sqlanvil/integration/supabase-rls", { parallel: true }, ({ before, after
       expect(res.rows[0].owner).equals(OWNER_A);
       expect(res.rows.some((r: { owner: string }) => r.owner === OWNER_B)).equals(
         false,
-        "authenticated user must NOT see another owner's row"
+        "authenticated user must NOT see another owner's row",
       );
     } finally {
       await client.end();

@@ -36,7 +36,7 @@ suite("init", ({ afterEach }) => {
       "user",
       "password",
       "sslMode",
-      "defaultSchema"
+      "defaultSchema",
     ]);
   });
 
@@ -56,7 +56,11 @@ suite("init", ({ afterEach }) => {
   test("bigquery project (explicit) keeps defaultProject/defaultLocation and writes no creds file", async () => {
     const projectDir = tmpDirFixture.createNewTmpDir();
 
-    await init(projectDir, { warehouse: "bigquery", defaultDatabase: "my-proj", defaultLocation: "US" });
+    await init(projectDir, {
+      warehouse: "bigquery",
+      defaultDatabase: "my-proj",
+      defaultLocation: "US",
+    });
 
     const settings = readSettings(projectDir);
     expect(settings.defaultProject).equals("my-proj");
@@ -106,7 +110,7 @@ suite("init", ({ afterEach }) => {
       "definitions/outputs/sales/daily_sales.sqlx",
       "definitions/outputs/reporting/product_revenue.sqlx",
       "definitions/outputs/reporting/orders_by_region.sqlx",
-      "definitions/test/assert_sales_amounts_positive.sqlx"
+      "definitions/test/assert_sales_amounts_positive.sqlx",
     ]) {
       expect(fs.existsSync(path.join(projectDir, sample)), sample).equals(true);
     }
@@ -118,24 +122,24 @@ suite("init", ({ afterEach }) => {
       "definitions/sources/ecommerce",
       "definitions/outputs/orders",
       "definitions/outputs/marketing",
-      "definitions/extra"
+      "definitions/extra",
     ]) {
       expect(fs.existsSync(path.join(projectDir, gone)), gone).equals(false);
     }
     // Outputs read the intermediate views, which read the source declarations.
     const daily = fs.readFileSync(
       path.join(projectDir, "definitions/outputs/sales/daily_sales.sqlx"),
-      "utf8"
+      "utf8",
     );
     expect(daily).to.contain('ref("stg_app_orders")');
     const stg = fs.readFileSync(
       path.join(projectDir, "definitions/intermediate/stg_app_orders.sqlx"),
-      "utf8"
+      "utf8",
     );
     expect(stg).to.contain('ref("app_orders")');
     const assertion = fs.readFileSync(
       path.join(projectDir, "definitions/test/assert_sales_amounts_positive.sqlx"),
-      "utf8"
+      "utf8",
     );
     expect(assertion).to.contain('type: "assertion"');
     // The cross-warehouse source rides the bigquery_public connection in workflow_settings.
@@ -147,8 +151,12 @@ suite("init", ({ afterEach }) => {
   test("mysql projects skip the cross-warehouse BigQuery sample (connections unsupported)", async () => {
     const projectDir = tmpDirFixture.createNewTmpDir();
     await init(projectDir, { warehouse: "mysql" });
-    expect(fs.existsSync(path.join(projectDir, "definitions/sources/app_orders.sqlx"))).equals(true);
-    expect(fs.existsSync(path.join(projectDir, "definitions/sources/bigquery_zip_codes.sqlx"))).equals(false);
+    expect(fs.existsSync(path.join(projectDir, "definitions/sources/app_orders.sqlx"))).equals(
+      true,
+    );
+    expect(
+      fs.existsSync(path.join(projectDir, "definitions/sources/bigquery_zip_codes.sqlx")),
+    ).equals(false);
     expect(readSettings(projectDir)).to.not.have.property("connections");
   });
 
@@ -157,7 +165,7 @@ suite("init", ({ afterEach }) => {
     await init(projectDir, { warehouse: "bigquery", defaultDatabase: "p", defaultLocation: "US" });
     const decl = fs.readFileSync(
       path.join(projectDir, "definitions/sources/bigquery_zip_codes.sqlx"),
-      "utf8"
+      "utf8",
     );
     expect(decl).to.contain('database: "bigquery-public-data"');
     expect(decl).to.not.contain("connection:");
@@ -174,12 +182,12 @@ suite("init", ({ afterEach }) => {
       "definitions/outputs/sales",
       "definitions/outputs/reporting",
       "definitions/test",
-      "includes"
+      "includes",
     ]) {
       expect(fs.existsSync(path.join(projectDir, kept, ".gitkeep")), kept).equals(true);
     }
     expect(fs.existsSync(path.join(projectDir, "definitions/sources/app_orders.sqlx"))).equals(
-      false
+      false,
     );
     expect(readSettings(projectDir)).to.not.have.property("connections");
     // The credentials template is still written.
@@ -191,12 +199,12 @@ suite("init", ({ afterEach }) => {
     await init(projectDir, { warehouse: "supabase" }, { includeBigQuerySource: false });
 
     expect(fs.existsSync(path.join(projectDir, "definitions/sources/app_orders.sqlx"))).equals(
-      true
+      true,
     );
     for (const gone of [
       "definitions/sources/bigquery_zip_codes.sqlx",
       "definitions/intermediate/stg_zip_codes.sqlx",
-      "definitions/outputs/reporting/orders_by_region.sqlx"
+      "definitions/outputs/reporting/orders_by_region.sqlx",
     ]) {
       expect(fs.existsSync(path.join(projectDir, gone)), gone).equals(false);
     }
@@ -247,7 +255,7 @@ suite("init", ({ afterEach }) => {
     await init(
       projectDir,
       { warehouse: "bigquery", defaultDatabase: "proj", defaultLocation: "US" },
-      { includeSample: false }
+      { includeSample: false },
     );
 
     const agentsMd = fs.readFileSync(path.join(projectDir, "AGENTS.md"), "utf8");

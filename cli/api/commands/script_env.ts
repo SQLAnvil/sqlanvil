@@ -154,11 +154,7 @@ print(json.dumps({"interpreter_version": py_version, "errors": errors}))
 `;
 
 /** Seam for tests: runs the checker and returns its stdout. */
-export type CheckerExec = (
-  interpreter: string,
-  args: string[],
-  cwd: string
-) => Promise<string>;
+export type CheckerExec = (interpreter: string, args: string[], cwd: string) => Promise<string>;
 
 const defaultCheckerExec: CheckerExec = (interpreter, args, cwd) =>
   new Promise((resolve, reject) => {
@@ -169,18 +165,18 @@ const defaultCheckerExec: CheckerExec = (interpreter, args, cwd) =>
       (err, stdout, stderr) => {
         if (err) {
           reject(
-            new Error(`checker failed under ${interpreter}: ${err.message}\n${stderr}`.trim())
+            new Error(`checker failed under ${interpreter}: ${err.message}\n${stderr}`.trim()),
           );
         } else {
           resolve(stdout);
         }
-      }
+      },
     );
   });
 
 const failure = (message: string): sqlanvil.IQueryEvaluation => ({
   status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE,
-  error: { message }
+  error: { message },
 });
 
 /**
@@ -191,7 +187,7 @@ const failure = (message: string): sqlanvil.IQueryEvaluation => ({
 export async function checkScriptAction(
   script: sqlanvil.IScript,
   projectDir: string,
-  checkerExec: CheckerExec = defaultCheckerExec
+  checkerExec: CheckerExec = defaultCheckerExec,
 ): Promise<sqlanvil.IQueryEvaluation[]> {
   if (script.language !== "python") {
     return [failure(`no validator for script language "${script.language}"`)];
@@ -200,7 +196,7 @@ export async function checkScriptAction(
   try {
     interpreter = resolveInterpreter(
       { language: script.language, envRoot: script.envRoot },
-      projectDir
+      projectDir,
     );
   } catch (e) {
     return [failure(e.message)];
@@ -210,8 +206,14 @@ export async function checkScriptAction(
   try {
     stdout = await checkerExec(
       interpreter,
-      ["-c", CHECKER_SOURCE, script.scriptFilename, script.depsFile || "", script.runtimeVersion || ""],
-      projectDir
+      [
+        "-c",
+        CHECKER_SOURCE,
+        script.scriptFilename,
+        script.depsFile || "",
+        script.runtimeVersion || "",
+      ],
+      projectDir,
     );
   } catch (e) {
     return [failure(e.message)];

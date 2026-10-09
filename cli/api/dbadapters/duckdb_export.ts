@@ -21,7 +21,7 @@ export const SECRET_NAME = "sa_export";
  */
 export function buildAttachSql(
   pg: sqlanvil.IPostgresConnection,
-  opts: { readOnly?: boolean } = {}
+  opts: { readOnly?: boolean } = {},
 ): string {
   const readOnly = opts.readOnly !== false;
   const dsn = [
@@ -29,7 +29,7 @@ export function buildAttachSql(
     pg.port && `port=${pg.port}`,
     pg.database && `dbname=${pg.database}`,
     pg.user && `user=${pg.user}`,
-    pg.password && `password=${pg.password}`
+    pg.password && `password=${pg.password}`,
   ]
     .filter(Boolean)
     .join(" ");
@@ -42,10 +42,7 @@ export function buildAttachSql(
  * scheme that needs no secret (local). For S3-compatible endpoints (e.g. Supabase
  * Storage) the `endpoint` triggers path-style addressing over SSL.
  */
-export function buildSecretSql(
-  scheme: string,
-  creds: { [key: string]: string }
-): string | null {
+export function buildSecretSql(scheme: string, creds: { [key: string]: string }): string | null {
   if (scheme === "s3") {
     const fields = [
       "TYPE s3",
@@ -54,7 +51,7 @@ export function buildSecretSql(
       creds.region && `REGION '${creds.region}'`,
       creds.endpoint && `ENDPOINT '${creds.endpoint}'`,
       creds.endpoint && `URL_STYLE 'path'`,
-      creds.endpoint && `USE_SSL true`
+      creds.endpoint && `USE_SSL true`,
     ]
       .filter(Boolean)
       .join(", ");
@@ -64,7 +61,7 @@ export function buildSecretSql(
     const fields = [
       "TYPE gcs",
       creds.keyId && `KEY_ID '${creds.keyId}'`,
-      creds.secret && `SECRET '${creds.secret}'`
+      creds.secret && `SECRET '${creds.secret}'`,
     ]
       .filter(Boolean)
       .join(", ");
@@ -121,12 +118,12 @@ export function buildCopySql(
   selectSql: string,
   uri: string,
   format: string,
-  options: { [key: string]: string } = {}
+  options: { [key: string]: string } = {},
 ): string {
   const target = toCopyTarget(uri);
   const fmt = (format || "").toLowerCase();
   const extraOptions = Object.entries(options || {}).map(
-    ([key, value]) => `${key.toUpperCase()} ${value}`
+    ([key, value]) => `${key.toUpperCase()} ${value}`,
   );
   const optionList = [`FORMAT ${fmt}`, ...extraOptions].join(", ");
   return `COPY (SELECT * FROM postgres_query('${PG_ATTACH_ALIAS}', $sa$${selectSql}$sa$)) TO '${target}' (${optionList})`;
@@ -155,10 +152,10 @@ export async function runDuckdbExport(args: DuckdbExportArgs): Promise<{ destina
   if (scheme !== "local" && !storage?.[scheme]) {
     throw new Error(
       `No "${scheme}" storage credentials found in .df-credentials.json (storage.${scheme}) for ` +
-        `export to ${uri}.`
+        `export to ${uri}.`,
     );
   }
-  return withDuckdb(async conn => {
+  return withDuckdb(async (conn) => {
     await runAsync(conn, "INSTALL postgres; LOAD postgres; INSTALL httpfs; LOAD httpfs;");
     await runAsync(conn, buildAttachSql(pg));
     if (scheme !== "local") {
@@ -179,12 +176,12 @@ export async function runDuckdbExport(args: DuckdbExportArgs): Promise<{ destina
 export async function writeViaDuckdb(
   selectSql: string,
   uri: string,
-  format: string
+  format: string,
 ): Promise<void> {
-  await withDuckdb(async conn => {
+  await withDuckdb(async (conn) => {
     await runAsync(
       conn,
-      `COPY (${selectSql}) TO '${toCopyTarget(uri)}' (FORMAT ${(format || "").toLowerCase()})`
+      `COPY (${selectSql}) TO '${toCopyTarget(uri)}' (FORMAT ${(format || "").toLowerCase()})`,
     );
     return undefined;
   });
@@ -193,10 +190,6 @@ export async function writeViaDuckdb(
 /** Reads a previously written file back through DuckDB (used by tests). */
 export async function readViaDuckdb(uri: string, format: string): Promise<any[]> {
   const reader =
-    format === "parquet"
-      ? "read_parquet"
-      : format === "csv"
-      ? "read_csv_auto"
-      : "read_json_auto";
-  return withDuckdb(conn => allAsync(conn, `SELECT * FROM ${reader}('${toCopyTarget(uri)}')`));
+    format === "parquet" ? "read_parquet" : format === "csv" ? "read_csv_auto" : "read_json_auto";
+  return withDuckdb((conn) => allAsync(conn, `SELECT * FROM ${reader}('${toCopyTarget(uri)}')`));
 }

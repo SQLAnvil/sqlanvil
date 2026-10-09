@@ -28,7 +28,7 @@ suite("script env checker", () => {
       target: { schema: "s", name: "load" },
       language: "python",
       scriptFilename: "load.py",
-      ...over
+      ...over,
     });
 
   test("a clean script + satisfiable env passes", { timeout: 60000 }, async () => {
@@ -55,7 +55,7 @@ suite("script env checker", () => {
   test("a missing requirement is reported by name", { timeout: 60000 }, async () => {
     const dir = project({
       "load.py": "print('ok')\n",
-      "requirements.txt": "surely_not_installed_pkg_xyz>=1.0\n"
+      "requirements.txt": "surely_not_installed_pkg_xyz>=1.0\n",
     });
     const evals = await checkScriptAction(script({ depsFile: "requirements.txt" }), dir);
     expect(evals[0].status).to.equal(FAILURE);
@@ -63,14 +63,18 @@ suite("script env checker", () => {
     expect(evals[0].error.message).to.contain("not installed");
   });
 
-  test("comments/blank lines/pip options in requirements are ignored", { timeout: 60000 }, async () => {
-    const dir = project({
-      "load.py": "print('ok')\n",
-      "requirements.txt": "# a comment\n\n--index-url https://example.com\n"
-    });
-    const evals = await checkScriptAction(script({ depsFile: "requirements.txt" }), dir);
-    expect(evals[0].status).to.equal(SUCCESS);
-  });
+  test(
+    "comments/blank lines/pip options in requirements are ignored",
+    { timeout: 60000 },
+    async () => {
+      const dir = project({
+        "load.py": "print('ok')\n",
+        "requirements.txt": "# a comment\n\n--index-url https://example.com\n",
+      });
+      const evals = await checkScriptAction(script({ depsFile: "requirements.txt" }), dir);
+      expect(evals[0].status).to.equal(SUCCESS);
+    },
+  );
 
   test("a declared venv without an interpreter fails loudly", { timeout: 60000 }, async () => {
     const dir = project({ "load.py": "print('ok')\n" });
@@ -82,13 +86,13 @@ suite("script env checker", () => {
   test("multiple problems are reported as separate evaluations", { timeout: 60000 }, async () => {
     const dir = project({
       "load.py": "def broken(:\n",
-      "requirements.txt": "surely_not_installed_pkg_xyz\n"
+      "requirements.txt": "surely_not_installed_pkg_xyz\n",
     });
     const evals = await checkScriptAction(
       script({ depsFile: "requirements.txt", runtimeVersion: ">=99.0" }),
-      dir
+      dir,
     );
     expect(evals.length).to.be.greaterThan(2);
-    expect(evals.every(e => e.status === FAILURE)).to.equal(true);
+    expect(evals.every((e) => e.status === FAILURE)).to.equal(true);
   });
 });

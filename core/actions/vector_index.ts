@@ -25,7 +25,9 @@ export class VectorIndex extends ActionBuilder<sqlanvil.Operation> {
     this.config = config;
 
     if (!config.name) {
-      throw new Error(`Vector indexes must have a populated 'name' field (the Postgres index name).`);
+      throw new Error(
+        `Vector indexes must have a populated 'name' field (the Postgres index name).`,
+      );
     }
     if (!config.table) {
       throw new Error(`Vector index "${config.name}" must have a populated 'table' field.`);
@@ -33,18 +35,23 @@ export class VectorIndex extends ActionBuilder<sqlanvil.Operation> {
     if (!config.column) {
       throw new Error(`Vector index "${config.name}" must have a populated 'column' field.`);
     }
-    const tableTarget = this.applySessionToTarget(sqlanvil.Target.create({ name: config.table }), session.projectConfig);
+    const tableTarget = this.applySessionToTarget(
+      sqlanvil.Target.create({ name: config.table }),
+      session.projectConfig,
+    );
     const target = sqlanvil.Target.create({ name: `${config.table}_idx_${config.name}` });
-    this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, { validateTarget: true });
+    this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, {
+      validateTarget: true,
+    });
     this.proto.canonicalTarget = this.applySessionToTarget(target, session.canonicalProjectConfig);
     this.proto.fileName = config.filename || "";
 
     // Automatically establish a compiler dependency on the parent table!
     this.proto.dependencyTargets.push(tableTarget);
-    (config.dependencyTargets || []).forEach(dependencyTarget =>
+    (config.dependencyTargets || []).forEach((dependencyTarget) =>
       this.proto.dependencyTargets.push(
-        configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
-      )
+        configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget)),
+      ),
     );
   }
 
@@ -78,7 +85,7 @@ export class VectorIndex extends ActionBuilder<sqlanvil.Operation> {
     const queries = [
       `create extension if not exists vector cascade`,
       `drop index if exists "${this.config.name}"`,
-      `create index "${this.config.name}" on ${resolvedTable} using ${indexType} ("${this.config.column}" ${opclass})${withStr}`
+      `create index "${this.config.name}" on ${resolvedTable} using ${indexType} ("${this.config.column}" ${opclass})${withStr}`,
     ];
 
     this.proto.queries = queries;
@@ -86,7 +93,7 @@ export class VectorIndex extends ActionBuilder<sqlanvil.Operation> {
     return verifyObjectMatchesProto(
       sqlanvil.Operation,
       this.proto,
-      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
     );
   }
 }

@@ -62,7 +62,7 @@ export async function runBigQueryExtract(args: BigQueryExtractArgs): Promise<{ r
   const cols = Object.keys(spec.columnTypes || {});
   if (cols.length === 0) {
     throw new Error(
-      `Extract "${target.schema}.${target.name}" has no columnTypes; run \`sqlanvil introspect\`.`
+      `Extract "${target.schema}.${target.name}" has no columnTypes; run \`sqlanvil introspect\`.`,
     );
   }
   if (!args.pg) {
@@ -77,12 +77,12 @@ export async function runBigQueryExtract(args: BigQueryExtractArgs): Promise<{ r
       projectId: spec.billingProject || spec.project,
       location: conn.location,
       accessToken: conn.accessToken,
-      credentials: conn.credentials
-    })
+      credentials: conn.credentials,
+    }),
   );
   const rowCap = args.rowCap ?? DEFAULT_ROW_CAP;
   const byteCap = args.byteCap ?? DEFAULT_BYTE_CAP;
-  const colList = cols.map(c => "`" + c + "`").join(", ");
+  const colList = cols.map((c) => "`" + c + "`").join(", ");
   const fqn = "`" + `${spec.project}.${spec.dataset}.${spec.sourceName}` + "`";
 
   // STREAM source rows into the warehouse in batches instead of buffering the whole result —
@@ -93,7 +93,7 @@ export async function runBigQueryExtract(args: BigQueryExtractArgs): Promise<{ r
     target,
     columnTypes: spec.columnTypes,
     coerce,
-    disableSslForTestsOnly: args.disableSslForTestsOnly
+    disableSslForTestsOnly: args.disableSslForTestsOnly,
   });
   let rowCount = 0;
   let bytes = 0;
@@ -123,7 +123,7 @@ export async function runBigQueryExtract(args: BigQueryExtractArgs): Promise<{ r
   if (truncated) {
     // eslint-disable-next-line no-console
     console.warn(
-      `runner-extract: ${target.schema}.${target.name} truncated at ${rowCount} rows / ${bytes} bytes (source is larger).`
+      `runner-extract: ${target.schema}.${target.name} truncated at ${rowCount} rows / ${bytes} bytes (source is larger).`,
     );
   }
   return { rowCount };

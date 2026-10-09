@@ -67,7 +67,7 @@ export function foldColumns(
   columnTypes: { [key: string]: string },
   target: { schema?: string | null; name?: string | null },
 ): FoldedColumn[] {
-  const cols = Object.keys(columnTypes).map(source => ({ source, target: source.toLowerCase() }));
+  const cols = Object.keys(columnTypes).map((source) => ({ source, target: source.toLowerCase() }));
   const byFolded = new Map<string, string[]>();
   for (const c of cols) {
     byFolded.set(c.target, [...(byFolded.get(c.target) ?? []), c.source]);
@@ -92,11 +92,11 @@ export async function createPgLoader(args: PgLoaderArgs): Promise<PgLoader> {
 
   const pg = await PostgresDbAdapter.create(args.pg, {
     concurrencyLimit: 1,
-    disableSslForTestsOnly: args.disableSslForTestsOnly
+    disableSslForTestsOnly: args.disableSslForTestsOnly,
   });
   try {
     const qualified = `${quoteIdent(target.schema)}.${quoteIdent(target.name)}`;
-    const colDefs = cols.map(c => `${quoteIdent(c.target)} ${columnTypes[c.source]}`).join(", ");
+    const colDefs = cols.map((c) => `${quoteIdent(c.target)} ${columnTypes[c.source]}`).join(", ");
     await pg.execute(`create schema if not exists ${quoteIdent(target.schema)}`);
     // Drop whatever already holds the name — a FOREIGN table (the connection used `mode: fdw`
     // before) or a plain table (a previous extract run). The drops must match the relation kind:
@@ -106,7 +106,7 @@ export async function createPgLoader(args: PgLoaderArgs): Promise<PgLoader> {
     const { rows: existing } = await pg.execute(
       `select c.relkind from pg_class c join pg_namespace n on n.oid = c.relnamespace ` +
         `where n.nspname = $1 and c.relname = $2`,
-      { params: [target.schema, target.name] }
+      { params: [target.schema, target.name] },
     );
     const relkind = existing[0]?.relkind;
     if (relkind === "f") {
@@ -122,7 +122,7 @@ export async function createPgLoader(args: PgLoaderArgs): Promise<PgLoader> {
     throw e;
   }
 
-  const colIdents = cols.map(c => quoteIdent(c.target)).join(", ");
+  const colIdents = cols.map((c) => quoteIdent(c.target)).join(", ");
   const qualified = `${quoteIdent(target.schema)}.${quoteIdent(target.name)}`;
   const batchRows = Math.max(1, Math.min(1000, Math.floor(MAX_PARAMS_PER_INSERT / cols.length)));
 
@@ -135,17 +135,17 @@ export async function createPgLoader(args: PgLoaderArgs): Promise<PgLoader> {
         const tuples = batch.map((row, r) => {
           const placeholders = cols.map((c, ci) => `$${r * cols.length + ci + 1}`);
           // Read by the SOURCE name — the row arrives keyed as the warehouse spelled it.
-          cols.forEach(c => params.push(coerce(row[c.source])));
+          cols.forEach((c) => params.push(coerce(row[c.source])));
           return `(${placeholders.join(", ")})`;
         });
         await pg.execute(`insert into ${qualified} (${colIdents}) values ${tuples.join(", ")}`, {
-          params
+          params,
         });
       }
     },
     async close() {
       await pg.close();
-    }
+    },
   };
 }
 

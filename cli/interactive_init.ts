@@ -12,7 +12,7 @@ import {
   print,
   printError,
   printInitResult,
-  printSuccess
+  printSuccess,
 } from "sa/cli/console";
 import { actuallyResolve } from "sa/cli/util";
 import { sqlanvil } from "sa/protos/ts";
@@ -32,8 +32,7 @@ export const INIT_INCLUDE_SAMPLE_QUESTION =
   "Include the sample project (sources -> staging views -> outputs -> assertion)?";
 export const INIT_INCLUDE_BQ_SOURCE_QUESTION =
   "Include the cross-warehouse BigQuery sample source (Google public ZIP data)?";
-export const INIT_CONFIGURE_CREDS_QUESTION =
-  `Configure warehouse credentials now (written to the gitignored ${CREDENTIALS_FILENAME})?`;
+export const INIT_CONFIGURE_CREDS_QUESTION = `Configure warehouse credentials now (written to the gitignored ${CREDENTIALS_FILENAME})?`;
 export const CREDS_HOST_QUESTION = "Host?";
 export const CREDS_PORT_QUESTION = "Port?";
 export const CREDS_DATABASE_QUESTION = "Database?";
@@ -73,7 +72,7 @@ export function withDefault(question: string, defaultValue?: string): string {
 
 function ask(question: string, defaultValue?: string): string {
   const answer = interactiveQuestion(withDefault(question, defaultValue)).trim();
-  return answer === "" ? defaultValue ?? "" : answer;
+  return answer === "" ? (defaultValue ?? "") : answer;
 }
 
 function askRequired(question: string): string {
@@ -135,7 +134,7 @@ function collectCredentials(warehouse: string): string {
       database: ask(CREDS_DATABASE_QUESTION, "sqlanvil"),
       user: ask(CREDS_USER_QUESTION, "root"),
       password: interactivePasswordQuestion(CREDS_PASSWORD_QUESTION),
-      sslMode: ask(CREDS_SSLMODE_QUESTION, "disable")
+      sslMode: ask(CREDS_SSLMODE_QUESTION, "disable"),
     };
     return `${JSON.stringify(creds, null, 2)}\n`;
   }
@@ -145,12 +144,12 @@ function collectCredentials(warehouse: string): string {
   }
   const host = ask(
     CREDS_HOST_QUESTION,
-    isSupabase ? "aws-1-<region>.pooler.supabase.com" : "localhost"
+    isSupabase ? "aws-1-<region>.pooler.supabase.com" : "localhost",
   );
   if (/^db\..+\.supabase\.co$/.test(host)) {
     printError(
       "Warning: that is the DIRECT Supabase host, which is IPv6-only — connections fail with " +
-        "ENOTFOUND on most networks. Prefer the Session pooler host (Dashboard -> Connect)."
+        "ENOTFOUND on most networks. Prefer the Session pooler host (Dashboard -> Connect).",
     );
   }
   const creds = {
@@ -160,20 +159,20 @@ function collectCredentials(warehouse: string): string {
     user: ask(CREDS_USER_QUESTION, isSupabase ? "postgres.<your-project-ref>" : "postgres"),
     password: interactivePasswordQuestion(CREDS_PASSWORD_QUESTION),
     sslMode: ask(CREDS_SSLMODE_QUESTION, isSupabase ? "require" : "disable"),
-    defaultSchema: "public"
+    defaultSchema: "public",
   };
   return `${JSON.stringify(creds, null, 2)}\n`;
 }
 
 /** One-line conversion summary + report location (shared with the migrate-dataform verb). */
 export function printMigrationSummary(report: MigrationReport, outDir: string) {
-  const targets = report.files.filter(f => f.action === "target");
-  const flagged = targets.filter(f => f.status === "flagged").length;
+  const targets = report.files.filter((f) => f.action === "target");
+  const flagged = targets.filter((f) => f.status === "flagged").length;
   printSuccess(
     `Converted ${report.inventory.sqlxFiles} .sqlx file(s): ` +
       `${report.connections.length} source connection(s) over ` +
-      `${report.files.filter(f => f.action === "declaration").length} declaration(s); ` +
-      `${targets.length} target file(s), ${flagged} flagged for dialect review.`
+      `${report.files.filter((f) => f.action === "declaration").length} declaration(s); ` +
+      `${targets.length} target file(s), ${flagged} flagged for dialect review.`,
   );
   print(`Report: ${path.join(outDir, "migration-report.md")}`);
 }
@@ -200,7 +199,7 @@ function detectAdc(): boolean {
   try {
     const result = spawnSync("gcloud", ["auth", "application-default", "print-access-token"], {
       stdio: "ignore",
-      timeout: 15000
+      timeout: 15000,
     });
     return result.status === 0;
   } catch (e) {
@@ -220,7 +219,7 @@ function runBigQueryAuthStep(projectDir: string) {
   if (mode === "adc") {
     if (detectAdc()) {
       printSuccess(
-        "Application Default Credentials detected — runs authenticate as your gcloud account."
+        "Application Default Credentials detected — runs authenticate as your gcloud account.",
       );
       return;
     }
@@ -234,7 +233,7 @@ function runBigQueryAuthStep(projectDir: string) {
     }
     print(
       "Run `gcloud auth application-default login` before `sqlanvil validate` / `run` — no " +
-        "other credential setup is needed."
+        "other credential setup is needed.",
     );
     return;
   }
@@ -260,11 +259,11 @@ function runBigQueryAuthStep(projectDir: string) {
         ensureGitignoreCoversCredentials(projectDir);
         fs.writeFileSync(
           credentialsPath,
-          `${JSON.stringify({ ...existing, credentials: keyContents }, null, 2)}\n`
+          `${JSON.stringify({ ...existing, credentials: keyContents }, null, 2)}\n`,
         );
         printSuccess(
           `Runs authenticate as ${parsed.client_email} (key embedded in the gitignored ` +
-            `${CREDENTIALS_FILENAME}).`
+            `${CREDENTIALS_FILENAME}).`,
         );
         return;
       } catch (e) {
@@ -276,7 +275,7 @@ function runBigQueryAuthStep(projectDir: string) {
 
   print(
     "Skipped. Before `sqlanvil validate` / `run`: `gcloud auth application-default login`, or " +
-      `add a service-account key as the \`credentials\` field of ${CREDENTIALS_FILENAME}.`
+      `add a service-account key as the \`credentials\` field of ${CREDENTIALS_FILENAME}.`,
   );
 }
 
@@ -315,7 +314,7 @@ function runBigQueryTestTargetStep(projectDir: string) {
     choice === "suffix"
       ? `Test runs write to \`<dataset>_${testEnv.schemaSuffix}\` datasets ` +
           `(sqlanvil run . --environment test).`
-      : `Test runs land in project ${testEnv.defaultDatabase} (sqlanvil run . --environment test).`
+      : `Test runs land in project ${testEnv.defaultDatabase} (sqlanvil run . --environment test).`,
   );
 }
 
@@ -338,7 +337,7 @@ async function runConvertFlow(): Promise<number> {
   const targetWarehouse = askChoice(
     CONVERT_TARGET_QUESTION,
     ["bigquery", "supabase", "postgres"],
-    "bigquery"
+    "bigquery",
   ) as "bigquery" | "supabase" | "postgres";
 
   print("\nConverting...\n");
@@ -355,18 +354,19 @@ async function runConvertFlow(): Promise<number> {
     runBigQueryTestTargetStep(outDir);
 
     const hasTestEnv = fs.existsSync(path.join(outDir, "workflow_settings.yaml"))
-      ? !!((loadYaml(
-          fs.readFileSync(path.join(outDir, "workflow_settings.yaml"), "utf8")
-        ) || {}) as Record<string, any>).environments?.test
+      ? !!(
+          (loadYaml(fs.readFileSync(path.join(outDir, "workflow_settings.yaml"), "utf8")) ||
+            {}) as Record<string, any>
+        ).environments?.test
       : false;
     print("\nNext steps:");
     print(`  1. sqlanvil compile ${outDir}`);
     print(
-      `  2. sqlanvil validate ${outDir}  (read-only dry-run of every model; all-PASS = swap complete)`
+      `  2. sqlanvil validate ${outDir}  (read-only dry-run of every model; all-PASS = swap complete)`,
     );
     if (hasTestEnv) {
       print(
-        `  3. sqlanvil run ${outDir} --environment test  (first real run — production untouched)`
+        `  3. sqlanvil run ${outDir} --environment test  (first real run — production untouched)`,
       );
       print(`  4. sqlanvil run ${outDir}  (once the test run is verified)`);
     } else {
@@ -387,10 +387,10 @@ async function runConvertFlow(): Promise<number> {
   print(`  1. sqlanvil compile ${outDir}`);
   print(
     `  2. Review ${path.join(outDir, "migration-report.md")} — BigQuery source connections ` +
-      `need columnTypes (the introspect commands are in the report).`
+      `need columnTypes (the introspect commands are in the report).`,
   );
   print(
-    `  3. sqlanvil validate ${outDir}  (PASS/FAILURE/BLOCKED per model = the migration to-do list)`
+    `  3. sqlanvil validate ${outDir}  (PASS/FAILURE/BLOCKED per model = the migration to-do list)`,
   );
   return 0;
 }
@@ -399,7 +399,7 @@ async function runFreshFlow(defaultProjectDir: string): Promise<number> {
   const warehouse = askChoice(
     INIT_WAREHOUSE_QUESTION,
     ["supabase", "postgres", "bigquery", "mysql"],
-    "supabase"
+    "supabase",
   );
   const isPostgresLike = warehouse === "postgres" || warehouse === "supabase";
   const projectDir = actuallyResolve(ask(INIT_PROJECT_DIR_QUESTION, defaultProjectDir));
@@ -411,7 +411,7 @@ async function runFreshFlow(defaultProjectDir: string): Promise<number> {
   }
   projectConfig.defaultSchema = ask(
     INIT_DEFAULT_SCHEMA_QUESTION,
-    isPostgresLike ? "public" : "sqlanvil"
+    isPostgresLike ? "public" : "sqlanvil",
   );
 
   const includeSample = askYesNo(INIT_INCLUDE_SAMPLE_QUESTION, true);
@@ -427,7 +427,7 @@ async function runFreshFlow(defaultProjectDir: string): Promise<number> {
   const result = await init(projectDir, projectConfig, {
     includeSample,
     includeBigQuerySource,
-    credentialsJson
+    credentialsJson,
   });
   printInitResult(result);
 
@@ -442,11 +442,11 @@ async function runFreshFlow(defaultProjectDir: string): Promise<number> {
         `${JSON.stringify(
           {
             projectId: projectConfig.defaultDatabase,
-            ...(projectConfig.defaultLocation ? { location: projectConfig.defaultLocation } : {})
+            ...(projectConfig.defaultLocation ? { location: projectConfig.defaultLocation } : {}),
           },
           null,
-          2
-        )}\n`
+          2,
+        )}\n`,
       );
     }
     print("");
@@ -460,19 +460,17 @@ async function runFreshFlow(defaultProjectDir: string): Promise<number> {
     steps.push(`Edit ${CREDENTIALS_FILENAME} (gitignored) with your warehouse credentials.`);
   }
   if (includeSample) {
-    steps.push(
-      "Point definitions/sources/app_orders.sqlx at a real table in your warehouse."
-    );
+    steps.push("Point definitions/sources/app_orders.sqlx at a real table in your warehouse.");
   }
   if (isPostgresLike && includeBigQuerySource) {
     steps.push(
       "Replace REPLACE_WITH_YOUR_GCP_PROJECT in workflow_settings.yaml (billingProject for " +
-        "the BigQuery sample source)."
+        "the BigQuery sample source).",
     );
   }
   steps.push(`sqlanvil compile ${projectDir}`);
   steps.push(
-    `sqlanvil validate ${projectDir}  (checks every model against the warehouse without executing)`
+    `sqlanvil validate ${projectDir}  (checks every model against the warehouse without executing)`,
   );
   print("\nNext steps:");
   steps.forEach((step, index) => print(`  ${index + 1}. ${step}`));
@@ -491,7 +489,7 @@ export async function runInteractiveInit(defaultProjectDir: string): Promise<num
     printError(
       "init --interactive needs an interactive terminal (stdin is not a TTY). " +
         "Use the non-interactive form instead: sqlanvil init [project-dir] --warehouse=... " +
-        '(see "sqlanvil help init").'
+        '(see "sqlanvil help init").',
     );
     return 1;
   }

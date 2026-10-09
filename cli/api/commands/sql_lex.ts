@@ -161,14 +161,12 @@ export function tokenize(sql: string): Token[] {
 
 /** Tokens that carry meaning — everything except whitespace and comments. */
 export function significant(tokens: Token[]): Token[] {
-  return tokens.filter(t => t.kind !== "whitespace" && t.kind !== "comment");
+  return tokens.filter((t) => t.kind !== "whitespace" && t.kind !== "comment");
 }
 
 /** Case-insensitive keyword test. */
 export function isWord(t: Token | undefined, ...words: string[]): boolean {
-  return (
-    !!t && t.kind === "word" && words.some(w => t.text.toLowerCase() === w.toLowerCase())
-  );
+  return !!t && t.kind === "word" && words.some((w) => t.text.toLowerCase() === w.toLowerCase());
 }
 
 /**
@@ -200,7 +198,18 @@ export interface SelectScope {
   fromEnd: number;
 }
 
-const CLAUSE_ENDS = ["where", "group", "order", "having", "window", "limit", "qualify", "union", "intersect", "except"];
+const CLAUSE_ENDS = [
+  "where",
+  "group",
+  "order",
+  "having",
+  "window",
+  "limit",
+  "qualify",
+  "union",
+  "intersect",
+  "except",
+];
 
 /**
  * Every SELECT in the statement, with its select list and FROM chain delimited.
@@ -286,7 +295,17 @@ export interface Relation {
 }
 
 const JOIN_NOISE = new Set([
-  "on", "using", "left", "right", "inner", "full", "cross", "outer", "join", "lateral", "natural",
+  "on",
+  "using",
+  "left",
+  "right",
+  "inner",
+  "full",
+  "cross",
+  "outer",
+  "join",
+  "lateral",
+  "natural",
 ]);
 
 /**
@@ -344,7 +363,7 @@ export function relationsIn(toks: Token[], start: number, end: number): Relation
       k++;
     } else {
       // No explicit alias: SQL exposes the relation under its own trailing name.
-      const last = [...parts].reverse().find(p => p.kind === "word" || p.kind === "quoted-ident");
+      const last = [...parts].reverse().find((p) => p.kind === "word" || p.kind === "quoted-ident");
       if (last && !subquery) alias = (last.value ?? last.text).toLowerCase();
     }
     rels.push({ tokens: parts, alias, subquery });

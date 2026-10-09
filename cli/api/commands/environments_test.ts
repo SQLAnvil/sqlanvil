@@ -6,7 +6,7 @@ import * as path from "path";
 import {
   mergeProjectConfigOverride,
   resolveCredentials,
-  resolveEnvironment
+  resolveEnvironment,
 } from "sa/cli/api/commands/environments";
 import { suite, test } from "sa/testing";
 import { TmpDirFixture } from "sa/testing/fixtures";
@@ -18,7 +18,7 @@ suite("resolveEnvironment", ({ afterEach }) => {
     const dir = tmpDirFixture.createNewTmpDir();
     fs.writeFileSync(
       path.join(dir, "workflow_settings.yaml"),
-      dumpYaml({ warehouse: "postgres", defaultDataset: "analytics", environments })
+      dumpYaml({ warehouse: "postgres", defaultDataset: "analytics", environments }),
     );
     return dir;
   }
@@ -29,8 +29,8 @@ suite("resolveEnvironment", ({ afterEach }) => {
         schemaSuffix: "prod",
         vars: { region: "us-prod" },
         defaultDatabase: "prod_db",
-        credentials: ".df-credentials.prod.json"
-      }
+        credentials: ".df-credentials.prod.json",
+      },
     });
     const { configOverride, credentials } = resolveEnvironment(dir, "prod");
     expect(configOverride.schemaSuffix).to.equal("prod");
@@ -55,7 +55,7 @@ suite("resolveEnvironment", ({ afterEach }) => {
     const dir = tmpDirFixture.createNewTmpDir();
     fs.writeFileSync(
       path.join(dir, "workflow_settings.yaml"),
-      dumpYaml({ warehouse: "postgres", defaultDataset: "analytics" })
+      dumpYaml({ warehouse: "postgres", defaultDataset: "analytics" }),
     );
     expect(() => resolveEnvironment(dir, "dev")).to.throw(/no environments defined/i);
   });
@@ -65,7 +65,7 @@ suite("mergeProjectConfigOverride", () => {
   test("CLI override wins over env, vars merge per-key", () => {
     const merged = mergeProjectConfigOverride(
       { schemaSuffix: "dev", vars: { a: "1", b: "env" } },
-      { schemaSuffix: "qa", vars: { b: "cli", c: "3" } }
+      { schemaSuffix: "qa", vars: { b: "cli", c: "3" } },
     );
     expect(merged.schemaSuffix).to.equal("qa");
     expect(merged.vars).to.deep.equal({ a: "1", b: "cli", c: "3" });
@@ -82,12 +82,12 @@ suite("resolveCredentials", () => {
   const DEFAULT = ".df-credentials.json";
   test("explicit non-default --credentials wins", () => {
     expect(resolveCredentials(".df-credentials.prod.json", "custom.json", DEFAULT)).to.equal(
-      "custom.json"
+      "custom.json",
     );
   });
   test("falls back to env credentials when --credentials is the default", () => {
     expect(resolveCredentials(".df-credentials.prod.json", DEFAULT, DEFAULT)).to.equal(
-      ".df-credentials.prod.json"
+      ".df-credentials.prod.json",
     );
   });
   test("falls back to default when neither is set", () => {

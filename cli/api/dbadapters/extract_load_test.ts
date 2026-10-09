@@ -10,7 +10,7 @@ suite("extract_load", () => {
     // BigQuery resolved names case-insensitively; PostgreSQL folds unquoted identifiers and has
     // no case-insensitive mode. Folding here is what keeps the original SQL working unquoted.
     const cols = foldColumns({ Email: "text", FirstName: "text", id: "bigint" }, target);
-    expect(cols.map(c => c.target)).deep.equals(["email", "firstname", "id"]);
+    expect(cols.map((c) => c.target)).deep.equals(["email", "firstname", "id"]);
   });
 
   test("keeps the source spelling, because rows arrive keyed by it", () => {
@@ -36,6 +36,6 @@ suite("extract_load", () => {
 
   test("leaves already-lower-case columns untouched", () => {
     const cols = foldColumns({ order_id: "bigint", _fivetran_deleted: "boolean" }, target);
-    expect(cols.map(c => c.source)).deep.equals(cols.map(c => c.target));
+    expect(cols.map((c) => c.source)).deep.equals(cols.map((c) => c.target));
   });
 });

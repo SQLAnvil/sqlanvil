@@ -9,5 +9,5 @@ export const helpCommand: ICommand = {
   options: [],
   processFn: async () => {
     return 0;
-  }
+  },
 };

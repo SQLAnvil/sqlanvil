@@ -12,14 +12,14 @@ import {
   projectDirMustExistOption,
   quietCompileOption,
   tagsOption,
-  timeoutOption
+  timeoutOption,
 } from "sa/cli/common_options";
 import {
   compiledGraphOutputType,
   print,
   printCompiledGraph,
   printCompiledGraphErrors,
-  printError
+  printError,
 } from "sa/cli/console";
 import { ProjectConfigArgv, ProjectConfigOptions } from "sa/cli/project_config_options";
 import { compiledGraphHasErrors } from "sa/cli/util";
@@ -51,29 +51,30 @@ const compileActionsOption = {
   option: {
     ...actionsOption.option,
     describe:
-      "A list of action names or patterns to include in the output. Can include '*' wildcards."
-  }
+      "A list of action names or patterns to include in the output. Can include '*' wildcards.",
+  },
 };
 
 const compileTagsOption = {
   ...tagsOption,
-  option: { ...tagsOption.option, describe: "A list of tags to filter the output to." }
+  option: { ...tagsOption.option, describe: "A list of tags to filter the output to." },
 };
 
 const compileIncludeDepsOption = {
   ...includeDepsOption,
   option: {
     ...includeDepsOption.option,
-    describe: "If set, dependencies of selected actions are also included in the output."
-  }
+    describe: "If set, dependencies of selected actions are also included in the output.",
+  },
 };
 
 const compileIncludeDependentsOption = {
   ...includeDependentsOption,
   option: {
     ...includeDependentsOption.option,
-    describe: "If set, dependents (downstream) of selected actions are also included in the output."
-  }
+    describe:
+      "If set, dependents (downstream) of selected actions are also included in the output.",
+  },
 };
 
 const dotOutputOption = option(
@@ -81,13 +82,13 @@ const dotOutputOption = option(
   {
     describe: "Outputs a dot representation of the compiled project.",
     type: "boolean",
-    default: false
+    default: false,
   },
   (argv: { json?: boolean; dot?: boolean }) => {
     if (argv.json && argv.dot) {
       throw new Error("Arguments --json and --dot are mutually exclusive.");
     }
-  }
+  },
 );
 
 const watchOptionName = "watch";
@@ -102,7 +103,7 @@ export const compileCommand: ICommand = {
     option(watchOptionName, {
       describe: "Whether to watch the changes in the project directory.",
       type: "boolean",
-      default: false
+      default: false,
     }),
     jsonOutputOption,
     dotOutputOption,
@@ -118,15 +119,15 @@ export const compileCommand: ICommand = {
       {
         describe: "Enable verbose compilation output. Example usage: 'sqlanvil compile --verbose'",
         type: "boolean",
-        default: false
+        default: false,
       },
       (argv: { quiet?: boolean; verbose?: boolean }) => {
         if (argv.quiet && argv.verbose) {
           throw new Error("Arguments --verbose and --quiet are mutually exclusive.");
         }
-      }
+      },
     ),
-    ...ProjectConfigOptions.allYargsOptions
+    ...ProjectConfigOptions.allYargsOptions,
   ],
   processFn: async (argv: CompileArgv) => {
     const projectDir = argv[projectDirMustExistOption.name];
@@ -146,7 +147,7 @@ export const compileCommand: ICommand = {
         projectDir,
         projectConfigOverride: projectConfigOverrideWithEnvironment(projectDir, argv),
         timeoutMillis: argv[timeoutOption.name] || undefined,
-        verbose: argv[verboseOptionName] || false
+        verbose: argv[verboseOptionName] || false,
       });
 
       // The whole project must compile (ref() resolution needs every action
@@ -161,7 +162,7 @@ export const compileCommand: ICommand = {
               actions: argv[actionsOption.name],
               tags: argv[tagsOption.name],
               includeDependencies: argv[includeDepsOption.name],
-              includeDependents: argv[includeDependentsOption.name]
+              includeDependents: argv[includeDependentsOption.name],
             })
           : compiledGraph;
       printCompiledGraph(outputGraph, outputType, argv[quietCompileOption.name]);
@@ -195,8 +196,8 @@ export const compileCommand: ICommand = {
       ignoreInitial: true,
       awaitWriteFinish: {
         stabilityThreshold: 1000,
-        pollInterval: 200
-      }
+        pollInterval: 200,
+      },
     });
 
     const printReady = () => {
@@ -205,7 +206,7 @@ export const compileCommand: ICommand = {
     // Add event listeners.
     watcher
       .on("ready", printReady)
-      .on("error", error => {
+      .on("error", (error) => {
         // This error is caught not if there is a compilation error, but
         // if the watcher fails; this indicates an failure on our side.
         printError(`Error: ${error}`);
@@ -236,5 +237,5 @@ export const compileCommand: ICommand = {
     while (watching) {
       await new Promise((resolve, reject) => setTimeout(() => resolve(), 100));
     }
-  }
+  },
 };

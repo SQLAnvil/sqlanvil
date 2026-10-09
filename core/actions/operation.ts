@@ -13,7 +13,7 @@ import {
   resolvableAsTarget,
   rejectJitCompilation,
   resolveActionsConfigFilename,
-  toResolvable
+  toResolvable,
 } from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -111,7 +111,7 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
 
   /** @hidden We delay contextification until the final compile step, so hold these here for now. */
   private contextableQueries: Contextable<IActionContext, string | string[]>;
-  private contextableJitCode: JitContextable<IActionContext, JitOperationResult>|undefined;
+  private contextableJitCode: JitContextable<IActionContext, JitOperationResult> | undefined;
 
   /** @hidden */
   constructor(session?: Session, unverifiedConfig?: any, configPath?: string) {
@@ -129,7 +129,7 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
     }
     const target = actionConfigToCompiledGraphTarget(config);
     this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, {
-      validateTarget: true
+      validateTarget: true,
     });
     this.proto.canonicalTarget = this.applySessionToTarget(target, session.canonicalProjectConfig);
 
@@ -143,9 +143,9 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
     }
     if (config.dependencyTargets) {
       this.dependencies(
-        config.dependencyTargets.map(dependencyTarget =>
-          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
-        )
+        config.dependencyTargets.map((dependencyTarget) =>
+          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget)),
+        ),
       );
     }
     if (config.hermetic !== undefined) {
@@ -165,9 +165,9 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
     }
     if (config.columns?.length) {
       this.columns(
-        config.columns.map(columnDescriptor =>
-          sqlanvil.ActionConfig.ColumnDescriptor.create(columnDescriptor)
-        )
+        config.columns.map((columnDescriptor) =>
+          sqlanvil.ActionConfig.ColumnDescriptor.create(columnDescriptor),
+        ),
       );
     }
     if (config.project) {
@@ -203,7 +203,8 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
     if (!this.proto.actionDescriptor) {
       this.proto.actionDescriptor = {};
     }
-    this.proto.actionDescriptor.compilationMode = sqlanvil.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
+    this.proto.actionDescriptor.compilationMode =
+      sqlanvil.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
     this.contextableJitCode = jitCode;
     return this;
   }
@@ -216,7 +217,7 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
    */
   public dependencies(value: Resolvable | Resolvable[]) {
     const newDependencies = Array.isArray(value) ? value : [value];
-    newDependencies.forEach(resolvable => {
+    newDependencies.forEach((resolvable) => {
       const dependencyTarget = checkAssertionsForDependency(this, resolvable);
       if (!!dependencyTarget) {
         this.proto.dependencyTargets.push(dependencyTarget);
@@ -259,7 +260,7 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
    */
   public tags(value: string | string[]) {
     const newTags = typeof value === "string" ? [value] : value;
-    newTags.forEach(t => {
+    newTags.forEach((t) => {
       if (this.proto.tags.indexOf(t) < 0) {
         this.proto.tags.push(t);
       }
@@ -303,9 +304,8 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
     if (!this.proto.actionDescriptor) {
       this.proto.actionDescriptor = {};
     }
-    this.proto.actionDescriptor.columns = ColumnDescriptors.mapConfigProtoToCompilationProto(
-      columns
-    );
+    this.proto.actionDescriptor.columns =
+      ColumnDescriptors.mapConfigProtoToCompilationProto(columns);
     return this;
   }
 
@@ -322,7 +322,7 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
       sqlanvil.Target.create({ ...this.proto.target, database }),
       this.session.projectConfig,
       this.proto.fileName,
-      { validateTarget: true }
+      { validateTarget: true },
     );
     return this;
   }
@@ -339,7 +339,7 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
       sqlanvil.Target.create({ ...this.proto.target, schema }),
       this.session.projectConfig,
       this.proto.fileName,
-      { validateTarget: true }
+      { validateTarget: true },
     );
     return this;
   }
@@ -376,12 +376,11 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
     if (this.proto.actionDescriptor?.columns?.length > 0 && !this.proto.hasOutput) {
       this.session.compileError(
         new Error(
-          "Actions of type 'operations' may only describe columns if they specify 'hasOutput: true'."
+          "Actions of type 'operations' may only describe columns if they specify 'hasOutput: true'.",
         ),
-        this.proto.fileName
+        this.proto.fileName,
       );
     }
-
 
     if (this.contextableJitCode) {
       this.compileJit();
@@ -394,14 +393,16 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
     return verifyObjectMatchesProto(
       sqlanvil.Operation,
       this.proto,
-      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
     );
   }
 
   private compileJit() {
     rejectJitCompilation("Operation .jitCode()");
     if (!!this.contextableQueries) {
-      const err = new Error(`Cannot mix AoT and JiT compilation in action: ${this.contextableQueries}`);
+      const err = new Error(
+        `Cannot mix AoT and JiT compilation in action: ${this.contextableQueries}`,
+      );
       this.session.compileError(err, this.getFileName());
       throw err;
     }
@@ -417,14 +418,14 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
    * converted to the new structure.
    */
   private verifyConfig(
-    unverifiedConfig: ILegacyOperationConfig
+    unverifiedConfig: ILegacyOperationConfig,
   ): sqlanvil.ActionConfig.OperationConfig {
     // The "type" field only exists on legacy view configs. Here we convert them to the new format.
     if (unverifiedConfig.type) {
       delete unverifiedConfig.type;
       if (unverifiedConfig.dependencies) {
         unverifiedConfig.dependencyTargets = unverifiedConfig.dependencies.map(
-          (dependency: string | object) => resolvableAsActionConfigTarget(dependency)
+          (dependency: string | object) => resolvableAsActionConfigTarget(dependency),
         );
         delete unverifiedConfig.dependencies;
       }
@@ -442,14 +443,14 @@ export class Operation extends ActionBuilder<sqlanvil.Operation> {
       }
       if (unverifiedConfig.columns) {
         unverifiedConfig.columns = ColumnDescriptors.mapLegacyObjectToConfigProto(
-          unverifiedConfig.columns as any
+          unverifiedConfig.columns as any,
         );
       }
     }
     return verifyObjectMatchesProto(
       sqlanvil.ActionConfig.OperationConfig,
       unverifiedConfig,
-      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
+      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK,
     );
   }
 }
@@ -493,7 +494,7 @@ export class OperationContext implements IActionContext {
   public database(): string {
     if (!this.operation.getTarget().database) {
       this.operation.session.compileError(
-        new Error(`Warehouse does not support multiple databases`)
+        new Error(`Warehouse does not support multiple databases`),
       );
       return "";
     }

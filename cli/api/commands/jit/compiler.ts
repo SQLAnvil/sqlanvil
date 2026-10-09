@@ -27,7 +27,7 @@ export class JitCompileChildProcess extends BaseWorker<
     dbadapter: IDbAdapter,
     dbclient: IDbClient,
     timeoutMillis: number = DEFAULT_COMPILATION_TIMEOUT_MILLIS,
-    options?: IBigQueryExecutionOptions
+    options?: IBigQueryExecutionOptions,
   ): Promise<sqlanvil.IJitCompilationResponse> {
     return await new JitCompileChildProcess().run(
       request,
@@ -35,7 +35,7 @@ export class JitCompileChildProcess extends BaseWorker<
       dbadapter,
       dbclient,
       timeoutMillis,
-      options
+      options,
     );
   }
 
@@ -49,15 +49,15 @@ export class JitCompileChildProcess extends BaseWorker<
     dbadapter: IDbAdapter,
     dbclient: IDbClient,
     timeoutMillis: number,
-    options?: IBigQueryExecutionOptions
+    options?: IBigQueryExecutionOptions,
   ): Promise<sqlanvil.IJitCompilationResponse> {
     return await this.runWorker(
       timeoutMillis,
-      child => {
+      (child) => {
         child.send({
           type: "jit_compile",
           request,
-          projectDir
+          projectDir,
         });
       },
       async (message, child, resolve, reject) => {
@@ -68,7 +68,7 @@ export class JitCompileChildProcess extends BaseWorker<
         } else if (message.type === "jit_error") {
           reject(new Error(message.error));
         }
-      }
+      },
     );
   }
 
@@ -77,7 +77,7 @@ export class JitCompileChildProcess extends BaseWorker<
     child: ChildProcess,
     dbadapter: IDbAdapter,
     dbclient: IDbClient,
-    options?: IBigQueryExecutionOptions
+    options?: IBigQueryExecutionOptions,
   ) {
     try {
       const response = await handleDbRequest(
@@ -85,18 +85,18 @@ export class JitCompileChildProcess extends BaseWorker<
         dbclient,
         message.method,
         message.request,
-        options
+        options,
       );
       child.send({
         type: "rpc_response",
         correlationId: message.correlationId,
-        response
+        response,
       });
     } catch (e) {
       child.send({
         type: "rpc_response",
         correlationId: message.correlationId,
-        error: e.message
+        error: e.message,
       });
     }
   }

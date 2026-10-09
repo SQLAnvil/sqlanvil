@@ -10,11 +10,11 @@ suite("connection credential substitution", () => {
       'create user mapping for current_user server "pg_src_srv" ' +
       "options (user '${SA_CONN:pg_src:user}', password '${SA_CONN:pg_src:password}')";
     const out = substituteConnectionCredentials(stmt, {
-      pg_src: { user: "reader", password: "p@ss'word" }
+      pg_src: { user: "reader", password: "p@ss'word" },
     });
     expect(out).equals(
       'create user mapping for current_user server "pg_src_srv" ' +
-        "options (user 'reader', password 'p@ss''word')"
+        "options (user 'reader', password 'p@ss''word')",
     );
   });
 
@@ -29,8 +29,8 @@ suite("connection credential substitution", () => {
 
   test("throws a clear error when a required field is missing", () => {
     const stmt = "options (password '${SA_CONN:pg_src:password}')";
-    expect(() =>
-      substituteConnectionCredentials(stmt, { pg_src: { user: "u" } })
-    ).to.throw(/missing "password"/);
+    expect(() => substituteConnectionCredentials(stmt, { pg_src: { user: "u" } })).to.throw(
+      /missing "password"/,
+    );
   });
 });

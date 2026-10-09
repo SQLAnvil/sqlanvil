@@ -8,7 +8,7 @@ import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
-  VALID_WORKFLOW_SETTINGS_YAML
+  VALID_WORKFLOW_SETTINGS_YAML,
 } from "sa/testing/run_core";
 
 suite("import", ({ afterEach }) => {
@@ -19,7 +19,7 @@ suite("import", ({ afterEach }) => {
     if (!files["workflow_settings.yaml"]) {
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
     }
     for (const [name, contents] of Object.entries(files)) {
@@ -32,8 +32,7 @@ suite("import", ({ afterEach }) => {
 
   test("compiles a config-only type:import action into compiledGraph.imports", () => {
     const graph = compileProject({
-      "definitions/orders_in.sqlx":
-        `config { type: "import", import: { location: "gs://b/orders/*.parquet", format: "parquet" } }`
+      "definitions/orders_in.sqlx": `config { type: "import", import: { location: "gs://b/orders/*.parquet", format: "parquet" } }`,
     });
     expect(graph.graphErrors.compilationErrors).deep.equals([]);
     expect(graph.imports.length).equals(1);
@@ -47,10 +46,8 @@ suite("import", ({ afterEach }) => {
 
   test("an imported table is ref()-able by a downstream model", () => {
     const graph = compileProject({
-      "definitions/orders_in.sqlx":
-        `config { type: "import", import: { location: "gs://b/orders/*.parquet", format: "parquet" } }`,
-      "definitions/clean.sqlx":
-        `config { type: "table" }\nSELECT * FROM ${"${ref(\"orders_in\")}"}`
+      "definitions/orders_in.sqlx": `config { type: "import", import: { location: "gs://b/orders/*.parquet", format: "parquet" } }`,
+      "definitions/clean.sqlx": `config { type: "table" }\nSELECT * FROM ${'${ref("orders_in")}'}`,
     });
     expect(graph.graphErrors.compilationErrors).deep.equals([]);
     const clean = graph.tables.find((t: any) => t.target.name === "clean");
@@ -59,8 +56,7 @@ suite("import", ({ afterEach }) => {
 
   test("rejects a BigQuery import from a non-gs:// source", () => {
     const graph = compileProject({
-      "definitions/orders_in.sqlx":
-        `config { type: "import", import: { location: "s3://b/orders/", format: "parquet" } }`
+      "definitions/orders_in.sqlx": `config { type: "import", import: { location: "s3://b/orders/", format: "parquet" } }`,
     });
     const errors = JSON.stringify(graph.graphErrors.compilationErrors);
     expect(errors).contains("BigQuery imports support only gs://");
@@ -68,8 +64,7 @@ suite("import", ({ afterEach }) => {
 
   test("rejects an unknown import format", () => {
     const graph = compileProject({
-      "definitions/orders_in.sqlx":
-        `config { type: "import", import: { location: "gs://b/x/", format: "avro" } }`
+      "definitions/orders_in.sqlx": `config { type: "import", import: { location: "gs://b/x/", format: "avro" } }`,
     });
     const errors = JSON.stringify(graph.graphErrors.compilationErrors);
     expect(errors).contains("Invalid import format");
@@ -77,7 +72,7 @@ suite("import", ({ afterEach }) => {
 
   test("requires a location", () => {
     const graph = compileProject({
-      "definitions/orders_in.sqlx": `config { type: "import", import: { format: "parquet" } }`
+      "definitions/orders_in.sqlx": `config { type: "import", import: { format: "parquet" } }`,
     });
     const errors = JSON.stringify(graph.graphErrors.compilationErrors);
     expect(errors).contains("require a `location`");
@@ -85,8 +80,7 @@ suite("import", ({ afterEach }) => {
 
   test("honors explicit overwrite:false", () => {
     const graph = compileProject({
-      "definitions/orders_in.sqlx":
-        `config { type: "import", import: { location: "gs://b/o/*.csv", format: "csv", overwrite: false } }`
+      "definitions/orders_in.sqlx": `config { type: "import", import: { location: "gs://b/o/*.csv", format: "csv", overwrite: false } }`,
     });
     expect(graph.graphErrors.compilationErrors).deep.equals([]);
     const imp = graph.imports[0];

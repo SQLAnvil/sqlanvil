@@ -40,40 +40,37 @@ function escapeHtml(value: string): string {
 /** Build the structured catalog model from the artifact Parquet views (DuckDB). */
 export async function buildDocsModel(
   views: ArtifactView[],
-  generatedAt: string
+  generatedAt: string,
 ): Promise<DocsModel> {
-  const hasRuns = views.some(v => v.name === "runs");
+  const hasRuns = views.some((v) => v.name === "runs");
 
   const actions = await queryParquet(
     "select readable_name, type, tags, description from actions order by type, readable_name",
-    views
+    views,
   );
   const dependencies = await queryParquet(
     "select from_readable, to_readable from dependencies",
-    views
+    views,
   );
   const columns = await queryParquet(
     "select readable_name, column_name, description from columns order by readable_name, column_name",
-    views
+    views,
   );
 
   let latestRun: { runId: number; status: string } | undefined;
   const statusByModel = new Map<string, string>();
   if (hasRuns) {
-    const head = await queryParquet(
-      "select max(run_id) as run_id from runs",
-      views
-    );
+    const head = await queryParquet("select max(run_id) as run_id from runs", views);
     const runId = head[0] && head[0].run_id !== null ? Number(head[0].run_id) : undefined;
     if (runId !== undefined) {
       const overall = await queryParquet(
         `select run_status from runs where run_id = ${runId} limit 1`,
-        views
+        views,
       );
       latestRun = { runId, status: overall[0] ? overall[0].run_status : "UNKNOWN" };
       const statuses = await queryParquet(
         `select readable_name, status from runs where run_id = ${runId}`,
-        views
+        views,
       );
       for (const row of statuses) {
         statusByModel.set(row.readable_name, row.status);
@@ -83,11 +80,14 @@ export async function buildDocsModel(
 
   const dependsOn = new Map<string, string[]>();
   for (const dep of dependencies) {
-    dependsOn.set(dep.from_readable, (dependsOn.get(dep.from_readable) || []).concat(dep.to_readable));
+    dependsOn.set(
+      dep.from_readable,
+      (dependsOn.get(dep.from_readable) || []).concat(dep.to_readable),
+    );
   }
 
   const byTypeMap = new Map<string, number>();
-  const models: DocsModelEntry[] = actions.map(a => {
+  const models: DocsModelEntry[] = actions.map((a) => {
     byTypeMap.set(a.type, (byTypeMap.get(a.type) || 0) + 1);
     let tags: string[] = [];
     try {
@@ -101,7 +101,7 @@ export async function buildDocsModel(
       tags,
       description: a.description || "",
       status: statusByModel.get(a.readable_name),
-      dependsOn: dependsOn.get(a.readable_name) || []
+      dependsOn: dependsOn.get(a.readable_name) || [],
     };
   });
 
@@ -111,15 +111,15 @@ export async function buildDocsModel(
       total: models.length,
       byType: Array.from(byTypeMap.entries())
         .map(([type, n]) => ({ type, n }))
-        .sort((x, y) => x.type.localeCompare(y.type))
+        .sort((x, y) => x.type.localeCompare(y.type)),
     },
     latestRun,
     models,
-    columns: columns.map(c => ({
+    columns: columns.map((c) => ({
       readable: c.readable_name,
       column: c.column_name,
-      description: c.description || ""
-    }))
+      description: c.description || "",
+    })),
   };
 }
 
@@ -127,7 +127,7 @@ export async function buildDocsModel(
 export function renderDocsHtml(model: DocsModel): string {
   const summaryLine =
     `${model.summary.total} models — ` +
-    model.summary.byType.map(t => `${t.n} ${t.type}`).join(", ");
+    model.summary.byType.map((t) => `${t.n} ${t.type}`).join(", ");
   const runLine = model.latestRun
     ? `Last run: <strong>${escapeHtml(model.latestRun.status)}</strong> (run ${model.latestRun.runId})`
     : "No runs recorded yet.";
@@ -142,22 +142,25 @@ export function renderDocsHtml(model: DocsModel): string {
 
   const modelRows = model.models
     .map(
-      m => `<tr data-search="${escapeHtml((m.readable + " " + m.type + " " + m.tags.join(" ")).toLowerCase())}">
+      (
+        m,
+      ) => `<tr data-search="${escapeHtml((m.readable + " " + m.type + " " + m.tags.join(" ")).toLowerCase())}">
       <td><code>${escapeHtml(m.readable)}</code></td>
       <td>${escapeHtml(m.type)}</td>
-      <td>${m.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join(" ")}</td>
+      <td>${m.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join(" ")}</td>
       <td>${statusBadge(m.status)}</td>
-      <td>${m.dependsOn.map(d => `<code>${escapeHtml(d)}</code>`).join("<br>")}</td>
+      <td>${m.dependsOn.map((d) => `<code>${escapeHtml(d)}</code>`).join("<br>")}</td>
       <td>${escapeHtml(m.description)}</td>
-    </tr>`
+    </tr>`,
     )
     .join("\n");
 
   const columnRows = model.columns
     .map(
-      c => `<tr><td><code>${escapeHtml(c.readable)}</code></td><td><code>${escapeHtml(
-        c.column
-      )}</code></td><td>${escapeHtml(c.description)}</td></tr>`
+      (c) =>
+        `<tr><td><code>${escapeHtml(c.readable)}</code></td><td><code>${escapeHtml(
+          c.column,
+        )}</code></td><td>${escapeHtml(c.description)}</td></tr>`,
     )
     .join("\n");
 
@@ -187,7 +190,7 @@ export function renderDocsHtml(model: DocsModel): string {
 <body>
   <h1>SQLAnvil catalog</h1>
   <div class="meta">${escapeHtml(summaryLine)} &middot; ${runLine} &middot; generated ${escapeHtml(
-    model.generatedAt
+    model.generatedAt,
   )}</div>
 
   <input id="q" type="search" placeholder="Filter models…" oninput="filterModels(this.value)">

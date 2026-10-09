@@ -27,7 +27,7 @@ import {
   INIT_MODE_QUESTION,
   INIT_PROJECT_DIR_QUESTION,
   INIT_WAREHOUSE_QUESTION,
-  withDefault
+  withDefault,
 } from "sa/cli/interactive_init";
 import { getProcessResult, nodePath, suite, test } from "sa/testing";
 import { TmpDirFixture } from "sa/testing/fixtures";
@@ -38,8 +38,8 @@ suite("init --interactive", ({ afterEach }) => {
   const runInteractiveInit = (projectDir: string, testInputs: Record<string, string>) =>
     getProcessResult(
       execFile(nodePath, [cliEntryPointPath, "init", projectDir, "--interactive"], {
-        env: { ...process.env, DATAFORM_CLI_TEST_INPUTS: JSON.stringify(testInputs) }
-      })
+        env: { ...process.env, DATAFORM_CLI_TEST_INPUTS: JSON.stringify(testInputs) },
+      }),
     );
 
   const readSettings = (projectDir: string): any =>
@@ -61,7 +61,7 @@ suite("init --interactive", ({ afterEach }) => {
       [withDefault(CREDS_DATABASE_QUESTION, "postgres")]: "",
       [withDefault(CREDS_USER_QUESTION, "postgres.<your-project-ref>")]: "postgres.abcdef123456",
       [CREDS_PASSWORD_QUESTION]: "hunter2",
-      [withDefault(CREDS_SSLMODE_QUESTION, "require")]: ""
+      [withDefault(CREDS_SSLMODE_QUESTION, "require")]: "",
     };
 
     const result = await runInteractiveInit(projectDir, testInputs);
@@ -73,22 +73,24 @@ suite("init --interactive", ({ afterEach }) => {
     // The BigQuery sample source was declined — no connections block, no BQ sample files.
     expect(settings).to.not.have.property("connections");
     assert.isFalse(
-      fs.existsSync(path.join(projectDir, "definitions", "sources", "bigquery_zip_codes.sqlx"))
+      fs.existsSync(path.join(projectDir, "definitions", "sources", "bigquery_zip_codes.sqlx")),
     );
     assert.isFalse(
-      fs.existsSync(path.join(projectDir, "definitions", "outputs", "reporting", "orders_by_region.sqlx"))
+      fs.existsSync(
+        path.join(projectDir, "definitions", "outputs", "reporting", "orders_by_region.sqlx"),
+      ),
     );
     // The rest of the sample project is present.
     assert.isTrue(
-      fs.existsSync(path.join(projectDir, "definitions", "sources", "app_orders.sqlx"))
+      fs.existsSync(path.join(projectDir, "definitions", "sources", "app_orders.sqlx")),
     );
     assert.isTrue(
-      fs.existsSync(path.join(projectDir, "definitions", "outputs", "sales", "daily_sales.sqlx"))
+      fs.existsSync(path.join(projectDir, "definitions", "outputs", "sales", "daily_sales.sqlx")),
     );
 
     // Credentials came from the Q&A, not the placeholder template.
     const creds = JSON.parse(
-      fs.readFileSync(path.join(projectDir, ".df-credentials.json"), "utf8")
+      fs.readFileSync(path.join(projectDir, ".df-credentials.json"), "utf8"),
     );
     expect(creds.host).equals("aws-1-us-east-1.pooler.supabase.com");
     expect(creds.port).equals(5432);
@@ -106,7 +108,7 @@ suite("init --interactive", ({ afterEach }) => {
       [withDefault(INIT_PROJECT_DIR_QUESTION, projectDir)]: "",
       [withDefault(INIT_DEFAULT_SCHEMA_QUESTION, "public")]: "analytics",
       [withDefault(INIT_INCLUDE_SAMPLE_QUESTION, "y")]: "n",
-      [withDefault(INIT_CONFIGURE_CREDS_QUESTION, "y")]: "n"
+      [withDefault(INIT_CONFIGURE_CREDS_QUESTION, "y")]: "n",
     };
 
     const result = await runInteractiveInit(projectDir, testInputs);
@@ -125,7 +127,7 @@ suite("init --interactive", ({ afterEach }) => {
 
     // Credentials Q&A declined — the placeholder template is written instead.
     const creds = JSON.parse(
-      fs.readFileSync(path.join(projectDir, ".df-credentials.json"), "utf8")
+      fs.readFileSync(path.join(projectDir, ".df-credentials.json"), "utf8"),
     );
     expect(creds.host).equals("localhost");
     expect(creds.password).equals("");
@@ -141,7 +143,7 @@ suite("init --interactive", ({ afterEach }) => {
       [INIT_BQ_LOCATION_QUESTION]: "us-central1",
       [withDefault(INIT_DEFAULT_SCHEMA_QUESTION, "sqlanvil")]: "",
       [withDefault(INIT_INCLUDE_SAMPLE_QUESTION, "y")]: "y",
-      [withDefault(BQ_AUTH_QUESTION, "adc")]: "later"
+      [withDefault(BQ_AUTH_QUESTION, "adc")]: "later",
     };
 
     const result = await runInteractiveInit(projectDir, testInputs);
@@ -154,16 +156,16 @@ suite("init --interactive", ({ afterEach }) => {
     // Secretless ADC-mode credentials file (project + location, no key) — local runs
     // authenticate via gcloud ADC, like Dataform.
     const creds = JSON.parse(
-      fs.readFileSync(path.join(projectDir, ".df-credentials.json"), "utf8")
+      fs.readFileSync(path.join(projectDir, ".df-credentials.json"), "utf8"),
     );
     expect(creds).deep.equals({ projectId: "my-gcp-project", location: "us-central1" });
     expect(fs.readFileSync(path.join(projectDir, ".gitignore"), "utf8")).contains(
-      ".df-credentials"
+      ".df-credentials",
     );
     // The BigQuery sample source is a native declaration here.
     const zipCodes = fs.readFileSync(
       path.join(projectDir, "definitions", "sources", "bigquery_zip_codes.sqlx"),
-      "utf8"
+      "utf8",
     );
     expect(zipCodes).contains('database: "bigquery-public-data"');
   });
@@ -178,13 +180,13 @@ suite("init --interactive", ({ afterEach }) => {
       JSON.stringify({
         warehouse: "bigquery",
         defaultDatabase: "my-source-project",
-        defaultSchema: "dataform"
-      })
+        defaultSchema: "dataform",
+      }),
     );
     fs.mkdirpSync(path.join(srcDir, "definitions"));
     fs.writeFileSync(
       path.join(srcDir, "definitions", "example.sqlx"),
-      'config { type: "view" }\nselect 1 as x\n'
+      'config { type: "view" }\nselect 1 as x\n',
     );
     const sourceListingBefore = fs.readdirSync(srcDir).sort();
 
@@ -193,14 +195,14 @@ suite("init --interactive", ({ afterEach }) => {
       [CONVERT_SOURCE_QUESTION]: srcDir,
       [CONVERT_OUT_QUESTION]: outDir,
       [withDefault(CONVERT_TARGET_QUESTION, "bigquery")]: "supabase",
-      [withDefault(INIT_CONFIGURE_CREDS_QUESTION, "y")]: "n"
+      [withDefault(INIT_CONFIGURE_CREDS_QUESTION, "y")]: "n",
     };
 
     const result = await runInteractiveInit(workDir, testInputs);
     expect(result.exitCode).equals(0);
 
     const settings = loadYaml(
-      fs.readFileSync(path.join(outDir, "workflow_settings.yaml"), "utf8")
+      fs.readFileSync(path.join(outDir, "workflow_settings.yaml"), "utf8"),
     ) as any;
     expect(settings.warehouse).equals("supabase");
     assert.isTrue(fs.existsSync(path.join(outDir, "migration-report.md")));
@@ -221,13 +223,13 @@ suite("init --interactive", ({ afterEach }) => {
         warehouse: "bigquery",
         defaultDatabase: "my-source-project",
         defaultLocation: "US",
-        defaultSchema: "DataForm_DS"
-      })
+        defaultSchema: "DataForm_DS",
+      }),
     );
     fs.mkdirpSync(path.join(srcDir, "definitions"));
     fs.writeFileSync(
       path.join(srcDir, "definitions", "example.sqlx"),
-      'config { type: "view", bigquery: { partitionBy: "d" } }\nselect SAFE_CAST(1 as INT64) as x\n'
+      'config { type: "view", bigquery: { partitionBy: "d" } }\nselect SAFE_CAST(1 as INT64) as x\n',
     );
 
     const testInputs = {
@@ -238,7 +240,7 @@ suite("init --interactive", ({ afterEach }) => {
       // Auth step (before anything runs): deferred here; test-isolation step: dataset suffix.
       [withDefault(BQ_AUTH_QUESTION, "adc")]: "later",
       [withDefault(BQ_TEST_TARGET_QUESTION, "suffix")]: "",
-      [withDefault(BQ_TEST_SUFFIX_QUESTION, "test")]: ""
+      [withDefault(BQ_TEST_SUFFIX_QUESTION, "test")]: "",
       // No INIT_CONFIGURE_CREDS_QUESTION entry: the BigQuery path must never ask it.
     };
 
@@ -246,7 +248,7 @@ suite("init --interactive", ({ afterEach }) => {
     expect(result.exitCode).equals(0);
 
     const settings = loadYaml(
-      fs.readFileSync(path.join(outDir, "workflow_settings.yaml"), "utf8")
+      fs.readFileSync(path.join(outDir, "workflow_settings.yaml"), "utf8"),
     ) as any;
     expect(settings).to.not.have.property("warehouse"); // BigQuery = core's implicit default
     expect(settings.defaultProject).equals("my-source-project");
@@ -258,7 +260,7 @@ suite("init --interactive", ({ afterEach }) => {
 
     // SQL and bigquery:{} config pass through byte-identical.
     expect(fs.readFileSync(path.join(outDir, "definitions", "example.sqlx"), "utf8")).equals(
-      'config { type: "view", bigquery: { partitionBy: "d" } }\nselect SAFE_CAST(1 as INT64) as x\n'
+      'config { type: "view", bigquery: { partitionBy: "d" } }\nselect SAFE_CAST(1 as INT64) as x\n',
     );
     // Secretless ADC-mode credentials file (project + location only, no key) + gitignore cover.
     const creds = JSON.parse(fs.readFileSync(path.join(outDir, ".df-credentials.json"), "utf8"));

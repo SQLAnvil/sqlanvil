@@ -3,14 +3,14 @@ import { sqlanvil } from "sa/protos/ts";
 
 export async function test(
   dbadapter: dbadapters.IDbAdapter,
-  tests: sqlanvil.ITest[]
+  tests: sqlanvil.ITest[],
 ): Promise<sqlanvil.ITestResult[]> {
-  return await Promise.all(tests.map(testCase => runTest(dbadapter, testCase)));
+  return await Promise.all(tests.map((testCase) => runTest(dbadapter, testCase)));
 }
 
 async function runTest(
   dbadapter: dbadapters.IDbAdapter,
-  testCase: sqlanvil.ITest
+  testCase: sqlanvil.ITest,
 ): Promise<sqlanvil.ITestResult> {
   // Test result sets must be compared in full. An explicit (empty) options object
   // opts out of the adapter's default row/byte caps (1000 rows / 1MB) — those
@@ -24,13 +24,13 @@ async function runTest(
   try {
     [actualResults, expectedResults] = await Promise.all([
       dbadapter.execute(testCase.testQuery, noLimit),
-      dbadapter.execute(testCase.expectedOutputQuery, noLimit)
+      dbadapter.execute(testCase.expectedOutputQuery, noLimit),
     ]);
   } catch (e) {
     return {
       name: testCase.name,
       successful: false,
-      messages: [`Error thrown: ${e.message}.`]
+      messages: [`Error thrown: ${e.message}.`],
     };
   }
 
@@ -40,8 +40,8 @@ async function runTest(
       name: testCase.name,
       successful: false,
       messages: [
-        `Expected ${expectedResults.rows.length} rows, but saw ${actualResults.rows.length} rows.`
-      ]
+        `Expected ${expectedResults.rows.length} rows, but saw ${actualResults.rows.length} rows.`,
+      ],
     };
   }
   // If the result set is empty and the number of actual rows is equal to the number of expected rows
@@ -49,7 +49,7 @@ async function runTest(
   if (actualResults.rows.length === 0) {
     return {
       name: testCase.name,
-      successful: true
+      successful: true,
     };
   }
 
@@ -60,20 +60,20 @@ async function runTest(
     return {
       name: testCase.name,
       successful: false,
-      messages: [`Expected columns "${expectedColumns}", but saw "${actualColumns}".`]
+      messages: [`Expected columns "${expectedColumns}", but saw "${actualColumns}".`],
     };
   }
   // We assume: (a) column order does not matter, and (b) column names are unique.
   for (const expectedColumn of expectedColumns) {
     if (
       !actualColumns.some(
-        actualColumn => normalizeColumnName(actualColumn) === normalizeColumnName(expectedColumn)
+        (actualColumn) => normalizeColumnName(actualColumn) === normalizeColumnName(expectedColumn),
       )
     ) {
       return {
         name: testCase.name,
         successful: false,
-        messages: [`Expected columns "${expectedColumns}", but saw "${actualColumns}".`]
+        messages: [`Expected columns "${expectedColumns}", but saw "${actualColumns}".`],
       };
     }
   }
@@ -91,19 +91,19 @@ async function runTest(
       // Null value check
       if (expectedValue === null && actualValue !== null) {
         rowMessages.push(
-          `For row ${i} and column "${column}": expected null, but saw "${actualValue}".`
+          `For row ${i} and column "${column}": expected null, but saw "${actualValue}".`,
         );
         break;
       }
       if (expectedValue !== null && actualValue === null) {
         rowMessages.push(
-          `For row ${i} and column "${column}": expected "${expectedValue}", but saw null.`
+          `For row ${i} and column "${column}": expected "${expectedValue}", but saw null.`,
         );
         break;
       }
       if (typeof expectedValue !== typeof actualValue) {
         rowMessages.push(
-          `For row ${i} and column "${column}": expected type "${typeof expectedValue}", but saw type "${typeof actualValue}".`
+          `For row ${i} and column "${column}": expected type "${typeof expectedValue}", but saw type "${typeof actualValue}".`,
         );
         break;
       }
@@ -113,7 +113,7 @@ async function runTest(
         typeof actualValue === "object" ? JSON.stringify(actualValue) : actualValue;
       if (comparableExpectedValue !== comparableActualValue) {
         rowMessages.push(
-          `For row ${i} and column "${column}": expected "${comparableExpectedValue}", but saw "${comparableActualValue}".`
+          `For row ${i} and column "${column}": expected "${comparableExpectedValue}", but saw "${comparableActualValue}".`,
         );
       }
     }
@@ -122,13 +122,13 @@ async function runTest(
     return {
       name: testCase.name,
       successful: false,
-      messages: rowMessages
+      messages: rowMessages,
     };
   }
 
   return {
     name: testCase.name,
-    successful: true
+    successful: true,
   };
 }
 
@@ -138,7 +138,7 @@ function normalizeColumnName(name: string) {
 
 function normalizeRow(row: any) {
   const newRow: { [col: string]: any } = {};
-  Object.keys(row).forEach(colName => {
+  Object.keys(row).forEach((colName) => {
     newRow[normalizeColumnName(colName)] = row[colName];
   });
   return newRow;

@@ -16,35 +16,35 @@ defaultLocation: US
 export class WorkflowSettingsTemplates {
   public static bigquery = sqlanvil.WorkflowSettings.create({
     defaultDataset: "defaultDataset",
-    defaultLocation: "US"
+    defaultLocation: "US",
   });
 
   public static bigqueryWithDefaultProject = sqlanvil.WorkflowSettings.create({
     ...WorkflowSettingsTemplates.bigquery,
-    defaultProject: "defaultProject"
+    defaultProject: "defaultProject",
   });
 
   public static bigqueryWithDatasetSuffix = sqlanvil.WorkflowSettings.create({
     ...WorkflowSettingsTemplates.bigquery,
-    datasetSuffix: "suffix"
+    datasetSuffix: "suffix",
   });
 
   public static bigqueryWithDefaultProjectAndDataset = sqlanvil.WorkflowSettings.create({
     ...WorkflowSettingsTemplates.bigqueryWithDefaultProject,
-    projectSuffix: "suffix"
+    projectSuffix: "suffix",
   });
 
   public static bigqueryWithNamePrefix = sqlanvil.WorkflowSettings.create({
     ...WorkflowSettingsTemplates.bigquery,
-    namePrefix: "prefix"
+    namePrefix: "prefix",
   });
 }
 
-const SOURCE_EXTENSIONS = ["js", "sql", "sqlx", "yaml", "ipynb","md"];
+const SOURCE_EXTENSIONS = ["js", "sql", "sqlx", "yaml", "ipynb", "md"];
 
 export function coreExecutionRequestFromPath(
   projectDir: string,
-  projectConfigOverride?: sqlanvil.ProjectConfig
+  projectConfigOverride?: sqlanvil.ProjectConfig,
 ): sqlanvil.CoreExecutionRequest {
   const resolvedProjectDir = fs.realpathSync(path.resolve(projectDir));
   return sqlanvil.CoreExecutionRequest.create({
@@ -52,15 +52,15 @@ export function coreExecutionRequestFromPath(
       compileConfig: {
         projectDir: resolvedProjectDir,
         filePaths: walkDirectoryForFilenames(resolvedProjectDir),
-        projectConfigOverride
-      }
-    }
+        projectConfigOverride,
+      },
+    },
   });
 }
 
 // A VM is needed when running main because Node functions like `require` are overridden.
 export function runMainInVm(
-  coreExecutionRequest: sqlanvil.CoreExecutionRequest
+  coreExecutionRequest: sqlanvil.CoreExecutionRequest,
 ): sqlanvil.CoreExecutionResponse {
   const projectDir = coreExecutionRequest.compile.compileConfig.projectDir;
 
@@ -80,7 +80,7 @@ export function runMainInVm(
       external: true,
       root: projectDir,
       resolve: (moduleName, parentDirName) =>
-        path.join(parentDirName, path.relative(parentDirName, projectDir), moduleName)
+        path.join(parentDirName, path.relative(parentDirName, projectDir), moduleName),
     },
     sourceExtensions: SOURCE_EXTENSIONS,
     compiler: (code, filePath) => {
@@ -94,7 +94,7 @@ export function runMainInVm(
           global.__sqlanvil_current_file = __old_file;
         }
       `;
-    }
+    },
   });
 
   const encodedCoreExecutionRequest = encode64(sqlanvil.CoreExecutionRequest, coreExecutionRequest);
@@ -104,7 +104,7 @@ export function runMainInVm(
       global.workflowSettingsYaml = (function() { try { return require("./workflow_settings.yaml"); } catch(e) { console.error("YAML require failed run_core:", e); } })();
       return require("@sqlanvil/core").main("${encodedCoreExecutionRequest}")
     `,
-    vmIndexFileName
+    vmIndexFileName,
   );
   return decode64(sqlanvil.CoreExecutionResponse, encodedCoreExecutionResponse);
 }
@@ -116,13 +116,13 @@ function walkDirectoryForFilenames(projectDir: string, relativePath: string = ""
   let paths: string[] = [];
   fs.readdirSync(path.join(projectDir, relativePath), { withFileTypes: true })
     .filter(
-      directoryEntry =>
-        directoryEntry.name !== "node_modules" && !directoryEntry.name.startsWith(".")
+      (directoryEntry) =>
+        directoryEntry.name !== "node_modules" && !directoryEntry.name.startsWith("."),
     )
-    .forEach(directoryEntry => {
+    .forEach((directoryEntry) => {
       if (directoryEntry.isDirectory()) {
         paths = paths.concat(
-          walkDirectoryForFilenames(projectDir, path.join(relativePath, directoryEntry.name))
+          walkDirectoryForFilenames(projectDir, path.join(relativePath, directoryEntry.name)),
         );
       } else if (directoryEntry.isFile() && directoryEntry.name.includes(".")) {
         paths.push(path.join(relativePath, directoryEntry.name));

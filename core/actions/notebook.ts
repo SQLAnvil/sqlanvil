@@ -8,7 +8,7 @@ import {
   checkAssertionsForDependency,
   configTargetToCompiledGraphTarget,
   nativeRequire,
-  resolveActionsConfigFilename
+  resolveActionsConfigFilename,
 } from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -91,16 +91,16 @@ export class Notebook extends ActionBuilder<sqlanvil.Notebook> {
 
     this.session = session;
     this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, {
-      validateTarget: true
+      validateTarget: true,
     });
     this.proto.canonicalTarget = this.applySessionToTarget(target, session.canonicalProjectConfig);
     this.proto.tags = config.tags;
     this.dependOnDependencyAssertions = config.dependOnDependencyAssertions;
     if (config.dependencyTargets) {
       this.dependencies(
-        config.dependencyTargets.map(dependencyTarget =>
-          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
-        )
+        config.dependencyTargets.map((dependencyTarget) =>
+          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget)),
+        ),
       );
     }
     this.proto.fileName = config.filename;
@@ -110,7 +110,7 @@ export class Notebook extends ActionBuilder<sqlanvil.Notebook> {
 
     const notebookContents = nativeRequire(config.filename).asJson;
     this.proto.notebookContents = JSON.stringify(
-      stripNotebookOutputsAndMetadata(notebookContents, config.filename)
+      stripNotebookOutputsAndMetadata(notebookContents, config.filename),
     );
   }
 
@@ -126,7 +126,7 @@ export class Notebook extends ActionBuilder<sqlanvil.Notebook> {
   /** @hidden */
   public dependencies(value: Resolvable | Resolvable[]) {
     const newDependencies = Array.isArray(value) ? value : [value];
-    newDependencies.forEach(resolvable => {
+    newDependencies.forEach((resolvable) => {
       const dependencyTarget = checkAssertionsForDependency(this, resolvable);
       if (!!dependencyTarget) {
         this.proto.dependencyTargets.push(dependencyTarget);
@@ -150,7 +150,7 @@ export class Notebook extends ActionBuilder<sqlanvil.Notebook> {
     return verifyObjectMatchesProto(
       sqlanvil.Notebook,
       this.proto,
-      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
     );
   }
 
@@ -162,7 +162,7 @@ export class Notebook extends ActionBuilder<sqlanvil.Notebook> {
     return verifyObjectMatchesProto(
       sqlanvil.ActionConfig.NotebookConfig,
       unverifiedConfig,
-      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
+      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK,
     );
   }
 }
@@ -170,7 +170,7 @@ export class Notebook extends ActionBuilder<sqlanvil.Notebook> {
 /** @hidden Removes all notebook cell outputs and metadata. */
 function stripNotebookOutputsAndMetadata(
   notebookAsJson: { [key: string]: unknown },
-  path: string
+  path: string,
 ): { [key: string]: unknown } {
   if (!("cells" in notebookAsJson)) {
     throw new Error(`Notebook at ${path} is invalid: cells field not present`);

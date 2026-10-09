@@ -9,60 +9,71 @@ suite("CompilationSql", () => {
       const config = sqlanvil.ProjectConfig.create({
         warehouse: "bigquery",
         defaultDatabase: "my-gcp-project",
-        defaultSchema: "my_schema"
+        defaultSchema: "my_schema",
       });
       const compiler = new CompilationSql(config, "3.0.0");
-      
-      expect(compiler.resolveTarget({ database: "my-gcp-project", schema: "my_schema", name: "my_table" }))
-        .to.equal("`my-gcp-project.my_schema.my_table`");
 
-      expect(compiler.resolveTarget({ schema: "my_schema", name: "my_table" }))
-        .to.equal("`my-gcp-project.my_schema.my_table`");
+      expect(
+        compiler.resolveTarget({
+          database: "my-gcp-project",
+          schema: "my_schema",
+          name: "my_table",
+        }),
+      ).to.equal("`my-gcp-project.my_schema.my_table`");
+
+      expect(compiler.resolveTarget({ schema: "my_schema", name: "my_table" })).to.equal(
+        "`my-gcp-project.my_schema.my_table`",
+      );
     });
 
     test("Postgres: should format with double quotes", () => {
       const configWithDb = sqlanvil.ProjectConfig.create({
         warehouse: "postgres",
         defaultDatabase: "my_db",
-        defaultSchema: "public"
+        defaultSchema: "public",
       });
       const compilerWithDb = new CompilationSql(configWithDb, "3.0.0");
-      expect(compilerWithDb.resolveTarget({ database: "my_db", schema: "public", name: "my_table" }))
-        .to.equal('"my_db"."public"."my_table"');
+      expect(
+        compilerWithDb.resolveTarget({ database: "my_db", schema: "public", name: "my_table" }),
+      ).to.equal('"my_db"."public"."my_table"');
 
       const configNoDb = sqlanvil.ProjectConfig.create({
         warehouse: "postgres",
-        defaultSchema: "public"
+        defaultSchema: "public",
       });
       const compilerNoDb = new CompilationSql(configNoDb, "3.0.0");
-      expect(compilerNoDb.resolveTarget({ schema: "public", name: "my_table" }))
-        .to.equal('"public"."my_table"');
+      expect(compilerNoDb.resolveTarget({ schema: "public", name: "my_table" })).to.equal(
+        '"public"."my_table"',
+      );
     });
 
     test("Supabase: should format with double quotes", () => {
       const config = sqlanvil.ProjectConfig.create({
         warehouse: "supabase",
-        defaultSchema: "public"
+        defaultSchema: "public",
       });
       const compiler = new CompilationSql(config, "3.0.0");
 
-      expect(compiler.resolveTarget({ schema: "public", name: "my_table" }))
-        .to.equal('"public"."my_table"');
+      expect(compiler.resolveTarget({ schema: "public", name: "my_table" })).to.equal(
+        '"public"."my_table"',
+      );
     });
 
     test("MySQL: should format with backticks as `schema`.`name`", () => {
       const config = sqlanvil.ProjectConfig.create({
         warehouse: "mysql",
-        defaultSchema: "my_db"
+        defaultSchema: "my_db",
       });
       const compiler = new CompilationSql(config, "3.0.0");
 
-      expect(compiler.resolveTarget({ schema: "my_db", name: "my_table" }))
-        .to.equal("`my_db`.`my_table`");
+      expect(compiler.resolveTarget({ schema: "my_db", name: "my_table" })).to.equal(
+        "`my_db`.`my_table`",
+      );
 
       // MySQL has no catalog level, so any database is ignored.
-      expect(compiler.resolveTarget({ database: "ignored", schema: "my_db", name: "my_table" }))
-        .to.equal("`my_db`.`my_table`");
+      expect(
+        compiler.resolveTarget({ database: "ignored", schema: "my_db", name: "my_table" }),
+      ).to.equal("`my_db`.`my_table`");
     });
   });
 
@@ -149,7 +160,10 @@ suite("CompilationSql", () => {
     test("joins multiple conditions with UNION ALL", () => {
       const config = sqlanvil.ProjectConfig.create({ warehouse: "bigquery" });
       const compiler = new CompilationSql(config, "3.0.0");
-      const result = compiler.rowConditionsAssertion("`db.schema.test`", ["id > 0", "name IS NOT NULL"]);
+      const result = compiler.rowConditionsAssertion("`db.schema.test`", [
+        "id > 0",
+        "name IS NOT NULL",
+      ]);
       expect(result).to.contain("'id > 0' AS failing_row_condition");
       expect(result).to.contain("'name IS NOT NULL' AS failing_row_condition");
       expect(result).to.contain("UNION ALL");

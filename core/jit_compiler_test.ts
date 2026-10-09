@@ -6,13 +6,18 @@ import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";
 
 suite("jit_compiler", () => {
-  const rpcCallback: (method: string, request: Uint8Array, callback: (error: Error | null, response: Uint8Array) => void) => void =
-    (method, request, callback) => { callback(null, new Uint8Array()); };
+  const rpcCallback: (
+    method: string,
+    request: Uint8Array,
+    callback: (error: Error | null, response: Uint8Array) => void,
+  ) => void = (method, request, callback) => {
+    callback(null, new Uint8Array());
+  };
 
   const target = sqlanvil.Target.create({
     database: "db",
     schema: "schema",
-    name: "name"
+    name: "name",
   });
 
   suite("jitCompileOperation", () => {
@@ -21,7 +26,8 @@ suite("jit_compiler", () => {
         jitCode: `async (ctx) => "SELECT 1"`,
         target,
         jitData: {},
-        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
+        compilationTargetType:
+          sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.operation.queries).to.deep.equal(["SELECT 1"]);
@@ -32,7 +38,8 @@ suite("jit_compiler", () => {
         jitCode: `async (ctx) => ["SELECT 1", "SELECT 2"]`,
         target,
         jitData: {},
-        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
+        compilationTargetType:
+          sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.operation.queries).to.deep.equal(["SELECT 1", "SELECT 2"]);
@@ -43,7 +50,8 @@ suite("jit_compiler", () => {
         jitCode: `async (ctx) => ({ queries: ["SELECT 1"] })`,
         target,
         jitData: {},
-        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
+        compilationTargetType:
+          sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.operation.queries).to.deep.equal(["SELECT 1"]);
@@ -54,7 +62,8 @@ suite("jit_compiler", () => {
         jitCode: `async (ctx) => ({ queries: [\`SELECT "\${ctx.name()}"\`] })`,
         target,
         jitData: {},
-        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
+        compilationTargetType:
+          sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.operation.queries).to.deep.equal(['SELECT "name"']);
@@ -65,7 +74,8 @@ suite("jit_compiler", () => {
         jitCode: `(ctx) => Promise.resolve("SELECT 1")`,
         target,
         jitData: {},
-        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
+        compilationTargetType:
+          sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.operation.queries).to.deep.equal(["SELECT 1"]);
@@ -76,7 +86,8 @@ suite("jit_compiler", () => {
         jitCode: `async function(ctx) { return "SELECT 1"; }`,
         target,
         jitData: {},
-        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
+        compilationTargetType:
+          sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.operation.queries).to.deep.equal(["SELECT 1"]);
@@ -87,7 +98,8 @@ suite("jit_compiler", () => {
         jitCode: `function(ctx) { return Promise.resolve("SELECT 1"); }`,
         target,
         jitData: {},
-        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
+        compilationTargetType:
+          sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.operation.queries).to.deep.equal(["SELECT 1"]);
@@ -126,7 +138,8 @@ suite("jit_compiler", () => {
         jitCode: `async (ctx) => "SELECT * FROM t WHERE invalid"`,
         target,
         jitData: {},
-        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_ASSERTION,
+        compilationTargetType:
+          sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_ASSERTION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.assertion.query).to.equal("SELECT * FROM t WHERE invalid");
@@ -137,12 +150,15 @@ suite("jit_compiler", () => {
         jitCode: `async (ctx) => \`SELECT * FROM \${ctx.ref('other')} WHERE invalid\``,
         target,
         jitData: {},
-        dependencies: [sqlanvil.Target.create({
-          database: "db",
-          schema: "schema",
-          name: "other",
-        })],
-        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_ASSERTION,
+        dependencies: [
+          sqlanvil.Target.create({
+            database: "db",
+            schema: "schema",
+            name: "other",
+          }),
+        ],
+        compilationTargetType:
+          sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_ASSERTION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.assertion.query).to.equal("SELECT * FROM `db.schema.other` WHERE invalid");
@@ -153,7 +169,8 @@ suite("jit_compiler", () => {
         jitCode: `async (ctx) => ({ query: "SELECT * FROM t WHERE invalid" })`,
         target,
         jitData: {},
-        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_ASSERTION,
+        compilationTargetType:
+          sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_ASSERTION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.assertion.query).to.equal("SELECT * FROM t WHERE invalid");
@@ -161,11 +178,11 @@ suite("jit_compiler", () => {
 
     test("compiles assertion returning object with extra fields", async () => {
       const request = sqlanvil.JitCompilationRequest.create({
-        jitCode:
-          `async (ctx) => ({ query: "SELECT * FROM t WHERE invalid", preOps: [], postOps: [] })`,
+        jitCode: `async (ctx) => ({ query: "SELECT * FROM t WHERE invalid", preOps: [], postOps: [] })`,
         target,
         jitData: {},
-        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_ASSERTION,
+        compilationTargetType:
+          sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_ASSERTION,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.assertion.query).to.equal("SELECT * FROM t WHERE invalid");
@@ -183,7 +200,8 @@ suite("jit_compiler", () => {
         }`,
         target,
         jitData: {},
-        compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_INCREMENTAL_TABLE,
+        compilationTargetType:
+          sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_INCREMENTAL_TABLE,
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.incrementalTable.incremental?.query).to.equal("SELECT INC");
@@ -197,19 +215,20 @@ suite("jit_compiler", () => {
         jitCode: `async (jctx) => \`$\{jctx.self()\}\n$\{jctx.ref('other')\}\``,
         target,
         jitData: {},
-        dependencies: [sqlanvil.Target.create({
-          database: "db",
-          schema: "schema",
-          name: "other",
-        })],
+        dependencies: [
+          sqlanvil.Target.create({
+            database: "db",
+            schema: "schema",
+            name: "other",
+          }),
+        ],
         compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_TABLE,
-
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.table.query).to.equal("`db.schema.name`\n`db.schema.other`");
     });
 
-  test("can reference execution info data", async () => {
+    test("can reference execution info data", async () => {
       const request = sqlanvil.JitCompilationRequest.create({
         jitCode: `async (jctx) => \`$\{jctx.executionData.executionStartTime.seconds\}\n$\{jctx.executionData.executionId\}\``,
         target,
@@ -217,8 +236,8 @@ suite("jit_compiler", () => {
         compilationTargetType: sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_TABLE,
         executionData: {
           executionId: "test-id",
-          executionStartTime: {seconds: Long.fromNumber(1774974514), nanos: 481},
-        }
+          executionStartTime: { seconds: Long.fromNumber(1774974514), nanos: 481 },
+        },
       });
       const result = await jitCompile(request, rpcCallback);
       expect(result.table.query).to.equal("1774974514\ntest-id");

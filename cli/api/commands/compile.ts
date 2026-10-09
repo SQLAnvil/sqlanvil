@@ -19,7 +19,7 @@ function print(text: string) {
 }
 
 export async function compile(
-  compileConfig: sqlanvil.ICompileConfig = {}
+  compileConfig: sqlanvil.ICompileConfig = {},
 ): Promise<sqlanvil.CompiledGraph> {
   let compiledGraph = sqlanvil.CompiledGraph.create();
 
@@ -43,14 +43,16 @@ export async function compile(
   // For stateless package installation, a temporary directory is used in order to avoid interfering
   // with user's project directories.
   if (workflowSettingsSqlanvilCoreVersion) {
-    [projectNodeModulesPath, packageJsonPath, packageLockJsonPath].forEach(npmPath => {
+    [projectNodeModulesPath, packageJsonPath, packageLockJsonPath].forEach((npmPath) => {
       if (fs.existsSync(npmPath)) {
         throw new Error(`'${npmPath}' unexpected; remove it and try again`);
       }
     });
 
     if (compileConfig.verbose) {
-      print(`Using isolated environment for @sqlanvil/core@${workflowSettingsSqlanvilCoreVersion}\n`);
+      print(
+        `Using isolated environment for @sqlanvil/core@${workflowSettingsSqlanvilCoreVersion}\n`,
+      );
       print(`Copying project to temporary directory: ${temporaryProjectPath}\n`);
     }
     const copyStartTime = performance.now();
@@ -68,7 +70,7 @@ export async function compile(
   "dependencies": {
   "@sqlanvil/core": "${workflowSettingsSqlanvilCoreVersion}"
   }
-}`
+}`,
     );
 
     const npmCommand = `npm i --ignore-scripts${compileConfig.verbose ? " --loglevel=http" : ""}`;
@@ -77,7 +79,7 @@ export async function compile(
     }
     const npmStartTime = performance.now();
     const { stdout, stderr } = await promisify(exec)(npmCommand, {
-      cwd: temporaryProjectPath
+      cwd: temporaryProjectPath,
     });
 
     if (compileConfig.verbose) {
@@ -117,14 +119,14 @@ export class CompileChildProcess extends BaseWorker<string, string | Error> {
 
     return await this.runWorker(
       timeoutValue,
-      child => child.send(compileConfig),
+      (child) => child.send(compileConfig),
       (message, child, resolve, reject) => {
         if (typeof message === "string") {
           resolve(message);
           return;
         }
         reject(coerceAsError(message));
-      }
+      },
     );
   }
 }

@@ -10,7 +10,7 @@ const targetWarehouseOption = option("target-warehouse", {
     "tooling swap with SQL and bigquery:{} blocks untouched.",
   type: "string",
   choices: ["supabase", "postgres", "bigquery"],
-  default: "supabase"
+  default: "supabase",
 });
 
 export const migrateDataformCommand: ICommand = {
@@ -24,11 +24,11 @@ export const migrateDataformCommand: ICommand = {
     "BigQuery warehouse, SQL and bigquery:{} blocks untouched.",
   positionalOptions: [
     positionalOption("source-dir", {
-      describe: "The Dataform project to convert (never modified)."
+      describe: "The Dataform project to convert (never modified).",
     }),
     positionalOption("out-dir", {
-      describe: "Where the converted sqlanvil project is written (created; must be empty)."
-    })
+      describe: "Where the converted sqlanvil project is written (created; must be empty).",
+    }),
   ],
   options: [targetWarehouseOption],
   processFn: async (argv: {
@@ -39,10 +39,10 @@ export const migrateDataformCommand: ICommand = {
     const report = await migrateDataform({
       srcDir: argv["source-dir"],
       outDir: argv["out-dir"],
-      targetWarehouse: argv[targetWarehouseOption.name]
+      targetWarehouse: argv[targetWarehouseOption.name],
     });
     printMigrationSummary(report, argv["out-dir"]);
     print(`Next: sqlanvil compile ${argv["out-dir"]}`);
     return 0;
-  }
+  },
 };

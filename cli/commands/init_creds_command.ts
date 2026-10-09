@@ -26,8 +26,8 @@ export const initCredsCommand: ICommand = {
     option(testConnectionOptionName, {
       describe: "If true, a test query will be run using your final credentials.",
       type: "boolean",
-      default: true
-    })
+      default: true,
+    }),
   ],
   processFn: async (argv: InitCredsArgv) => {
     const finalCredentials = getBigQueryCredentials();
@@ -45,7 +45,7 @@ export const initCredsCommand: ICommand = {
         }
         case credentials.TestResultStatus.OTHER_ERROR: {
           throw new Error(
-            `Credentials test query failed: ${testResult.error.stack || testResult.error.message}`
+            `Credentials test query failed: ${testResult.error.stack || testResult.error.message}`,
           );
         }
       }
@@ -54,10 +54,10 @@ export const initCredsCommand: ICommand = {
     }
     const filePath = path.resolve(
       argv[projectDirMustExistOption.name],
-      credentials.CREDENTIALS_FILENAME
+      credentials.CREDENTIALS_FILENAME,
     );
     fs.writeFileSync(filePath, prettyJsonStringify(finalCredentials));
     printInitCredsResult(filePath);
     return 0;
-  }
+  },
 };

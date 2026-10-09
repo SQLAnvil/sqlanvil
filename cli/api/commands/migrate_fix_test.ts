@@ -23,7 +23,7 @@ suite("migrate-fix", () => {
   schema: "src",
   name: ${JSON.stringify(name)},
   columnTypes: {
-${cols.map(c => `    ${c}: "text"`).join(",\n")}
+${cols.map((c) => `    ${c}: "text"`).join(",\n")}
   }
 }
 `;
@@ -50,7 +50,9 @@ ${cols.map(c => `    ${c}: "text"`).join(",\n")}
     expect(out).to.contain("where not _fivetran_deleted"); // …but the predicate still uses it
     // The marker records the source and the exclusions, so the expansion can be re-derived
     // after a later introspect rather than silently drifting.
-    expect(out).to.contain('-- sqlanvil:star-except * from ${ref("orders")} minus (_fivetran_deleted)');
+    expect(out).to.contain(
+      '-- sqlanvil:star-except * from ${ref("orders")} minus (_fivetran_deleted)',
+    );
   });
 
   test("a declaration without introspected columns is reported, not guessed", async () => {
@@ -117,7 +119,7 @@ ${cols.map(c => `    ${c}: "text"`).join(",\n")}
 
     const result = await migrateFix({ projectDir: dir, write: true });
     expect(result.expanded).equals(0);
-    const reasons = result.unresolved.map(u => u.reason).join(" | ");
+    const reasons = result.unresolved.map((u) => u.reason).join(" | ");
     expect(reasons).to.contain("nope");
     expect(reasons).to.contain('aliased "zz"');
   });
@@ -156,7 +158,7 @@ ${cols.map(c => `    ${c}: "text"`).join(",\n")}
     });
     const result = await migrateFix({ projectDir: dir, write: true });
     expect(result.groupByAll).equals(0);
-    expect(result.unresolved.map(u => u.reason).join()).to.contain("star expands");
+    expect(result.unresolved.map((u) => u.reason).join()).to.contain("star expands");
     expect(read(dir, "definitions/s.sqlx")).to.contain("group by all");
   });
 

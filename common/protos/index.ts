@@ -66,7 +66,7 @@ export interface IProtoClass<IProto, Proto> {
   toObject(proto: Proto): { [k: string]: any };
   fromObject(obj: { [k: string]: any }): Proto;
 
-  verify(obj: any): (string | null);
+  verify(obj: any): string | null;
 
   getTypeUrl(prefix: string): string;
 }
@@ -74,7 +74,7 @@ export interface IProtoClass<IProto, Proto> {
 export enum VerifyProtoErrorBehaviour {
   DEFAULT,
   SUGGEST_REPORTING_TO_DATAFORM_TEAM,
-  SHOW_DOCS_LINK
+  SHOW_DOCS_LINK,
 }
 
 const Struct = google.protobuf.Struct;
@@ -90,7 +90,7 @@ Struct.verify = function (object: any) {
     for (const [k, v] of Object.entries(object)) {
       fields[k] = unknownToValueShallow(v);
     }
-    Object.keys(object).forEach(key => delete object[key]);
+    Object.keys(object).forEach((key) => delete object[key]);
     object.fields = fields;
   }
   return originalVerify.call(this, object);
@@ -106,7 +106,7 @@ Struct.fromObject = function (object: any) {
     for (const [k, v] of Object.entries(object)) {
       fields[k] = unknownToValueShallow(v);
     }
-    Object.keys(object).forEach(key => delete object[key]);
+    Object.keys(object).forEach((key) => delete object[key]);
     object.fields = fields;
   }
   return originalFromObject.call(this, object);
@@ -123,7 +123,7 @@ Struct.fromObject = function (object: any) {
 export function verifyObjectMatchesProto<Proto>(
   protoType: IProtoClass<any, Proto>,
   object: object,
-  errorBehaviour: VerifyProtoErrorBehaviour = VerifyProtoErrorBehaviour.DEFAULT
+  errorBehaviour: VerifyProtoErrorBehaviour = VerifyProtoErrorBehaviour.DEFAULT,
 ): Proto {
   if (Array.isArray(object)) {
     throw ReferenceError(`Expected a top-level object, but found an array`);
@@ -142,12 +142,12 @@ export function verifyObjectMatchesProto<Proto>(
     if (errorBehaviour === VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM) {
       throw ReferenceError(
         `Invalid property value: ${verificationError}, please report this to the sqlanvil team ` +
-          `at ${REPORT_ISSUE_URL}.`
+          `at ${REPORT_ISSUE_URL}.`,
       );
     }
     throw ReferenceError(
       `Invalid property value: ${verificationError}.` +
-        maybeGetDocsLinkPrefix(errorBehaviour, protoType)
+        maybeGetDocsLinkPrefix(errorBehaviour, protoType),
     );
   }
   // Walk the object through fromObject so every nested google.protobuf.Struct gets its plain-object
@@ -175,7 +175,7 @@ export function verifyObjectMatchesProto<Proto>(
         if (!presentValue) {
           throw ReferenceError(
             `Unexpected empty value for "${presentKey}".` +
-            maybeGetDocsLinkPrefix(errorBehaviour, protoType)
+              maybeGetDocsLinkPrefix(errorBehaviour, protoType),
           );
         }
         if (typeof presentValue === "object" && Object.keys(presentValue).length === 0) {
@@ -187,13 +187,13 @@ export function verifyObjectMatchesProto<Proto>(
             `Unexpected property "${presentKey}" for "${protoType
               .getTypeUrl("")
               .replace("/", "")}", please report this to the sqlanvil team at ` +
-            `${REPORT_ISSUE_URL}.`
+              `${REPORT_ISSUE_URL}.`,
           );
         }
         throw ReferenceError(
           `Unexpected property "${presentKey}", or property value type of ` +
-          `"${typeof presentValue}" is incorrect.` +
-          maybeGetDocsLinkPrefix(errorBehaviour, protoType)
+            `"${typeof presentValue}" is incorrect.` +
+            maybeGetDocsLinkPrefix(errorBehaviour, protoType),
         );
       }
       if (typeof presentValue === "object") {
@@ -222,7 +222,7 @@ function verifyErrorIsNonPrimitiveInScalarField(message: string, root: object): 
   for (const segment of path) {
     if (Array.isArray(value)) {
       value = value.find(
-        element => element !== null && typeof element === "object" && segment in element
+        (element) => element !== null && typeof element === "object" && segment in element,
       );
     }
     if (value === null || typeof value !== "object" || !(segment in value)) {
@@ -235,7 +235,7 @@ function verifyErrorIsNonPrimitiveInScalarField(message: string, root: object): 
 
 function maybeGetDocsLinkPrefix<Proto>(
   errorBehaviour: VerifyProtoErrorBehaviour,
-  protoType: IProtoClass<any, Proto>
+  protoType: IProtoClass<any, Proto>,
 ) {
   return errorBehaviour === VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
     ? ` See ${CONFIGS_PROTO_DOCUMENTATION_URL}#${protoType
@@ -248,7 +248,7 @@ function maybeGetDocsLinkPrefix<Proto>(
 
 export function encode64<IProto, Proto>(
   protoType: IProtoClass<IProto, Proto>,
-  value: IProto | Proto = {} as IProto
+  value: IProto | Proto = {} as IProto,
 ): string {
   return toBase64(protoType.encode(protoType.create(value)).finish());
 }
@@ -263,14 +263,14 @@ export function decode64<Proto>(protoType: IProtoClass<any, Proto>, encodedValue
 export function equals<IProto, Proto>(
   protoType: IProtoClass<IProto, Proto>,
   valueA: IProto | Proto,
-  valueB: IProto | Proto
+  valueB: IProto | Proto,
 ): boolean {
   return encode64(protoType, valueA) === encode64(protoType, valueB);
 }
 
 export function deepClone<IProto, Proto>(
   protoType: IProtoClass<IProto, Proto>,
-  value: IProto | Proto
+  value: IProto | Proto,
 ) {
   return protoType.fromObject(protoType.toObject(protoType.create(value)));
 }
@@ -327,9 +327,9 @@ export function unknownToValue(raw: unknown): google.protobuf.IValue {
     return {
       structValue: {
         fields: Object.fromEntries(
-          Object.entries(raw).map(([key, value]) => [key, unknownToValue(value)])
-        )
-      }
+          Object.entries(raw).map(([key, value]) => [key, unknownToValue(value)]),
+        ),
+      },
     };
   }
   throw new Error(`Unsupported value: ${raw}`);

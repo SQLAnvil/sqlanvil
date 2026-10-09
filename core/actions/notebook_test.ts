@@ -8,7 +8,7 @@ import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
-  VALID_WORKFLOW_SETTINGS_YAML
+  VALID_WORKFLOW_SETTINGS_YAML,
 } from "sa/testing/run_core";
 
 const EMPTY_NOTEBOOK_CONTENTS = '{ "cells": [] }';
@@ -17,7 +17,7 @@ suite("notebook", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);
 
   const createSimpleNotebookProject = (
-    workflowSettingsYaml = VALID_WORKFLOW_SETTINGS_YAML
+    workflowSettingsYaml = VALID_WORKFLOW_SETTINGS_YAML,
   ): string => {
     const projectDir = tmpDirFixture.createNewTmpDir();
     fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), workflowSettingsYaml);
@@ -27,7 +27,7 @@ suite("notebook", ({ afterEach }) => {
       `
 actions:
 - notebook:
-    filename: notebook.ipynb`
+    filename: notebook.ipynb`,
     );
     return projectDir;
   };
@@ -45,17 +45,17 @@ actions:
           target: {
             database: "defaultProject",
             schema: "defaultDataset",
-            name: "notebook"
+            name: "notebook",
           },
           canonicalTarget: {
             database: "defaultProject",
             schema: "defaultDataset",
-            name: "notebook"
+            name: "notebook",
           },
           fileName: "definitions/notebook.ipynb",
-          notebookContents: JSON.stringify({ cells: [] })
-        }
-      ])
+          notebookContents: JSON.stringify({ cells: [] }),
+        },
+      ]),
     );
   });
 
@@ -71,22 +71,22 @@ actions:
             cell_type: "markdown",
             source: ["# Some title"],
             outputs: ["something"],
-            metadata: { id: "cell-1" }
+            metadata: { id: "cell-1" },
           },
           {
             cell_type: "code",
             source: ["print('hi')"],
             outputs: ["hi"],
             execution_count: 5,
-            metadata: { scrolled: true }
+            metadata: { scrolled: true },
           },
           {
             cell_type: "raw",
             source: ["print('hi')"],
-            metadata: {}
-          }
-        ]
-      })
+            metadata: {},
+          },
+        ],
+      }),
     );
 
     const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -98,12 +98,12 @@ actions:
           target: {
             database: "defaultProject",
             schema: "defaultDataset",
-            name: "notebook"
+            name: "notebook",
           },
           canonicalTarget: {
             database: "defaultProject",
             schema: "defaultDataset",
-            name: "notebook"
+            name: "notebook",
           },
           fileName: "definitions/notebook.ipynb",
           notebookContents: JSON.stringify({
@@ -113,24 +113,24 @@ actions:
                 cell_type: "markdown",
                 source: ["# Some title"],
                 outputs: [],
-                metadata: {}
+                metadata: {},
               },
               {
                 cell_type: "code",
                 source: ["print('hi')"],
                 outputs: [],
                 execution_count: null,
-                metadata: {}
+                metadata: {},
               },
               {
                 cell_type: "raw",
                 source: ["print('hi')"],
-                metadata: {}
-              }
-            ]
-          })
-        }
-      ])
+                metadata: {},
+              },
+            ],
+          }),
+        },
+      ]),
     );
   });
 
@@ -157,10 +157,10 @@ defaultNotebookRuntimeOptions:
         runtimeTemplateName:
           "projects/test-project/locations/us-central1/notebookRuntimeTemplates/test-template",
         repositorySnapshotDestination: {
-          repositorySnapshotUri: "gs://some-other-bucket"
-        }
+          repositorySnapshotUri: "gs://some-other-bucket",
+        },
       },
-      warehouse: "bigquery"
+      warehouse: "bigquery",
     });
   });
 
@@ -186,10 +186,10 @@ defaultNotebookRuntimeOptions:
         runtimeTemplateName:
           "projects/test-project/locations/us-central1/notebookRuntimeTemplates/test-template",
         repositorySnapshotDestination: {
-          repositorySnapshotUri: "gs://some-bucket"
-        }
+          repositorySnapshotUri: "gs://some-bucket",
+        },
       },
-      warehouse: "bigquery"
+      warehouse: "bigquery",
     });
   });
 
@@ -204,7 +204,7 @@ defaultNotebookRuntimeOptions:
     fs.writeFileSync(path.join(projectDir, "definitions/notebook.ipynb"), EMPTY_NOTEBOOK_CONTENTS);
 
     expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-      "Invalid repository_snapshot_destination: either repository_snapshot_uri or output_bucket has to be defined"
+      "Invalid repository_snapshot_destination: either repository_snapshot_uri or output_bucket has to be defined",
     );
   });
 
@@ -213,13 +213,13 @@ defaultNotebookRuntimeOptions:
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(path.join(projectDir, "definitions/operation.sqlx"), "SELECT 1");
       fs.writeFileSync(
         path.join(projectDir, "definitions/filename.ipynb"),
-        EMPTY_NOTEBOOK_CONTENTS
+        EMPTY_NOTEBOOK_CONTENTS,
       );
       fs.writeFileSync(
         path.join(projectDir, "definitions/notebook.js"),
@@ -236,7 +236,7 @@ notebook({
     disabled: true,
     description: "description",
     dependOnDependencyAssertions: true
-})`
+})`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -248,26 +248,26 @@ notebook({
             target: {
               database: "project",
               schema: "location",
-              name: "name"
+              name: "name",
             },
             canonicalTarget: {
               database: "project",
               schema: "location",
-              name: "name"
+              name: "name",
             },
             dependencyTargets: [
               {
                 database: "defaultProject",
                 schema: "defaultDataset",
-                name: "operation"
-              }
+                name: "operation",
+              },
             ],
             disabled: true,
             fileName: "definitions/filename.ipynb",
             tags: ["tagA", "tagB"],
-            notebookContents: `{"cells":[]}`
-          }
-        ])
+            notebookContents: `{"cells":[]}`,
+          },
+        ]),
       );
     });
   });
@@ -295,7 +295,7 @@ actions:
     - tagB
     disabled: true
     description: description
-    dependOnDependencyAssertions: true`
+    dependOnDependencyAssertions: true`,
     );
 
     const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -307,26 +307,26 @@ actions:
           target: {
             database: "project",
             schema: "location",
-            name: "name"
+            name: "name",
           },
           canonicalTarget: {
             database: "project",
             schema: "location",
-            name: "name"
+            name: "name",
           },
           dependencyTargets: [
             {
               database: "defaultProject",
               schema: "defaultDataset",
-              name: "operation"
-            }
+              name: "operation",
+            },
           ],
           disabled: true,
           fileName: "definitions/filename.ipynb",
           tags: ["tagA", "tagB"],
-          notebookContents: `{"cells":[]}`
-        }
-      ])
+          notebookContents: `{"cells":[]}`,
+        },
+      ]),
     );
   });
 });

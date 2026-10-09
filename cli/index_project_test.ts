@@ -23,16 +23,16 @@ suite("project ops", ({ afterEach }) => {
           "init",
           projectDir,
           "--default-database=sqlanvil-database",
-          "--default-location=us-central1"
-        ])
+          "--default-location=us-central1",
+        ]),
       );
 
       expect(
         (await getProcessResult(execFile(nodePath, [cliEntryPointPath, "install", projectDir])))
-          .stderr
+          .stderr,
       ).contains(
         "No installation is needed when using workflow_settings.yaml, as packages are installed at " +
-          "runtime."
+          "runtime.",
       );
     });
   });
@@ -46,12 +46,18 @@ suite("project ops", ({ afterEach }) => {
 
       // Initialize a project using the CLI, don't install packages.
       await getProcessResult(
-        execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION])
+        execFile(nodePath, [
+          cliEntryPointPath,
+          "init",
+          projectDir,
+          DEFAULT_DATABASE,
+          DEFAULT_LOCATION,
+        ]),
       );
 
       // Install packages manually to get around bazel read-only sandbox issues.
       const workflowSettings = sqlanvil.WorkflowSettings.create(
-        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
       );
       delete workflowSettings.sqlanvilCoreVersion;
       fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
@@ -61,7 +67,7 @@ suite("project ops", ({ afterEach }) => {
   "dependencies":{
     "@sqlanvil/core": "${version}"
   }
-}`
+}`,
       );
       await getProcessResult(
         execFile(npmPath, [
@@ -70,8 +76,8 @@ suite("project ops", ({ afterEach }) => {
           projectDir,
           "--cache",
           npmCacheDir,
-          corePackageTarPath
-        ])
+          corePackageTarPath,
+        ]),
       );
 
       // Create a correctly formatted file
@@ -86,7 +92,7 @@ config {
 
 SELECT
   1 AS test
-`
+`,
       );
 
       // Create a file that needs formatting (extra spaces, inconsistent indentation)
@@ -97,12 +103,12 @@ SELECT
         `
 config {   type:  "table"   }
 SELECT  1  as   test
-`
+`,
       );
 
       // Test with --check flag on a project with files needing formatting
       const beforeFormatCheckResult = await getProcessResult(
-        execFile(nodePath, [cliEntryPointPath, "format", projectDir, "--check"])
+        execFile(nodePath, [cliEntryPointPath, "format", projectDir, "--check"]),
       );
 
       // Should exit with code 1 when files need formatting
@@ -112,13 +118,13 @@ SELECT  1  as   test
 
       // Format the files (without check flag)
       const formatCheckResult = await getProcessResult(
-        execFile(nodePath, [cliEntryPointPath, "format", projectDir])
+        execFile(nodePath, [cliEntryPointPath, "format", projectDir]),
       );
       expect(formatCheckResult.exitCode).equals(0);
 
       // Test with --check flag after formatting
       const afterFormatCheckResult = await getProcessResult(
-        execFile(nodePath, [cliEntryPointPath, "format", projectDir, "--check"])
+        execFile(nodePath, [cliEntryPointPath, "format", projectDir, "--check"]),
       );
 
       // Should exit with code 0 when all files are properly formatted

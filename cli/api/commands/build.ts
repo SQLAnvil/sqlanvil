@@ -10,12 +10,12 @@ import { sqlanvil } from "sa/protos/ts";
 export async function build(
   compiledGraph: sqlanvil.ICompiledGraph,
   runConfig: sqlanvil.IRunConfig,
-  dbadapter: dbadapters.IDbAdapter
+  dbadapter: dbadapters.IDbAdapter,
 ) {
   const prunedGraph = prune(compiledGraph, runConfig);
 
   const allInvolvedTargets = new Set<string>(
-    prunedGraph.tables.map(table => targetStringifier.stringify(table.target))
+    prunedGraph.tables.map((table) => targetStringifier.stringify(table.target)),
   );
 
   return new Builder(
@@ -23,8 +23,8 @@ export async function build(
     runConfig,
     await state(
       dbadapter,
-      Array.from(allInvolvedTargets).map(target => targetStringifier.parse(target))
-    )
+      Array.from(allInvolvedTargets).map((target) => targetStringifier.parse(target)),
+    ),
   ).build();
 }
 
@@ -34,7 +34,7 @@ export class Builder {
   constructor(
     private readonly prunedGraph: sqlanvil.ICompiledGraph,
     private readonly runConfig: sqlanvil.IRunConfig,
-    private readonly warehouseState: sqlanvil.IWarehouseState
+    private readonly warehouseState: sqlanvil.IWarehouseState,
   ) {
     this.executionSql = new ExecutionSql(
       prunedGraph.projectConfig,
@@ -42,7 +42,7 @@ export class Builder {
       // gated at "> 1.4.8") compares against the upstream *Dataform* version, not
       // sqlanvil's own package SemVer. Pass the Dataform base of the running core
       // so decoupling the package version (e.g. 1.0.0) doesn't disable those gates.
-      dataformVersion
+      dataformVersion,
     );
     prunedGraph.tables.forEach(utils.setOrValidateTableEnumType);
   }
@@ -54,45 +54,45 @@ export class Builder {
 
     const tableMetadataByTarget = new Map<string, sqlanvil.ITableMetadata>();
 
-    this.warehouseState.tables.forEach(tableState => {
+    this.warehouseState.tables.forEach((tableState) => {
       tableMetadataByTarget.set(targetStringifier.stringify(tableState.target), tableState);
     });
 
     const actions: sqlanvil.IExecutionAction[] = [].concat(
-      this.prunedGraph.tables.map(t =>
+      this.prunedGraph.tables.map((t) =>
         this.buildTable(
           t,
           tableMetadataByTarget.get(targetStringifier.stringify(t.target)),
-          this.runConfig
-        )
+          this.runConfig,
+        ),
       ),
-      this.prunedGraph.operations.map(o => this.buildOperation(o)),
-      this.prunedGraph.assertions.map(a => this.buildAssertion(a)),
-      this.prunedGraph.exports.map(e => this.buildExport(e)),
-      this.prunedGraph.imports.map(i => this.buildImport(i)),
-      this.prunedGraph.extracts.map(e => this.buildExtract(e)),
-      (this.prunedGraph.scripts || []).map(s => this.buildScript(s))
+      this.prunedGraph.operations.map((o) => this.buildOperation(o)),
+      this.prunedGraph.assertions.map((a) => this.buildAssertion(a)),
+      this.prunedGraph.exports.map((e) => this.buildExport(e)),
+      this.prunedGraph.imports.map((i) => this.buildImport(i)),
+      this.prunedGraph.extracts.map((e) => this.buildExtract(e)),
+      (this.prunedGraph.scripts || []).map((s) => this.buildScript(s)),
     );
     return sqlanvil.ExecutionGraph.create({
       projectConfig: this.prunedGraph.projectConfig,
       runConfig: this.runConfig,
       warehouseState: this.warehouseState,
-      declarationTargets: this.prunedGraph.declarations.map(declaration => declaration.target),
-      actions
+      declarationTargets: this.prunedGraph.declarations.map((declaration) => declaration.target),
+      actions,
     });
   }
 
   private buildTable(
     table: sqlanvil.ITable,
     tableMetadata: sqlanvil.ITableMetadata,
-    runConfig: sqlanvil.IRunConfig
+    runConfig: sqlanvil.IRunConfig,
   ) {
     return {
       ...this.toPartialExecutionAction(table),
       type: "table",
       tableType: utils.tableTypeEnumToString(table.enumType),
       tasks: this.executionSql.createTableTasks(table, runConfig, tableMetadata),
-      hermeticity: table.hermeticity || sqlanvil.ActionHermeticity.HERMETIC
+      hermeticity: table.hermeticity || sqlanvil.ActionHermeticity.HERMETIC,
     };
   }
 
@@ -101,7 +101,7 @@ export class Builder {
       ...this.toPartialExecutionAction(operation),
       type: "operation",
       tasks: this.executionSql.createOperationTasks(operation),
-      hermeticity: operation.hermeticity || sqlanvil.ActionHermeticity.NON_HERMETIC
+      hermeticity: operation.hermeticity || sqlanvil.ActionHermeticity.NON_HERMETIC,
     };
   }
 
@@ -110,7 +110,7 @@ export class Builder {
       ...this.toPartialExecutionAction(assertion),
       type: "assertion",
       tasks: this.executionSql.createAssertionTasks(assertion),
-      hermeticity: assertion.hermeticity || sqlanvil.ActionHermeticity.HERMETIC
+      hermeticity: assertion.hermeticity || sqlanvil.ActionHermeticity.HERMETIC,
     };
   }
 
@@ -126,8 +126,8 @@ export class Builder {
         format: exp.format,
         overwrite: exp.overwrite,
         filename: exp.filename,
-        options: exp.options
-      })
+        options: exp.options,
+      }),
     };
   }
 
@@ -141,8 +141,8 @@ export class Builder {
         location: imp.location,
         format: imp.format,
         overwrite: imp.overwrite,
-        options: imp.options
-      })
+        options: imp.options,
+      }),
     };
   }
 
@@ -152,7 +152,9 @@ export class Builder {
     return {
       ...this.toPartialExecutionAction(ext),
       type: "extract",
-      tasks: ext.disabled ? [] : [sqlanvil.ExecutionTask.create({ type: "extract", statement: "" })],
+      tasks: ext.disabled
+        ? []
+        : [sqlanvil.ExecutionTask.create({ type: "extract", statement: "" })],
       hermeticity: ext.hermeticity || sqlanvil.ActionHermeticity.NON_HERMETIC,
       extract: sqlanvil.ExtractSpec.create({
         connectionName: ext.connectionName,
@@ -162,8 +164,8 @@ export class Builder {
         database: ext.database,
         sourceName: ext.sourceName,
         billingProject: ext.billingProject,
-        columnTypes: ext.columnTypes
-      })
+        columnTypes: ext.columnTypes,
+      }),
     };
   }
 
@@ -184,8 +186,8 @@ export class Builder {
         depsFile: script.depsFile,
         runtimeVersion: script.runtimeVersion,
         envRoot: script.envRoot,
-        timeoutMillis: script.timeoutMillis
-      })
+        timeoutMillis: script.timeoutMillis,
+      }),
     };
   }
 
@@ -197,13 +199,13 @@ export class Builder {
       | sqlanvil.IExport
       | sqlanvil.IImport
       | sqlanvil.IExtract
-      | sqlanvil.IScript
+      | sqlanvil.IScript,
   ) {
     return sqlanvil.ExecutionAction.create({
       target: action.target,
       fileName: action.fileName,
       dependencyTargets: action.dependencyTargets,
-      actionDescriptor: action.actionDescriptor
+      actionDescriptor: action.actionDescriptor,
     });
   }
 }

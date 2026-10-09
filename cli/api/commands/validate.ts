@@ -5,7 +5,7 @@ import {
   targetKey,
   topoOrder,
   ValidationResult,
-  ValidationStatus
+  ValidationStatus,
 } from "sa/cli/api/commands/validate_graph";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -53,7 +53,7 @@ export interface ValidateDeps {
 export async function sweepOrphanShadows(
   deps: ValidateDeps,
   nowMs: number,
-  maxAgeMs: number = SHADOW_MAX_AGE_MS
+  maxAgeMs: number = SHADOW_MAX_AGE_MS,
 ): Promise<void> {
   try {
     const schemas = await deps.listSchemas();
@@ -115,14 +115,14 @@ function collectOps(table: sqlanvil.ITable): string[] {
     ...(table.preOps || []),
     ...(table.postOps || []),
     ...(table.incrementalPreOps || []),
-    ...(table.incrementalPostOps || [])
-  ].filter(op => !!op && !!op.trim());
+    ...(table.incrementalPostOps || []),
+  ].filter((op) => !!op && !!op.trim());
 }
 
 export async function validate(
   compiledGraph: sqlanvil.ICompiledGraph,
   deps: ValidateDeps,
-  options: ValidateOptions = {}
+  options: ValidateOptions = {},
 ): Promise<ValidationResult[]> {
   const nodes: ValidateNode[] = [];
 
@@ -134,7 +134,7 @@ export async function validate(
       type: tableType(table.enumType),
       target: table.target,
       table,
-      action: table
+      action: table,
     });
   }
   for (const assertion of compiledGraph.assertions || []) {
@@ -144,7 +144,7 @@ export async function validate(
       kind: "assertion",
       type: "assertion",
       target: assertion.target,
-      action: assertion
+      action: assertion,
     });
   }
   // Operations are not validated (arbitrary, side-effecting SQL) but are kept as SKIPPED nodes so
@@ -159,7 +159,7 @@ export async function validate(
       kind: "operation",
       type: "operation",
       target: operation.target,
-      action: undefined
+      action: undefined,
     });
   }
   // Imports load a file into a table — there's no warehouse-planner query to EXPLAIN and the file's
@@ -175,7 +175,7 @@ export async function validate(
       kind: "import",
       type: "import",
       target: imp.target,
-      action: undefined
+      action: undefined,
     });
   }
   // Scripts get an environment/syntax check (deps.checkScript — the Python analog of EXPLAIN)
@@ -192,14 +192,14 @@ export async function validate(
       type: "script",
       target: script.target,
       script,
-      action: undefined
+      action: undefined,
     });
   }
 
   const ordered = topoOrder(nodes);
   // Only table/view/incremental stubs get materialized, so only their schemas need creating.
   const shadowSchemas = Array.from(
-    new Set(nodes.filter(n => n.kind === "table").map(n => n.target.schema))
+    new Set(nodes.filter((n) => n.kind === "table").map((n) => n.target.schema)),
   );
 
   const statusByKey = new Map<string, ValidationStatus>();
@@ -229,14 +229,13 @@ export async function validate(
       // Tables are evaluated WITHOUT their pre/post-ops: ops run against the freshly-created
       // relation at run time, so they're dry-run separately after the stub exists (below).
       // This also stops Postgres from `EXPLAIN`ing DDL ops, which it always rejected.
-      const evaluationAction =
-        node.kind === "table" ? stripOps(node.table) : node.action;
+      const evaluationAction = node.kind === "table" ? stripOps(node.table) : node.action;
       const evaluations =
         node.kind === "script"
           ? await deps.checkScript(node.script)
           : await deps.evaluate(evaluationAction);
       const failed = evaluations.some(
-        e => e.status === sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE
+        (e) => e.status === sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE,
       );
       let status: ValidationStatus = failed ? "FAILURE" : "PASS";
 
@@ -261,7 +260,7 @@ export async function validate(
           evaluations.push(...opEvaluations);
           if (
             opEvaluations.some(
-              e => e.status === sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE
+              (e) => e.status === sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE,
             )
           ) {
             status = "FAILURE";

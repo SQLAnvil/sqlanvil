@@ -11,14 +11,14 @@ import {
   jsonOutputOption,
   projectConfigOverrideWithEnvironment,
   projectDirMustExistOption,
-  timeoutOption
+  timeoutOption,
 } from "sa/cli/common_options";
 import {
   print,
   printCompiledGraphErrors,
   printError,
   printSuccess,
-  printTestResult
+  printTestResult,
 } from "sa/cli/console";
 import { ProjectConfigArgv, ProjectConfigOptions } from "sa/cli/project_config_options";
 import { compiledGraphHasErrors } from "sa/cli/util";
@@ -41,7 +41,7 @@ export const testCommand: ICommand = {
     credentialsOption,
     timeoutOption,
     jsonOutputOption,
-    ...ProjectConfigOptions.allYargsOptions
+    ...ProjectConfigOptions.allYargsOptions,
   ],
   processFn: async (argv: TestArgv) => {
     if (!argv[jsonOutputOption.name]) {
@@ -51,9 +51,9 @@ export const testCommand: ICommand = {
       projectDir: argv[projectDirMustExistOption.name],
       projectConfigOverride: projectConfigOverrideWithEnvironment(
         argv[projectDirMustExistOption.name],
-        argv
+        argv,
       ),
-      timeoutMillis: argv[timeoutOption.name] || undefined
+      timeoutMillis: argv[timeoutOption.name] || undefined,
     });
     if (compiledGraphHasErrors(compiledGraph)) {
       printCompiledGraphErrors(compiledGraph.graphErrors);
@@ -65,7 +65,7 @@ export const testCommand: ICommand = {
     const warehouse = compiledGraph.projectConfig.warehouse || "bigquery";
     const readCredentials = credentials.read(
       credentialsPathWithEnvironment(argv[projectDirMustExistOption.name], argv),
-      warehouse
+      warehouse,
     );
 
     if (!compiledGraph.tests.length) {
@@ -88,11 +88,11 @@ export const testCommand: ICommand = {
     }
     const testResults = await test(dbadapter, compiledGraph.tests);
     if (!argv[jsonOutputOption.name]) {
-      testResults.forEach(testResult => printTestResult(testResult));
+      testResults.forEach((testResult) => printTestResult(testResult));
     } else {
       // Print all results as JSON if the option is set.
       print(prettyJsonStringify(testResults));
     }
-    return testResults.every(testResult => testResult.successful) ? 0 : 1;
-  }
+    return testResults.every((testResult) => testResult.successful) ? 0 : 1;
+  },
 };

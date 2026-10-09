@@ -10,7 +10,7 @@ const argv = yargs
   .option("output-path", { required: true })
   .option("layer-paths", { required: true, array: true })
   .option("external-dependencies", {
-    array: true
+    array: true,
   }).argv;
 
 const outputPath = argv.outputPath as string;
@@ -23,7 +23,7 @@ const result = layerPaths
   .map((layerPath: string) => JSON.parse(fs.readFileSync(layerPath, "utf8")))
   .reduce(
     (accumulatorJson: object, layerJson: object) => ({ ...accumulatorJson, ...layerJson }),
-    {}
+    {},
   );
 
 // Add overrides.

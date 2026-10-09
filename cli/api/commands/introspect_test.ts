@@ -4,7 +4,14 @@ import * as path from "path";
 
 import { suite, test } from "sa/testing";
 import { TmpDirFixture } from "sa/testing/fixtures";
-import { mapBigQueryType, mapMysqlType, mapPostgresType, renderDeclarationSqlx, resolveConnection, introspectToSqlx } from "sa/cli/api/commands/introspect";
+import {
+  mapBigQueryType,
+  mapMysqlType,
+  mapPostgresType,
+  renderDeclarationSqlx,
+  resolveConnection,
+  introspectToSqlx,
+} from "sa/cli/api/commands/introspect";
 import { read as readCredentials, readConnections } from "sa/cli/api/commands/credentials";
 
 suite("introspect type mapping", () => {
@@ -61,8 +68,8 @@ suite("introspect codegen", () => {
       name: "zip_codes",
       columns: [
         { name: "zip_code", type: "text", description: "5-digit ZIP" },
-        { name: "internal_point_lat", type: "float8" }
-      ]
+        { name: "internal_point_lat", type: "float8" },
+      ],
     });
     expect(out).equals(
       `config {
@@ -78,7 +85,7 @@ suite("introspect codegen", () => {
     zip_code: "5-digit ZIP"
   }
 }
-`
+`,
     );
   });
 
@@ -86,7 +93,7 @@ suite("introspect codegen", () => {
     const out = renderDeclarationSqlx({
       connection: "bq",
       name: "t",
-      columns: [{ name: "id", type: "bigint" }]
+      columns: [{ name: "id", type: "bigint" }],
     });
     expect(out).equals(
       `config {
@@ -97,7 +104,7 @@ suite("introspect codegen", () => {
     id: "bigint"
   }
 }
-`
+`,
     );
     expect(out).not.to.match(/columns:/);
   });
@@ -106,7 +113,7 @@ suite("introspect codegen", () => {
     const out = renderDeclarationSqlx({
       connection: "c",
       name: "t",
-      columns: [{ name: "weird-name", type: "text", description: `has "quote"` }]
+      columns: [{ name: "weird-name", type: "text", description: `has "quote"` }],
     });
     expect(out).to.contain(`"weird-name": "text"`);
     expect(out).to.contain(`"weird-name": "has \\"quote\\""`);
@@ -120,11 +127,13 @@ suite("introspect connection resolution", ({ afterEach }) => {
     const dir = tmp.createNewTmpDir();
     fs.writeFileSync(
       path.join(dir, "workflow_settings.yaml"),
-      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  legacy:\n    platform: postgres\n    host: db.example.com\n    port: 5432\n    database: legacy`
+      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  legacy:\n    platform: postgres\n    host: db.example.com\n    port: 5432\n    database: legacy`,
     );
     fs.writeFileSync(
       path.join(dir, ".df-credentials.json"),
-      JSON.stringify({ connections: { wh: { password: "x" }, legacy: { user: "u", password: "p" } } })
+      JSON.stringify({
+        connections: { wh: { password: "x" }, legacy: { user: "u", password: "p" } },
+      }),
     );
     const resolved = resolveConnection(dir, "legacy");
     expect(resolved.definition.platform).equals("postgres");
@@ -137,7 +146,7 @@ suite("introspect connection resolution", ({ afterEach }) => {
     const dir = tmp.createNewTmpDir();
     fs.writeFileSync(
       path.join(dir, "workflow_settings.yaml"),
-      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase`
+      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase`,
     );
     fs.writeFileSync(path.join(dir, ".df-credentials.json"), JSON.stringify({ wh: {} }));
     expect(() => resolveConnection(dir, "nope")).to.throw(/Unknown connection "nope"/);
@@ -147,10 +156,12 @@ suite("introspect connection resolution", ({ afterEach }) => {
     const dir = tmp.createNewTmpDir();
     fs.writeFileSync(
       path.join(dir, "workflow_settings.yaml"),
-      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  legacy:\n    platform: postgres`
+      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  legacy:\n    platform: postgres`,
     );
     fs.writeFileSync(path.join(dir, ".df-credentials.json"), JSON.stringify({ wh: {} }));
-    expect(() => resolveConnection(dir, "legacy")).to.throw(/No credentials for connection "legacy"/);
+    expect(() => resolveConnection(dir, "legacy")).to.throw(
+      /No credentials for connection "legacy"/,
+    );
   });
 
   test("BigQuery connection falls back to ADC when .df-credentials.json is absent", () => {
@@ -159,7 +170,7 @@ suite("introspect connection resolution", ({ afterEach }) => {
     const dir = tmp.createNewTmpDir();
     fs.writeFileSync(
       path.join(dir, "workflow_settings.yaml"),
-      `defaultDataset: public\nwarehouse: supabase\nconnections:\n  bq_src:\n    platform: bigquery\n    project: some-project\n    billingProject: some-project\n    mode: runner-extract`
+      `defaultDataset: public\nwarehouse: supabase\nconnections:\n  bq_src:\n    platform: bigquery\n    project: some-project\n    billingProject: some-project\n    mode: runner-extract`,
     );
     const resolved = resolveConnection(dir, "bq_src");
     expect(resolved.definition.platform).equals("bigquery");
@@ -170,7 +181,7 @@ suite("introspect connection resolution", ({ afterEach }) => {
     const dir = tmp.createNewTmpDir();
     fs.writeFileSync(
       path.join(dir, "workflow_settings.yaml"),
-      `defaultDataset: public\nwarehouse: supabase\nconnections:\n  bq_src:\n    platform: bigquery\n    project: some-project`
+      `defaultDataset: public\nwarehouse: supabase\nconnections:\n  bq_src:\n    platform: bigquery\n    project: some-project`,
     );
     fs.writeFileSync(path.join(dir, ".df-credentials.json"), JSON.stringify({ host: "pooler" }));
     const resolved = resolveConnection(dir, "bq_src");
@@ -181,7 +192,7 @@ suite("introspect connection resolution", ({ afterEach }) => {
     const dir = tmp.createNewTmpDir();
     fs.writeFileSync(
       path.join(dir, "workflow_settings.yaml"),
-      `defaultDataset: public\nwarehouse: supabase\nconnections:\n  legacy:\n    platform: postgres\n    host: db.example.com`
+      `defaultDataset: public\nwarehouse: supabase\nconnections:\n  legacy:\n    platform: postgres\n    host: db.example.com`,
     );
     expect(() => resolveConnection(dir, "legacy")).to.throw(/Missing .df-credentials.json/);
   });
@@ -194,13 +205,22 @@ suite("introspect orchestrator", ({ afterEach }) => {
     const dir = tmp2.createNewTmpDir();
     fs.writeFileSync(
       path.join(dir, "workflow_settings.yaml"),
-      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  bare:\n    platform: postgres\n    host: h`
+      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  bare:\n    platform: postgres\n    host: h`,
     );
-    fs.writeFileSync(path.join(dir, ".df-credentials.json"), JSON.stringify({ connections: { wh: {}, bare: { user: "u" } } }));
-    const reader = function() { return Promise.resolve([]); };
+    fs.writeFileSync(
+      path.join(dir, ".df-credentials.json"),
+      JSON.stringify({ connections: { wh: {}, bare: { user: "u" } } }),
+    );
+    const reader = function () {
+      return Promise.resolve([]);
+    };
     return introspectToSqlx(dir, "bare", "orders", { reader: reader }).then(
-      function() { throw new Error("expected rejection"); },
-      function(e) { expect(e.message).to.match(/Could not determine the source schema/); }
+      function () {
+        throw new Error("expected rejection");
+      },
+      function (e) {
+        expect(e.message).to.match(/Could not determine the source schema/);
+      },
     );
   });
 
@@ -208,13 +228,22 @@ suite("introspect orchestrator", ({ afterEach }) => {
     const dir = tmp2.createNewTmpDir();
     fs.writeFileSync(
       path.join(dir, "workflow_settings.yaml"),
-      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  bq:\n    platform: bigquery\n    project: p\n    dataset: d\n    saKeyId: v`
+      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  bq:\n    platform: bigquery\n    project: p\n    dataset: d\n    saKeyId: v`,
     );
-    fs.writeFileSync(path.join(dir, ".df-credentials.json"), JSON.stringify({ connections: { wh: {}, bq: { credentials: "{}" } } }));
-    const empty = function() { return Promise.resolve([]); };
+    fs.writeFileSync(
+      path.join(dir, ".df-credentials.json"),
+      JSON.stringify({ connections: { wh: {}, bq: { credentials: "{}" } } }),
+    );
+    const empty = function () {
+      return Promise.resolve([]);
+    };
     return introspectToSqlx(dir, "bq", "d.t", { reader: empty }).then(
-      function() { throw new Error("expected rejection"); },
-      function(e) { expect(e.message).to.match(/no columns/); }
+      function () {
+        throw new Error("expected rejection");
+      },
+      function (e) {
+        expect(e.message).to.match(/no columns/);
+      },
     );
   });
 
@@ -222,17 +251,22 @@ suite("introspect orchestrator", ({ afterEach }) => {
     const dir = tmp2.createNewTmpDir();
     fs.writeFileSync(
       path.join(dir, "workflow_settings.yaml"),
-      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  bq:\n    platform: bigquery\n    project: bigquery-public-data\n    dataset: geo_us_boundaries\n    saKeyId: vault-1`
+      `defaultDataset: public\nwarehouse: wh\nconnections:\n  wh:\n    platform: supabase\n  bq:\n    platform: bigquery\n    project: bigquery-public-data\n    dataset: geo_us_boundaries\n    saKeyId: vault-1`,
     );
-    fs.writeFileSync(path.join(dir, ".df-credentials.json"), JSON.stringify({ connections: { wh: {}, bq: { credentials: "{}" } } }));
+    fs.writeFileSync(
+      path.join(dir, ".df-credentials.json"),
+      JSON.stringify({ connections: { wh: {}, bq: { credentials: "{}" } } }),
+    );
 
-    const fakeReader = function() {
+    const fakeReader = function () {
       return Promise.resolve([
         { name: "zip_code", type: "STRING", description: "5-digit ZIP" },
-        { name: "internal_point_lat", type: "FLOAT64" }
+        { name: "internal_point_lat", type: "FLOAT64" },
       ]);
     };
-    const sqlx = await introspectToSqlx(dir, "bq", "geo_us_boundaries.zip_codes", { reader: fakeReader });
+    const sqlx = await introspectToSqlx(dir, "bq", "geo_us_boundaries.zip_codes", {
+      reader: fakeReader,
+    });
     expect(sqlx).to.contain(`connection: "bq"`);
     expect(sqlx).to.contain(`zip_code: "text"`);
     expect(sqlx).to.contain(`internal_point_lat: "float8"`);
@@ -243,16 +277,16 @@ suite("introspect orchestrator", ({ afterEach }) => {
     const dir = tmp2.createNewTmpDir();
     fs.writeFileSync(
       path.join(dir, "workflow_settings.yaml"),
-      `defaultDataset: app\nwarehouse: wh\nconnections:\n  wh:\n    platform: mysql\n  mysrc:\n    platform: mysql\n    host: h\n    database: app`
+      `defaultDataset: app\nwarehouse: wh\nconnections:\n  wh:\n    platform: mysql\n  mysrc:\n    platform: mysql\n    host: h\n    database: app`,
     );
     fs.writeFileSync(
       path.join(dir, ".df-credentials.json"),
-      JSON.stringify({ connections: { wh: {}, mysrc: { user: "u", password: "p" } } })
+      JSON.stringify({ connections: { wh: {}, mysrc: { user: "u", password: "p" } } }),
     );
-    const fakeReader = function() {
+    const fakeReader = function () {
       return Promise.resolve([
         { name: "id", type: "INT", description: "the id" },
-        { name: "label", type: "VARCHAR" }
+        { name: "label", type: "VARCHAR" },
       ]);
     };
     const sqlx = await introspectToSqlx(dir, "mysrc", "app.widgets", { reader: fakeReader });
@@ -263,52 +297,57 @@ suite("introspect orchestrator", ({ afterEach }) => {
   });
 });
 
-suite("credentials coexistence: run + introspect share one .df-credentials.json", ({ afterEach }) => {
-  const tmp3 = new TmpDirFixture(afterEach);
+suite(
+  "credentials coexistence: run + introspect share one .df-credentials.json",
+  ({ afterEach }) => {
+    const tmp3 = new TmpDirFixture(afterEach);
 
-  test("flat warehouse creds + connections map: run reads warehouse, introspect reads source", () => {
-    const dir = tmp3.createNewTmpDir();
-    fs.writeFileSync(
-      path.join(dir, "workflow_settings.yaml"),
-      `defaultDataset: public\nwarehouse: supabase\nconnections:\n  bq:\n    platform: bigquery\n    project: p\n    dataset: d\n    saKeyId: v`
-    );
-    const credsPath = path.join(dir, ".df-credentials.json");
-    fs.writeFileSync(
-      credsPath,
-      JSON.stringify({
-        host: "db.example.com",
-        port: 5432,
-        database: "postgres",
-        user: "postgres",
-        password: "pw",
-        sslMode: "require",
-        defaultSchema: "public",
-        // Read-only source-connection creds for `introspect`, alongside the warehouse creds.
-        connections: { bq: { credentials: "{}" } }
-      })
-    );
-    // `run` path: the warehouse credentials validate — the `connections` map must NOT
-    // trip the strict "Unexpected property" check.
-    const warehouse = readCredentials(credsPath, "supabase");
-    expect(warehouse.host).equals("db.example.com");
-    // `introspect` path: the source credentials resolve from `connections.<name>`.
-    const resolved = resolveConnection(dir, "bq");
-    expect(resolved.credentials.credentials).equals("{}");
-  });
+    test("flat warehouse creds + connections map: run reads warehouse, introspect reads source", () => {
+      const dir = tmp3.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(dir, "workflow_settings.yaml"),
+        `defaultDataset: public\nwarehouse: supabase\nconnections:\n  bq:\n    platform: bigquery\n    project: p\n    dataset: d\n    saKeyId: v`,
+      );
+      const credsPath = path.join(dir, ".df-credentials.json");
+      fs.writeFileSync(
+        credsPath,
+        JSON.stringify({
+          host: "db.example.com",
+          port: 5432,
+          database: "postgres",
+          user: "postgres",
+          password: "pw",
+          sslMode: "require",
+          defaultSchema: "public",
+          // Read-only source-connection creds for `introspect`, alongside the warehouse creds.
+          connections: { bq: { credentials: "{}" } },
+        }),
+      );
+      // `run` path: the warehouse credentials validate — the `connections` map must NOT
+      // trip the strict "Unexpected property" check.
+      const warehouse = readCredentials(credsPath, "supabase");
+      expect(warehouse.host).equals("db.example.com");
+      // `introspect` path: the source credentials resolve from `connections.<name>`.
+      const resolved = resolveConnection(dir, "bq");
+      expect(resolved.credentials.credentials).equals("{}");
+    });
 
-  test("readConnections returns the connections map, or {} when absent", () => {
-    const dir = tmp3.createNewTmpDir();
-    const credsPath = path.join(dir, ".df-credentials.json");
-    // No file → {}
-    expect(readConnections(credsPath)).to.deep.equal({});
-    // Flat warehouse creds, no connections key → {}
-    fs.writeFileSync(credsPath, JSON.stringify({ host: "h", user: "u", password: "p" }));
-    expect(readConnections(credsPath)).to.deep.equal({});
-    // With a connections map → returned verbatim
-    fs.writeFileSync(
-      credsPath,
-      JSON.stringify({ host: "h", connections: { pg_src: { user: "ro", password: "secret" } } })
-    );
-    expect(readConnections(credsPath)).to.deep.equal({ pg_src: { user: "ro", password: "secret" } });
-  });
-});
+    test("readConnections returns the connections map, or {} when absent", () => {
+      const dir = tmp3.createNewTmpDir();
+      const credsPath = path.join(dir, ".df-credentials.json");
+      // No file → {}
+      expect(readConnections(credsPath)).to.deep.equal({});
+      // Flat warehouse creds, no connections key → {}
+      fs.writeFileSync(credsPath, JSON.stringify({ host: "h", user: "u", password: "p" }));
+      expect(readConnections(credsPath)).to.deep.equal({});
+      // With a connections map → returned verbatim
+      fs.writeFileSync(
+        credsPath,
+        JSON.stringify({ host: "h", connections: { pg_src: { user: "ro", password: "secret" } } }),
+      );
+      expect(readConnections(credsPath)).to.deep.equal({
+        pg_src: { user: "ro", password: "secret" },
+      });
+    });
+  },
+);

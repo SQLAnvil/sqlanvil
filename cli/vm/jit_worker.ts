@@ -4,7 +4,10 @@ import { NodeVM } from "vm2";
 
 import { sqlanvil } from "sa/protos/ts";
 
-const pendingRpcCallbacks = new Map<string, (err: string | null, resBytes: Uint8Array | null) => void>();
+const pendingRpcCallbacks = new Map<
+  string,
+  (err: string | null, resBytes: Uint8Array | null) => void
+>();
 let hasStartedProcessing = false;
 
 process.on("message", (res: any) => {
@@ -21,10 +24,7 @@ process.on("message", (res: any) => {
   }
 });
 
-export async function handleJitRequest(message: {
-  request: any;
-  projectDir: string;
-}) {
+export async function handleJitRequest(message: { request: any; projectDir: string }) {
   try {
     const { request, projectDir } = message;
 
@@ -33,11 +33,15 @@ export async function handleJitRequest(message: {
         "Could not find a recent installed version of @sqlanvil/core in the project. Check that " +
           "either `sqlanvilCoreVersion` is specified in `workflow_settings.yaml`, or " +
           "`@sqlanvil/core` is specified in `package.json`. If using `package.json`, then run " +
-          "`sqlanvil install`."
+          "`sqlanvil install`.",
       );
     }
 
-    const rpcCallback = (method: string, reqBytes: Uint8Array, callback: (err: string | null, resBytes: Uint8Array | null) => void) => {
+    const rpcCallback = (
+      method: string,
+      reqBytes: Uint8Array,
+      callback: (err: string | null, resBytes: Uint8Array | null) => void,
+    ) => {
       const correlationId = Math.random().toString(36).substring(7);
       pendingRpcCallbacks.set(correlationId, callback);
 
@@ -45,7 +49,7 @@ export async function handleJitRequest(message: {
         type: "rpc_request",
         method,
         request: reqBytes,
-        correlationId
+        correlationId,
       });
     };
 
@@ -60,14 +64,15 @@ export async function handleJitRequest(message: {
         builtin: [],
         context: "sandbox",
         external: {
-          modules: ["@sqlanvil/*"]
+          modules: ["@sqlanvil/*"],
         },
-        root: projectDir
+        root: projectDir,
       },
-      sourceExtensions: ["js", "json"]
+      sourceExtensions: ["js", "json"],
     });
 
-    const jitCompileInVm = vm.run(`
+    const jitCompileInVm = vm.run(
+      `
       const { jitCompiler } = require("@sqlanvil/core");
 
       global.require = require;
@@ -86,7 +91,9 @@ export async function handleJitRequest(message: {
         const compilerInstance = jitCompiler(internalRpcCallback);
         return await compilerInstance.compile(requestBytes);
       };
-    `, vmFileName);
+    `,
+      vmFileName,
+    );
 
     const responseBytes = await jitCompileInVm(requestBytes, rpcCallback);
     const response = sqlanvil.JitCompilationResponse.decode(responseBytes);
@@ -106,7 +113,8 @@ if (require.main === module) {
       if (hasStartedProcessing) {
         process.send({
           type: "jit_error",
-          error: "Worker process received multiple JiT compilation requests. Subsequent requests are rejected."
+          error:
+            "Worker process received multiple JiT compilation requests. Subsequent requests are rejected.",
         });
         return;
       }

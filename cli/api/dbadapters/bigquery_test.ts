@@ -18,13 +18,15 @@ suite("BigQueryDbAdapter", () => {
 
     const credentials = sqlanvil.BigQuery.create({ projectId, location: "US" });
     const adapter = new BigQueryDbAdapter(credentials, {
-      clientProvider: () => instance(mockBigQuery)
+      clientProvider: () => instance(mockBigQuery),
     });
 
     when(mockBigQuery.dataset(schemaName)).thenReturn(instance(mockDataset));
     // getTables returns an array where the first element is an array of tables.
     // Each table object needs an 'id' property.
-    when(mockDataset.getTables(anything())).thenReturn(Promise.resolve([[{ id: tableName }]] as any));
+    when(mockDataset.getTables(anything())).thenReturn(
+      Promise.resolve([[{ id: tableName }]] as any),
+    );
     when(mockDataset.table(tableName)).thenReturn(instance(mockTable));
     when(mockTable.getMetadata()).thenReturn(
       Promise.resolve([
@@ -32,9 +34,9 @@ suite("BigQueryDbAdapter", () => {
           type: "TABLE",
           tableReference: { projectId, datasetId: schemaName, tableId: tableName },
           schema: { fields: [{ name: "col1", type: "STRING", mode: "NULLABLE" }] },
-          lastModifiedTime: "123456789"
-        }
-      ] as any)
+          lastModifiedTime: "123456789",
+        },
+      ] as any),
     );
 
     const result = await adapter.tables(projectId, schemaName);
@@ -57,11 +59,13 @@ suite("BigQueryDbAdapter", () => {
 
     const credentials = sqlanvil.BigQuery.create({ projectId, location: "US" });
     const adapter = new BigQueryDbAdapter(credentials, {
-      clientProvider: () => instance(mockBigQuery)
+      clientProvider: () => instance(mockBigQuery),
     });
 
     when(mockBigQuery.dataset(schemaName)).thenReturn(instance(mockDataset));
-    when(mockDataset.getTables(anything())).thenReturn(Promise.resolve([[{ id: tableName }]] as any));
+    when(mockDataset.getTables(anything())).thenReturn(
+      Promise.resolve([[{ id: tableName }]] as any),
+    );
     when(mockDataset.table(tableName)).thenReturn(instance(mockTable));
     when(mockTable.getMetadata()).thenReturn(
       Promise.resolve([
@@ -69,12 +73,14 @@ suite("BigQueryDbAdapter", () => {
           type: "TABLE",
           tableReference: { projectId, datasetId: schemaName, tableId: tableName },
           schema: { fields: [{ name: "col1", type: "STRING" }] },
-          lastModifiedTime: "123456789"
-        }
-      ] as any)
+          lastModifiedTime: "123456789",
+        },
+      ] as any),
     );
 
-    when(mockBigQuery.getDatasets(anything())).thenReturn(Promise.resolve([[{ id: schemaName }]] as any));
+    when(mockBigQuery.getDatasets(anything())).thenReturn(
+      Promise.resolve([[{ id: schemaName }]] as any),
+    );
 
     const result = await adapter.tables(projectId);
 
@@ -89,7 +95,7 @@ suite("BigQueryDbAdapter", () => {
       const credentials = sqlanvil.BigQuery.create({
         projectId: "p",
         location: "US",
-        accessToken: "ya29.test-token"
+        accessToken: "ya29.test-token",
       });
       const opts = bigQueryClientOptions(credentials, "p") as any;
       expect(opts.projectId).to.equal("p");
@@ -100,8 +106,15 @@ suite("BigQueryDbAdapter", () => {
     });
 
     test("JSON key → parsed credentials, no authClient", () => {
-      const key = JSON.stringify({ client_email: "sa@proj.iam.gserviceaccount.com", private_key: "K" });
-      const credentials = sqlanvil.BigQuery.create({ projectId: "p", location: "EU", credentials: key });
+      const key = JSON.stringify({
+        client_email: "sa@proj.iam.gserviceaccount.com",
+        private_key: "K",
+      });
+      const credentials = sqlanvil.BigQuery.create({
+        projectId: "p",
+        location: "EU",
+        credentials: key,
+      });
       const opts = bigQueryClientOptions(credentials, "p") as any;
       expect(opts.authClient).to.be.undefined;
       expect(opts.credentials.client_email).to.equal("sa@proj.iam.gserviceaccount.com");
@@ -115,12 +128,15 @@ suite("BigQueryDbAdapter", () => {
     });
 
     test("accessToken takes precedence over a JSON key", () => {
-      const key = JSON.stringify({ client_email: "sa@proj.iam.gserviceaccount.com", private_key: "K" });
+      const key = JSON.stringify({
+        client_email: "sa@proj.iam.gserviceaccount.com",
+        private_key: "K",
+      });
       const credentials = sqlanvil.BigQuery.create({
         projectId: "p",
         location: "US",
         credentials: key,
-        accessToken: "ya29.override"
+        accessToken: "ya29.override",
       });
       const opts = bigQueryClientOptions(credentials, "p") as any;
       expect(opts.authClient).to.be.ok;
@@ -138,20 +154,20 @@ suite("BigQueryDbAdapter", () => {
           setMetadata: (metadata: any) => {
             expect(metadata.description).to.equal("test");
             return Promise.resolve([]);
-          }
-        })
-      })
+          },
+        }),
+      }),
     };
 
     const credentials = sqlanvil.BigQuery.create({ projectId: "p", location: "US" });
     const adapter = new BigQueryDbAdapter(credentials, {
       concurrencyLimit: 1,
-      clientProvider: () => mockBigQuery
+      clientProvider: () => mockBigQuery,
     });
 
     const action = sqlanvil.ExecutionAction.create({
       target: { database: "db", schema: "sch", name: "tab" },
-      actionDescriptor: { description: "test" }
+      actionDescriptor: { description: "test" },
       // columns is missing/null in this action
     });
 
@@ -163,30 +179,33 @@ suite("BigQueryDbAdapter", () => {
     const mockBigQuery: any = {
       dataset: () => ({
         table: () => ({
-          getMetadata: () => Promise.resolve([{
-            schema: {
-              fields: [{ name: "id", type: "INTEGER" }]
-            }
-          }]),
+          getMetadata: () =>
+            Promise.resolve([
+              {
+                schema: {
+                  fields: [{ name: "id", type: "INTEGER" }],
+                },
+              },
+            ]),
           setMetadata: (metadata: any) => {
             expect(metadata.schema[0].description).to.equal("id desc");
             return Promise.resolve([]);
-          }
-        })
-      })
+          },
+        }),
+      }),
     };
 
     const credentials = sqlanvil.BigQuery.create({ projectId: "p", location: "US" });
     const adapter = new BigQueryDbAdapter(credentials, {
       concurrencyLimit: 1,
-      clientProvider: () => mockBigQuery
+      clientProvider: () => mockBigQuery,
     });
 
     const action = sqlanvil.ExecutionAction.create({
       target: { database: "db", schema: "sch", name: "tab" },
       actionDescriptor: {
-        columns: [{ path: ["id"], description: "id desc" }]
-      }
+        columns: [{ path: ["id"], description: "id desc" }],
+      },
     });
 
     await adapter.setMetadata(action);

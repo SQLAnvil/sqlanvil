@@ -12,7 +12,7 @@ import {
   resolvableAsTarget,
   strictKeysOf,
   stringifyResolvable,
-  toResolvable
+  toResolvable,
 } from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -38,7 +38,13 @@ export interface ITestConfig extends INamedConfig {
 }
 
 /** @hidden */
-const ITestConfigProperties = strictKeysOf<ITestConfig>()(["type", "dataset", "name", "filename", "tags"]);
+const ITestConfigProperties = strictKeysOf<ITestConfig>()([
+  "type",
+  "dataset",
+  "name",
+  "filename",
+  "tags",
+]);
 
 /**
  * sqlanvil test actions can be used to write unit tests for your generated SQL
@@ -100,7 +106,7 @@ export class Test extends ActionBuilder<sqlanvil.Test> {
 
   /** @hidden We delay contextification until the final compile step, so hold these here for now. */
   public contextableInputs = new Map<string, Contextable<IActionContext, string>>();
-  private contextableQuery: Contextable<IActionContext, string>; 
+  private contextableQuery: Contextable<IActionContext, string>;
   private testTarget: sqlanvil.ITarget;
 
   /**
@@ -124,7 +130,7 @@ export class Test extends ActionBuilder<sqlanvil.Test> {
       (e: Error) => this.session.compileError(e),
       config,
       ITestConfigProperties,
-      "test config"
+      "test config",
     );
     if (config.name) {
       this.proto.name = config.name;
@@ -133,21 +139,17 @@ export class Test extends ActionBuilder<sqlanvil.Test> {
       // Determine target from the parent dataset name
       this.testTarget = sqlanvil.Target.create(
         this.applySessionToTarget(
-          resolvableAsTarget(
-            toResolvable(config.dataset)
-          ), 
-          this.session.projectConfig
-        )
+          resolvableAsTarget(toResolvable(config.dataset)),
+          this.session.projectConfig,
+        ),
       );
       const canonicalTestTarget = sqlanvil.Target.create(
         this.applySessionToTarget(
-          resolvableAsTarget(
-            toResolvable(config.dataset)
-          ), 
-          this.session.canonicalProjectConfig
-        )
+          resolvableAsTarget(toResolvable(config.dataset)),
+          this.session.canonicalProjectConfig,
+        ),
       );
-      
+
       // Set the target as the test name, with the tested action database and schema.
       this.proto.target = overrideTargetWithNewName(this.testTarget, this.proto.name);
       this.proto.canonicalTarget = overrideTargetWithNewName(canonicalTestTarget, this.proto.name);
@@ -176,7 +178,7 @@ export class Test extends ActionBuilder<sqlanvil.Test> {
   public input(refName: string | string[], contextableQuery: Contextable<IActionContext, string>) {
     this.contextableInputs.set(
       targetStringifier.stringify(resolvableAsTarget(toResolvable(refName))),
-      contextableQuery
+      contextableQuery,
     );
     return this;
   }
@@ -213,7 +215,7 @@ export class Test extends ActionBuilder<sqlanvil.Test> {
     if (!this.testTarget) {
       this.session.compileError(
         new Error("Tests must operate upon a specified dataset."),
-        this.proto.fileName
+        this.proto.fileName,
       );
       return this.proto;
     } else {
@@ -221,15 +223,18 @@ export class Test extends ActionBuilder<sqlanvil.Test> {
       if (allResolved.length > 1) {
         this.session.compileError(
           new Error(ambiguousActionNameMsg(this.testTarget, allResolved)),
-          this.proto.fileName
+          this.proto.fileName,
         );
         return this.proto;
       }
       const dataset = allResolved.length > 0 ? allResolved[0] : undefined;
-      if (!(dataset && (dataset instanceof Table || dataset instanceof View || dataset instanceof IncrementalTable))) {
+      if (!(
+        dataset &&
+        (dataset instanceof Table || dataset instanceof View || dataset instanceof IncrementalTable)
+      )) {
         this.session.compileError(
           new Error(`Dataset ${stringifyResolvable(this.testTarget)} could not be found.`),
-          this.proto.fileName
+          this.proto.fileName,
         );
         return this.proto;
       } else {
@@ -245,22 +250,16 @@ export class Test extends ActionBuilder<sqlanvil.Test> {
 
     // Check if the test query and expected output query are non-empty.
     if (!this.proto.testQuery.trim()) {
-      this.session.compileError(
-        new Error("Test query is empty."),
-        this.proto.fileName
-      );
+      this.session.compileError(new Error("Test query is empty."), this.proto.fileName);
     }
     if (!this.proto.expectedOutputQuery.trim()) {
-      this.session.compileError(
-        new Error("Expected query is empty."),
-        this.proto.fileName
-      );
+      this.session.compileError(new Error("Expected query is empty."), this.proto.fileName);
     }
 
     return verifyObjectMatchesProto(
       sqlanvil.Test,
       this.proto,
-      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
     );
   }
 }
@@ -299,16 +298,16 @@ class RefReplacingContext implements ITableContext {
       this.testContext.test.session.compileError(
         new Error(
           `Input for dataset "${JSON.stringify(
-            target
+            target,
           )}" has not been provided. Provided inputs: ${Array.from(
-            this.testContext.test.contextableInputs.keys()
-          ).map(providedTarget => JSON.stringify(providedTarget))}`
-        )
+            this.testContext.test.contextableInputs.keys(),
+          ).map((providedTarget) => JSON.stringify(providedTarget))}`,
+        ),
       );
       return "";
     }
     return `(${this.testContext.apply(
-      this.testContext.test.contextableInputs.get(targetStringifier.stringify(target))
+      this.testContext.test.contextableInputs.get(targetStringifier.stringify(target)),
     )})`;
   }
 
@@ -381,6 +380,6 @@ function overrideTargetWithNewName(target: sqlanvil.ITarget, testName: string): 
   return sqlanvil.Target.create({
     database: target.database,
     schema: target.schema,
-    name: testName
+    name: testName,
   });
 }

@@ -8,7 +8,7 @@ import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
-  VALID_WORKFLOW_SETTINGS_YAML
+  VALID_WORKFLOW_SETTINGS_YAML,
 } from "sa/testing/run_core";
 
 suite("export", ({ afterEach }) => {
@@ -19,7 +19,7 @@ suite("export", ({ afterEach }) => {
     if (!files["workflow_settings.yaml"]) {
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
     }
     for (const [name, contents] of Object.entries(files)) {
@@ -35,7 +35,7 @@ suite("export", ({ afterEach }) => {
       "definitions/src.sqlx": `config { type: "table" }\nSELECT 1 AS id`,
       "definitions/dump.sqlx":
         `config { type: "export", export: { location: "gs://b/dump/", format: "parquet" } }\n` +
-        `SELECT * FROM ${"${ref(\"src\")}"}`
+        `SELECT * FROM ${'${ref("src")}'}`,
     });
     expect(graph.graphErrors.compilationErrors).deep.equals([]);
     expect(graph.exports.length).equals(1);
@@ -55,7 +55,7 @@ suite("export", ({ afterEach }) => {
     const graph = compileProject({
       "definitions/dump.sqlx":
         `config { type: "export", export: { location: "s3://b/x/", format: "parquet" } }\n` +
-        `SELECT 1 AS id`
+        `SELECT 1 AS id`,
     });
     const errors = JSON.stringify(graph.graphErrors.compilationErrors);
     expect(errors).contains("BigQuery exports support only gs://");
@@ -65,7 +65,7 @@ suite("export", ({ afterEach }) => {
     const graph = compileProject({
       "definitions/dump.sqlx":
         `config { type: "export", export: { location: "gs://b/x/", format: "avro" } }\n` +
-        `SELECT 1 AS id`
+        `SELECT 1 AS id`,
     });
     const errors = JSON.stringify(graph.graphErrors.compilationErrors);
     expect(errors).contains("Invalid export format");
@@ -75,7 +75,7 @@ suite("export", ({ afterEach }) => {
     const graph = compileProject({
       "definitions/dump.sqlx":
         `config { type: "export", export: { location: "gs://b/d/", format: "csv", overwrite: false, filename: "out" } }\n` +
-        `SELECT 1 AS id`
+        `SELECT 1 AS id`,
     });
     expect(graph.graphErrors.compilationErrors).deep.equals([]);
     const exp = graph.exports[0];

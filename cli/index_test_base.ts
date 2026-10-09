@@ -8,7 +8,11 @@ if (!fs.existsSync(path.resolve(runfilesDir, "sa"))) {
   workspaceName = "_main";
 }
 
-export const CREDENTIALS_PATH = path.resolve(runfilesDir, workspaceName, "test_credentials/bigquery.json");
+export const CREDENTIALS_PATH = path.resolve(
+  runfilesDir,
+  workspaceName,
+  "test_credentials/bigquery.json",
+);
 
 // The GCP project for live BigQuery CLI integration tests (used as the project
 // arg when shelling out to `sqlanvil init`/`run`). Not hardcoded — this is OSS.

@@ -29,7 +29,7 @@ const BIGQUERY_TYPE_MAP: { [bq: string]: string } = {
   DATE: "date",
   TIME: "time",
   JSON: "jsonb",
-  GEOGRAPHY: "text"
+  GEOGRAPHY: "text",
 };
 
 export function mapBigQueryType(bqType: string): string {
@@ -37,7 +37,7 @@ export function mapBigQueryType(bqType: string): string {
   const mapped = BIGQUERY_TYPE_MAP[key];
   if (!mapped) {
     throw new Error(
-      `Unmapped BigQuery type "${bqType}". Add it to BIGQUERY_TYPE_MAP or set the column type by hand.`
+      `Unmapped BigQuery type "${bqType}". Add it to BIGQUERY_TYPE_MAP or set the column type by hand.`,
     );
   }
   return mapped;
@@ -79,7 +79,7 @@ const MYSQL_TYPE_MAP: { [key: string]: string } = {
   mediumblob: "bytea",
   longblob: "bytea",
   json: "jsonb",
-  geometry: "text"
+  geometry: "text",
 };
 
 export function mapMysqlType(mysqlType: string): string {
@@ -117,16 +117,18 @@ export function renderDeclarationSqlx(opts: RenderDeclarationOptions): string {
   // declaration describes the table as it exists in the WRITE warehouse — that is what the
   // project's SQL reads — not as the source warehouse spelled it. PostgreSQL folds unquoted
   // identifiers, so a mixed-case name here would have to be quoted at every reference forever.
-  const typeLines = opts.columns.map(function(c) {
+  const typeLines = opts.columns.map(function (c) {
     return `    ${keyToken(c.name.toLowerCase())}: ${quote(c.type)}`;
   });
-  const described = opts.columns.filter(function(c) { return !!c.description; });
+  const described = opts.columns.filter(function (c) {
+    return !!c.description;
+  });
   lines.push(`  columnTypes: {`);
   lines.push(typeLines.join(",\n"));
   lines.push(described.length > 0 ? `  },` : `  }`);
 
   if (described.length > 0) {
-    const descLines = described.map(function(c) {
+    const descLines = described.map(function (c) {
       return `    ${keyToken(c.name.toLowerCase())}: ${quote(c.description!)}`;
     });
     lines.push(`  columns: {`);
@@ -152,7 +154,7 @@ export function resolveConnection(projectDir: string, connectionName: string): R
       : undefined;
   if (!definition) {
     throw new Error(
-      `Unknown connection "${connectionName}". Define it under \`connections:\` in workflow_settings.yaml.`
+      `Unknown connection "${connectionName}". Define it under \`connections:\` in workflow_settings.yaml.`,
     );
   }
   // BigQuery connections need no secrets from the credentials file: without a
@@ -182,7 +184,7 @@ export function resolveConnection(projectDir: string, connectionName: string): R
     }
     throw new Error(
       `No credentials for connection "${connectionName}" in .df-credentials.json ` +
-        `(expected a "connections.${connectionName}" entry).`
+        `(expected a "connections.${connectionName}" entry).`,
     );
   }
   return { name: connectionName, definition, credentials };
@@ -192,10 +194,10 @@ export function resolveConnection(projectDir: string, connectionName: string): R
 export type SchemaReader = (
   resolved: ResolvedConnection,
   sourceSchema: string,
-  table: string
+  table: string,
 ) => Promise<NormalizedColumn[]>;
 
-export const readPostgresSchema: SchemaReader = function(resolved, sourceSchema, table) {
+export const readPostgresSchema: SchemaReader = function (resolved, sourceSchema, table) {
   const c = resolved.credentials;
   const client = new pg.Client({
     host: c.host || resolved.definition.host,
@@ -203,11 +205,11 @@ export const readPostgresSchema: SchemaReader = function(resolved, sourceSchema,
     database: c.database || resolved.definition.database,
     user: c.user,
     password: c.password,
-    ssl: c.sslMode && c.sslMode !== "disable" ? { rejectUnauthorized: false } : undefined
+    ssl: c.sslMode && c.sslMode !== "disable" ? { rejectUnauthorized: false } : undefined,
   });
   return client
     .connect()
-    .then(function() {
+    .then(function () {
       return client.query(
         `select a.attname as column_name,
                 format_type(a.atttypid, a.atttypmod) as data_type,
@@ -216,49 +218,53 @@ export const readPostgresSchema: SchemaReader = function(resolved, sourceSchema,
          where a.attrelid = format('%I.%I', $1::text, $2::text)::regclass
            and a.attnum > 0 and not a.attisdropped
          order by a.attnum`,
-        [sourceSchema, table]
+        [sourceSchema, table],
       );
     })
-    .then(function(res) {
-      return res.rows.map(function(r: any) {
+    .then(function (res) {
+      return res.rows.map(function (r: any) {
         return { name: r.column_name, type: r.data_type, description: r.description || undefined };
       });
     })
     .then(
-      function(cols) {
-        return client.end().then(function() {
+      function (cols) {
+        return client.end().then(function () {
           return cols;
         });
       },
-      function(err) {
+      function (err) {
         return client.end().then(
-          function() { throw err; },
-          function() { throw err; }
+          function () {
+            throw err;
+          },
+          function () {
+            throw err;
+          },
         );
-      }
+      },
     );
 };
 
-export const readBigQuerySchema: SchemaReader = function(resolved, sourceSchema, table) {
+export const readBigQuerySchema: SchemaReader = function (resolved, sourceSchema, table) {
   const keyJson = resolved.credentials.credentials;
   const bq = new BigQuery({
     projectId: resolved.definition.project,
-    credentials: typeof keyJson === "string" ? JSON.parse(keyJson) : keyJson
+    credentials: typeof keyJson === "string" ? JSON.parse(keyJson) : keyJson,
   });
   return bq
     .dataset(sourceSchema)
     .table(table)
     .getMetadata()
-    .then(function(result: any) {
+    .then(function (result: any) {
       const metadata = result[0];
       const fields: any[] = (metadata && metadata.schema && metadata.schema.fields) || [];
-      return fields.map(function(f) {
+      return fields.map(function (f) {
         return { name: f.name, type: f.type, description: f.description || undefined };
       });
     });
 };
 
-export const readMysqlSchema: SchemaReader = function(resolved, sourceSchema, table) {
+export const readMysqlSchema: SchemaReader = function (resolved, sourceSchema, table) {
   const c = resolved.credentials;
   let conn: any;
   return mysql
@@ -268,9 +274,9 @@ export const readMysqlSchema: SchemaReader = function(resolved, sourceSchema, ta
       database: c.database || resolved.definition.database,
       user: c.user,
       password: c.password,
-      ssl: c.sslMode && c.sslMode !== "disable" ? { rejectUnauthorized: false } : undefined
+      ssl: c.sslMode && c.sslMode !== "disable" ? { rejectUnauthorized: false } : undefined,
     })
-    .then(function(connection) {
+    .then(function (connection) {
       conn = connection;
       // MySQL has no catalog level — the "schema" is the database (table_schema).
       return conn.query(
@@ -278,12 +284,12 @@ export const readMysqlSchema: SchemaReader = function(resolved, sourceSchema, ta
          from information_schema.columns
          where table_schema = ? and table_name = ?
          order by ordinal_position`,
-        [sourceSchema, table]
+        [sourceSchema, table],
       );
     })
-    .then(function(result: any) {
+    .then(function (result: any) {
       const rows: any[] = result[0] || [];
-      return rows.map(function(r) {
+      return rows.map(function (r) {
         // mysql2 preserves the SELECTed (lowercase) labels, but guard for upper-case too.
         const name = r.column_name !== undefined ? r.column_name : r.COLUMN_NAME;
         const type = r.data_type !== undefined ? r.data_type : r.DATA_TYPE;
@@ -292,15 +298,21 @@ export const readMysqlSchema: SchemaReader = function(resolved, sourceSchema, ta
       });
     })
     .then(
-      function(cols) {
-        return conn.end().then(function() { return cols; });
+      function (cols) {
+        return conn.end().then(function () {
+          return cols;
+        });
       },
-      function(err) {
+      function (err) {
         return (conn ? conn.end() : Promise.resolve()).then(
-          function() { throw err; },
-          function() { throw err; }
+          function () {
+            throw err;
+          },
+          function () {
+            throw err;
+          },
         );
-      }
+      },
     );
 };
 
@@ -332,7 +344,7 @@ export function introspectToSqlx(
   projectDir: string,
   connectionName: string,
   tableRef: string,
-  options?: IntrospectOptions
+  options?: IntrospectOptions,
 ): Promise<string> {
   const opts = options || {};
   const resolved = resolveConnection(projectDir, connectionName);
@@ -341,31 +353,33 @@ export function introspectToSqlx(
   const sourceSchema =
     parts.schema || resolved.definition.dataset || resolved.definition.defaultSchema;
   if (!sourceSchema) {
-    return Promise.reject(new Error(
-      `Could not determine the source schema for "${tableRef}" on connection "${connectionName}". ` +
-        `Pass it as "schema.table", or set "dataset"/"defaultSchema" on the connection.`
-    ));
+    return Promise.reject(
+      new Error(
+        `Could not determine the source schema for "${tableRef}" on connection "${connectionName}". ` +
+          `Pass it as "schema.table", or set "dataset"/"defaultSchema" on the connection.`,
+      ),
+    );
   }
   const mapType =
     resolved.definition.platform === "bigquery"
       ? mapBigQueryType
       : resolved.definition.platform === "mysql"
-      ? mapMysqlType
-      : mapPostgresType;
-  return reader(resolved, sourceSchema, parts.table).then(function(rawColumns) {
+        ? mapMysqlType
+        : mapPostgresType;
+  return reader(resolved, sourceSchema, parts.table).then(function (rawColumns) {
     if (rawColumns.length === 0) {
       throw new Error(
-        `Source table "${tableRef}" on connection "${connectionName}" has no columns (does it exist?).`
+        `Source table "${tableRef}" on connection "${connectionName}" has no columns (does it exist?).`,
       );
     }
-    const columns = rawColumns.map(function(col) {
+    const columns = rawColumns.map(function (col) {
       return { name: col.name, type: mapType(col.type), description: col.description };
     });
     return renderDeclarationSqlx({
       connection: connectionName,
       schema: parts.schema,
       name: parts.table,
-      columns
+      columns,
     });
   });
 }

@@ -9,7 +9,7 @@ import {
   convertTarget,
   findConfigBlock,
   migrateDataform,
-  parseSqlxConfig
+  parseSqlxConfig,
 } from "sa/cli/api/commands/migrate_dataform";
 import { suite, test } from "sa/testing";
 
@@ -24,7 +24,13 @@ suite("migrate-dataform", () => {
 
     write(
       "workflow_settings.yaml",
-      ["defaultLocation: US", "defaultProject: acme-analytics", "defaultDataset: dataform", "defaultAssertionDataset: dataform_assertions", "dataformCoreVersion: 3.0.61"].join("\n")
+      [
+        "defaultLocation: US",
+        "defaultProject: acme-analytics",
+        "defaultDataset: dataform",
+        "defaultAssertionDataset: dataform_assertions",
+        "dataformCoreVersion: 3.0.61",
+      ].join("\n"),
     );
     // Credentials that must NEVER be copied.
     write(".df-credentials.json", `{"projectId":"x"}`);
@@ -41,7 +47,7 @@ suite("migrate-dataform", () => {
     schema: "ods",
     name: "customers",
 }
-`
+`,
     );
     write(
       "definitions/sources/raw/events.sqlx",
@@ -52,13 +58,13 @@ suite("migrate-dataform", () => {
     name: "events",
     description: "Raw event stream",
 }
-`
+`,
     );
     // A declaration in a schema that is ALSO a target schema (overlap warning).
     write(
       "definitions/sources/ods/flags.sqlx",
       `config { type: "declaration", schema: "ods", name: "flags" }
-`
+`,
     );
 
     // Target with the BigQuery-isms.
@@ -80,20 +86,20 @@ SELECT
   CURRENT_DATE() AS today
 FROM \${ref("customers")}
 QUALIFY ROW_NUMBER() OVER (PARTITION BY id ORDER BY ts DESC) = 1
-`
+`,
     );
     write(
       "definitions/output/fqn.sqlx",
       `config { type: "view" }
 SELECT * FROM \`acme-analytics.ods.legacy_table\`
-`
+`,
     );
     // Clean target — must come through byte-identical apart from nothing.
     write(
       "definitions/output/clean.sqlx",
       `config { type: "view", schema: "reports" }
 SELECT id, name FROM \${ref("customers")}
-`
+`,
     );
     // Config with an orphaned separator comma after the bigquery block, plus a database
     // qualifier, plus a js{} block whose contents must NOT receive inline markers.
@@ -116,21 +122,21 @@ js {
 }
 
 SELECT 1 AS id
-`
+`,
     );
 
     // A .js definition using the compile global.
     write(
       "definitions/operations/dynamic.js",
       `operate("dyn", { disabled: dataform.projectConfig.schemaSuffix !== "prod" }).queries(() => "SELECT 1");
-`
+`,
     );
     // includes helper emitting BigQuery SQL.
     write(
       "includes/functions.js",
       `const domainFromEmail = (email) => \`split(\${email}, '@')[SAFE_OFFSET(1)]\`;
 module.exports = { domainFromEmail };
-`
+`,
     );
     return dir;
   }
@@ -166,11 +172,9 @@ module.exports = { domainFromEmail };
     expect(agentsMd).to.contain("converted from Dataform");
     expect(agentsMd).to.contain("migration-report.md");
     expect(fs.readFileSync(path.join(out, "CLAUDE.md"), "utf8")).equals("@AGENTS.md\n");
-    expect(report.files.filter(f => f.action === "generated").map(f => f.file)).to.have.members([
-      "AGENTS.md",
-      "CLAUDE.md",
-      "scripts/introspect_all.sh"
-    ]);
+    expect(report.files.filter((f) => f.action === "generated").map((f) => f.file)).to.have.members(
+      ["AGENTS.md", "CLAUDE.md", "scripts/introspect_all.sh"],
+    );
 
     // workflow_settings: supabase + pinned core + both connections.
     const settings = fs.readFileSync(path.join(out, "workflow_settings.yaml"), "utf8");
@@ -200,9 +204,9 @@ module.exports = { domainFromEmail };
     // to show only per-connection templates — acuantia migrate test finding #19).
     const script = fs.readFileSync(path.join(out, "scripts/introspect_all.sh"), "utf8");
     expect(script).to.contain(
-      'sqlanvil introspect bq_acme_analytics "ods.customers" --output "definitions/sources/ods/customers.sqlx"'
+      'sqlanvil introspect bq_acme_analytics "ods.customers" --output "definitions/sources/ods/customers.sqlx"',
     );
-    expect(script).to.contain('sqlanvil introspect bq_other_project');
+    expect(script).to.contain("sqlanvil introspect bq_other_project");
     expect(script).to.not.contain("<dataset>");
     // Resilient: failures are collected and summarized, not fatal on the first
     // stale declaration (acuantia migrate finding: dropped table aborted all 881).
@@ -271,22 +275,29 @@ module.exports = { domainFromEmail };
     expect(inc.split("*/")[1]).to.not.contain("SAFE_OFFSET");
 
     // Credentials and artifacts never copied.
-    for (const secret of [".df-credentials.json", "service_account_key.json", ".env", "compile_output.json"]) {
+    for (const secret of [
+      ".df-credentials.json",
+      "service_account_key.json",
+      ".env",
+      "compile_output.json",
+    ]) {
       expect(fs.existsSync(path.join(out, secret)), secret).equals(false);
       expect(report.skippedForSafety).to.include(secret);
     }
 
     // Report shape.
     expect(report.inventory.byType.declaration).equals(3);
-    expect(report.connections.map(c => c.name)).deep.equals([
+    expect(report.connections.map((c) => c.name)).deep.equals([
       "bq_acme_analytics",
-      "bq_other_project"
+      "bq_other_project",
     ]);
     expect(report.connections[0].declarationCount).equals(2);
     expect(report.connections[0].datasets).deep.equals(["ods"]);
     expect(report.overlappingSchemas).deep.equals(["ods"]);
-    const flaggedTargets = report.files.filter(f => f.action === "target" && f.status === "flagged");
-    expect(flaggedTargets.map(f => f.file)).to.include("definitions/output/daily.sqlx");
+    const flaggedTargets = report.files.filter(
+      (f) => f.action === "target" && f.status === "flagged",
+    );
+    expect(flaggedTargets.map((f) => f.file)).to.include("definitions/output/daily.sqlx");
     expect(fs.existsSync(path.join(out, "migration-report.md"))).equals(true);
     expect(fs.existsSync(path.join(out, "migration-report.json"))).equals(true);
     const md = fs.readFileSync(path.join(out, "migration-report.md"), "utf8");
@@ -303,7 +314,7 @@ module.exports = { domainFromEmail };
       srcDir: src,
       outDir: out,
       coreVersion: "9.9.9",
-      targetWarehouse: "bigquery"
+      targetWarehouse: "bigquery",
     });
 
     // Source still byte-identical.
@@ -341,7 +352,7 @@ module.exports = { domainFromEmail };
     // The compile-global rename still lands in .js files; includes stay warning-free.
     const dyn = fs.readFileSync(path.join(out, "definitions/operations/dynamic.js"), "utf8");
     expect(dyn).to.contain("sqlanvil.projectConfig.schemaSuffix");
-    expect(report.warnings.filter(w => w.includes("includes"))).to.have.length(0);
+    expect(report.warnings.filter((w) => w.includes("includes"))).to.have.length(0);
 
     // Mode-aware report + the converted-project AGENTS.md.
     const reportMd = fs.readFileSync(path.join(out, "migration-report.md"), "utf8");
@@ -382,13 +393,13 @@ module.exports = { domainFromEmail };
         defaultDatabase: "legacy-project",
         defaultSchema: "dataform_data",
         assertionSchema: "df_assertions",
-        vars: { region: "us" }
-      })
+        vars: { region: "us" },
+      }),
     );
     fs.mkdirsSync(path.join(src, "definitions"));
     fs.writeFileSync(
       path.join(src, "definitions/src.sqlx"),
-      `config { type: "declaration", schema: "raw", name: "t" }\n`
+      `config { type: "declaration", schema: "raw", name: "t" }\n`,
     );
     const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "sqlanvil-migrate-djo-")), "out");
     const report = await migrateDataform({ srcDir: src, outDir: out });
@@ -412,29 +423,32 @@ SELECT 1`;
     expect(parsed.description).equals("has { braces } inside");
 
     const decl = parseSqlxConfig(
-      `type: "declaration", database: dataform.projectConfig.defaultDatabase, schema: "s", name: "n"`
+      `type: "declaration", database: dataform.projectConfig.defaultDatabase, schema: "s", name: "n"`,
     );
     expect(decl.database).equals("<defaultDatabase>");
     expect(connectionNameFor("My-Proj")).equals("bq_my_proj");
   });
 
   test("call rewrites reach the arguments, and span lines", () => {
-    const sql = (body: string) => convertTarget(`config { type: "view" }\n\n${body}\n`, false).content;
+    const sql = (body: string) =>
+      convertTarget(`config { type: "view" }\n\n${body}\n`, false).content;
 
     // A per-line regex cannot see this call at all — and a real project writes it this way.
-    expect(
-      sql("select DATE_DIFF(\n  a,\n  b,\n  DAY\n) as days"),
-    ).to.contain("(a::date - b::date)");
+    expect(sql("select DATE_DIFF(\n  a,\n  b,\n  DAY\n) as days")).to.contain(
+      "(a::date - b::date)",
+    );
 
     // BigQuery's HOUR counts boundaries CROSSED. Truncating both sides is what makes the two
     // agree; dividing the raw interval is off by one whenever the minutes do not line up.
     expect(sql("select DATE_DIFF(a, b, HOUR) as h")).to.contain("date_trunc('hour', a)");
 
     expect(sql("select SAFE_DIVIDE(a, b) as r")).to.contain("(a / nullif(b, 0))");
-    expect(sql("select DATE_SUB(CURRENT_DATE, interval 7 day) as d"))
-      .to.contain("(CURRENT_DATE - interval '7 day')");
-    expect(sql("select REGEXP_EXTRACT(f, '[^/]+$') as name"))
-      .to.contain("substring(f from '[^/]+$')");
+    expect(sql("select DATE_SUB(CURRENT_DATE, interval 7 day) as d")).to.contain(
+      "(CURRENT_DATE - interval '7 day')",
+    );
+    expect(sql("select REGEXP_EXTRACT(f, '[^/]+$') as name")).to.contain(
+      "substring(f from '[^/]+$')",
+    );
 
     // COLLATE(x, '') is a FUNCTION in BigQuery and a syntax error in PostgreSQL; an empty
     // collation means "strip", which is a no-op here.
@@ -447,16 +461,18 @@ SELECT 1`;
 
     // 0-based → 1-based, and the call must be parenthesised: PostgreSQL will not subscript a
     // function result directly.
-    expect(sql("select SPLIT(email, '@')[SAFE_OFFSET(1)] as domain"))
-      .to.contain("(string_to_array(email, '@'))[2]");
+    expect(sql("select SPLIT(email, '@')[SAFE_OFFSET(1)] as domain")).to.contain(
+      "(string_to_array(email, '@'))[2]",
+    );
 
     // Type names are renamed even without SAFE_CAST, or they arrive as `type "int64" does not
     // exist` at run time.
     expect(sql("select CAST(x AS INT64) as n")).to.contain("cast(x as bigint)");
 
     // Nested calls: the inner rewrite lands before the outer one reads its arguments.
-    expect(sql("select SAFE_DIVIDE(CAST(a AS FLOAT64), b) as r"))
-      .to.contain("(cast(a as double precision) / nullif(b, 0))");
+    expect(sql("select SAFE_DIVIDE(CAST(a AS FLOAT64), b) as r")).to.contain(
+      "(cast(a as double precision) / nullif(b, 0))",
+    );
   });
 
   test("call rewrites leave strings, comments and config alone", () => {
@@ -469,16 +485,20 @@ SELECT 1`;
     expect(inComment).to.contain("-- SAFE_DIVIDE(a, b)");
 
     // Config keys have their own handling; the dialect pass must not reach into the block.
-    const inConfig = out(`config {\n  type: "view",\n  description: "uses SPLIT(x, y)"\n}\n\nselect 1\n`);
+    const inConfig = out(
+      `config {\n  type: "view",\n  description: "uses SPLIT(x, y)"\n}\n\nselect 1\n`,
+    );
     expect(inConfig).to.contain('description: "uses SPLIT(x, y)"');
 
     // An unresolvable form is left for the report rather than half-rewritten.
-    expect(out(`config { type: "view" }\n\nselect DATE_DIFF(a, b, MONTH) as m\n`))
-      .to.contain("DATE_DIFF(a, b, MONTH)");
+    expect(out(`config { type: "view" }\n\nselect DATE_DIFF(a, b, MONTH) as m\n`)).to.contain(
+      "DATE_DIFF(a, b, MONTH)",
+    );
   });
 
   test("lexical rules: BigQuery quoting, raw strings, # comments, DAYOFWEEK", () => {
-    const sql = (body: string) => convertTarget(`config { type: "view" }\n\n${body}\n`, false).content;
+    const sql = (body: string) =>
+      convertTarget(`config { type: "view" }\n\n${body}\n`, false).content;
 
     // In BigQuery a backtick always quotes an identifier and a double quote always opens a
     // string — the exact opposite of PostgreSQL for the latter, which is why leaving them gives
@@ -499,8 +519,7 @@ SELECT 1`;
 
     // BigQuery numbers the week from 1 = Sunday, PostgreSQL's dow from 0 — so the + 1 keeps
     // existing comparisons against 1 and 7 meaning weekend.
-    expect(sql("select EXTRACT(DAYOFWEEK FROM d) as dw"))
-      .to.contain("(extract(dow from d) + 1)");
+    expect(sql("select EXTRACT(DAYOFWEEK FROM d) as dw")).to.contain("(extract(dow from d) + 1)");
 
     // After AS a double-quoted token is an ALIAS, not a string. Converting `x as "key"` to
     // `x as 'key'` is not valid SQL anywhere, and quietly turns a column name into a literal.
@@ -515,7 +534,10 @@ SELECT 1`;
     const src = fs.mkdtempSync(path.join(os.tmpdir(), "sqlanvil-triage-src-"));
     const out = fs.mkdtempSync(path.join(os.tmpdir(), "sqlanvil-triage-out-"));
     fs.rmdirSync(out);
-    fs.outputFileSync(path.join(src, "workflow_settings.yaml"), "defaultProject: p\ndefaultDataset: d\n");
+    fs.outputFileSync(
+      path.join(src, "workflow_settings.yaml"),
+      "defaultProject: p\ndefaultDataset: d\n",
+    );
     // Two constructs needing a decision, one mechanical, spread over two files — so the grouping
     // has something to collapse.
     fs.outputFileSync(
@@ -531,7 +553,7 @@ SELECT 1`;
     const byId = new Map(report.todo.map((t: TodoClass) => [t.id, t]));
     // Grouped by construct, not by file: STRUCT appears in both files as ONE entry.
     expect(byId.get("struct")!.count).equals(2);
-    expect(byId.get("struct")!.locations.map(l => l.file)).to.have.members([
+    expect(byId.get("struct")!.locations.map((l) => l.file)).to.have.members([
       "definitions/a.sqlx",
       "definitions/b.sqlx",
     ]);
@@ -559,7 +581,8 @@ SELECT 1`;
   });
 
   test("COLLATE stripping and NOT ENFORCED constraints", () => {
-    const sql = (body: string) => convertTarget(`config { type: "table" }\n\n${body}\n`, false).content;
+    const sql = (body: string) =>
+      convertTarget(`config { type: "table" }\n\n${body}\n`, false).content;
 
     // BigQuery's COLLATE(x, spec) is a FUNCTION and PostgreSQL's is an operator taking a
     // collation NAME, so the function form is a syntax error outright. An empty spec means
@@ -570,12 +593,14 @@ SELECT 1`;
     // NOT ENFORCED is advisory in BigQuery and has no PostgreSQL equivalent. Translated and
     // commented: enforcing it silently would fail on data that has never been checked, and
     // dropping it silently would lose the declared model.
-    const one = sql("select 1 as id\npost_operations {\n  ALTER TABLE ${self()} ADD PRIMARY KEY (id) NOT ENFORCED;\n}");
+    const one = sql(
+      "select 1 as id\npost_operations {\n  ALTER TABLE ${self()} ADD PRIMARY KEY (id) NOT ENFORCED;\n}",
+    );
     expect(one).to.contain("-- ALTER TABLE ${self()} ADD PRIMARY KEY (id);");
     expect(one).to.not.match(/^\s*ALTER TABLE/m); // nothing left executable
     expect(one).to.contain("-- BigQuery declared the constraint below NOT ENFORCED");
     // The clause is gone from the SQL; the explanation names it on purpose.
-    const executable = one.split("\n").filter(l => !/^\s*(--|\/\/)/.test(l));
+    const executable = one.split("\n").filter((l) => !/^\s*(--|\/\/)/.test(l));
     expect(executable.join("\n")).to.not.contain("NOT ENFORCED");
 
     // Multi-action form, and the DROP preamble is omitted — PostgreSQL has no DROP PRIMARY KEY,

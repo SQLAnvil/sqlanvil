@@ -22,7 +22,7 @@ import {
   projectDirMustExistOption,
   projectDirOption,
   tagsOption,
-  timeoutOption
+  timeoutOption,
 } from "sa/cli/common_options";
 import {
   print,
@@ -31,7 +31,7 @@ import {
   printExecutedAction,
   printExecutionGraph,
   printSuccess,
-  printTestResult
+  printTestResult,
 } from "sa/cli/console";
 import { ProjectConfigArgv, ProjectConfigOptions } from "sa/cli/project_config_options";
 import { actuallyResolve, assertPathExists, compiledGraphHasErrors } from "sa/cli/util";
@@ -65,7 +65,7 @@ interface RunArgv extends ProjectConfigArgv {
 const fullRefreshOption = option("full-refresh", {
   describe: "Forces incremental tables to be rebuilt from scratch.",
   type: "boolean",
-  default: false
+  default: false,
 });
 
 const graphFileOption = option("graph", {
@@ -74,7 +74,7 @@ const graphFileOption = option("graph", {
     "without compiling the project — what executes is exactly what was compiled, including any " +
     "environment overrides baked in at compile time.",
   type: "string",
-  coerce: (rawPath?: string) => (rawPath ? actuallyResolve(rawPath) : rawPath)
+  coerce: (rawPath?: string) => (rawPath ? actuallyResolve(rawPath) : rawPath),
 });
 
 // Deliberately separate from --timeout, which is and stays compile-only (upstream #2247/#2256).
@@ -86,14 +86,14 @@ const executionTimeoutOption = option("execution-timeout", {
   type: "string",
   default: null,
   coerce: (rawTimeoutString: string | null) =>
-    rawTimeoutString ? parseDuration(rawTimeoutString) : null
+    rawTimeoutString ? parseDuration(rawTimeoutString) : null,
 });
 
 const jobPrefixOption = option("job-prefix", {
   describe:
     "BigQuery only. Adds a prefix to BigQuery job IDs, in the form `sqlanvil-${jobPrefix}-`.",
   type: "string",
-  default: null
+  default: null,
 });
 
 const bigqueryJobLabelsOption = option("job-labels", {
@@ -101,7 +101,7 @@ const bigqueryJobLabelsOption = option("job-labels", {
   type: "string",
   coerce: (raw: string | null) => {
     const labels: { [key: string]: string } = {};
-    raw?.split(",").forEach(kv => {
+    raw?.split(",").forEach((kv) => {
       if (!kv) {
         return;
       }
@@ -109,7 +109,7 @@ const bigqueryJobLabelsOption = option("job-labels", {
       labels[key] = rest.join("=") || "";
     });
     return labels;
-  }
+  },
 });
 
 const dryRunOptionName = "dry-run";
@@ -124,16 +124,16 @@ export const runCommand: ICommand = {
     option(dryRunOptionName, {
       describe:
         "If set, BigQuery will validate the run SQL without applying changes to the warehouse.",
-      type: "boolean"
+      type: "boolean",
     }),
     option(runTestsOptionName, {
       describe: "If set, the project's unit tests are required to pass before running the project.",
-      type: "boolean"
+      type: "boolean",
     }),
     option(actionRetryLimitName, {
       describe: "If set, idempotent actions will be retried up to the limit.",
       type: "number",
-      default: 0
+      default: 0,
     }),
     actionsOption,
     credentialsOption,
@@ -148,13 +148,13 @@ export const runCommand: ICommand = {
     jobPrefixOption,
     bigqueryJobLabelsOption,
     artifactsOption,
-    ...ProjectConfigOptions.allYargsOptions
+    ...ProjectConfigOptions.allYargsOptions,
   ],
   processFn: async (argv: RunArgv) => {
     if (argv[jsonOutputOption.name] && !argv[dryRunOptionName]) {
       print(
         `For execution, the --${jsonOutputOption.name} option is only supported if the ` +
-          `--${dryRunOptionName} option is enabled`
+          `--${dryRunOptionName} option is enabled`,
       );
       return;
     }
@@ -168,29 +168,25 @@ export const runCommand: ICommand = {
         printError(
           `--${graphFileOption.name} runs a frozen graph: its environment overrides were baked ` +
             `in at compile time. Compile with --environment instead, and pass --credentials ` +
-            `explicitly for this run.`
+            `explicitly for this run.`,
         );
         return 1;
       }
       assertPathExists(graphPath);
       try {
         compiledGraph = sqlanvil.CompiledGraph.fromObject(
-          JSON.parse(fs.readFileSync(graphPath, "utf8"))
+          JSON.parse(fs.readFileSync(graphPath, "utf8")),
         );
       } catch (e) {
         printError(`Failed to load compiled graph from ${graphPath}: ${(e as Error).message}`);
         return 1;
       }
       const graphCore = compiledGraph.sqlanvilCoreVersion;
-      const majorMinor = (v: string) =>
-        v
-          .split(".")
-          .slice(0, 2)
-          .join(".");
+      const majorMinor = (v: string) => v.split(".").slice(0, 2).join(".");
       if (graphCore && majorMinor(graphCore) !== majorMinor(sqlanvilVersion)) {
         print(
           `WARNING: graph was compiled by core ${graphCore}; this CLI is ${sqlanvilVersion}. ` +
-            `Recompile the graph if the run misbehaves.\n`
+            `Recompile the graph if the run misbehaves.\n`,
         );
       }
       if (!argv[jsonOutputOption.name]) {
@@ -204,9 +200,9 @@ export const runCommand: ICommand = {
         projectDir: argv[projectDirOption.name],
         projectConfigOverride: projectConfigOverrideWithEnvironment(
           argv[projectDirOption.name],
-          argv
+          argv,
         ),
-        timeoutMillis: argv[timeoutOption.name] || undefined
+        timeoutMillis: argv[timeoutOption.name] || undefined,
       });
       if (!argv[jsonOutputOption.name] && !compiledGraphHasErrors(compiledGraph)) {
         printSuccess("Compiled successfully.\n");
@@ -227,7 +223,7 @@ export const runCommand: ICommand = {
       if (graphPath) {
         printError(
           `--${dryRunOptionName} on ${warehouse} validates by recompiling the project source, ` +
-            `which --${graphFileOption.name} bypasses. Run \`sqlanvil validate\` on the project instead.`
+            `which --${graphFileOption.name} bypasses. Run \`sqlanvil validate\` on the project instead.`,
         );
         return 1;
       }
@@ -236,7 +232,7 @@ export const runCommand: ICommand = {
 
     const readCredentials = credentials.read(
       credentialsPathWithEnvironment(argv[projectDirOption.name], argv),
-      warehouse
+      warehouse,
     );
 
     let dbadapter: IDbAdapter;
@@ -257,9 +253,9 @@ export const runCommand: ICommand = {
         includeDependencies: argv[includeDepsOption.name],
         includeDependents: argv[includeDependentsOption.name],
         tags: argv[tagsOption.name],
-        timeoutMillis: argv[executionTimeoutOption.name] || undefined
+        timeoutMillis: argv[executionTimeoutOption.name] || undefined,
       },
-      dbadapter
+      dbadapter,
     );
 
     if (argv[dryRunOptionName] && argv[jsonOutputOption.name]) {
@@ -270,8 +266,8 @@ export const runCommand: ICommand = {
     if (argv[runTestsOptionName]) {
       print(`Running ${compiledGraph.tests.length} unit tests...\n`);
       const testResults = await test(dbadapter, compiledGraph.tests);
-      testResults.forEach(testResult => printTestResult(testResult));
-      if (testResults.some(testResult => !testResult.successful)) {
+      testResults.forEach((testResult) => printTestResult(testResult));
+      if (testResults.some((testResult) => !testResult.successful)) {
         printError("\nUnit tests did not pass; aborting run.");
         return 1;
       }
@@ -279,7 +275,7 @@ export const runCommand: ICommand = {
     }
 
     let bigqueryOptions: {} = {
-      actionRetryLimit: argv[actionRetryLimitName]
+      actionRetryLimit: argv[actionRetryLimitName],
     };
     if (argv[dryRunOptionName]) {
       bigqueryOptions = { ...bigqueryOptions, dryRun: argv[dryRunOptionName] };
@@ -292,7 +288,7 @@ export const runCommand: ICommand = {
     }
 
     const actionsByName = new Map<string, sqlanvil.IExecutionAction>();
-    executionGraph.actions.forEach(action => {
+    executionGraph.actions.forEach((action) => {
       actionsByName.set(targetAsReadableString(action.target), action);
     });
 
@@ -304,14 +300,14 @@ export const runCommand: ICommand = {
     // Source-connection creds for FDW-bridge user mappings. Read here (not in the
     // --dry-run --json path above) and validated fail-fast before anything executes.
     const connectionCredentials = credentials.readConnections(
-      credentialsPathWithEnvironment(argv[projectDirOption.name], argv)
+      credentialsPathWithEnvironment(argv[projectDirOption.name], argv),
     );
     assertConnectionCredentialsAvailable(executionGraph, connectionCredentials);
 
     // For runner-side DuckDB exports (Postgres/Supabase): the source DB connection to
     // ATTACH, plus object-store credentials. Ignored on BigQuery (exports run in-engine).
     const storageCredentials = credentials.readStorageCredentials(
-      credentialsPathWithEnvironment(argv[projectDirOption.name], argv)
+      credentialsPathWithEnvironment(argv[projectDirOption.name], argv),
     );
     const isPostgresLike =
       warehouse.toLowerCase() === "postgres" || warehouse.toLowerCase() === "supabase";
@@ -329,7 +325,7 @@ export const runCommand: ICommand = {
       storageCredentials,
       // For script actions: the cwd the script runs in (projectDirOption is coerced to
       // an absolute path).
-      projectDir: argv[projectDirOption.name]
+      projectDir: argv[projectDirOption.name],
     });
     process.on("SIGINT", () => {
       runner.cancel();
@@ -340,17 +336,17 @@ export const runCommand: ICommand = {
     const printExecutedGraph = (executedGraph: sqlanvil.IRunResult) => {
       executedGraph.actions
         .filter(
-          actionResult => actionResult.status !== sqlanvil.ActionResult.ExecutionStatus.RUNNING
+          (actionResult) => actionResult.status !== sqlanvil.ActionResult.ExecutionStatus.RUNNING,
         )
         .filter(
-          executedAction =>
-            !alreadyPrintedActions.has(targetAsReadableString(executedAction.target))
+          (executedAction) =>
+            !alreadyPrintedActions.has(targetAsReadableString(executedAction.target)),
         )
-        .forEach(executedAction => {
+        .forEach((executedAction) => {
           printExecutedAction(
             executedAction,
             actionsByName.get(targetAsReadableString(executedAction.target)),
-            argv[dryRunOptionName]
+            argv[dryRunOptionName],
           );
           alreadyPrintedActions.add(targetAsReadableString(executedAction.target));
         });
@@ -374,9 +370,9 @@ export const runCommand: ICommand = {
       await safeWriteArtifacts(compiledGraph, argv[projectDirOption.name], {
         runResult,
         runId: Date.now(),
-        warn: print
+        warn: print,
       });
     }
     return runResult.status === sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL ? 0 : 1;
-  }
+  },
 };

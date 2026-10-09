@@ -42,8 +42,8 @@ suite("readStorageCredentials", ({ afterEach }) => {
       p,
       JSON.stringify({
         host: "h",
-        storage: { s3: { endpoint: "e", accessKeyId: "k", secretAccessKey: "s" } }
-      })
+        storage: { s3: { endpoint: "e", accessKeyId: "k", secretAccessKey: "s" } },
+      }),
     );
     const storage = readStorageCredentials(p);
     expect(storage.s3.endpoint).equals("e");

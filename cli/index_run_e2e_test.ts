@@ -9,7 +9,7 @@ import {
   CREDENTIALS_PATH,
   DEFAULT_DATABASE,
   DEFAULT_LOCATION,
-  DEFAULT_RESERVATION
+  DEFAULT_RESERVATION,
 } from "sa/cli/index_test_base";
 import { version } from "sa/core/version";
 import { sqlanvil } from "sa/protos/ts";
@@ -27,12 +27,21 @@ suite("run e2e", ({ afterEach }) => {
 
     // Initialize a project using the CLI, don't install packages.
     await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION, "--warehouse", "bigquery", "--bare"])
+      execFile(nodePath, [
+        cliEntryPointPath,
+        "init",
+        projectDir,
+        DEFAULT_DATABASE,
+        DEFAULT_LOCATION,
+        "--warehouse",
+        "bigquery",
+        "--bare",
+      ]),
     );
 
     // Install packages manually to get around bazel read-only sandbox issues.
     const workflowSettings = sqlanvil.WorkflowSettings.create(
-      loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+      loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
     );
     delete workflowSettings.sqlanvilCoreVersion;
     fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
@@ -42,7 +51,7 @@ suite("run e2e", ({ afterEach }) => {
   "dependencies":{
     "@sqlanvil/core": "${version}"
   }
-}`
+}`,
     );
     await getProcessResult(
       execFile(npmPath, [
@@ -51,8 +60,8 @@ suite("run e2e", ({ afterEach }) => {
         projectDir,
         "--cache",
         npmCacheDir,
-        corePackageTarPath
-      ])
+        corePackageTarPath,
+      ]),
     );
 
     // Write a simple file to the project.
@@ -63,7 +72,7 @@ suite("run e2e", ({ afterEach }) => {
       `
 config { type: "table", tags: ["someTag"] }
 select 1 as \${sqlanvil.projectConfig.vars.testVar2}
-`
+`,
     );
 
     // Compile the project using the CLI.
@@ -74,8 +83,8 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
         projectDir,
         "--json",
         "--vars=testVar1=testValue1,testVar2=testValue2",
-        "--schema-suffix=test_schema_suffix"
-      ])
+        "--schema-suffix=test_schema_suffix",
+      ]),
     );
 
     expect(compileResult.exitCode).equals(0);
@@ -88,19 +97,19 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
           target: {
             database: DEFAULT_DATABASE,
             schema: "sqlanvil_test_schema_suffix",
-            name: "example"
+            name: "example",
           },
           canonicalTarget: {
             schema: "sqlanvil",
             name: "example",
-            database: DEFAULT_DATABASE
+            database: DEFAULT_DATABASE,
           },
           query: "\n\nselect 1 as testValue2\n",
           disabled: false,
           fileName: "definitions/example.sqlx",
           hermeticity: "NON_HERMETIC",
-          tags: ["someTag"]
-        }
+          tags: ["someTag"],
+        },
       ],
       projectConfig: {
         warehouse: "bigquery",
@@ -110,9 +119,9 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
         defaultLocation: DEFAULT_LOCATION,
         vars: {
           testVar1: "testValue1",
-          testVar2: "testValue2"
+          testVar2: "testValue2",
         },
-        schemaSuffix: "test_schema_suffix"
+        schemaSuffix: "test_schema_suffix",
       },
       graphErrors: {},
       jitData: {},
@@ -121,9 +130,9 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
         {
           database: DEFAULT_DATABASE,
           schema: "sqlanvil",
-          name: "example"
-        }
-      ]
+          name: "example",
+        },
+      ],
     });
 
     // Dry run the project.
@@ -139,8 +148,8 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
         "--vars=testVar1=testValue1,testVar2=testValue2",
         "--default-location=europe",
         "--tags=someTag,someOtherTag",
-        "--actions=example,someOtherAction"
-      ])
+        "--actions=example,someOtherAction",
+      ]),
     );
 
     if (runResult.exitCode !== 0 || runResult.stdout.trim().length === 0) {
@@ -158,18 +167,18 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
           target: {
             database: DEFAULT_DATABASE,
             name: "example",
-            schema: "sqlanvil"
+            schema: "sqlanvil",
           },
           tasks: [
             {
               statement:
                 // tslint:disable-next-line:tsr-detect-sql-literal-injection
                 `create or replace table \`${DEFAULT_DATABASE}.sqlanvil.example\` as \n\nselect 1 as testValue2`,
-              type: "statement"
-            }
+              type: "statement",
+            },
           ],
           type: "table",
-        }
+        },
       ],
       projectConfig: {
         assertionSchema: "sqlanvil_assertions",
@@ -179,15 +188,15 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
         warehouse: "bigquery",
         vars: {
           testVar1: "testValue1",
-          testVar2: "testValue2"
-        }
+          testVar2: "testValue2",
+        },
       },
       runConfig: {
         fullRefresh: false,
         tags: ["someTag", "someOtherTag"],
-        actions: ["example", "someOtherAction"]
+        actions: ["example", "someOtherAction"],
       },
-      warehouseState: {}
+      warehouseState: {},
     });
   });
 
@@ -199,12 +208,21 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
       const packageJsonPath = path.join(projectDir, "package.json");
 
       await getProcessResult(
-        execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION, "--warehouse", "bigquery", "--bare"])
+        execFile(nodePath, [
+          cliEntryPointPath,
+          "init",
+          projectDir,
+          DEFAULT_DATABASE,
+          DEFAULT_LOCATION,
+          "--warehouse",
+          "bigquery",
+          "--bare",
+        ]),
       );
 
       const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
       const workflowSettings = sqlanvil.WorkflowSettings.create(
-        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
       );
       delete workflowSettings.sqlanvilCoreVersion;
       fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
@@ -215,7 +233,7 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
   "dependencies":{
     "@sqlanvil/core": "${version}"
   }
-}`
+}`,
       );
       await getProcessResult(
         execFile(npmPath, [
@@ -224,8 +242,8 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
           projectDir,
           "--cache",
           npmCacheDir,
-          corePackageTarPath
-        ])
+          corePackageTarPath,
+        ]),
       );
 
       const assertionFilePath = path.join(projectDir, "definitions", "test_assertion.sqlx");
@@ -235,7 +253,7 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
         `
 config { type: "assertion" }
 SELECT 1 WHERE FALSE
-`
+`,
       );
 
       const tableFilePath = path.join(projectDir, "definitions", "example_table.sqlx");
@@ -250,14 +268,14 @@ config {
   }
 }
 SELECT 1 as id
-`
+`,
       );
     }
 
     async function setUpWorkflowSettings(disableAssertions: boolean): Promise<void> {
       const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
       const workflowSettings = sqlanvil.WorkflowSettings.create(
-        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
       );
       delete workflowSettings.sqlanvilCoreVersion;
       workflowSettings.disableAssertions = disableAssertions;
@@ -275,15 +293,15 @@ SELECT 1 as id
           target: {
             database: DEFAULT_DATABASE,
             name: "example_table",
-            schema: "sqlanvil"
+            schema: "sqlanvil",
           },
           tasks: [
             {
               statement:
                 // tslint:disable-next-line:tsr-detect-sql-literal-injection
                 `create or replace table \`${DEFAULT_DATABASE}.sqlanvil.example_table\` as \n\nSELECT 1 as id`,
-              type: "statement"
-            }
+              type: "statement",
+            },
           ],
           type: "table",
         },
@@ -293,10 +311,10 @@ SELECT 1 as id
           target: {
             database: DEFAULT_DATABASE,
             name: "test_assertion",
-            schema: "sqlanvil_assertions"
+            schema: "sqlanvil_assertions",
           },
           type: "assertion",
-        }
+        },
       ],
       projectConfig: {
         assertionSchema: "sqlanvil_assertions",
@@ -304,13 +322,13 @@ SELECT 1 as id
         defaultLocation: DEFAULT_LOCATION,
         defaultSchema: "sqlanvil",
         disableAssertions: true,
-        warehouse: "bigquery"
+        warehouse: "bigquery",
       },
       runConfig: {
         actions: ["test_assertion", "example_table"],
-        fullRefresh: false
+        fullRefresh: false,
       },
-      warehouseState: {}
+      warehouseState: {},
     };
 
     test("with --disable-assertions flag", async () => {
@@ -326,8 +344,8 @@ SELECT 1 as id
           "--dry-run",
           "--json",
           "--disable-assertions",
-          "--actions=test_assertion,example_table"
-        ])
+          "--actions=test_assertion,example_table",
+        ]),
       );
 
       if (runResult.exitCode !== 0 || runResult.stdout.trim().length === 0) {
@@ -350,8 +368,8 @@ SELECT 1 as id
           CREDENTIALS_PATH,
           "--dry-run",
           "--json",
-          "--actions=test_assertion,example_table"
-        ])
+          "--actions=test_assertion,example_table",
+        ]),
       );
 
       if (runResult.exitCode !== 0 || runResult.stdout.trim().length === 0) {
@@ -376,8 +394,8 @@ SELECT 1 as id
           "--json",
           "--disable-assertions",
           "--actions=test_assertion,example_table",
-          "--job-labels=env=testing,team=sqlanvil"
-        ])
+          "--job-labels=env=testing,team=sqlanvil",
+        ]),
       );
 
       if (runResult.exitCode !== 0 || runResult.stdout.trim().length === 0) {
@@ -389,7 +407,6 @@ SELECT 1 as id
     });
   });
 
-
   suite("--default-reservation flag", ({ beforeEach }) => {
     const projectDir = tmpDirFixture.createNewTmpDir();
 
@@ -399,12 +416,21 @@ SELECT 1 as id
       const packageJsonPath = path.join(projectDir, "package.json");
 
       await getProcessResult(
-        execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION, "--warehouse", "bigquery", "--bare"])
+        execFile(nodePath, [
+          cliEntryPointPath,
+          "init",
+          projectDir,
+          DEFAULT_DATABASE,
+          DEFAULT_LOCATION,
+          "--warehouse",
+          "bigquery",
+          "--bare",
+        ]),
       );
 
       // Remove sqlanvilCoreVersion so we can use the local package.
       const workflowSettings = sqlanvil.WorkflowSettings.create(
-        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
       );
       delete workflowSettings.sqlanvilCoreVersion;
       fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
@@ -415,7 +441,7 @@ SELECT 1 as id
   "dependencies":{
     "@sqlanvil/core": "${version}"
   }
-}`
+}`,
       );
       await getProcessResult(
         execFile(npmPath, [
@@ -424,8 +450,8 @@ SELECT 1 as id
           projectDir,
           "--cache",
           npmCacheDir,
-          corePackageTarPath
-        ])
+          corePackageTarPath,
+        ]),
       );
 
       const tableFilePath = path.join(projectDir, "definitions", "example_table.sqlx");
@@ -435,7 +461,7 @@ SELECT 1 as id
         `
 config { type: "table" }
 SELECT 1 as id
-`
+`,
       );
     });
 
@@ -446,8 +472,8 @@ SELECT 1 as id
           "compile",
           projectDir,
           "--json",
-          `--default-reservation=${DEFAULT_RESERVATION}`
-        ])
+          `--default-reservation=${DEFAULT_RESERVATION}`,
+        ]),
       );
 
       expect(compileResult.exitCode).equals(0);
@@ -458,7 +484,7 @@ SELECT 1 as id
         assertionSchema: "sqlanvil_assertions",
         defaultDatabase: DEFAULT_DATABASE,
         defaultLocation: DEFAULT_LOCATION,
-        defaultReservation: DEFAULT_RESERVATION
+        defaultReservation: DEFAULT_RESERVATION,
       });
     });
 
@@ -473,8 +499,8 @@ SELECT 1 as id
           "--dry-run",
           "--json",
           `--default-reservation=${DEFAULT_RESERVATION}`,
-          "--actions=example_table"
-        ])
+          "--actions=example_table",
+        ]),
       );
 
       expect(runResult.exitCode).equals(0);
@@ -485,7 +511,7 @@ SELECT 1 as id
         assertionSchema: "sqlanvil_assertions",
         defaultDatabase: DEFAULT_DATABASE,
         defaultLocation: DEFAULT_LOCATION,
-        defaultReservation: DEFAULT_RESERVATION
+        defaultReservation: DEFAULT_RESERVATION,
       });
     });
   });
@@ -498,12 +524,21 @@ SELECT 1 as id
 
     // Initialize a project using the CLI, don't install packages.
     await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION, "--warehouse", "bigquery", "--bare"])
+      execFile(nodePath, [
+        cliEntryPointPath,
+        "init",
+        projectDir,
+        DEFAULT_DATABASE,
+        DEFAULT_LOCATION,
+        "--warehouse",
+        "bigquery",
+        "--bare",
+      ]),
     );
 
     // Install packages manually to get around bazel read-only sandbox issues.
     const workflowSettings = sqlanvil.WorkflowSettings.create(
-      loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+      loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
     );
     delete workflowSettings.sqlanvilCoreVersion;
     fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
@@ -513,7 +548,7 @@ SELECT 1 as id
   "dependencies":{
     "@sqlanvil/core": "${version}"
   }
-}`
+}`,
     );
     await getProcessResult(
       execFile(npmPath, [
@@ -522,8 +557,8 @@ SELECT 1 as id
         projectDir,
         "--cache",
         npmCacheDir,
-        corePackageTarPath
-      ])
+        corePackageTarPath,
+      ]),
     );
 
     // Write a simple file to the project.
@@ -534,7 +569,7 @@ SELECT 1 as id
       `
 config { type: "table" }
 select 1
-`
+`,
     );
     // Write a simple test to the project.
     const unitTestPath = path.join(projectDir, "definitions", "example_test.sqlx");
@@ -544,7 +579,7 @@ select 1
       `
 config { type: "test", dataset: "example" }
 select 1
-`
+`,
     );
 
     // Run tests using the CLI.
@@ -556,15 +591,17 @@ select 1
         "--credentials",
         CREDENTIALS_PATH,
         "--json",
-      ])
+      ]),
     );
 
     expect(testResult.exitCode).equals(0);
 
-    expect(JSON.parse(testResult.stdout)).deep.equals([    {
-      "name": "example_test",
-      "successful": true,
-    }]);
+    expect(JSON.parse(testResult.stdout)).deep.equals([
+      {
+        name: "example_test",
+        successful: true,
+      },
+    ]);
   });
 
   test("golden with failed unit test", async () => {
@@ -575,12 +612,21 @@ select 1
 
     // Initialize a project using the CLI, don't install packages.
     await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION, "--warehouse", "bigquery", "--bare"])
+      execFile(nodePath, [
+        cliEntryPointPath,
+        "init",
+        projectDir,
+        DEFAULT_DATABASE,
+        DEFAULT_LOCATION,
+        "--warehouse",
+        "bigquery",
+        "--bare",
+      ]),
     );
 
     // Install packages manually to get around bazel read-only sandbox issues.
     const workflowSettings = sqlanvil.WorkflowSettings.create(
-      loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+      loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
     );
     delete workflowSettings.sqlanvilCoreVersion;
     fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
@@ -590,7 +636,7 @@ select 1
   "dependencies":{
     "@sqlanvil/core": "${version}"
   }
-}`
+}`,
     );
     await getProcessResult(
       execFile(npmPath, [
@@ -599,8 +645,8 @@ select 1
         projectDir,
         "--cache",
         npmCacheDir,
-        corePackageTarPath
-      ])
+        corePackageTarPath,
+      ]),
     );
 
     // Write a simple file to the project.
@@ -611,7 +657,7 @@ select 1
       `
 config { type: "table" }
 select 1
-`
+`,
     );
     // Write a simple test to the project.
     const unitTestPath = path.join(projectDir, "definitions", "example_test.sqlx");
@@ -621,7 +667,7 @@ select 1
       `
 config { type: "test", dataset: "example" }
 select 2
-`
+`,
     );
 
     // Run tests using the CLI.
@@ -633,18 +679,18 @@ select 2
         "--credentials",
         CREDENTIALS_PATH,
         "--json",
-      ])
+      ]),
     );
 
     expect(testResult.exitCode).equals(1);
 
-    expect(JSON.parse(testResult.stdout)).deep.equals([{
-      "name": "example_test",
-      "successful": false,
-      messages: [
-        "For row 0 and column \"f0_\": expected \"2\", but saw \"1\"."
-      ]
-    }]);
+    expect(JSON.parse(testResult.stdout)).deep.equals([
+      {
+        name: "example_test",
+        successful: false,
+        messages: ['For row 0 and column "f0_": expected "2", but saw "1".'],
+      },
+    ]);
   });
 
   suite("onSchemaChange", ({ beforeEach }) => {
@@ -657,11 +703,20 @@ select 2
       const packageJsonPath = path.join(projectDir, "package.json");
 
       await getProcessResult(
-        execFile(nodePath, [cliEntryPointPath, "init", projectDir, DEFAULT_DATABASE, DEFAULT_LOCATION, "--warehouse", "bigquery", "--bare"])
+        execFile(nodePath, [
+          cliEntryPointPath,
+          "init",
+          projectDir,
+          DEFAULT_DATABASE,
+          DEFAULT_LOCATION,
+          "--warehouse",
+          "bigquery",
+          "--bare",
+        ]),
       );
 
       const workflowSettings = sqlanvil.WorkflowSettings.create(
-        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
       );
       delete workflowSettings.sqlanvilCoreVersion;
       workflowSettings.defaultDataset = uniqueDataset;
@@ -673,7 +728,7 @@ select 2
   "dependencies":{
     "@sqlanvil/core": "${version}"
   }
-}`
+}`,
       );
       await getProcessResult(
         execFile(npmPath, [
@@ -682,8 +737,8 @@ select 2
           projectDir,
           "--cache",
           npmCacheDir,
-          corePackageTarPath
-        ])
+          corePackageTarPath,
+        ]),
       );
 
       fs.ensureFileSync(path.join(projectDir, "definitions", "setup_table.sqlx"));
@@ -694,7 +749,7 @@ config {
   type: "operations"
 }
 CREATE OR REPLACE TABLE \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.projectConfig.defaultSchema}.example_incremental\` AS SELECT 1 AS id, 'old' AS field1
-`
+`,
       );
 
       fs.ensureFileSync(path.join(projectDir, "definitions", "example_incremental.sqlx"));
@@ -706,7 +761,7 @@ config {
   onSchemaChange: "EXTEND"
 }
 SELECT 1 as id, 'new' as field1, 'new2' as field2
-`
+`,
       );
 
       fs.ensureFileSync(path.join(projectDir, "definitions", "teardown_schema.sqlx"));
@@ -717,96 +772,102 @@ config {
   type: "operations"
 }
 DROP SCHEMA IF EXISTS \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.projectConfig.defaultSchema}\` CASCADE
-`
+`,
       );
     });
 
-    test("generates dynamic SQL for EXTEND when table exists in BigQuery", { timeout: 120000 }, async () => {
-      try {
-        // Run setup operation to create the table in BigQuery.
-        // sqlanvil will automatically create the uniqueDataset schema.
-        await getProcessResult(
-          execFile(nodePath, [
-            cliEntryPointPath,
-            "run",
-            projectDir,
-            "--credentials",
-            CREDENTIALS_PATH,
-            "--actions=setup_table"
-          ])
-        );
+    test(
+      "generates dynamic SQL for EXTEND when table exists in BigQuery",
+      { timeout: 120000 },
+      async () => {
+        try {
+          // Run setup operation to create the table in BigQuery.
+          // sqlanvil will automatically create the uniqueDataset schema.
+          await getProcessResult(
+            execFile(nodePath, [
+              cliEntryPointPath,
+              "run",
+              projectDir,
+              "--credentials",
+              CREDENTIALS_PATH,
+              "--actions=setup_table",
+            ]),
+          );
 
-        // Run the incremental table in dry-run mode. 
-        // sqlanvil will detect the table exists and generate the dynamic procedural SQL.
-        const runResult = await getProcessResult(
-          execFile(nodePath, [
-            cliEntryPointPath,
-            "run",
-            projectDir,
-            "--credentials",
-            CREDENTIALS_PATH,
-            "--dry-run",
-            "--json",
-            "--actions=example_incremental"
-          ])
-        );
+          // Run the incremental table in dry-run mode.
+          // sqlanvil will detect the table exists and generate the dynamic procedural SQL.
+          const runResult = await getProcessResult(
+            execFile(nodePath, [
+              cliEntryPointPath,
+              "run",
+              projectDir,
+              "--credentials",
+              CREDENTIALS_PATH,
+              "--dry-run",
+              "--json",
+              "--actions=example_incremental",
+            ]),
+          );
 
-        expect(runResult.exitCode).equals(0);
-        const executionGraph = JSON.parse(runResult.stdout);
-        const statement = executionGraph.actions[0].tasks[0].statement;
+          expect(runResult.exitCode).equals(0);
+          const executionGraph = JSON.parse(runResult.stdout);
+          const statement = executionGraph.actions[0].tasks[0].statement;
 
-        const expectedRunResult = {
-          projectConfig: {
-            warehouse: "bigquery",
-            defaultSchema: uniqueDataset,
-            assertionSchema: "sqlanvil_assertions",
-            defaultDatabase: DEFAULT_DATABASE,
-            defaultLocation: DEFAULT_LOCATION
-          },
-          runConfig: {
-            actions: ["example_incremental"],
-            fullRefresh: false
-          },
-          actions: [
-            {
-              fileName: "definitions/example_incremental.sqlx",
-              hermeticity: "NON_HERMETIC",
-              tableType: "incremental",
-              target: {
-                database: DEFAULT_DATABASE,
-                name: "example_incremental",
-                schema: uniqueDataset
+          const expectedRunResult = {
+            projectConfig: {
+              warehouse: "bigquery",
+              defaultSchema: uniqueDataset,
+              assertionSchema: "sqlanvil_assertions",
+              defaultDatabase: DEFAULT_DATABASE,
+              defaultLocation: DEFAULT_LOCATION,
+            },
+            runConfig: {
+              actions: ["example_incremental"],
+              fullRefresh: false,
+            },
+            actions: [
+              {
+                fileName: "definitions/example_incremental.sqlx",
+                hermeticity: "NON_HERMETIC",
+                tableType: "incremental",
+                target: {
+                  database: DEFAULT_DATABASE,
+                  name: "example_incremental",
+                  schema: uniqueDataset,
+                },
+                tasks: [
+                  {
+                    statement,
+                    type: "statement",
+                  },
+                ],
+                type: "table",
               },
-              tasks: [
-                {
-                  statement,
-                  type: "statement"
-                }
-              ],
-              type: "table"
-            }
-          ],
-          warehouseState: executionGraph.warehouseState
-        };
-        
-        expect(executionGraph).deep.equals(expectedRunResult);
-        expect(statement).to.include("CREATE OR REPLACE PROCEDURE");
-        expect(statement).to.include("Column removals are not allowed when on_schema_change = 'EXTEND'.");
-        expect(statement).to.include("ALTER TABLE");
-        expect(statement).to.include("ADD COLUMN IF NOT EXISTS");
-      } finally {
-        // Teardown the schema completely, regardless of test success or failure.
-        await getProcessResult(
-          execFile(nodePath, [
-            cliEntryPointPath,
-            "run",
-            projectDir,
-            "--credentials",
-            CREDENTIALS_PATH,
-            "--actions=teardown_schema"
-          ])
-        );
-      }
-    });
+            ],
+            warehouseState: executionGraph.warehouseState,
+          };
+
+          expect(executionGraph).deep.equals(expectedRunResult);
+          expect(statement).to.include("CREATE OR REPLACE PROCEDURE");
+          expect(statement).to.include(
+            "Column removals are not allowed when on_schema_change = 'EXTEND'.",
+          );
+          expect(statement).to.include("ALTER TABLE");
+          expect(statement).to.include("ADD COLUMN IF NOT EXISTS");
+        } finally {
+          // Teardown the schema completely, regardless of test success or failure.
+          await getProcessResult(
+            execFile(nodePath, [
+              cliEntryPointPath,
+              "run",
+              projectDir,
+              "--credentials",
+              CREDENTIALS_PATH,
+              "--actions=teardown_schema",
+            ]),
+          );
+        }
+      },
+    );
   });
 });

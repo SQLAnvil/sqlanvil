@@ -18,7 +18,7 @@ export class TmpDirFixture {
   public createNewTmpDir() {
     // TEST_TMPDIR is set by bazel.
     const tmpDirPath = path.resolve(
-      path.join(process.env.TEST_TMPDIR, `tmp_dir_${TmpDirFixture.dirCounter++}`)
+      path.join(process.env.TEST_TMPDIR, `tmp_dir_${TmpDirFixture.dirCounter++}`),
     );
     // tslint:disable-next-line: tsr-detect-non-literal-fs-filename
     fs.mkdirSync(tmpDirPath);

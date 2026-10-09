@@ -17,7 +17,7 @@ export class MySqlPoolExecutor {
       waitForConnections: true,
       // Generated SQL runs one statement per task; disabling multi-statement
       // execution keeps a single bad statement from chaining unexpected effects.
-      multipleStatements: false
+      multipleStatements: false,
     });
   }
 
@@ -39,7 +39,7 @@ export class MySqlPoolExecutor {
   public async withClientLock<T>(
     callback: (client: {
       execute(statement: string, options?: { params?: any[]; rowLimit?: number }): Promise<any[]>;
-    }) => Promise<T>
+    }) => Promise<T>,
   ): Promise<T> {
     const conn = await this.pool.getConnection();
     // Release exactly once — from the finally below. A second release would trip
@@ -56,7 +56,7 @@ export class MySqlPoolExecutor {
       return await callback({
         execute: async (
           statement: string,
-          options: { params?: any[]; rowLimit?: number } = { rowLimit: 1000 }
+          options: { params?: any[]; rowLimit?: number } = { rowLimit: 1000 },
         ): Promise<any[]> => {
           const [rows] = await conn.query(statement, options.params || []);
           const arr = Array.isArray(rows) ? (rows as any[]) : [];
@@ -66,7 +66,7 @@ export class MySqlPoolExecutor {
           return options.rowLimit && arr.length > options.rowLimit
             ? arr.slice(0, options.rowLimit)
             : arr;
-        }
+        },
       });
     } finally {
       releaseOnce();

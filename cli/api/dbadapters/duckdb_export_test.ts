@@ -4,7 +4,7 @@ import {
   buildAttachSql,
   buildCopySql,
   buildSecretSql,
-  schemeOf
+  schemeOf,
 } from "sa/cli/api/dbadapters/duckdb_export";
 import { suite, test } from "sa/testing";
 
@@ -27,7 +27,7 @@ suite("duckdb_export builders", () => {
       endpoint: "ref.supabase.co/storage/v1/s3",
       accessKeyId: "AK",
       secretAccessKey: "SK",
-      region: "us-east-1"
+      region: "us-east-1",
     });
     expect(s).contains("CREATE OR REPLACE SECRET sa_export");
     expect(s).contains("TYPE s3");

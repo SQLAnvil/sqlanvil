@@ -31,5 +31,5 @@ export const docsCommand: ICommand = {
     "last-run status) at target/docs/index.html, from the artifacts.",
   positionalOptions: [projectDirOption],
   options: [],
-  processFn: async (argv: any) => runDocs(argv[projectDirOption.name])
+  processFn: async (argv: any) => runDocs(argv[projectDirOption.name]),
 };

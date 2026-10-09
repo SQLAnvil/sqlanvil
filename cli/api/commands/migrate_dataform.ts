@@ -171,7 +171,7 @@ function walkFiles(root: string): string[] {
   const walk = (rel: string) => {
     for (const entry of fs.readdirSync(path.join(root, rel), { withFileTypes: true })) {
       const relPath = rel ? `${rel}/${entry.name}` : entry.name;
-      if (SAFETY_SKIP.some(re => re.test(relPath) || re.test(relPath + "/"))) {
+      if (SAFETY_SKIP.some((re) => re.test(relPath) || re.test(relPath + "/"))) {
         skippedForSafety.add(relPath);
         continue;
       }
@@ -277,7 +277,10 @@ export interface ParsedSqlxConfig {
 
 export function parseSqlxConfig(body: string): ParsedSqlxConfig {
   let database = str("database", body);
-  if (!database && /database\s*:\s*(dataform|sqlanvil)\.projectConfig\.defaultDatabase/.test(body)) {
+  if (
+    !database &&
+    /database\s*:\s*(dataform|sqlanvil)\.projectConfig\.defaultDatabase/.test(body)
+  ) {
     database = "<defaultDatabase>";
   }
   return {
@@ -314,7 +317,13 @@ interface Rule {
  * unattended and bring only the genuine questions to the user.
  */
 const CLASS_META: {
-  [id: string]: { title: string; severity: FindingSeverity; owner: FindingOwner; postgres?: string; why?: string };
+  [id: string]: {
+    title: string;
+    severity: FindingSeverity;
+    owner: FindingOwner;
+    postgres?: string;
+    why?: string;
+  };
 } = {
   qualify: {
     title: "QUALIFY clause",
@@ -439,8 +448,8 @@ const CLASS_META: {
  */
 function analyseStructArrays(report: MigrationReport, outDir: string): void {
   const files = report.files
-    .filter(f => f.file.endsWith(".sqlx"))
-    .map(f => {
+    .filter((f) => f.file.endsWith(".sqlx"))
+    .map((f) => {
       try {
         return { file: f.file, source: fs.readFileSync(path.join(outDir, f.file), "utf8") };
       } catch {
@@ -449,13 +458,13 @@ function analyseStructArrays(report: MigrationReport, outDir: string): void {
     })
     .filter((f): f is { file: string; source: string } => f !== null);
 
-  const raw = files.flatMap(f => findStructArrays(f.file, f.source));
+  const raw = files.flatMap((f) => findStructArrays(f.file, f.source));
   if (!raw.length) return;
   const sites = chooseStrategies(raw, files);
 
   // The generic flag is replaced: it said "consider jsonb or a composite type" for every site,
   // which is the same sentence whether the array is dead weight or load-bearing.
-  report.todo = report.todo.filter(t => t.id !== "struct");
+  report.todo = report.todo.filter((t) => t.id !== "struct");
   const meta = CLASS_META.struct;
   report.todo.push({
     id: "struct",
@@ -465,13 +474,13 @@ function analyseStructArrays(report: MigrationReport, outDir: string): void {
     owner: meta.owner,
     postgres: "per site below — collapse, a child table, or jsonb",
     why: meta.why,
-    sql: sites.map(s => ({
+    sql: sites.map((s) => ({
       file: s.file,
       line: s.line,
       note: `${s.strategy} — ${s.rationale}`,
       sql: suggestedSql(s),
     })),
-    locations: sites.map(s => ({ file: s.file, lines: [s.line] })),
+    locations: sites.map((s) => ({ file: s.file, lines: [s.line] })),
   });
 }
 
@@ -504,7 +513,7 @@ export function buildTriage(report: MigrationReport): void {
           locations: [],
         } as TodoClass);
       entry.count++;
-      const loc = entry.locations.find(l => l.file === file.file);
+      const loc = entry.locations.find((l) => l.file === file.file);
       if (loc) loc.lines.push(f.line);
       else entry.locations.push({ file: file.file, lines: [f.line] });
       todo.set(id, entry);
@@ -573,39 +582,83 @@ const SQL_RULES: Rule[] = [
     note: "GROUP BY ALL — run `sqlanvil migrate-fix` after introspect to rewrite it",
     id: "group-by-all",
   },
-  { pattern: /\bQUALIFY\b/gi, kind: "flag", note: "QUALIFY — rewrite as a subquery/CTE filter on the window function",
-    id: "qualify", },
-  { pattern: /\bUNNEST\s*\(/g, kind: "flag", note: "UNNEST — Postgres unnest() works on arrays only (no STRUCT arrays); verify semantics",
-    id: "unnest", },
-  { pattern: /\bSTRUCT\s*[(<]/g, kind: "flag", note: "STRUCT — no Postgres equivalent; consider jsonb or a composite type",
-    id: "struct", },
-  { pattern: /\bARRAY\s*</g, kind: "flag", note: "ARRAY<T> type syntax — Postgres uses T[]",
-    id: "array-type", },
-  { pattern: /\bFORMAT_DATE\s*\(/g, kind: "flag", note: "FORMAT_DATE → TO_CHAR (different format tokens)",
-    id: "format-date", },
-  { pattern: /\bPARSE_DATE\s*\(/g, kind: "flag", note: "PARSE_DATE → TO_DATE (different format tokens)",
-    id: "parse-date", },
-  { pattern: /\bFORMAT_TIMESTAMP\s*\(/g, kind: "flag", note: "FORMAT_TIMESTAMP → TO_CHAR (different format tokens)",
-    id: "format-date", },
+  {
+    pattern: /\bQUALIFY\b/gi,
+    kind: "flag",
+    note: "QUALIFY — rewrite as a subquery/CTE filter on the window function",
+    id: "qualify",
+  },
+  {
+    pattern: /\bUNNEST\s*\(/g,
+    kind: "flag",
+    note: "UNNEST — Postgres unnest() works on arrays only (no STRUCT arrays); verify semantics",
+    id: "unnest",
+  },
+  {
+    pattern: /\bSTRUCT\s*[(<]/g,
+    kind: "flag",
+    note: "STRUCT — no Postgres equivalent; consider jsonb or a composite type",
+    id: "struct",
+  },
+  {
+    pattern: /\bARRAY\s*</g,
+    kind: "flag",
+    note: "ARRAY<T> type syntax — Postgres uses T[]",
+    id: "array-type",
+  },
+  {
+    pattern: /\bFORMAT_DATE\s*\(/g,
+    kind: "flag",
+    note: "FORMAT_DATE → TO_CHAR (different format tokens)",
+    id: "format-date",
+  },
+  {
+    pattern: /\bPARSE_DATE\s*\(/g,
+    kind: "flag",
+    note: "PARSE_DATE → TO_DATE (different format tokens)",
+    id: "parse-date",
+  },
+  {
+    pattern: /\bFORMAT_TIMESTAMP\s*\(/g,
+    kind: "flag",
+    note: "FORMAT_TIMESTAMP → TO_CHAR (different format tokens)",
+    id: "format-date",
+  },
   {
     pattern: /\b(DATE_ADD|DATE_SUB|TIMESTAMP_ADD|TIMESTAMP_SUB|DATETIME_ADD|DATETIME_SUB)\s*\(/g,
     kind: "flag",
     note: "BigQuery date arithmetic — Postgres uses interval arithmetic (x + INTERVAL '1 day')",
   },
-  { pattern: /\bDATE_DIFF\s*\(/g, kind: "flag", note: "DATE_DIFF — Postgres: subtraction / EXTRACT(EPOCH FROM ...) depending on the part",
-    id: "date-diff-unit", },
-  { pattern: /_PARTITIONTIME|_PARTITIONDATE|_TABLE_SUFFIX/g, kind: "flag", note: "BigQuery pseudo-column has no Postgres equivalent",
-    id: "pseudo-column", },
+  {
+    pattern: /\bDATE_DIFF\s*\(/g,
+    kind: "flag",
+    note: "DATE_DIFF — Postgres: subtraction / EXTRACT(EPOCH FROM ...) depending on the part",
+    id: "date-diff-unit",
+  },
+  {
+    pattern: /_PARTITIONTIME|_PARTITIONDATE|_TABLE_SUFFIX/g,
+    kind: "flag",
+    note: "BigQuery pseudo-column has no Postgres equivalent",
+    id: "pseudo-column",
+  },
   {
     pattern: /\bEXPORT\s+DATA\b/gi,
     kind: "flag",
     note: 'EXPORT DATA — use a sqlanvil `type: "export"` action instead',
     id: "export-data",
   },
-  { pattern: /\bEXECUTE\s+IMMEDIATE\b/gi, kind: "flag", note: "BigQuery scripting (EXECUTE IMMEDIATE) — rewrite as a PL/pgSQL DO block or operations",
-    id: "scripting", },
-  { pattern: /\bGENERATE_UUID\s*\(\s*\)/g, kind: "flag", note: "GENERATE_UUID() → gen_random_uuid()",
-    id: "generate-uuid", },
+  {
+    pattern: /\bEXECUTE\s+IMMEDIATE\b/gi,
+    kind: "flag",
+    note: "BigQuery scripting (EXECUTE IMMEDIATE) — rewrite as a PL/pgSQL DO block or operations",
+    id: "scripting",
+  },
+  {
+    pattern: /\bGENERATE_UUID\s*\(\s*\)/g,
+    kind: "flag",
+    note: "GENERATE_UUID() → gen_random_uuid()",
+    id: "generate-uuid",
+  },
   {
     pattern: /`[A-Za-z0-9_-]+\.[A-Za-z0-9_$]+\.[A-Za-z0-9_$]+`/g,
     kind: "flag",
@@ -618,7 +671,8 @@ const SQL_RULES: Rule[] = [
  * (`database:` is the BigQuery project qualifier — with defaultProject gone it resolves to an
  * empty string and fails config verification; partition/cluster keys translate to postgres:{}.)
  */
-const CONFIG_BQ_KEYS = /^(\s*)(bigquery\s*:|partitionBy\s*:|clusterBy\s*:|requirePartitionFilter\s*:|partitionExpirationDays\s*:|database\s*:)/;
+const CONFIG_BQ_KEYS =
+  /^(\s*)(bigquery\s*:|partitionBy\s*:|clusterBy\s*:|requirePartitionFilter\s*:|partitionExpirationDays\s*:|database\s*:)/;
 
 // ---------------------------------------------------------------------------------------------
 // Per-file transforms
@@ -694,10 +748,10 @@ function blankSpan(text: string, start: number, end: number): string {
  * matched with the literals left alone.
  */
 function maskSql(text: string, keepStrings = false): string {
-  let out = text.replace(/--[^\n]*/g, m => " ".repeat(m.length));
-  out = out.replace(/\/\*[\s\S]*?\*\//g, m => " ".repeat(m.length));
+  let out = text.replace(/--[^\n]*/g, (m) => " ".repeat(m.length));
+  out = out.replace(/\/\*[\s\S]*?\*\//g, (m) => " ".repeat(m.length));
   if (!keepStrings) {
-    out = out.replace(/'(?:[^']|'')*'/g, m => `'${" ".repeat(Math.max(0, m.length - 2))}'`);
+    out = out.replace(/'(?:[^']|'')*'/g, (m) => `'${" ".repeat(Math.max(0, m.length - 2))}'`);
   }
   return out;
 }
@@ -802,7 +856,7 @@ const CALL_RULES: CallRule[] = [
   {
     name: "safe_divide",
     note: "SAFE_DIVIDE(a, b) → a / nullif(b, 0)",
-    rewrite: args => (args.length === 2 ? `(${args[0]} / nullif(${args[1]}, 0))` : null),
+    rewrite: (args) => (args.length === 2 ? `(${args[0]} / nullif(${args[1]}, 0))` : null),
   },
   {
     // BigQuery's COLLATE(x, spec) is a FUNCTION; PostgreSQL's COLLATE is an operator taking a
@@ -810,7 +864,7 @@ const CALL_RULES: CallRule[] = [
     // collation", which is a no-op here.
     name: "collate",
     note: "COLLATE(x, '') → x (collation stripping is a no-op in PostgreSQL)",
-    rewrite: args =>
+    rewrite: (args) =>
       args.length === 2 && (args[1] === "''" || args[1] === '""') ? args[0] : null,
   },
   {
@@ -818,7 +872,7 @@ const CALL_RULES: CallRule[] = [
     // otherwise — so this is a rename, not a reinterpretation.
     name: "regexp_extract",
     note: "REGEXP_EXTRACT(x, pattern) → substring(x from pattern)",
-    rewrite: args => (args.length === 2 ? `substring(${args[0]} from ${args[1]})` : null),
+    rewrite: (args) => (args.length === 2 ? `substring(${args[0]} from ${args[1]})` : null),
   },
   {
     // An EMPTY delimiter splits per character in BigQuery. PostgreSQL spells that as a NULL
@@ -871,7 +925,7 @@ const CALL_RULES: CallRule[] = [
   {
     name: "unix_seconds",
     note: "UNIX_SECONDS(ts) → extract(epoch from ts)::bigint",
-    rewrite: args => (args.length === 1 ? `extract(epoch from ${args[0]})::bigint` : null),
+    rewrite: (args) => (args.length === 1 ? `extract(epoch from ${args[0]})::bigint` : null),
   },
 ];
 
@@ -922,7 +976,7 @@ export function applyCallRules(
     sites.sort((a, b) => b.start - a.start);
     const seen: Site[] = [];
     for (const s of sites) {
-      if (seen.some(p => s.start < p.end && p.start < s.end)) continue; // overlaps one applied
+      if (seen.some((p) => s.start < p.end && p.start < s.end)) continue; // overlaps one applied
       seen.push(s);
       applied.push({ line: result.slice(0, s.start).split("\n").length, note: s.note });
       result = result.slice(0, s.start) + s.out + result.slice(s.end);
@@ -1026,7 +1080,7 @@ function applyTextRules(
     result,
     maskSql(result, true),
     /(?<![\w"'])#[^\n]*/g,
-    m => `--${m[0].slice(1)}`,
+    (m) => `--${m[0].slice(1)}`,
     "# line comment → -- (PostgreSQL has no # comment)",
   );
 
@@ -1053,14 +1107,14 @@ function applyTextRules(
     result,
     maskSql(result, true),
     /(\bas\s+)?"([^"\n]*)"/gi,
-    m => {
+    (m) => {
       // After AS the token is an ALIAS, not a string — `x as "key"` names a column. Converting
       // it to `x as 'key'` is not valid SQL anywhere, and quietly turns a column name into a
       // string literal in the one place a reader is least likely to look.
       if (m[1]) return null;
       return m[2].includes("${") || m[2].includes("'") ? null : `'${m[2]}'`;
     },
-    'BigQuery "string" → \'string\' (double quotes are identifiers in PostgreSQL)',
+    "BigQuery \"string\" → 'string' (double quotes are identifiers in PostgreSQL)",
   );
 
   // 4. Backtick identifiers → double quotes. Skipped when the token is a qualified
@@ -1070,8 +1124,8 @@ function applyTextRules(
     result,
     maskSql(result),
     /`([^`\n]+)`/g,
-    m => (m[1].includes(".") || m[1].includes("${") ? null : `"${m[1]}"`),
-    "`identifier` → \"identifier\"",
+    (m) => (m[1].includes(".") || m[1].includes("${") ? null : `"${m[1]}"`),
+    '`identifier` → "identifier"',
   );
 
   // 5. The OPERATOR form of collation stripping. (The function form, COLLATE(x, ''), is a call
@@ -1158,15 +1212,15 @@ function rewriteUnenforcedConstraints(
     if (!firstAction) continue;
     const target = body.slice(0, firstAction.index).trim();
     const actions = splitTopLevel(body.slice(firstAction.index))
-      .map(a => a.trim())
-      .filter(a => /^ADD\b/i.test(a))
-      .map(a => a.replace(/\s*\bNOT\s+ENFORCED\b/gi, "").trim());
+      .map((a) => a.trim())
+      .filter((a) => /^ADD\b/i.test(a))
+      .map((a) => a.replace(/\s*\bNOT\s+ENFORCED\b/gi, "").trim());
     if (!actions.length) continue;
 
     const lineStart = text.lastIndexOf("\n", m.index) + 1;
     const indent = /^[ \t]*/.exec(text.slice(lineStart))![0];
     const commented = [
-      ...UNENFORCED_HEADER.map(l => `-- ${l}`),
+      ...UNENFORCED_HEADER.map((l) => `-- ${l}`),
       ...(actions.length === 1
         ? [`-- ALTER TABLE ${target} ${actions[0]};`]
         : [
@@ -1263,13 +1317,13 @@ export function convertTarget(
     // not survive the same treatment.
     const textApplied: Array<{ line: number; note: string }> = [];
     const jsSpans = jsMode ? [{ start: 0, end: source.length }] : jsBlockSpans(source);
-    const templates = tokenize(source).filter(t => t.kind === "template");
+    const templates = tokenize(source).filter((t) => t.kind === "template");
     source = applyTextRules(
       source,
-      off =>
+      (off) =>
         outsideConfig(off) &&
-        !jsSpans.some(s => off >= s.start && off < s.end) &&
-        !templates.some(t => off >= t.start && off < t.end),
+        !jsSpans.some((s) => off >= s.start && off < s.end) &&
+        !templates.some((t) => off >= t.start && off < t.end),
       textApplied,
     );
     for (const a of textApplied) {
@@ -1339,7 +1393,8 @@ export function convertTarget(
         const opens = (line.match(/\{/g) || []).length;
         const closes = (line.match(/\}/g) || []).length;
         commentingConfigBlockDepth = Math.max(0, opens - closes);
-        if (commentingConfigBlockDepth === 0) swallowLeadingComma = !/,\s*$/.test(line) ? true : false;
+        if (commentingConfigBlockDepth === 0)
+          swallowLeadingComma = !/,\s*$/.test(line) ? true : false;
         out.push(`// ${line}`);
         continue;
       }
@@ -1379,10 +1434,18 @@ export function convertTarget(
   let content = out.join("\n");
   // .js files (and only they) get one safe top-of-file summary block instead of inline markers.
   if (jsMode && findings.length > 0) {
-    const noted = findings.slice(0, 12).map(f => ` *   L${f.line}: ${f.note}`);
-    const more = findings.length > 12 ? [` *   …and ${findings.length - 12} more (see migration-report.json)`] : [];
+    const noted = findings.slice(0, 12).map((f) => ` *   L${f.line}: ${f.note}`);
+    const more =
+      findings.length > 12
+        ? [` *   …and ${findings.length - 12} more (see migration-report.json)`]
+        : [];
     content =
-      ["/* SQLANVIL-MIGRATE — findings in this file (inline markers are unsafe in JS templates):", ...noted, ...more, " */"].join("\n") +
+      [
+        "/* SQLANVIL-MIGRATE — findings in this file (inline markers are unsafe in JS templates):",
+        ...noted,
+        ...more,
+        " */",
+      ].join("\n") +
       "\n" +
       content;
   }
@@ -1484,7 +1547,7 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
   }
 
   const resolveDatabase = (db: string | null) =>
-    !db || db === "<defaultDatabase>" ? sourceConfig.defaultProject ?? "UNKNOWN_PROJECT" : db;
+    !db || db === "<defaultDatabase>" ? (sourceConfig.defaultProject ?? "UNKNOWN_PROJECT") : db;
 
   // Source schemas (declarations) vs target schemas (materializing actions). Connections
   // only exist when MOVING warehouse — a bigquery target reads its declarations natively.
@@ -1503,7 +1566,7 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
       const name = connectionNameFor(project);
       const tableName = f.parsed.name ?? path.basename(f.rel, ".sqlx");
       introspectCommands.push(
-        `sqlanvil introspect ${name} ${JSON.stringify(`${dataset}.${tableName}`)} --output ${JSON.stringify(f.rel)}`
+        `sqlanvil introspect ${name} ${JSON.stringify(`${dataset}.${tableName}`)} --output ${JSON.stringify(f.rel)}`,
       );
       const existing = connectionMap.get(name);
       if (existing) {
@@ -1523,7 +1586,7 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
     }
   }
   report.connections = [...connectionMap.values()].sort((a, b) => a.name.localeCompare(b.name));
-  report.overlappingSchemas = [...declarationSchemas].filter(s => targetSchemas.has(s)).sort();
+  report.overlappingSchemas = [...declarationSchemas].filter((s) => targetSchemas.has(s)).sort();
 
   // ---- Pass 2: write the converted tree ----------------------------------------------------
   for (const rel of files) {
@@ -1534,7 +1597,7 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
     }
 
     if (rel.endsWith(".sqlx")) {
-      const info = sqlxFiles.find(f => f.rel === rel)!;
+      const info = sqlxFiles.find((f) => f.rel === rel)!;
       if (isBigQueryTarget) {
         // Same-warehouse conversion: declarations AND targets pass through untouched apart
         // from the compile-global rename (dataform.projectConfig → sqlanvil.projectConfig).
@@ -1579,7 +1642,7 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
           status:
             findings.length === 0
               ? "clean"
-              : findings.some(f => f.kind === "flag")
+              : findings.some((f) => f.kind === "flag")
                 ? "flagged"
                 : "rewritten",
           findings,
@@ -1591,7 +1654,11 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
     if (rel.endsWith(".js") && (rel.startsWith("definitions/") || rel.startsWith("includes/"))) {
       report.inventory.jsFiles++;
       const source = fs.readFileSync(abs, "utf8");
-      const { content, findings } = convertTarget(source, true, isBigQueryTarget ? "none" : "postgres");
+      const { content, findings } = convertTarget(
+        source,
+        true,
+        isBigQueryTarget ? "none" : "postgres",
+      );
       writer.write(rel, content);
       const isIncludes = rel.startsWith("includes/");
       if (isIncludes && findings.length > 0 && !isBigQueryTarget) {
@@ -1606,7 +1673,7 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
         status:
           findings.length === 0
             ? "clean"
-            : findings.some(f => f.kind === "flag")
+            : findings.some((f) => f.kind === "flag")
               ? "flagged"
               : "rewritten",
         findings,
@@ -1634,7 +1701,9 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
     : {
         warehouse: targetWarehouse,
         defaultDataset: sourceConfig.defaultDataset.toLowerCase(),
-        defaultAssertionDataset: (sourceConfig.defaultAssertionDataset ?? "sqlanvil_assertions").toLowerCase(),
+        defaultAssertionDataset: (
+          sourceConfig.defaultAssertionDataset ?? "sqlanvil_assertions"
+        ).toLowerCase(),
         sqlanvilCoreVersion: opts.coreVersion ?? sqlanvilVersion,
       };
   if (sourceConfig.vars) settings.vars = sourceConfig.vars;
@@ -1646,7 +1715,7 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
   }
   if (report.connections.length > 0) {
     settings.connections = Object.fromEntries(
-      report.connections.map(c => [
+      report.connections.map((c) => [
         c.name,
         {
           platform: "bigquery",
@@ -1679,20 +1748,20 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
         `    printf 'FAILED: %s\\n' "$*" >&2\n` +
         `  }\n` +
         `}\n` +
-        introspectCommands.map(c => `run ${c}`).join("\n") +
+        introspectCommands.map((c) => `run ${c}`).join("\n") +
         `\n` +
         `if [ "$failures" -gt 0 ]; then\n` +
         `  printf '\\n%s introspect command(s) failed:%s\\n' "$failures" "$failed" >&2\n` +
         `  printf 'Likely stale declarations (table dropped/renamed) - verify and remove them.\\n' >&2\n` +
         `  exit 1\n` +
         `fi\n` +
-        `printf '\\nAll introspect commands succeeded.\\n'\n`
+        `printf '\\nAll introspect commands succeeded.\\n'\n`,
     );
     report.files.push({
       file: "scripts/introspect_all.sh",
       action: "generated",
       status: "clean",
-      findings: []
+      findings: [],
     });
   }
 
@@ -1710,7 +1779,7 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
       file: ".df-credentials.json",
       action: "generated",
       status: "clean",
-      findings: []
+      findings: [],
     });
     // The generated file must never be committed — extend (or create) the repo's .gitignore.
     const gitignorePath = path.join(outDir, ".gitignore");
@@ -1718,14 +1787,13 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
       ? fs.readFileSync(gitignorePath, "utf8")
       : "";
     if (!existingGitignore.includes(".df-credentials")) {
-      const separator =
-        existingGitignore === "" || existingGitignore.endsWith("\n") ? "" : "\n";
+      const separator = existingGitignore === "" || existingGitignore.endsWith("\n") ? "" : "\n";
       fs.writeFileSync(gitignorePath, `${existingGitignore}${separator}.df-credentials*.json\n`);
       report.files.push({
         file: ".gitignore",
         action: existingGitignore === "" ? "generated" : "updated",
         status: "clean",
-        findings: []
+        findings: [],
       });
     }
   }
@@ -1740,13 +1808,13 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
         warehouse: targetWarehouse,
         defaultDataset: settings.defaultDataset as string,
         version: opts.coreVersion ?? sqlanvilVersion,
-        converted: true
-      })
+        converted: true,
+      }),
     );
     report.files.push({ file: "AGENTS.md", action: "generated", status: "clean", findings: [] });
   } else {
     report.warnings.push(
-      "Source AGENTS.md copied as-is — its guidance targets Dataform; consider replacing it with the sqlanvil version (`sqlanvil init --bare` in an empty dir generates one)."
+      "Source AGENTS.md copied as-is — its guidance targets Dataform; consider replacing it with the sqlanvil version (`sqlanvil init --bare` in an empty dir generates one).",
     );
   }
   if (!fs.existsSync(path.join(outDir, "CLAUDE.md"))) {
@@ -1776,11 +1844,11 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
 // ---------------------------------------------------------------------------------------------
 
 export function renderReportMd(r: MigrationReport): string {
-  const targets = r.files.filter(f => f.action === "target");
-  const flagged = targets.filter(f => f.status === "flagged");
-  const rewritten = targets.filter(f => f.status === "rewritten");
-  const clean = targets.filter(f => f.status === "clean");
-  const declarations = r.files.filter(f => f.action === "declaration");
+  const targets = r.files.filter((f) => f.action === "target");
+  const flagged = targets.filter((f) => f.status === "flagged");
+  const rewritten = targets.filter((f) => f.status === "rewritten");
+  const clean = targets.filter((f) => f.status === "clean");
+  const declarations = r.files.filter((f) => f.action === "declaration");
 
   const lines: string[] = [];
   lines.push(`# Dataform → SQLAnvil migration report`);
@@ -1804,46 +1872,51 @@ export function renderReportMd(r: MigrationReport): string {
         `\`sqlanvil.projectConfig\`) and the settings file converted.`,
     );
   } else {
-  lines.push(`## Source connections (${r.connections.length})`);
-  lines.push("");
-  lines.push(
-    `Declarations keep reading BigQuery through named \`connections:\` in workflow_settings.yaml ` +
-      `(mode: runner-extract — no Vault, no wrappers). Each declaration needs \`columnTypes\` ` +
-      `before it can extract. **Every concrete command is in the generated ` +
-      `\`scripts/introspect_all.sh\`** — run it on a machine with BigQuery read access ` +
-      `(\`gcloud auth application-default login\`), then commit what it writes:`,
-  );
-  lines.push("");
-  lines.push("```sh");
-  lines.push("sh scripts/introspect_all.sh && git add -A && git commit -m 'columnTypes' && git push");
-  lines.push("```");
-  lines.push("");
-  for (const c of r.connections) {
-    lines.push(
-      `- **${c.name}** — project \`${c.project}\`, ${c.declarationCount} declaration(s) across ` +
-        `${c.datasets.length} dataset(s): ${c.datasets.slice(0, 8).map(d => `\`${d}\``).join(", ")}` +
-        (c.datasets.length > 8 ? ", …" : ""),
-    );
-    lines.push(`  - \`${c.introspectExample}\``);
-  }
-  if (r.overlappingSchemas.length > 0) {
-    lines.push("");
-    lines.push(`## ⚠ Schemas that are BOTH source and target`);
+    lines.push(`## Source connections (${r.connections.length})`);
     lines.push("");
     lines.push(
-      `These schemas have declarations AND materializing actions: ${r.overlappingSchemas
-        .map(s => `\`${s}\``)
-        .join(", ")}. ` +
-        `Their declared tables are probably produced by this pipeline (or a sibling) — once those ` +
-        `producers move to Postgres, convert the declarations to plain local declarations instead ` +
-        `of BigQuery connections.`,
+      `Declarations keep reading BigQuery through named \`connections:\` in workflow_settings.yaml ` +
+        `(mode: runner-extract — no Vault, no wrappers). Each declaration needs \`columnTypes\` ` +
+        `before it can extract. **Every concrete command is in the generated ` +
+        `\`scripts/introspect_all.sh\`** — run it on a machine with BigQuery read access ` +
+        `(\`gcloud auth application-default login\`), then commit what it writes:`,
     );
-  }
+    lines.push("");
+    lines.push("```sh");
+    lines.push(
+      "sh scripts/introspect_all.sh && git add -A && git commit -m 'columnTypes' && git push",
+    );
+    lines.push("```");
+    lines.push("");
+    for (const c of r.connections) {
+      lines.push(
+        `- **${c.name}** — project \`${c.project}\`, ${c.declarationCount} declaration(s) across ` +
+          `${c.datasets.length} dataset(s): ${c.datasets
+            .slice(0, 8)
+            .map((d) => `\`${d}\``)
+            .join(", ")}` +
+          (c.datasets.length > 8 ? ", …" : ""),
+      );
+      lines.push(`  - \`${c.introspectExample}\``);
+    }
+    if (r.overlappingSchemas.length > 0) {
+      lines.push("");
+      lines.push(`## ⚠ Schemas that are BOTH source and target`);
+      lines.push("");
+      lines.push(
+        `These schemas have declarations AND materializing actions: ${r.overlappingSchemas
+          .map((s) => `\`${s}\``)
+          .join(", ")}. ` +
+          `Their declared tables are probably produced by this pipeline (or a sibling) — once those ` +
+          `producers move to Postgres, convert the declarations to plain local declarations instead ` +
+          `of BigQuery connections.`,
+      );
+    }
   }
   // ---- The handover: what is left, grouped by construct, worst first ----------------------
   if (r.todo.length) {
-    const needing = r.todo.filter(t => t.owner === "needs-decision");
-    const mechanical = r.todo.filter(t => t.owner === "mechanical");
+    const needing = r.todo.filter((t) => t.owner === "needs-decision");
+    const mechanical = r.todo.filter((t) => t.owner === "mechanical");
     lines.push("");
     lines.push(`## What is left to do`);
     lines.push("");
@@ -1922,15 +1995,17 @@ export function renderReportMd(r: MigrationReport): string {
   lines.push("");
   lines.push(`- clean: ${clean.length}`);
   lines.push(`- rewritten (safe lexical changes only): ${rewritten.length}`);
-  lines.push(`- **flagged (need dialect review): ${flagged.length}** — every location is marked ` +
-    `inline with \`SQLANVIL-MIGRATE:\``);
+  lines.push(
+    `- **flagged (need dialect review): ${flagged.length}** — every location is marked ` +
+      `inline with \`SQLANVIL-MIGRATE:\``,
+  );
   lines.push("");
   for (const f of flagged) {
     lines.push(`- \`${f.file}\` (${f.type})`);
-    for (const finding of f.findings.filter(x => x.kind === "flag").slice(0, 6)) {
+    for (const finding of f.findings.filter((x) => x.kind === "flag").slice(0, 6)) {
       lines.push(`  - L${finding.line}: ${finding.note}`);
     }
-    const more = f.findings.filter(x => x.kind === "flag").length - 6;
+    const more = f.findings.filter((x) => x.kind === "flag").length - 6;
     if (more > 0) lines.push(`  - …and ${more} more (see migration-report.json)`);
   }
   lines.push("");

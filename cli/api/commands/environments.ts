@@ -6,7 +6,7 @@ import { sqlanvil } from "sa/protos/ts";
 // throws on an unknown/absent environment. CLI/path concerns stay in the caller.
 export function resolveEnvironment(
   projectDir: string,
-  envName: string
+  envName: string,
 ): { configOverride: sqlanvil.IProjectConfig; credentials?: string } {
   const settings = readConfigFromWorkflowSettings(projectDir);
   const environments = settings?.environments || {};
@@ -17,7 +17,7 @@ export function resolveEnvironment(
       `Environment "${envName}" not found. ` +
         (available.length
           ? `Available environments: ${available.join(", ")}.`
-          : `No environments defined in workflow_settings.yaml.`)
+          : `No environments defined in workflow_settings.yaml.`),
     );
   }
   const configOverride: sqlanvil.IProjectConfig = {};
@@ -41,7 +41,7 @@ export function resolveEnvironment(
 // over workflow_settings vars, giving CLI > env > workflow_settings precedence.
 export function mergeProjectConfigOverride(
   envOverride: sqlanvil.IProjectConfig,
-  cliOverride: sqlanvil.IProjectConfig
+  cliOverride: sqlanvil.IProjectConfig,
 ): sqlanvil.IProjectConfig {
   const merged: sqlanvil.IProjectConfig = { ...envOverride, ...cliOverride };
   if (envOverride.vars || cliOverride.vars) {
@@ -56,7 +56,7 @@ export function mergeProjectConfigOverride(
 export function resolveCredentials(
   envCredentials: string | undefined,
   cliCredentials: string | undefined,
-  defaultFilename: string
+  defaultFilename: string,
 ): string {
   if (cliCredentials && cliCredentials !== defaultFilename) {
     return cliCredentials;

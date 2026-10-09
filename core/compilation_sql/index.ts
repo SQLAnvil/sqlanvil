@@ -3,7 +3,7 @@ import { sqlanvil } from "sa/protos/ts";
 export class CompilationSql {
   constructor(
     private readonly project: sqlanvil.IProjectConfig,
-    private readonly sqlanvilCoreVersion: string
+    private readonly sqlanvilCoreVersion: string,
   ) {}
 
   private get warehouse(): string {
@@ -90,9 +90,8 @@ SELECT
   *
 FROM ${dataset}
 WHERE NOT (${rowCondition})
-`
+`,
       )
       .join(`UNION ALL`);
   }
 }
-

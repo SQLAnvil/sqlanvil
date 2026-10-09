@@ -30,4 +30,14 @@ function indexFileGenerator() {
 // These exports constitute the public API of @sqlanvil/core.
 // They must also be listed in packages/@sqlanvil/core/index.ts.
 // Changes to these will break @sqlanvil/cli, so take care!
-export { compiler, ISqlanvilExtension, indexFileGenerator, IJitCompiler, jitCompiler, main, session, supportedFeatures, version };
+export {
+  compiler,
+  ISqlanvilExtension,
+  indexFileGenerator,
+  IJitCompiler,
+  jitCompiler,
+  main,
+  session,
+  supportedFeatures,
+  version,
+};

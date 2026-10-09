@@ -40,7 +40,7 @@ export async function runMysqlExtract(args: MysqlExtractArgs): Promise<{ rowCoun
   const cols = Object.keys(spec.columnTypes || {});
   if (cols.length === 0) {
     throw new Error(
-      `Extract "${target.schema}.${target.name}" has no columnTypes; run \`sqlanvil introspect\`.`
+      `Extract "${target.schema}.${target.name}" has no columnTypes; run \`sqlanvil introspect\`.`,
     );
   }
   if (!args.pg) {
@@ -54,13 +54,13 @@ export async function runMysqlExtract(args: MysqlExtractArgs): Promise<{ rowCoun
   if (!database) {
     throw new Error(
       `Extract "${target.schema}.${target.name}": no source database — set \`database:\` on ` +
-        `connection "${spec.connectionName}" (workflow_settings.yaml) or \`schema:\` on the declaration.`
+        `connection "${spec.connectionName}" (workflow_settings.yaml) or \`schema:\` on the declaration.`,
     );
   }
   if (!conn.host && !conn.user) {
     throw new Error(
       `No credentials for connection "${spec.connectionName}" — add it to .df-credentials.json's ` +
-        `"connections" map ({ host, port, user, password }).`
+        `"connections" map ({ host, port, user, password }).`,
     );
   }
 
@@ -73,9 +73,9 @@ export async function runMysqlExtract(args: MysqlExtractArgs): Promise<{ rowCoun
       user: conn.user,
       password: conn.password,
       database,
-      sslMode: conn.sslMode
+      sslMode: conn.sslMode,
     }),
-    { disableSslForTestsOnly: args.disableSslForTestsOnly }
+    { disableSslForTestsOnly: args.disableSslForTestsOnly },
   );
 
   let rows: any[];
@@ -85,7 +85,7 @@ export async function runMysqlExtract(args: MysqlExtractArgs): Promise<{ rowCoun
     // `limit cap+1` bounds mysql2's buffering AND tells us whether the source was larger.
     ({ rows } = await my.execute(`select ${colList} from ${source} limit ${rowCap + 1}`, {
       rowLimit: rowCap + 1,
-      byteLimit: byteCap
+      byteLimit: byteCap,
     }));
   } finally {
     await my.close().catch(() => undefined);
@@ -94,7 +94,7 @@ export async function runMysqlExtract(args: MysqlExtractArgs): Promise<{ rowCoun
     rows = rows.slice(0, rowCap);
     // eslint-disable-next-line no-console
     console.warn(
-      `runner-extract: ${target.schema}.${target.name} truncated at ${rowCap} rows (source is larger).`
+      `runner-extract: ${target.schema}.${target.name} truncated at ${rowCap} rows (source is larger).`,
     );
   }
 
@@ -103,7 +103,7 @@ export async function runMysqlExtract(args: MysqlExtractArgs): Promise<{ rowCoun
     target,
     columnTypes: spec.columnTypes,
     rows,
-    disableSslForTestsOnly: args.disableSslForTestsOnly
+    disableSslForTestsOnly: args.disableSslForTestsOnly,
   });
   return { rowCount: rows.length };
 }

@@ -13,20 +13,20 @@ import {
   coreExecutionRequestFromPath,
   runMainInVm,
   VALID_WORKFLOW_SETTINGS_YAML,
-  WorkflowSettingsTemplates
+  WorkflowSettingsTemplates,
 } from "sa/testing/run_core";
 
 const EMPTY_NOTEBOOK_CONTENTS = '{ "cells": [] }';
 
 interface IVerifiableAction {
-  type?: string | null,
+  type?: string | null;
   target?: sqlanvil.ITarget | null;
   canonicalTarget?: sqlanvil.ITarget | null;
-  dependencyTargets?: sqlanvil.ITarget[] | null
+  dependencyTargets?: sqlanvil.ITarget[] | null;
 }
 
 function toVerifiableAction(graph: sqlanvil.ICompiledGraph, actionType: string): IVerifiableAction {
-  let action: sqlanvil.IAssertion | sqlanvil.ITable
+  let action: sqlanvil.IAssertion | sqlanvil.ITable;
   switch (actionType) {
     case "assertion":
       action = graph.assertions[0];
@@ -56,13 +56,13 @@ suite("@sqlanvil/core", ({ afterEach }) => {
       [
         WorkflowSettingsTemplates.bigquery,
         WorkflowSettingsTemplates.bigqueryWithDatasetSuffix,
-        WorkflowSettingsTemplates.bigqueryWithNamePrefix
-      ].forEach(testConfig => {
+        WorkflowSettingsTemplates.bigqueryWithNamePrefix,
+      ].forEach((testConfig) => {
         test(`resolve with name prefix "${testConfig.namePrefix}" and dataset suffix "${testConfig.datasetSuffix}"`, () => {
           const projectDir = tmpDirFixture.createNewTmpDir();
           fs.writeFileSync(
             path.join(projectDir, "workflow_settings.yaml"),
-            dumpYaml(sqlanvil.WorkflowSettings.create(testConfig))
+            dumpYaml(sqlanvil.WorkflowSettings.create(testConfig)),
           );
           fs.mkdirSync(path.join(projectDir, "definitions"));
           fs.writeFileSync(path.join(projectDir, "definitions/e.sqlx"), `config {type: "view"}`);
@@ -74,7 +74,7 @@ suite("@sqlanvil/core", ({ afterEach }) => {
           const prefix = testConfig.namePrefix ? `${testConfig.namePrefix}_` : "";
           expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
           expect(result.compile.compiledGraph.operations[0].queries[0]).deep.equals(
-            `\`defaultDataset${suffix}.${prefix}e\``
+            `\`defaultDataset${suffix}.${prefix}e\``,
           );
         });
       });
@@ -83,21 +83,21 @@ suite("@sqlanvil/core", ({ afterEach }) => {
     test("schema suffix is not applied to declarations; refs to a declaration resolve unsuffixed", () => {
       const projectConfig = {
         ...WorkflowSettingsTemplates.bigqueryWithDatasetSuffix,
-        defaultProject: "defaultProject"
+        defaultProject: "defaultProject",
       };
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(sqlanvil.WorkflowSettings.create(projectConfig))
+        dumpYaml(sqlanvil.WorkflowSettings.create(projectConfig)),
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
         path.join(projectDir, "definitions/ext.sqlx"),
-        `config { type: "declaration", schema: "raw", name: "ext_table" }`
+        `config { type: "declaration", schema: "raw", name: "ext_table" }`,
       );
       fs.writeFileSync(
         path.join(projectDir, "definitions/consumer.sqlx"),
-        `config { type: "view" }\nSELECT * FROM \${ref("ext_table")}`
+        `config { type: "view" }\nSELECT * FROM \${ref("ext_table")}`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -108,7 +108,7 @@ suite("@sqlanvil/core", ({ afterEach }) => {
       expect(asPlainObject(result.compile.compiledGraph.declarations[0].target)).deep.equals({
         database: "defaultProject",
         schema: "raw",
-        name: "ext_table"
+        name: "ext_table",
       });
 
       // The consuming view IS suffixed.
@@ -119,17 +119,17 @@ suite("@sqlanvil/core", ({ afterEach }) => {
       expect(asPlainObject(consumer.dependencyTargets[0])).deep.equals({
         database: "defaultProject",
         schema: "raw",
-        name: "ext_table"
+        name: "ext_table",
       });
       expect(consumer.query).to.contain("defaultProject.raw.ext_table");
       expect(consumer.query).to.not.contain("raw_suffix");
     });
 
     suite("warehouse config", () => {
-      ["bigquery", "postgres", "supabase", "mysql"].forEach(warehouse => {
+      ["bigquery", "postgres", "supabase", "mysql"].forEach((warehouse) => {
         test(`accepts warehouse "${warehouse}"`, () => {
           const projectConfig = workflowSettingsAsProjectConfig(
-            sqlanvil.WorkflowSettings.create({ warehouse, defaultDataset: "d" })
+            sqlanvil.WorkflowSettings.create({ warehouse, defaultDataset: "d" }),
           );
           expect(projectConfig.warehouse).equals(warehouse);
         });
@@ -137,7 +137,7 @@ suite("@sqlanvil/core", ({ afterEach }) => {
 
       test("defaults to bigquery when warehouse is unset", () => {
         const projectConfig = workflowSettingsAsProjectConfig(
-          sqlanvil.WorkflowSettings.create({ defaultDataset: "d" })
+          sqlanvil.WorkflowSettings.create({ defaultDataset: "d" }),
         );
         expect(projectConfig.warehouse).equals("bigquery");
       });
@@ -145,28 +145,23 @@ suite("@sqlanvil/core", ({ afterEach }) => {
       test("rejects an unknown warehouse instead of silently defaulting", () => {
         expect(() =>
           workflowSettingsAsProjectConfig(
-            sqlanvil.WorkflowSettings.create({ warehouse: "snowflake", defaultDataset: "d" })
-          )
+            sqlanvil.WorkflowSettings.create({ warehouse: "snowflake", defaultDataset: "d" }),
+          ),
         ).to.throw(/Unsupported warehouse "snowflake"/);
       });
     });
 
     suite("resolve with legacy dependencies", () => {
-      [
-        "assertion",
-        "incremental",
-        "operations",
-        "table",
-        "view",
-      ].forEach(actionType => {
+      ["assertion", "incremental", "operations", "table", "view"].forEach((actionType) => {
         test(`for action type: "${actionType}"`, () => {
           const projectDir = tmpDirFixture.createNewTmpDir();
           fs.writeFileSync(
             path.join(projectDir, "workflow_settings.yaml"),
-            VALID_WORKFLOW_SETTINGS_YAML
+            VALID_WORKFLOW_SETTINGS_YAML,
           );
           fs.mkdirSync(path.join(projectDir, "definitions"));
-          fs.writeFileSync(path.join(projectDir, "definitions/source_a.sqlx"),
+          fs.writeFileSync(
+            path.join(projectDir, "definitions/source_a.sqlx"),
             `
 config {
 type: "table",
@@ -174,8 +169,10 @@ schema: "schema_a",
 name: "tbl",
 }
 
-SELECT 1`);
-          fs.writeFileSync(path.join(projectDir, "definitions/source_b.sqlx"),
+SELECT 1`,
+          );
+          fs.writeFileSync(
+            path.join(projectDir, "definitions/source_b.sqlx"),
             `
 config {
 type: "table",
@@ -183,15 +180,18 @@ schema: "schema_b",
 name: "tbl",
 }
 
-SELECT 1`);
-          fs.writeFileSync(path.join(projectDir, "definitions/file_with_dependencies.sqlx"),
-          `
+SELECT 1`,
+          );
+          fs.writeFileSync(
+            path.join(projectDir, "definitions/file_with_dependencies.sqlx"),
+            `
 config {
 type: "${actionType}",
 dependencies: ["schema_a.tbl"]
 }
 
-SELECT 1`);        
+SELECT 1`,
+          );
 
           const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
@@ -206,18 +206,18 @@ SELECT 1`);
                 name: "file_with_dependencies",
               },
               canonicalTarget: {
-                database:"defaultProject",
+                database: "defaultProject",
                 schema: "defaultDataset",
-                name: "file_with_dependencies"
+                name: "file_with_dependencies",
               },
               dependencyTargets: [
                 {
                   database: "defaultProject",
                   schema: "schema_a",
                   name: "tbl",
-                }
+                },
               ],
-            })
+            }),
           );
         });
       });
@@ -227,7 +227,7 @@ SELECT 1`);
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(path.join(projectDir, "definitions/file.sqlx"), "${resolve('e')}");
@@ -236,7 +236,7 @@ SELECT 1`);
 
       expect(asPlainObject(result.compile.compiledGraph.operations[0].queries[0])).deep.equals(``);
       expect(
-        asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors[0].message)
+        asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors[0].message),
       ).deep.equals(`Could not resolve "e"`);
     });
 
@@ -250,18 +250,18 @@ SELECT 1`);
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
         path.join(projectDir, "definitions/mytable.sqlx"),
-        `config { type: "view" }\nSELECT 1 FROM \${ref("FOO")}`
+        `config { type: "view" }\nSELECT 1 FROM \${ref("FOO")}`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       const errors = result.compile.compiledGraph.graphErrors.compilationErrors;
-      const resolveError = errors.find(e => e.message === `Could not resolve "FOO"`);
+      const resolveError = errors.find((e) => e.message === `Could not resolve "FOO"`);
       expect(resolveError, "expected a 'Could not resolve' error").to.not.equal(undefined);
       expect(resolveError.fileName).equals("definitions/mytable.sqlx");
     });
@@ -270,7 +270,7 @@ SELECT 1`);
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -278,15 +278,15 @@ SELECT 1`);
         `
 publish("a", {"schema": "foo"})
 publish("a", {"schema": "bar"})
-publish("b", {"schema": "foo"}).dependencies("a")`
+publish("b", {"schema": "foo"}).dependencies("a")`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       expect(
-        result.compile.compiledGraph.graphErrors.compilationErrors?.map(error => error.message)
+        result.compile.compiledGraph.graphErrors.compilationErrors?.map((error) => error.message),
       ).deep.equals([
-        `Ambiguous Action name: {\"name\":\"a\",\"includeDependentAssertions\":false}. Did you mean one of: foo.a, bar.a.`
+        `Ambiguous Action name: {\"name\":\"a\",\"includeDependentAssertions\":false}. Did you mean one of: foo.a, bar.a.`,
       ]);
     });
 
@@ -294,24 +294,24 @@ publish("b", {"schema": "foo"}).dependencies("a")`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
         path.join(projectDir, "definitions/file.js"),
         `
 publish("a", {"schema": "foo"})
-publish("a")`
+publish("a")`,
       );
       fs.writeFileSync(path.join(projectDir, "definitions/file.sqlx"), "${resolve('a')}");
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
-      expect(
-        asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors)
-      ).deep.equals([]);
+      expect(asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors)).deep.equals(
+        [],
+      );
       expect(asPlainObject(result.compile.compiledGraph.operations[0].queries[0])).deep.equals(
-        "`defaultProject.defaultDataset.a`"
+        "`defaultProject.defaultDataset.a`",
       );
     });
 
@@ -319,24 +319,24 @@ publish("a")`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
         path.join(projectDir, "definitions/file.js"),
         `
 publish("a", {"database": "otherProject"})
-publish("a")`
+publish("a")`,
       );
       fs.writeFileSync(path.join(projectDir, "definitions/file.sqlx"), "${resolve('a')}");
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
-      expect(
-        asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors)
-      ).deep.equals([]);
+      expect(asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors)).deep.equals(
+        [],
+      );
       expect(asPlainObject(result.compile.compiledGraph.operations[0].queries[0])).deep.equals(
-        "`defaultProject.defaultDataset.a`"
+        "`defaultProject.defaultDataset.a`",
       );
     });
 
@@ -344,7 +344,7 @@ publish("a")`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -352,23 +352,21 @@ publish("a")`
         `
 publish("a", {"schema": "foo"})
 publish("a")
-publish("b", {"schema": "foo"}).dependencies("a")`
+publish("b", {"schema": "foo"}).dependencies("a")`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
-      expect(
-        asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors)
-      ).deep.equals([]);
-      const tableB = result.compile.compiledGraph.tables.find(
-        table => table.target.name === "b"
+      expect(asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors)).deep.equals(
+        [],
       );
+      const tableB = result.compile.compiledGraph.tables.find((table) => table.target.name === "b");
       expect(asPlainObject(tableB.dependencyTargets)).deep.equals([
         {
           database: "defaultProject",
           schema: "defaultDataset",
-          name: "a"
-        }
+          name: "a",
+        },
       ]);
     });
 
@@ -376,21 +374,21 @@ publish("b", {"schema": "foo"}).dependencies("a")`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
         path.join(projectDir, "definitions/file.js"),
         `
 publish("a", {"database": "projectFoo"})
-publish("a", {"database": "projectBar"})`
+publish("a", {"database": "projectBar"})`,
       );
       fs.writeFileSync(path.join(projectDir, "definitions/file.sqlx"), "${resolve('a')}");
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       const errorMessages = result.compile.compiledGraph.graphErrors.compilationErrors?.map(
-        error => error.message
+        (error) => error.message,
       );
       expect(errorMessages.length).equals(1);
       expect(errorMessages[0]).to.match(/^Ambiguous Action name/);
@@ -401,10 +399,10 @@ publish("a", {"database": "projectBar"})`
         WorkflowSettingsTemplates.bigqueryWithDefaultProjectAndDataset,
         {
           ...WorkflowSettingsTemplates.bigqueryWithDatasetSuffix,
-          defaultProject: "defaultProject"
+          defaultProject: "defaultProject",
         },
-        { ...WorkflowSettingsTemplates.bigqueryWithNamePrefix, defaultProject: "defaultProject" }
-      ].forEach(testConfig => {
+        { ...WorkflowSettingsTemplates.bigqueryWithNamePrefix, defaultProject: "defaultProject" },
+      ].forEach((testConfig) => {
         test(
           `assertions target context functions with project suffix '${testConfig.projectSuffix}', ` +
             `dataset suffix '${testConfig.datasetSuffix}', and name prefix '${testConfig.namePrefix}'`,
@@ -412,25 +410,25 @@ publish("a", {"database": "projectBar"})`
             const projectDir = tmpDirFixture.createNewTmpDir();
             fs.writeFileSync(
               path.join(projectDir, "workflow_settings.yaml"),
-              dumpYaml(sqlanvil.WorkflowSettings.create(testConfig))
+              dumpYaml(sqlanvil.WorkflowSettings.create(testConfig)),
             );
             fs.mkdirSync(path.join(projectDir, "definitions"));
             fs.writeFileSync(
               path.join(projectDir, "definitions/file.js"),
-              'assert("name", ctx => `${ctx.database()}.${ctx.schema()}.${ctx.name()}`)'
+              'assert("name", ctx => `${ctx.database()}.${ctx.schema()}.${ctx.name()}`)',
             );
 
             const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
             expect(
-              asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors)
+              asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors),
             ).deep.equals([]);
             expect(asPlainObject(result.compile.compiledGraph.assertions[0].query)).deep.equals(
               `defaultProject${testConfig.projectSuffix ? `_suffix` : ""}.` +
                 `defaultDataset${testConfig.datasetSuffix ? `_suffix` : ""}.` +
-                `${testConfig.namePrefix ? `prefix_` : ""}name`
+                `${testConfig.namePrefix ? `prefix_` : ""}name`,
             );
-          }
+          },
         );
       });
 
@@ -438,18 +436,18 @@ publish("a", {"database": "projectBar"})`
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
+          dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery)),
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
           path.join(projectDir, "definitions/file.js"),
-          'assert("name", ctx => `${ctx.database()}.${ctx.schema()}.${ctx.name()}`)'
+          'assert("name", ctx => `${ctx.database()}.${ctx.schema()}.${ctx.name()}`)',
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
         expect(
-          asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors?.[0]?.message)
+          asPlainObject(result.compile.compiledGraph.graphErrors.compilationErrors?.[0]?.message),
         ).deep.equals("Warehouse does not support multiple databases");
       });
     });
@@ -458,7 +456,7 @@ publish("a", {"database": "projectBar"})`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(path.join(projectDir, "definitions/table1.extradot.sqlx"), "SELECT 1");
@@ -468,7 +466,7 @@ publish("a", {"database": "projectBar"})`
 actions:
 - operation:
     dataset: "dataset.extradot"
-    filename: table2.extradot.sql`
+    filename: table2.extradot.sql`,
       );
       fs.writeFileSync(path.join(projectDir, "definitions/table2.extradot.sql"), "SELECT 2");
 
@@ -477,13 +475,13 @@ actions:
       expect(
         result.compile.compiledGraph.graphErrors.compilationErrors
           .map(({ message }) => message)
-          .sort()
+          .sort(),
       ).deep.equals([
         `Action target datasets cannot include '.'`,
         `Action target datasets cannot include '.'`,
         `Action target names cannot include '.'`,
         `Action target names cannot include '.'`,
-        `Action target names cannot include '.'`
+        `Action target names cannot include '.'`,
       ]);
     });
 
@@ -491,32 +489,32 @@ actions:
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
         path.join(projectDir, "definitions/file.js"),
         `
 publish("name")
-publish("name")`
+publish("name")`,
       );
 
       const result = runMainInVm(
         coreExecutionRequestFromPath(
           projectDir,
           sqlanvil.ProjectConfig.create({
-            defaultSchema: "otherDataset"
-          })
-        )
+            defaultSchema: "otherDataset",
+          }),
+        ),
       );
 
       expect(
-        result.compile.compiledGraph.graphErrors.compilationErrors?.map(error => error.message)
+        result.compile.compiledGraph.graphErrors.compilationErrors?.map((error) => error.message),
       ).deep.equals([
         `Duplicate action name detected. Names within a schema must be unique across tables, declarations, assertions, and operations:\n\"{\"schema\":\"otherDataset\",\"name\":\"name\",\"database\":\"defaultProject\"}\"`,
         `Duplicate canonical target detected. Canonical targets must be unique across tables, declarations, assertions, and operations:\n\"{\"schema\":\"otherDataset\",\"name\":\"name\",\"database\":\"defaultProject\"}\"`,
         `Duplicate action name detected. Names within a schema must be unique across tables, declarations, assertions, and operations:\n\"{\"schema\":\"otherDataset\",\"name\":\"name\",\"database\":\"defaultProject\"}\"`,
-        `Duplicate canonical target detected. Canonical targets must be unique across tables, declarations, assertions, and operations:\n\"{\"schema\":\"otherDataset\",\"name\":\"name\",\"database\":\"defaultProject\"}\"`
+        `Duplicate canonical target detected. Canonical targets must be unique across tables, declarations, assertions, and operations:\n\"{\"schema\":\"otherDataset\",\"name\":\"name\",\"database\":\"defaultProject\"}\"`,
       ]);
     });
 
@@ -524,22 +522,22 @@ publish("name")`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
         path.join(projectDir, "definitions/file.js"),
         `
 publish("a").dependencies("b")
-publish("b").dependencies("a")`
+publish("b").dependencies("a")`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       expect(
-        result.compile.compiledGraph.graphErrors.compilationErrors?.map(error => error.message)
+        result.compile.compiledGraph.graphErrors.compilationErrors?.map((error) => error.message),
       ).deep.equals([
-        `Circular dependency detected in chain: [{\"database\":\"defaultProject\",\"name\":\"a\",\"schema\":\"defaultDataset\"} > {\"database\":\"defaultProject\",\"name\":\"b\",\"schema\":\"defaultDataset\"} > defaultProject.defaultDataset.a]`
+        `Circular dependency detected in chain: [{\"database\":\"defaultProject\",\"name\":\"a\",\"schema\":\"defaultDataset\"} > {\"database\":\"defaultProject\",\"name\":\"b\",\"schema\":\"defaultDataset\"} > defaultProject.defaultDataset.a]`,
       ]);
     });
 
@@ -547,22 +545,22 @@ publish("b").dependencies("a")`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(path.join(projectDir, "definitions/file.sql"), "unused");
       fs.writeFileSync(
         path.join(projectDir, "definitions/file.js"),
         `
-publish("a").dependencies("b")`
+publish("a").dependencies("b")`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       expect(
-        result.compile.compiledGraph.graphErrors.compilationErrors?.map(error => error.message)
+        result.compile.compiledGraph.graphErrors.compilationErrors?.map((error) => error.message),
       ).deep.equals([
-        `Missing dependency detected: Action \"defaultProject.defaultDataset.a\" depends on \"{\"name\":\"b\",\"includeDependentAssertions\":false}\" which does not exist`
+        `Missing dependency detected: Action \"defaultProject.defaultDataset.a\" depends on \"{\"name\":\"b\",\"includeDependentAssertions\":false}\" which does not exist`,
       ]);
     });
 
@@ -573,23 +571,23 @@ publish("a").dependencies("b")`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
         path.join(projectDir, "definitions/file.js"),
         `
 publish("a", "SELECT 1;\\n");
-publish("b", "SELECT 1;");`
+publish("b", "SELECT 1;");`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       expect(
-        result.compile.compiledGraph.graphErrors.compilationErrors?.map(error => error.message)
+        result.compile.compiledGraph.graphErrors.compilationErrors?.map((error) => error.message),
       ).deep.equals([
         "Semi-colons are not allowed at the end of SQL statements.",
-        "Semi-colons are not allowed at the end of SQL statements."
+        "Semi-colons are not allowed at the end of SQL statements.",
       ]);
     });
   });
@@ -599,7 +597,7 @@ publish("b", "SELECT 1;");`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
+        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery)),
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -621,7 +619,7 @@ post_operations {
   SELECT 3;
 }
 -- A single line comment.
-SELECT \${a}`
+SELECT \${a}`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -649,7 +647,7 @@ SELECT 1`);
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
+        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery)),
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       const fileContents = `select
@@ -668,7 +666,7 @@ from \`location\``;
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
+        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery)),
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       const sqlContents = `select
@@ -679,7 +677,7 @@ from \`location\``;
   """\\ \\? \\\\"""`;
       fs.writeFileSync(
         path.join(projectDir, "definitions/file.sqlx"),
-        `config { type: "table" }` + sqlContents + `pre_operations { ${sqlContents} }`
+        `config { type: "table" }` + sqlContents + `pre_operations { ${sqlContents} }`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -693,7 +691,7 @@ from \`location\``;
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
+        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery)),
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       const sqlContents = `select
@@ -713,7 +711,7 @@ quotes
 'asd\\'123"def'`;
       fs.writeFileSync(
         path.join(projectDir, "definitions/file.sqlx"),
-        `config { type: "table" }` + sqlContents + `post_operations { ${sqlContents} }`
+        `config { type: "table" }` + sqlContents + `post_operations { ${sqlContents} }`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -727,7 +725,7 @@ quotes
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
+        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery)),
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       const sqlContents = `-- Evaluated interpolation inside comment: \${1 + 1}
@@ -737,7 +735,7 @@ quotes
 SELECT 1`;
       fs.writeFileSync(
         path.join(projectDir, "definitions/file.sqlx"),
-        `config { type: "table" }` + sqlContents + `pre_operations { ${sqlContents} }`
+        `config { type: "table" }` + sqlContents + `pre_operations { ${sqlContents} }`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -753,7 +751,7 @@ SELECT 1`;
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -764,8 +762,8 @@ SELECT 1`;
           warehouse: "bigquery",
           defaultDatabase: "defaultProject",
           defaultSchema: "defaultDataset",
-          defaultLocation: "US"
-        })
+          defaultLocation: "US",
+        }),
       );
     });
 
@@ -773,7 +771,7 @@ SELECT 1`;
       const projectDir = tmpDirFixture.createNewTmpDir();
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        "Failed to resolve workflow_settings.yaml"
+        "Failed to resolve workflow_settings.yaml",
       );
     });
 
@@ -782,7 +780,7 @@ SELECT 1`;
       fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), "&*19132sdS:asd:");
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        "workflow_settings.yaml is invalid"
+        "workflow_settings.yaml is invalid",
       );
     });
 
@@ -792,11 +790,11 @@ SELECT 1`;
         path.join(projectDir, "workflow_settings.yaml"),
         `
 someKey: and an extra: colon
-`
+`,
       );
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        "workflow_settings.yaml is not a valid YAML file: YAMLException: bad indentation"
+        "workflow_settings.yaml is not a valid YAML file: YAMLException: bad indentation",
       );
     });
 
@@ -804,11 +802,11 @@ someKey: and an extra: colon
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        "notAProjectConfigField: value"
+        "notAProjectConfigField: value",
       );
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        `Workflow settings error: Unexpected property "notAProjectConfigField", or property value type of "string" is incorrect. See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-WorkflowSettings for allowed properties.`
+        `Workflow settings error: Unexpected property "notAProjectConfigField", or property value type of "string" is incorrect. See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-WorkflowSettings for allowed properties.`,
       );
     });
 
@@ -822,11 +820,11 @@ someKey: and an extra: colon
 defaultProject: defaultProject
 defaultDataset: 12345
 defaultLocation: US
-`
+`,
       );
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        "Workflow settings error: defaultDataset must be a string (got 12345)"
+        "Workflow settings error: defaultDataset must be a string (got 12345)",
       );
     });
 
@@ -838,11 +836,11 @@ defaultLocation: US
 defaultProject: 12345
 defaultDataset: defaultDataset
 defaultLocation: US
-`
+`,
       );
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        "Workflow settings error: defaultProject must be a string (got 12345)"
+        "Workflow settings error: defaultProject must be a string (got 12345)",
       );
     });
 
@@ -851,7 +849,7 @@ defaultLocation: US
       fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), "- someArrayEntry");
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        "Expected a top-level object, but found an array"
+        "Expected a top-level object, but found an array",
       );
     });
 
@@ -861,7 +859,7 @@ defaultLocation: US
         path.join(projectDir, "workflow_settings.yaml"),
         `
 sqlanvilCoreVersion: ${version}
-defaultProject: project`
+defaultProject: project`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -870,8 +868,8 @@ defaultProject: project`
       expect(asPlainObject(result.compile.compiledGraph.projectConfig)).deep.equals(
         asPlainObject({
           warehouse: "bigquery",
-          defaultDatabase: "project"
-        })
+          defaultDatabase: "project",
+        }),
       );
     });
 
@@ -884,7 +882,7 @@ defaultProject: defaultProject
 defaultLocation: locationInWorkflowSettings
 vars:
   selectVar: selectVal
-`
+`,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -894,7 +892,7 @@ config {
   type: "table",
   database: sqlanvil.projectConfig.vars.projectVar,
 }
-select 1 AS \${sqlanvil.projectConfig.vars.selectVar}`
+select 1 AS \${sqlanvil.projectConfig.vars.selectVar}`,
       );
       const coreExecutionRequest = sqlanvil.CoreExecutionRequest.create({
         compile: {
@@ -904,11 +902,11 @@ select 1 AS \${sqlanvil.projectConfig.vars.selectVar}`
             projectConfigOverride: {
               defaultLocation: "locationInOverride",
               vars: {
-                projectVar: "projectVal"
-              }
-            }
-          }
-        }
+                projectVar: "projectVal",
+              },
+            },
+          },
+        },
       });
 
       const result = runMainInVm(coreExecutionRequest);
@@ -924,15 +922,15 @@ select 1 AS \${sqlanvil.projectConfig.vars.selectVar}`
             defaultLocation: "locationInOverride",
             vars: {
               projectVar: "projectVal",
-              selectVar: "selectVal"
+              selectVar: "selectVal",
             },
-            warehouse: "bigquery"
+            warehouse: "bigquery",
           },
           tables: [
             {
               canonicalTarget: {
                 database: "projectVal",
-                name: "file"
+                name: "file",
               },
               disabled: false,
               enumType: "TABLE",
@@ -941,18 +939,18 @@ select 1 AS \${sqlanvil.projectConfig.vars.selectVar}`
               query: "\n\nselect 1 AS selectVal",
               target: {
                 database: "projectVal",
-                name: "file"
+                name: "file",
               },
-              type: "table"
-            }
+              type: "table",
+            },
           ],
           targets: [
             {
               database: "projectVal",
-              name: "file"
-            }
-          ]
-        })
+              name: "file",
+            },
+          ],
+        }),
       );
     });
 
@@ -963,11 +961,11 @@ select 1 AS \${sqlanvil.projectConfig.vars.selectVar}`
           path.join(projectDir, "workflow_settings.yaml"),
           `
 sqlanvilCoreVersion: 0.0.0
-defaultProject: sqlanvil`
+defaultProject: sqlanvil`,
         );
 
         expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-          `Version mismatch: workflow settings specifies version 0.0.0, but ${version} was found`
+          `Version mismatch: workflow settings specifies version 0.0.0, but ${version} was found`,
         );
       });
 
@@ -978,7 +976,7 @@ defaultProject: sqlanvil`
           `
 sqlanvilCoreVersion: ${version}
 defaultProject: project
-defaultLocation: US`
+defaultLocation: US`,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -988,8 +986,8 @@ defaultLocation: US`
           asPlainObject({
             warehouse: "bigquery",
             defaultDatabase: "project",
-            defaultLocation: "US"
-          })
+            defaultLocation: "US",
+          }),
         );
       });
     });
@@ -1002,11 +1000,11 @@ defaultLocation: US`
           `
 vars:
   intValue: 1
-  strValue: "str"`
+  strValue: "str"`,
         );
 
         expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-          "Custom variables defined in workflow settings can only be strings."
+          "Custom variables defined in workflow settings can only be strings.",
         );
       });
 
@@ -1018,7 +1016,7 @@ vars:
 defaultLocation: "us"
 vars:
   descriptionVar: descriptionValue
-  columnVar: columnValue`
+  columnVar: columnValue`,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
@@ -1035,7 +1033,7 @@ config {
     nonNull: [sqlanvil.projectConfig.vars.columnVar],
   }
 }
-select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`
+select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`,
         );
         const coreExecutionRequest = sqlanvil.CoreExecutionRequest.create({
           compile: {
@@ -1044,11 +1042,11 @@ select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`
               filePaths: ["definitions/file.sqlx"],
               projectConfigOverride: {
                 vars: {
-                  databaseVar: "databaseVal"
-                }
-              }
-            }
-          }
+                  databaseVar: "databaseVal",
+                },
+              },
+            },
+          },
         });
 
         const result = runMainInVm(coreExecutionRequest);
@@ -1059,27 +1057,27 @@ select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`
             assertions: [
               {
                 canonicalTarget: {
-                  name: "tableSchema_file_assertions_rowConditions"
+                  name: "tableSchema_file_assertions_rowConditions",
                 },
                 dependencyTargets: [
                   {
                     database: "databaseVal",
                     name: "file",
-                    schema: "tableSchema"
-                  }
+                    schema: "tableSchema",
+                  },
                 ],
                 fileName: "definitions/file.sqlx",
                 parentAction: {
                   database: "databaseVal",
                   name: "file",
-                  schema: "tableSchema"
+                  schema: "tableSchema",
                 },
                 query:
                   "\nSELECT\n  'columnValue IS NOT NULL' AS failing_row_condition,\n  *\nFROM `databaseVal.tableSchema.file`\nWHERE NOT (columnValue IS NOT NULL)\n",
                 target: {
-                  name: "tableSchema_file_assertions_rowConditions"
-                }
-              }
+                  name: "tableSchema_file_assertions_rowConditions",
+                },
+              },
             ],
             sqlanvilCoreVersion: version,
             graphErrors: {},
@@ -1089,19 +1087,19 @@ select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`
               vars: {
                 databaseVar: "databaseVal",
                 descriptionVar: "descriptionValue",
-                columnVar: "columnValue"
+                columnVar: "columnValue",
               },
-              warehouse: "bigquery"
+              warehouse: "bigquery",
             },
             tables: [
               {
                 actionDescriptor: {
-                  description: "descriptionValue"
+                  description: "descriptionValue",
                 },
                 canonicalTarget: {
                   database: "databaseVal",
                   name: "file",
-                  schema: "tableSchema"
+                  schema: "tableSchema",
                 },
                 disabled: false,
                 enumType: "TABLE",
@@ -1110,23 +1108,23 @@ select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`
                 target: {
                   database: "databaseVal",
                   name: "file",
-                  schema: "tableSchema"
+                  schema: "tableSchema",
                 },
                 type: "table",
-                hermeticity: "NON_HERMETIC"
-              }
+                hermeticity: "NON_HERMETIC",
+              },
             ],
             targets: [
               {
-                name: "tableSchema_file_assertions_rowConditions"
+                name: "tableSchema_file_assertions_rowConditions",
               },
               {
                 database: "databaseVal",
                 name: "file",
-                schema: "tableSchema"
-              }
-            ]
-          })
+                schema: "tableSchema",
+              },
+            ],
+          }),
         );
       });
     });
@@ -1149,7 +1147,7 @@ connections:
     platform: bigquery
     project: bigquery-public-data
     dataset: geo_us_boundaries
-    saKeyId: vault-123`
+    saKeyId: vault-123`,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
 
@@ -1168,7 +1166,7 @@ connections:
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        `defaultDataset: analytics\nwarehouse: postgres`
+        `defaultDataset: analytics\nwarehouse: postgres`,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -1182,11 +1180,11 @@ connections:
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        `defaultDataset: analytics\nwarehouse: postgres\nconnections:\n  bad:\n    project: some-project`
+        `defaultDataset: analytics\nwarehouse: postgres\nconnections:\n  bad:\n    project: some-project`,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        /Connection "bad".*platform/
+        /Connection "bad".*platform/,
       );
     });
 
@@ -1205,7 +1203,7 @@ connections:
     project: bigquery-public-data
     dataset: geo_us_boundaries
     billingProject: my-billing-project
-    saKeyId: vault-123`
+    saKeyId: vault-123`,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1215,23 +1213,23 @@ connections:
   connection: "bigquery_public",
   name: "zip_codes",
   columnTypes: { zip_code: "text", lat: "float8" }
-}`
+}`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
       const operations = result.compile.compiledGraph.operations;
       const serverSql = operations
-        .find(o => o.target.name === "bigquery_public_srv")
+        .find((o) => o.target.name === "bigquery_public_srv")
         .queries.join("\n");
       const foreignTableSql = operations
-        .find(o => o.target.schema === "bigquery_public_ext" && o.target.name === "zip_codes")
+        .find((o) => o.target.schema === "bigquery_public_ext" && o.target.name === "zip_codes")
         .queries.join("\n");
       // Bills the billing project, not the (unbillable) data project.
       expect(serverSql).to.contain("project_id 'my-billing-project'");
       // Reads the source via a full-FQN subquery so the job bills the billing project.
       expect(foreignTableSql).to.contain(
-        "select zip_code, lat from `bigquery-public-data.geo_us_boundaries.zip_codes`"
+        "select zip_code, lat from `bigquery-public-data.geo_us_boundaries.zip_codes`",
       );
     });
 
@@ -1250,7 +1248,7 @@ connections:
     project: bigquery-public-data
     dataset: geo_us_boundaries
     billingProject: my-billing-project
-    mode: runner-extract`
+    mode: runner-extract`,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1260,24 +1258,24 @@ connections:
   connection: "bigquery_public",
   name: "zip_codes",
   columnTypes: { zip_code: "text", lat: "float8" }
-}`
+}`,
       );
       // Referenced — unreferenced extracts are pruned from the graph (Dataform-parity).
       fs.writeFileSync(
         path.join(projectDir, "definitions", "zip_view.sqlx"),
         `config { type: "view" }
-select * from \${ref("zip_codes")}`
+select * from \${ref("zip_codes")}`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
       // No FDW bridge: no CREATE SERVER, no foreign table.
       const operations = result.compile.compiledGraph.operations;
-      expect(operations.find(o => o.target.name === "bigquery_public_srv")).to.be.undefined;
+      expect(operations.find((o) => o.target.name === "bigquery_public_srv")).to.be.undefined;
       expect(
         operations.find(
-          o => o.target.schema === "bigquery_public_ext" && o.target.name === "zip_codes"
-        )
+          (o) => o.target.schema === "bigquery_public_ext" && o.target.name === "zip_codes",
+        ),
       ).to.be.undefined;
       // Instead, one Extract action carrying the source + columns, targeting the ref-able table.
       const extracts = result.compile.compiledGraph.extracts;
@@ -1308,7 +1306,7 @@ connections:
     platform: mysql
     host: mysql.example.com
     port: 3306
-    database: shop`
+    database: shop`,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1318,7 +1316,7 @@ connections:
   connection: "shop_mysql",
   name: "orders",
   columnTypes: { id: "bigint", total: "numeric" }
-}`
+}`,
       );
       fs.writeFileSync(
         path.join(projectDir, "definitions", "customers.sqlx"),
@@ -1328,23 +1326,23 @@ connections:
   schema: "legacy_db",
   name: "customers",
   columnTypes: { id: "bigint", email: "text" }
-}`
+}`,
       );
       // Referenced — unreferenced extracts are pruned from the graph (Dataform-parity).
       fs.writeFileSync(
         path.join(projectDir, "definitions", "shop_summary.sqlx"),
         `config { type: "view" }
-select * from \${ref("orders")} join \${ref("customers")} using (id)`
+select * from \${ref("orders")} join \${ref("customers")} using (id)`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
       // No FDW bridge for MySQL — no CREATE SERVER, no foreign table.
       const operations = result.compile.compiledGraph.operations;
-      expect(operations.find(o => o.target.name === "shop_mysql_srv")).to.be.undefined;
+      expect(operations.find((o) => o.target.name === "shop_mysql_srv")).to.be.undefined;
       const extracts = result.compile.compiledGraph.extracts;
       expect(extracts.length).equals(2);
-      const orders = extracts.find(e => e.target.name === "orders");
+      const orders = extracts.find((e) => e.target.name === "orders");
       expect(orders.target.schema).equals("shop_mysql_ext");
       expect(orders.connectionName).equals("shop_mysql");
       expect(orders.platform).equals("mysql");
@@ -1352,7 +1350,7 @@ select * from \${ref("orders")} join \${ref("customers")} using (id)`
       expect(orders.sourceName).equals("orders");
       expect(orders.columnTypes).deep.equals({ id: "bigint", total: "numeric" });
       // An explicit `schema:` on the declaration names the source database.
-      const customers = extracts.find(e => e.target.name === "customers");
+      const customers = extracts.find((e) => e.target.name === "customers");
       expect(customers.database).equals("legacy_db");
     });
 
@@ -1370,7 +1368,7 @@ connections:
     platform: bigquery
     project: some-project
     dataset: ods
-    mode: runner-extract`
+    mode: runner-extract`,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       // Referenced, introspected: stays.
@@ -1381,7 +1379,7 @@ connections:
   connection: "bq_src",
   name: "used",
   columnTypes: { id: "bigint" }
-}`
+}`,
       );
       // Unreferenced, introspected: pruned (nobody reads it — don't materialize it).
       fs.writeFileSync(
@@ -1391,7 +1389,7 @@ connections:
   connection: "bq_src",
   name: "unused",
   columnTypes: { id: "bigint" }
-}`
+}`,
       );
       // Unreferenced, empty columnTypes (source may not even exist yet): pruned, NOT an error.
       fs.writeFileSync(
@@ -1401,12 +1399,12 @@ connections:
   connection: "bq_src",
   name: "future",
   columnTypes: {}
-}`
+}`,
       );
       fs.writeFileSync(
         path.join(projectDir, "definitions", "consumer.sqlx"),
         `config { type: "view" }
-select * from \${ref("used")}`
+select * from \${ref("used")}`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -1415,7 +1413,7 @@ select * from \${ref("used")}`
       expect(extracts.length).equals(1);
       expect(extracts[0].target.name).equals("used");
       // Pruned extracts also leave the graph's target list.
-      const targetNames = result.compile.compiledGraph.targets.map(t => t.name);
+      const targetNames = result.compile.compiledGraph.targets.map((t) => t.name);
       expect(targetNames).to.contain("used");
       expect(targetNames).to.not.contain("unused");
       expect(targetNames).to.not.contain("future");
@@ -1435,7 +1433,7 @@ connections:
     platform: mysql
     host: mysql.example.com
     database: shop
-    mode: fdw`
+    mode: fdw`,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1445,13 +1443,15 @@ connections:
   connection: "shop_mysql",
   name: "orders",
   columnTypes: { id: "bigint" }
-}`
+}`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
       const errors = result.compile.compiledGraph.graphErrors.compilationErrors;
       expect(errors.length).equals(1);
-      expect(errors[0].message).to.contain('MySQL/MariaDB sources support only mode "runner-extract"');
+      expect(errors[0].message).to.contain(
+        'MySQL/MariaDB sources support only mode "runner-extract"',
+      );
       expect(result.compile.compiledGraph.extracts ?? []).deep.equals([]);
     });
 
@@ -1469,7 +1469,7 @@ connections:
     platform: bigquery
     project: my-project
     dataset: my_dataset
-    saKeyId: vault-123`
+    saKeyId: vault-123`,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1479,15 +1479,15 @@ connections:
   connection: "my_bq",
   name: "widgets",
   columnTypes: { id: "int8" }
-}`
+}`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
       const operations = result.compile.compiledGraph.operations;
-      const serverSql = operations.find(o => o.target.name === "my_bq_srv").queries.join("\n");
+      const serverSql = operations.find((o) => o.target.name === "my_bq_srv").queries.join("\n");
       const foreignTableSql = operations
-        .find(o => o.target.schema === "my_bq_ext" && o.target.name === "widgets")
+        .find((o) => o.target.schema === "my_bq_ext" && o.target.name === "widgets")
         .queries.join("\n");
       expect(serverSql).to.contain("project_id 'my-project'");
       expect(foreignTableSql).to.contain("options (table 'widgets')");
@@ -1499,7 +1499,7 @@ connections:
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1507,11 +1507,11 @@ connections:
         `
 actions:
 - operation:
-    filename: doesnotexist.sql`
+    filename: doesnotexist.sql`,
       );
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        "Cannot find module 'definitions/doesnotexist.sql'"
+        "Cannot find module 'definitions/doesnotexist.sql'",
       );
     });
 
@@ -1519,7 +1519,7 @@ actions:
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1528,11 +1528,11 @@ actions:
 actions:
 - table:
     filename: action.sql
-    materialized: true`
+    materialized: true`,
       );
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        `Unexpected property "materialized", or property value type of "boolean" is incorrect. See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-ActionConfigs for allowed properties.`
+        `Unexpected property "materialized", or property value type of "boolean" is incorrect. See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-ActionConfigs for allowed properties.`,
       );
     });
 
@@ -1540,17 +1540,17 @@ actions:
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
         path.join(projectDir, "definitions/actions.yaml"),
         `
-actions:`
+actions:`,
       );
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        `Unexpected empty value for "actions". See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-ActionConfigs for allowed properties.`
+        `Unexpected empty value for "actions". See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-ActionConfigs for allowed properties.`,
       );
     });
 
@@ -1561,35 +1561,35 @@ actions:`
           yamlBody: `
 actions:
 - table:
-    filename: table.sqlx`
+    filename: table.sqlx`,
         },
         {
           actionType: "view",
           yamlBody: `
 actions:
 - view:
-    filename: view.sqlx`
+    filename: view.sqlx`,
         },
         {
           actionType: "incrementalTable",
           yamlBody: `
 actions:
 - incrementalTable:
-    filename: incremental.sqlx`
+    filename: incremental.sqlx`,
         },
         {
           actionType: "assertion",
           yamlBody: `
 actions:
 - assertion:
-    filename: assertion.sqlx`
+    filename: assertion.sqlx`,
         },
         {
           actionType: "operation",
           yamlBody: `
 actions:
 - operation:
-    filename: operation.sqlx`
+    filename: operation.sqlx`,
         },
         {
           actionType: "declaration",
@@ -1597,21 +1597,21 @@ actions:
 actions:
 - declaration:
     name: declaration
-    filename: declaration.sqlx`
+    filename: declaration.sqlx`,
         },
         {
           actionType: "notebook",
           yamlBody: `
 actions:
 - notebook:
-    filename: notebook.sqlx`
-        }
+    filename: notebook.sqlx`,
+        },
       ].forEach(({ actionType, yamlBody }) => {
         test(`for action type "${actionType}"`, () => {
           const projectDir = tmpDirFixture.createNewTmpDir();
           fs.writeFileSync(
             path.join(projectDir, "workflow_settings.yaml"),
-            VALID_WORKFLOW_SETTINGS_YAML
+            VALID_WORKFLOW_SETTINGS_YAML,
           );
           fs.mkdirSync(path.join(projectDir, "definitions"));
           fs.writeFileSync(path.join(projectDir, "definitions/actions.yaml"), yamlBody);
@@ -1619,13 +1619,11 @@ actions:
           const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
           const errorMessages = result.compile.compiledGraph.graphErrors.compilationErrors.map(
-            ({ message }) => message
+            ({ message }) => message,
           );
           expect(errorMessages).to.have.lengthOf(1);
           expect(errorMessages[0]).to.include(`Action config "${actionType}" has filename`);
-          expect(errorMessages[0]).to.include(
-            ".sqlx files cannot be referenced from actions.yaml"
-          );
+          expect(errorMessages[0]).to.include(".sqlx files cannot be referenced from actions.yaml");
         });
       });
 
@@ -1633,7 +1631,7 @@ actions:
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
+          VALID_WORKFLOW_SETTINGS_YAML,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
@@ -1641,13 +1639,13 @@ actions:
           `
 actions:
 - table:
-    filename: table.SQLX`
+    filename: table.SQLX`,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
         expect(
-          result.compile.compiledGraph.graphErrors.compilationErrors.map(({ message }) => message)
+          result.compile.compiledGraph.graphErrors.compilationErrors.map(({ message }) => message),
         ).to.have.lengthOf(1);
       });
 
@@ -1659,7 +1657,7 @@ actions:
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
+          VALID_WORKFLOW_SETTINGS_YAML,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
@@ -1667,13 +1665,13 @@ actions:
           `
 actions:
 - dataPreparation:
-    filename: prep.dp.sqlx`
+    filename: prep.dp.sqlx`,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
         const errorMessages = result.compile.compiledGraph.graphErrors.compilationErrors.map(
-          ({ message }) => message
+          ({ message }) => message,
         );
         expect(errorMessages).to.have.lengthOf(1);
         expect(errorMessages[0]).to.include(`Action config "dataPreparation" has filename`);
@@ -1685,7 +1683,7 @@ actions:
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1693,11 +1691,11 @@ actions:
         `
 actions:
 - operation:
-    filename: utf8characters:私🙂 and some spaces.sql`
+    filename: utf8characters:私🙂 and some spaces.sql`,
       );
       fs.writeFileSync(
         path.join(projectDir, "definitions/utf8characters:私🙂 and some spaces.sql"),
-        "SELECT 1"
+        "SELECT 1",
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -1709,18 +1707,18 @@ actions:
             target: {
               database: "defaultProject",
               schema: "defaultDataset",
-              name: "utf8characters:私🙂 and some spaces"
+              name: "utf8characters:私🙂 and some spaces",
             },
             canonicalTarget: {
               database: "defaultProject",
               schema: "defaultDataset",
-              name: "utf8characters:私🙂 and some spaces"
+              name: "utf8characters:私🙂 and some spaces",
             },
             fileName: "definitions/utf8characters:私🙂 and some spaces.sql",
             queries: ["SELECT 1"],
-            hermeticity: "NON_HERMETIC"
-          }
-        ])
+            hermeticity: "NON_HERMETIC",
+          },
+        ]),
       );
     });
 
@@ -1728,7 +1726,7 @@ actions:
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1766,14 +1764,14 @@ actions:
     dependencyTargets:
     - name: view
       dataset: defaultDataset
-      project: defaultProject`
+      project: defaultProject`,
       );
-      ["table.sql", "incrementalTable.sql", "view.sql", "operation.sql"].forEach(filename => {
+      ["table.sql", "incrementalTable.sql", "view.sql", "operation.sql"].forEach((filename) => {
         fs.writeFileSync(path.join(projectDir, `definitions/${filename}`), "SELECT 1");
       });
       fs.writeFileSync(
         path.join(projectDir, `definitions/notebook.ipynb`),
-        EMPTY_NOTEBOOK_CONTENTS
+        EMPTY_NOTEBOOK_CONTENTS,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -1785,7 +1783,7 @@ actions:
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       // The dependency target for depending on a notebook currently hacks around the limitations of
@@ -1807,12 +1805,12 @@ actions:
     - name: notebook1
       dataset: location
       project: project
-    filename: operation.sql`
+    filename: operation.sql`,
       );
       fs.writeFileSync(path.join(projectDir, "definitions/operation.sql"), "SELECT 1");
       fs.writeFileSync(
         path.join(projectDir, `definitions/notebook.ipynb`),
-        EMPTY_NOTEBOOK_CONTENTS
+        EMPTY_NOTEBOOK_CONTENTS,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -1823,15 +1821,15 @@ actions:
 
   suite("javascript API", () => {
     suite("publish", () => {
-      ["table", "view", "incremental"].forEach(tableType => {
+      ["table", "view", "incremental"].forEach((tableType) => {
         [
           WorkflowSettingsTemplates.bigqueryWithDefaultProjectAndDataset,
           {
             ...WorkflowSettingsTemplates.bigqueryWithDatasetSuffix,
-            defaultProject: "defaultProject"
+            defaultProject: "defaultProject",
           },
-          { ...WorkflowSettingsTemplates.bigqueryWithNamePrefix, defaultProject: "defaultProject" }
-        ].forEach(projectConfig => {
+          { ...WorkflowSettingsTemplates.bigqueryWithNamePrefix, defaultProject: "defaultProject" },
+        ].forEach((projectConfig) => {
           test(
             `publish for table type ${tableType}, with project suffix ` +
               `'${projectConfig.projectSuffix}', dataset suffix ` +
@@ -1840,7 +1838,7 @@ actions:
               const projectDir = tmpDirFixture.createNewTmpDir();
               fs.writeFileSync(
                 path.join(projectDir, "workflow_settings.yaml"),
-                dumpYaml(sqlanvil.WorkflowSettings.create(projectConfig))
+                dumpYaml(sqlanvil.WorkflowSettings.create(projectConfig)),
               );
               fs.mkdirSync(path.join(projectDir, "definitions"));
               fs.writeFileSync(
@@ -1852,7 +1850,7 @@ publish("name", {
   .preOps(_ => ["pre_op"])
   .postOps(_ => ["post_op"])
   .database("otherProject")
-  .schema("otherDataset")`
+  .schema("otherDataset")`,
               );
 
               const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -1870,12 +1868,12 @@ publish("name", {
                       schema: projectConfig.datasetSuffix
                         ? `otherDataset_${projectConfig.datasetSuffix}`
                         : "otherDataset",
-                      name: projectConfig.namePrefix ? `${projectConfig.namePrefix}_name` : "name"
+                      name: projectConfig.namePrefix ? `${projectConfig.namePrefix}_name` : "name",
                     },
                     canonicalTarget: {
                       database: projectConfig.defaultProject,
                       schema: projectConfig.defaultDataset,
-                      name: "name"
+                      name: "name",
                     },
                     disabled: false,
                     enumType: tableType.toUpperCase(),
@@ -1890,13 +1888,13 @@ publish("name", {
                           incrementalQuery: "SELECT 1",
                           incrementalStrategy: "INCREMENTAL_STRATEGY_UNSPECIFIED",
                           protected: false,
-                          onSchemaChange: "IGNORE"
+                          onSchemaChange: "IGNORE",
                         }
-                      : {})
-                  }
-                ])
+                      : {}),
+                  },
+                ]),
               );
-            }
+            },
           );
         });
 
@@ -1904,7 +1902,7 @@ publish("name", {
           const projectDir = tmpDirFixture.createNewTmpDir();
           fs.writeFileSync(
             path.join(projectDir, "workflow_settings.yaml"),
-            VALID_WORKFLOW_SETTINGS_YAML
+            VALID_WORKFLOW_SETTINGS_YAML,
           );
           fs.mkdirSync(path.join(projectDir, "definitions"));
           fs.writeFileSync(
@@ -1913,14 +1911,14 @@ publish("name", {
 config {
   hasOutput: true
 }
-SELECT 1`
+SELECT 1`,
           );
           fs.writeFileSync(
             path.join(projectDir, "definitions/publish.js"),
             `
 publish("name", {
   type: "${tableType}",
-}).query(ctx => \`SELECT * FROM \${ctx.ref('operation')}\`)`
+}).query(ctx => \`SELECT * FROM \${ctx.ref('operation')}\`)`,
           );
 
           const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -1931,14 +1929,14 @@ publish("name", {
               canonicalTarget: {
                 database: "defaultProject",
                 name: "name",
-                schema: "defaultDataset"
+                schema: "defaultDataset",
               },
               dependencyTargets: [
                 {
                   database: "defaultProject",
                   name: "operation",
-                  schema: "defaultDataset"
-                }
+                  schema: "defaultDataset",
+                },
               ],
               disabled: false,
               enumType: tableType.toUpperCase(),
@@ -1948,7 +1946,7 @@ publish("name", {
               target: {
                 database: "defaultProject",
                 name: "name",
-                schema: "defaultDataset"
+                schema: "defaultDataset",
               },
               type: tableType,
               ...(tableType === "incremental"
@@ -1956,10 +1954,10 @@ publish("name", {
                     incrementalQuery: "SELECT * FROM `defaultProject.defaultDataset.operation`",
                     incrementalStrategy: "INCREMENTAL_STRATEGY_UNSPECIFIED",
                     protected: false,
-                    onSchemaChange: "IGNORE"
+                    onSchemaChange: "IGNORE",
                   }
-                : {})
-            }
+                : {}),
+            },
           ]);
         });
 
@@ -1968,7 +1966,7 @@ publish("name", {
             const projectDir = tmpDirFixture.createNewTmpDir();
             fs.writeFileSync(
               path.join(projectDir, "workflow_settings.yaml"),
-              VALID_WORKFLOW_SETTINGS_YAML
+              VALID_WORKFLOW_SETTINGS_YAML,
             );
             fs.mkdirSync(path.join(projectDir, "definitions"));
             fs.writeFileSync(
@@ -1977,18 +1975,18 @@ publish("name", {
 publish("name", {
   type: "incremental",
 }).query(_ => "SELECT 1")
-  .protected()`
+  .protected()`,
             );
-  
+
             const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
-  
+
             expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
             expect(asPlainObject(result.compile.compiledGraph.tables)).deep.equals([
               {
                 canonicalTarget: {
                   database: "defaultProject",
                   name: "name",
-                  schema: "defaultDataset"
+                  schema: "defaultDataset",
                 },
                 disabled: false,
                 enumType: tableType.toUpperCase(),
@@ -1998,16 +1996,16 @@ publish("name", {
                 target: {
                   database: "defaultProject",
                   name: "name",
-                  schema: "defaultDataset"
+                  schema: "defaultDataset",
                 },
                 type: tableType,
                 incrementalQuery: "SELECT 1",
                 protected: true,
                 onSchemaChange: "IGNORE",
                 incrementalStrategy: "INCREMENTAL_STRATEGY_UNSPECIFIED",
-              }
+              },
             ]);
-          }); 
+          });
         }
       });
     });
@@ -2017,10 +2015,10 @@ publish("name", {
         WorkflowSettingsTemplates.bigqueryWithDefaultProjectAndDataset,
         {
           ...WorkflowSettingsTemplates.bigqueryWithDatasetSuffix,
-          defaultProject: "defaultProject"
+          defaultProject: "defaultProject",
         },
-        { ...WorkflowSettingsTemplates.bigqueryWithNamePrefix, defaultProject: "defaultProject" }
-      ].forEach(projectConfig => {
+        { ...WorkflowSettingsTemplates.bigqueryWithNamePrefix, defaultProject: "defaultProject" },
+      ].forEach((projectConfig) => {
         test(
           `operate with project suffix ` +
             `'${projectConfig.projectSuffix}', dataset suffix ` +
@@ -2029,7 +2027,7 @@ publish("name", {
             const projectDir = tmpDirFixture.createNewTmpDir();
             fs.writeFileSync(
               path.join(projectDir, "workflow_settings.yaml"),
-              dumpYaml(sqlanvil.WorkflowSettings.create(projectConfig))
+              dumpYaml(sqlanvil.WorkflowSettings.create(projectConfig)),
             );
             fs.mkdirSync(path.join(projectDir, "definitions"));
             fs.writeFileSync(
@@ -2039,7 +2037,7 @@ operate("name", {
   type: "operations",
 }).queries(_ => ["SELECT 1", "SELECT 2"])
   .database("otherProject")
-  .schema("otherDataset")`
+  .schema("otherDataset")`,
             );
 
             const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -2055,20 +2053,20 @@ operate("name", {
                     schema: projectConfig.datasetSuffix
                       ? `otherDataset_${projectConfig.datasetSuffix}`
                       : "otherDataset",
-                    name: projectConfig.namePrefix ? `${projectConfig.namePrefix}_name` : "name"
+                    name: projectConfig.namePrefix ? `${projectConfig.namePrefix}_name` : "name",
                   },
                   canonicalTarget: {
                     database: projectConfig.defaultProject,
                     schema: projectConfig.defaultDataset,
-                    name: "name"
+                    name: "name",
                   },
                   fileName: "definitions/operate.js",
                   hermeticity: "NON_HERMETIC",
-                  queries: ["SELECT 1", "SELECT 2"]
-                }
-              ])
+                  queries: ["SELECT 1", "SELECT 2"],
+                },
+              ]),
             );
-          }
+          },
         );
       });
 
@@ -2076,19 +2074,19 @@ operate("name", {
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
+          VALID_WORKFLOW_SETTINGS_YAML,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
           path.join(projectDir, "definitions/table.sqlx"),
-          `config {type: "table"} SELECT 1`
+          `config {type: "table"} SELECT 1`,
         );
         fs.writeFileSync(
           path.join(projectDir, "definitions/operate.js"),
           `
 operate("name", {
   type: "operations",
-}).queries(ctx => [\`SELECT * FROM \${ctx.ref('table')}\`])`
+}).queries(ctx => [\`SELECT * FROM \${ctx.ref('table')}\`])`,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -2099,14 +2097,14 @@ operate("name", {
             canonicalTarget: {
               database: "defaultProject",
               name: "name",
-              schema: "defaultDataset"
+              schema: "defaultDataset",
             },
             dependencyTargets: [
               {
                 database: "defaultProject",
                 name: "table",
-                schema: "defaultDataset"
-              }
+                schema: "defaultDataset",
+              },
             ],
             fileName: "definitions/operate.js",
             hermeticity: "NON_HERMETIC",
@@ -2114,9 +2112,9 @@ operate("name", {
             target: {
               database: "defaultProject",
               name: "name",
-              schema: "defaultDataset"
-            }
-          }
+              schema: "defaultDataset",
+            },
+          },
         ]);
       });
     });
@@ -2126,10 +2124,10 @@ operate("name", {
         WorkflowSettingsTemplates.bigqueryWithDefaultProjectAndDataset,
         {
           ...WorkflowSettingsTemplates.bigqueryWithDatasetSuffix,
-          defaultProject: "defaultProject"
+          defaultProject: "defaultProject",
         },
-        { ...WorkflowSettingsTemplates.bigqueryWithNamePrefix, defaultProject: "defaultProject" }
-      ].forEach(projectConfig => {
+        { ...WorkflowSettingsTemplates.bigqueryWithNamePrefix, defaultProject: "defaultProject" },
+      ].forEach((projectConfig) => {
         test(
           `assert with project suffix ` +
             `'${projectConfig.projectSuffix}', dataset suffix ` +
@@ -2138,7 +2136,7 @@ operate("name", {
             const projectDir = tmpDirFixture.createNewTmpDir();
             fs.writeFileSync(
               path.join(projectDir, "workflow_settings.yaml"),
-              dumpYaml(sqlanvil.WorkflowSettings.create(projectConfig))
+              dumpYaml(sqlanvil.WorkflowSettings.create(projectConfig)),
             );
             fs.mkdirSync(path.join(projectDir, "definitions"));
             fs.writeFileSync(
@@ -2148,7 +2146,7 @@ assert("name", {
   type: "operations",
 }).query(_ => "SELECT 1")
   .database("otherProject")
-  .schema("otherDataset")`
+  .schema("otherDataset")`,
             );
 
             const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -2164,19 +2162,19 @@ assert("name", {
                     schema: projectConfig.datasetSuffix
                       ? `otherDataset_${projectConfig.datasetSuffix}`
                       : "otherDataset",
-                    name: projectConfig.namePrefix ? `${projectConfig.namePrefix}_name` : "name"
+                    name: projectConfig.namePrefix ? `${projectConfig.namePrefix}_name` : "name",
                   },
                   canonicalTarget: {
                     database: projectConfig.defaultProject,
                     schema: projectConfig.defaultDataset,
-                    name: "name"
+                    name: "name",
                   },
                   fileName: "definitions/assert.js",
-                  query: "SELECT 1"
-                }
-              ])
+                  query: "SELECT 1",
+                },
+              ]),
             );
-          }
+          },
         );
       });
 
@@ -2184,19 +2182,19 @@ assert("name", {
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
+          VALID_WORKFLOW_SETTINGS_YAML,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
           path.join(projectDir, "definitions/table.sqlx"),
-          `config {type: "table"} SELECT 1`
+          `config {type: "table"} SELECT 1`,
         );
         fs.writeFileSync(
           path.join(projectDir, "definitions/assert.js"),
           `
 assert("name", {
   type: "assert",
-}).query(ctx => \`SELECT * FROM \${ctx.ref('table')}\`)`
+}).query(ctx => \`SELECT * FROM \${ctx.ref('table')}\`)`,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -2207,23 +2205,23 @@ assert("name", {
             canonicalTarget: {
               database: "defaultProject",
               name: "name",
-              schema: "defaultDataset"
+              schema: "defaultDataset",
             },
             dependencyTargets: [
               {
                 database: "defaultProject",
                 name: "table",
-                schema: "defaultDataset"
-              }
+                schema: "defaultDataset",
+              },
             ],
             fileName: "definitions/assert.js",
             query: "SELECT * FROM `defaultProject.defaultDataset.table`",
             target: {
               database: "defaultProject",
               name: "name",
-              schema: "defaultDataset"
-            }
-          }
+              schema: "defaultDataset",
+            },
+          },
         ]);
       });
 
@@ -2234,21 +2232,21 @@ assert("name", {
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
+          VALID_WORKFLOW_SETTINGS_YAML,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
           path.join(projectDir, "definitions/assert.js"),
           `
-assert("name").jitCode(ctx => "jit");`
+assert("name").jitCode(ctx => "jit");`,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
         expect(
-          result.compile.compiledGraph.graphErrors.compilationErrors.some(e =>
-            e.message.includes("Assertion .jitCode() is not supported by sqlanvil")
-          )
+          result.compile.compiledGraph.graphErrors.compilationErrors.some((e) =>
+            e.message.includes("Assertion .jitCode() is not supported by sqlanvil"),
+          ),
         ).equals(true);
         // The rejected action must not survive into the graph.
         expect(asPlainObject(result.compile.compiledGraph.assertions)).deep.equals([]);
@@ -2258,48 +2256,46 @@ assert("name").jitCode(ctx => "jit");`
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
+          VALID_WORKFLOW_SETTINGS_YAML,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
           path.join(projectDir, "definitions/assert.js"),
           `
-assert("name").query("SELECT 1").jitCode(ctx => "jit");`
+assert("name").query("SELECT 1").jitCode(ctx => "jit");`,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
         expect(
-          result.compile.compiledGraph.graphErrors.compilationErrors?.map(error => error.message)
-        ).deep.equals([
-          "Assertion may set either .jitCode() or .query(), but not both."
-        ]);
+          result.compile.compiledGraph.graphErrors.compilationErrors?.map((error) => error.message),
+        ).deep.equals(["Assertion may set either .jitCode() or .query(), but not both."]);
       });
 
       test("assert API returns disabled assertions when disableAssertions is true", () => {
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
+          VALID_WORKFLOW_SETTINGS_YAML,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
           path.join(projectDir, "definitions/table.sqlx"),
-          `config {type: "table"} SELECT 1`
+          `config {type: "table"} SELECT 1`,
         );
         fs.writeFileSync(
           path.join(projectDir, "definitions/assert.js"),
           `
 assert("name", {
   type: "assert",
-}).query(ctx => \`SELECT * FROM \${ctx.ref('table')}\`)`
+}).query(ctx => \`SELECT * FROM \${ctx.ref('table')}\`)`,
         );
 
         const coreRequest = coreExecutionRequestFromPath(
           projectDir,
           sqlanvil.ProjectConfig.create({
-            disableAssertions: true
-          })
+            disableAssertions: true,
+          }),
         );
         const result = runMainInVm(coreRequest);
 
@@ -2310,14 +2306,14 @@ assert("name", {
               canonicalTarget: {
                 database: "defaultProject",
                 name: "name",
-                schema: "defaultDataset"
+                schema: "defaultDataset",
               },
               dependencyTargets: [
                 {
                   database: "defaultProject",
                   name: "table",
-                  schema: "defaultDataset"
-                }
+                  schema: "defaultDataset",
+                },
               ],
               disabled: true,
               fileName: "definitions/assert.js",
@@ -2325,10 +2321,10 @@ assert("name", {
               target: {
                 database: "defaultProject",
                 name: "name",
-                schema: "defaultDataset"
-              }
-            }
-          ])
+                schema: "defaultDataset",
+              },
+            },
+          ]),
         );
         expect(result.compile.compiledGraph.tables.length).equals(1);
       });
@@ -2342,20 +2338,20 @@ assert("name", {
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
+          VALID_WORKFLOW_SETTINGS_YAML,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
           path.join(projectDir, "definitions/jit.js"),
           `
-sqlanvil.jitData("key", {"number": 123});`
+sqlanvil.jitData("key", {"number": 123});`,
         );
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
         expect(
-          result.compile.compiledGraph.graphErrors.compilationErrors.some(e =>
-            e.message.includes("jitData() is not supported by sqlanvil")
-          )
+          result.compile.compiledGraph.graphErrors.compilationErrors.some((e) =>
+            e.message.includes("jitData() is not supported by sqlanvil"),
+          ),
         ).equals(true);
         // Nothing may reach the compiled graph's jit context.
         expect(result.compile.compiledGraph.jitData?.fields ?? {}).to.deep.equal({});
@@ -2363,79 +2359,76 @@ sqlanvil.jitData("key", {"number": 123});`
     });
     suite("markdown in description", () => {
       test("markdown contents added to description in sqlx", () => {
-          const projectDir = tmpDirFixture.createNewTmpDir();
-          fs.writeFileSync(
-            path.join(projectDir, "workflow_settings.yaml"),
-            VALID_WORKFLOW_SETTINGS_YAML
-          );
-          fs.mkdirSync(path.join(projectDir, "definitions"));
-          fs.writeFileSync(
-            path.join(projectDir, "definitions/descriptions.md"),
-            `# This table contains data about`
-          );
-          fs.writeFileSync(
-            path.join(projectDir, "definitions/table.sqlx"),
-            `config {
+        const projectDir = tmpDirFixture.createNewTmpDir();
+        fs.writeFileSync(
+          path.join(projectDir, "workflow_settings.yaml"),
+          VALID_WORKFLOW_SETTINGS_YAML,
+        );
+        fs.mkdirSync(path.join(projectDir, "definitions"));
+        fs.writeFileSync(
+          path.join(projectDir, "definitions/descriptions.md"),
+          `# This table contains data about`,
+        );
+        fs.writeFileSync(
+          path.join(projectDir, "definitions/table.sqlx"),
+          `config {
             type: "table",
             description: getContents('./descriptions.md'),
           }
-            SELECT 1 AS test`
-          );
+            SELECT 1 AS test`,
+        );
 
-          const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+        const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
-          expect(
-            result.compile.compiledGraph.tables[0].actionDescriptor.description
-          ).to.equal(`# This table contains data about`);
-
+        expect(result.compile.compiledGraph.tables[0].actionDescriptor.description).to.equal(
+          `# This table contains data about`,
+        );
       });
 
-       test("throws error for invalid missing markedown", () => {
-          const projectDir = tmpDirFixture.createNewTmpDir();
-          fs.writeFileSync(
-            path.join(projectDir, "workflow_settings.yaml"),
-            VALID_WORKFLOW_SETTINGS_YAML
-          );
-          fs.mkdirSync(path.join(projectDir, "definitions"));
-          fs.writeFileSync(
-            path.join(projectDir, "definitions/table.sqlx"),
-            `config {
+      test("throws error for invalid missing markedown", () => {
+        const projectDir = tmpDirFixture.createNewTmpDir();
+        fs.writeFileSync(
+          path.join(projectDir, "workflow_settings.yaml"),
+          VALID_WORKFLOW_SETTINGS_YAML,
+        );
+        fs.mkdirSync(path.join(projectDir, "definitions"));
+        fs.writeFileSync(
+          path.join(projectDir, "definitions/table.sqlx"),
+          `config {
             type: "table",
             description: getContents('./nonexistent.md'),
           }
-            SELECT 1 AS test`
-          );
+            SELECT 1 AS test`,
+        );
 
-          const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+        const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
-          expect(
-            result.compile.compiledGraph.graphErrors.compilationErrors[0].message
-          ).to.include("nonexistent.md");
-
+        expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).to.include(
+          "nonexistent.md",
+        );
       });
 
       test("throws error for file outisde of rootDir", () => {
-          const projectDir = tmpDirFixture.createNewTmpDir();
-          fs.writeFileSync(
-            path.join(projectDir, "workflow_settings.yaml"),
-            VALID_WORKFLOW_SETTINGS_YAML
-          );
-          fs.mkdirSync(path.join(projectDir, "definitions"));
-          fs.writeFileSync(
-            path.join(projectDir, "definitions/table.sqlx"),
-            `config {
+        const projectDir = tmpDirFixture.createNewTmpDir();
+        fs.writeFileSync(
+          path.join(projectDir, "workflow_settings.yaml"),
+          VALID_WORKFLOW_SETTINGS_YAML,
+        );
+        fs.mkdirSync(path.join(projectDir, "definitions"));
+        fs.writeFileSync(
+          path.join(projectDir, "definitions/table.sqlx"),
+          `config {
             type: "table",
             description: getContents('../../description.md'),
           }
-            SELECT 1 AS test`
-          );
+            SELECT 1 AS test`,
+        );
 
-          const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+        const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
-          expect(
-            result.compile.compiledGraph.graphErrors.compilationErrors[0].message
-          ).to.include("outside the project directory");
-
+        expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).to.include(
+          "outside the project directory",
+        );
       });
     });
     suite("invalid options", () => {
@@ -2450,8 +2443,7 @@ publish("name", {
     partitionBy: "some_partition"
   }
 })`,
-          expectedError:
-            'partitionBy/clusterBy can be applied only to materialized views'
+          expectedError: "partitionBy/clusterBy can be applied only to materialized views",
         },
         {
           testName: "clusterBy invalid for BigQuery non-materialized views",
@@ -2463,8 +2455,7 @@ publish("name", {
     clusterBy: ["some_cluster"]
   }
 })`,
-          expectedError:
-            'partitionBy/clusterBy can be applied only to materialized views'
+          expectedError: "partitionBy/clusterBy can be applied only to materialized views",
         },
         {
           testName: "partitionExpirationDays invalid for BigQuery views",
@@ -2476,7 +2467,7 @@ publish("name", {
   }
 })`,
           expectedError:
-            'Unexpected property "partitionExpirationDays" in BigQuery view config. Supported properties are: ["labels","additionalOptions","partitionBy","clusterBy"]'
+            'Unexpected property "partitionExpirationDays" in BigQuery view config. Supported properties are: ["labels","additionalOptions","partitionBy","clusterBy"]',
         },
         {
           testName: "requirePartitionFilter invalid for BigQuery views",
@@ -2488,7 +2479,7 @@ publish("name", {
   }
 })`,
           expectedError:
-            'Unexpected property "requirePartitionFilter" in BigQuery view config. Supported properties are: ["labels","additionalOptions","partitionBy","clusterBy"]'
+            'Unexpected property "requirePartitionFilter" in BigQuery view config. Supported properties are: ["labels","additionalOptions","partitionBy","clusterBy"]',
         },
         {
           testName: "partitionExpirationDays invalid for BigQuery materialized views",
@@ -2501,7 +2492,7 @@ publish("name", {
   }
 })`,
           expectedError:
-            'Unexpected property "partitionExpirationDays" in BigQuery view config. Supported properties are: ["labels","additionalOptions","partitionBy","clusterBy"]'
+            'Unexpected property "partitionExpirationDays" in BigQuery view config. Supported properties are: ["labels","additionalOptions","partitionBy","clusterBy"]',
         },
         {
           testName: "requirePartitionFilter invalid for BigQuery materialized views",
@@ -2514,7 +2505,7 @@ publish("name", {
   }
 })`,
           expectedError:
-            'Unexpected property "requirePartitionFilter" in BigQuery view config. Supported properties are: ["labels","additionalOptions","partitionBy","clusterBy"]'
+            'Unexpected property "requirePartitionFilter" in BigQuery view config. Supported properties are: ["labels","additionalOptions","partitionBy","clusterBy"]',
         },
         {
           testName: "materialized invalid for BigQuery tables",
@@ -2524,7 +2515,7 @@ publish("name", {
   materialized: true,
 })`,
           expectedError:
-            'Unexpected property "materialized", or property value type of "boolean" is incorrect. See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-ActionConfig-TableConfig for allowed properties.'
+            'Unexpected property "materialized", or property value type of "boolean" is incorrect. See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-ActionConfig-TableConfig for allowed properties.',
         },
         {
           testName: "partitionExpirationDays invalid for BigQuery tables",
@@ -2536,7 +2527,7 @@ publish("name", {
   }
 })`,
           expectedError:
-            "requirePartitionFilter/partitionExpirationDays are not valid for non partitioned BigQuery tables"
+            "requirePartitionFilter/partitionExpirationDays are not valid for non partitioned BigQuery tables",
         },
         {
           testName: "duplicate partitionExpirationDays is invalid",
@@ -2551,7 +2542,7 @@ publish("name", {
     }
   }
 })`,
-          expectedError: "partitionExpirationDays has been declared twice"
+          expectedError: "partitionExpirationDays has been declared twice",
         },
         {
           testName: "duplicate requirePartitionFilter is invalid",
@@ -2566,51 +2557,51 @@ publish("name", {
     }
   }
 })`,
-          expectedError: "requirePartitionFilter has been declared twice"
-        }
-      ].forEach(testParameters => {
+          expectedError: "requirePartitionFilter has been declared twice",
+        },
+      ].forEach((testParameters) => {
         test(testParameters.testName, () => {
           const projectDir = tmpDirFixture.createNewTmpDir();
           fs.writeFileSync(
             path.join(projectDir, "workflow_settings.yaml"),
-            VALID_WORKFLOW_SETTINGS_YAML
+            VALID_WORKFLOW_SETTINGS_YAML,
           );
           fs.mkdirSync(path.join(projectDir, "definitions"));
           fs.writeFileSync(path.join(projectDir, "definitions/operation.sqlx"), "SELECT 1");
           fs.writeFileSync(
             path.join(projectDir, `definitions/file.js`),
-            testParameters.fileContents
+            testParameters.fileContents,
           );
 
           const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
           expect(
             result.compile.compiledGraph.graphErrors.compilationErrors.map(
-              compilationError => compilationError.message
-            )
+              (compilationError) => compilationError.message,
+            ),
           ).deep.equals([testParameters.expectedError]);
         });
       });
     });
 
     suite(`legacy publish().type() can still be called`, () => {
-      ["table", "incremental", "view"].forEach(fromType => {
-        ["table", "incremental", "view"].forEach(toType => {
+      ["table", "incremental", "view"].forEach((fromType) => {
+        ["table", "incremental", "view"].forEach((toType) => {
           test(`from type ${fromType} to ${toType}`, () => {
             const projectDir = tmpDirFixture.createNewTmpDir();
             fs.writeFileSync(
               path.join(projectDir, "workflow_settings.yaml"),
               dumpYaml(
                 sqlanvil.WorkflowSettings.create(
-                  WorkflowSettingsTemplates.bigqueryWithDefaultProjectAndDataset
-                )
-              )
+                  WorkflowSettingsTemplates.bigqueryWithDefaultProjectAndDataset,
+                ),
+              ),
             );
             fs.mkdirSync(path.join(projectDir, "definitions"));
             fs.writeFileSync(
               path.join(projectDir, "definitions/publish.js"),
               `
-publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}")`
+publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}")`,
             );
 
             const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -2634,7 +2625,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery))
+        dumpYaml(sqlanvil.WorkflowSettings.create(WorkflowSettingsTemplates.bigquery)),
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(path.join(projectDir, "definitions/e.sqlx"), `config {type: "view"}`);
@@ -2650,7 +2641,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const result = runMainInVm(request);
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-      expect(result.compile.compiledGraph.targets?.map(t => t.name)).deep.equals(["e", "file"]);
+      expect(result.compile.compiledGraph.targets?.map((t) => t.name)).deep.equals(["e", "file"]);
     });
 
     test("keeps regular compilation flow if extension is disabled", () => {
@@ -2664,7 +2655,7 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const result = runMainInVm(request);
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-      expect(result.compile.compiledGraph.targets?.map(t => t.name)).deep.equals(["e", "file"]);
+      expect(result.compile.compiledGraph.targets?.map((t) => t.name)).deep.equals(["e", "file"]);
     });
 
     test("runs prologue before regular compilation", () => {
@@ -2678,7 +2669,11 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const result = runMainInVm(request);
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-      expect(result.compile.compiledGraph.targets?.map(t => t.name)).deep.equals(["sample-action", "e", "file"]);
+      expect(result.compile.compiledGraph.targets?.map((t) => t.name)).deep.equals([
+        "sample-action",
+        "e",
+        "file",
+      ]);
     });
 
     test("replaces regular compilation in application code mode", () => {
@@ -2692,7 +2687,9 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const result = runMainInVm(request);
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-      expect(result.compile.compiledGraph.targets?.map(t => t.name)).deep.equals(["sample-action"]);
+      expect(result.compile.compiledGraph.targets?.map((t) => t.name)).deep.equals([
+        "sample-action",
+      ]);
     });
 
     test("works in application mode without workflow settings", () => {
@@ -2704,14 +2701,14 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const request = coreExecutionRequestFromPath(projectDir);
       request.compile.compileConfig.extension = {
         name: "@sqlanvil/sample-extension",
-        compilationMode: sqlanvil.ExtensionCompilationMode.APPLICATION_CODE
+        compilationMode: sqlanvil.ExtensionCompilationMode.APPLICATION_CODE,
       };
 
       const result = runMainInVm(request);
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-      expect(result.compile.compiledGraph.targets?.map(t => t.name)).deep.equals([
-        "sample-action"
+      expect(result.compile.compiledGraph.targets?.map((t) => t.name)).deep.equals([
+        "sample-action",
       ]);
     });
 
@@ -2730,7 +2727,11 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const result = runMainInVm(request);
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-      expect(result.compile.compiledGraph.targets?.map(t => t.name)).deep.equals(["sample-action", "e", "file"]);
+      expect(result.compile.compiledGraph.targets?.map((t) => t.name)).deep.equals([
+        "sample-action",
+        "e",
+        "file",
+      ]);
     });
 
     test("catches extension import exceptions", () => {
@@ -2744,13 +2745,18 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const result = runMainInVm(request);
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).equals(1);
-      expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains("Cannot find module");
-      expect(result.compile.compiledGraph.targets?.map(t => t.name)).deep.equals(["e", "file"]);
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains(
+        "Cannot find module",
+      );
+      expect(result.compile.compiledGraph.targets?.map((t) => t.name)).deep.equals(["e", "file"]);
     });
 
     test("catches exceptions thrown from extension", () => {
       const projectDir = setUpProjectWithExtension();
-      const request = coreExecutionRequestFromPath(projectDir, sqlanvil.ProjectConfig.create({vars: {"throw-error": "true"}}));
+      const request = coreExecutionRequestFromPath(
+        projectDir,
+        sqlanvil.ProjectConfig.create({ vars: { "throw-error": "true" } }),
+      );
       request.compile.compileConfig.extension = {
         name: "@sqlanvil/sample-extension",
         compilationMode: sqlanvil.ExtensionCompilationMode.PROLOGUE,
@@ -2759,13 +2765,18 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const result = runMainInVm(request);
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).equals(1);
-      expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains("throwing exception as requested!");
-      expect(result.compile.compiledGraph.targets?.map(t => t.name)).deep.equals(["e", "file"]);
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains(
+        "throwing exception as requested!",
+      );
+      expect(result.compile.compiledGraph.targets?.map((t) => t.name)).deep.equals(["e", "file"]);
     });
 
     test("persists extension compilation errors", () => {
       const projectDir = setUpProjectWithExtension();
-      const request = coreExecutionRequestFromPath(projectDir, sqlanvil.ProjectConfig.create({vars: {"store-compile-error": "true"}}));
+      const request = coreExecutionRequestFromPath(
+        projectDir,
+        sqlanvil.ProjectConfig.create({ vars: { "store-compile-error": "true" } }),
+      );
       request.compile.compileConfig.extension = {
         name: "@sqlanvil/sample-extension",
         compilationMode: sqlanvil.ExtensionCompilationMode.PROLOGUE,
@@ -2774,15 +2785,21 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       const result = runMainInVm(request);
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).equals(1);
-      expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains("storing compilation error as requested!");
-      expect(result.compile.compiledGraph.targets?.map(t => t.name)).deep.equals(["sample-action", "e", "file"]);
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains(
+        "storing compilation error as requested!",
+      );
+      expect(result.compile.compiledGraph.targets?.map((t) => t.name)).deep.equals([
+        "sample-action",
+        "e",
+        "file",
+      ]);
     });
-    
+
     test("preserveGovernanceControls propagates to compiled graph", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -2792,11 +2809,13 @@ config {
   type: "table",
   preserveGovernanceControls: true
 }
-select 1 as a`
+select 1 as a`,
       );
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-      expect(result.compile.compiledGraph.tables[0].bigquery.preserveGovernanceControls).equals(true);
+      expect(result.compile.compiledGraph.tables[0].bigquery.preserveGovernanceControls).equals(
+        true,
+      );
     });
 
     // Upstream #2314: the flag existed on `table` but not on `incremental`, where a full refresh
@@ -2805,7 +2824,7 @@ select 1 as a`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -2815,11 +2834,13 @@ config {
   type: "incremental",
   preserveGovernanceControls: true
 }
-select 1 as a`
+select 1 as a`,
       );
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-      expect(result.compile.compiledGraph.tables[0].bigquery.preserveGovernanceControls).equals(true);
+      expect(result.compile.compiledGraph.tables[0].bigquery.preserveGovernanceControls).equals(
+        true,
+      );
     });
 
     test("preserveGovernanceControls on an incremental table overrides workflow_settings.yaml", () => {
@@ -2829,7 +2850,7 @@ select 1 as a`
         `
 defaultProject: "project"
 defaultDataset: "dataset"
-preserveGovernanceControls: true`
+preserveGovernanceControls: true`,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -2840,11 +2861,13 @@ config {
   partitionBy: "somePartition",
   preserveGovernanceControls: false
 }
-select 1 as a`
+select 1 as a`,
       );
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-      expect(result.compile.compiledGraph.tables[0].bigquery.preserveGovernanceControls).equals(false);
+      expect(result.compile.compiledGraph.tables[0].bigquery.preserveGovernanceControls).equals(
+        false,
+      );
     });
 
     test("preserveGovernanceControls in workflow_settings.yaml propagates to compiled graph", () => {
@@ -2854,7 +2877,7 @@ select 1 as a`
         `
 defaultProject: "project"
 defaultDataset: "dataset"
-preserveGovernanceControls: true`
+preserveGovernanceControls: true`,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -2863,11 +2886,13 @@ preserveGovernanceControls: true`
 config {
   type: "table"
 }
-select 1 as a`
+select 1 as a`,
       );
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-      expect(result.compile.compiledGraph.tables[0].bigquery.preserveGovernanceControls).equals(true);
+      expect(result.compile.compiledGraph.tables[0].bigquery.preserveGovernanceControls).equals(
+        true,
+      );
     });
 
     test("preserveGovernanceControls on table overrides workflow_settings.yaml", () => {
@@ -2877,7 +2902,7 @@ select 1 as a`
         `
 defaultProject: "project"
 defaultDataset: "dataset"
-preserveGovernanceControls: true`
+preserveGovernanceControls: true`,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -2888,11 +2913,13 @@ config {
   partitionBy: "somePartition",
   preserveGovernanceControls: false
 }
-select 1 as a`
+select 1 as a`,
       );
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
-      expect(result.compile.compiledGraph.tables[0].bigquery.preserveGovernanceControls).equals(false);
+      expect(result.compile.compiledGraph.tables[0].bigquery.preserveGovernanceControls).equals(
+        false,
+      );
     });
   });
 });

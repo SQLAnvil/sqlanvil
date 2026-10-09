@@ -25,7 +25,7 @@ export class ForeignTable extends ActionBuilder<sqlanvil.Operation> {
 
     const target = sqlanvil.Target.create({ name: config.name, schema: config.schema });
     this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, {
-      validateTarget: true
+      validateTarget: true,
     });
     this.proto.canonicalTarget = this.applySessionToTarget(target, session.canonicalProjectConfig);
     this.proto.fileName = config.filename || "";
@@ -50,19 +50,19 @@ export class ForeignTable extends ActionBuilder<sqlanvil.Operation> {
     const colsStr = cols.length > 0 ? ` (${cols.join(", ")})` : "";
 
     const optionsArray = Object.entries(this.config.options || {}).map(
-      ([k, v]) => `${k} '${String(v).replace(/'/g, "''")}'`
+      ([k, v]) => `${k} '${String(v).replace(/'/g, "''")}'`,
     );
     const optionsStr = optionsArray.length > 0 ? ` options (${optionsArray.join(", ")})` : "";
 
     this.proto.queries = [
       `drop foreign table if exists ${qualified}`,
-      `create foreign table ${qualified}${colsStr} server "${this.config.server}"${optionsStr}`
+      `create foreign table ${qualified}${colsStr} server "${this.config.server}"${optionsStr}`,
     ];
 
     return verifyObjectMatchesProto(
       sqlanvil.Operation,
       this.proto,
-      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
     );
   }
 }

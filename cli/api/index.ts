@@ -9,4 +9,17 @@ import * as query from "sa/cli/api/commands/query";
 import { run, Runner } from "sa/cli/api/commands/run";
 import { test } from "sa/cli/api/commands/test";
 
-export { init, install, credentials, compile, test, build, run, query, Runner, Builder, prune, introspectToSqlx };
+export {
+  init,
+  install,
+  credentials,
+  compile,
+  test,
+  build,
+  run,
+  query,
+  Runner,
+  Builder,
+  prune,
+  introspectToSqlx,
+};

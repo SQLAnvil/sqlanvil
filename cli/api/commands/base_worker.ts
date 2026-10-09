@@ -6,11 +6,16 @@ export abstract class BaseWorker<TResponse, TMessage = any> {
   protected async runWorker(
     timeoutMillis: number,
     onBoot: (child: ChildProcess) => void,
-    onMessage: (message: TMessage, child: ChildProcess, resolve: (res: TResponse) => void, reject: (err: Error) => void) => void
+    onMessage: (
+      message: TMessage,
+      child: ChildProcess,
+      resolve: (res: TResponse) => void,
+      reject: (err: Error) => void,
+    ) => void,
   ): Promise<TResponse> {
     const forkScript = this.resolveScript();
     const child = fork(forkScript, [], {
-      stdio: [0, 1, 2, "ipc", "pipe"]
+      stdio: [0, 1, 2, "ipc", "pipe"],
     });
 
     return new Promise((resolve, reject) => {
@@ -29,11 +34,13 @@ export abstract class BaseWorker<TResponse, TMessage = any> {
 
       const timeout = setTimeout(() => {
         terminate(() =>
-          reject(new Error(
-            `Compilation timed out after ${timeoutMillis / 1000} seconds. ` +
-            `To allow more time, re-run with a longer --timeout ` +
-            `(e.g. --timeout=2m, --timeout=1h).`
-          ))
+          reject(
+            new Error(
+              `Compilation timed out after ${timeoutMillis / 1000} seconds. ` +
+                `To allow more time, re-run with a longer --timeout ` +
+                `(e.g. --timeout=2m, --timeout=1h).`,
+            ),
+          ),
         );
       }, timeoutMillis);
 
@@ -45,10 +52,15 @@ export abstract class BaseWorker<TResponse, TMessage = any> {
           }
           return;
         }
-        onMessage(message, child, (res) => terminate(() => resolve(res)), (err) => terminate(() => reject(err)));
+        onMessage(
+          message,
+          child,
+          (res) => terminate(() => resolve(res)),
+          (err) => terminate(() => reject(err)),
+        );
       });
 
-      child.on("error", err => {
+      child.on("error", (err) => {
         terminate(() => reject(err));
       });
 

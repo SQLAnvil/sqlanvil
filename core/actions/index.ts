@@ -22,7 +22,10 @@ import { Session } from "sa/core/session";
 import { sqlanvil } from "sa/protos/ts";
 
 export { RlsPolicy, IRlsPolicyConfig } from "sa/core/actions/rls_policy";
-export { RealtimePublication, IRealtimePublicationConfig } from "sa/core/actions/realtime_publication";
+export {
+  RealtimePublication,
+  IRealtimePublicationConfig,
+} from "sa/core/actions/realtime_publication";
 export { Wrapper, IWrapperConfig } from "sa/core/actions/wrapper";
 export { ForeignTable, IForeignTableConfig } from "sa/core/actions/foreign_table";
 export { VectorIndex, IVectorIndexConfig } from "sa/core/actions/vector_index";
@@ -64,18 +67,18 @@ export { ActionBuilder } from "sa/core/actions/base";
 
 export function checkConfigAdditionalOptionsOverlap(
   config: sqlanvil.ActionConfig.TableConfig | sqlanvil.ActionConfig.IncrementalTableConfig,
-  session: Session
+  session: Session,
 ) {
   const target = sqlanvil.Target.create({
     database: config.project,
     schema: config.dataset,
-    name: config.name
+    name: config.name,
   });
   if (config.partitionExpirationDays && config.additionalOptions.partition_expiration_days) {
     session.compileError(
       `partitionExpirationDays has been declared twice`,
       config.filename,
-      target
+      target,
     );
   }
   if (config.requirePartitionFilter && config.additionalOptions.require_partition_filter) {
@@ -197,7 +200,7 @@ export interface IDocumentableConfig {
  * This is no longer needed other than for legacy backwards compatibility purposes, as tables are
  * now configured in separate actions.
  */
-export type TableType = typeof TableType[number];
+export type TableType = (typeof TableType)[number];
 
 /**
  * @hidden
@@ -214,11 +217,7 @@ export const TableType = ["table", "view", "incremental"] as const;
  * consider breaking backwards compatability of this in v4.
  */
 export interface ILegacyTableConfig
-  extends IActionConfig,
-    IDependenciesConfig,
-    IDocumentableConfig,
-    INamedConfig,
-    ITargetableConfig {
+  extends IActionConfig, IDependenciesConfig, IDocumentableConfig, INamedConfig, ITargetableConfig {
   type?: TableType;
   protected?: boolean;
   bigquery?: ILegacyBigQueryOptions;
@@ -248,7 +247,7 @@ export interface ILegacyBigQueryOptions {
     bucketName?: string;
     tableFolderRoot?: string;
     tableFolderSubpath?: string;
-  }
+  };
   incrementalPredicates?: string[];
 }
 
@@ -269,7 +268,7 @@ export class LegacyConfigConverter {
   // This is a workaround to make bigquery options output empty fields with the same behaviour as
   // they did previously.
   public static legacyConvertBigQueryOptions(
-    bigquery: sqlanvil.IBigQueryOptions
+    bigquery: sqlanvil.IBigQueryOptions,
   ): sqlanvil.IBigQueryOptions {
     let bigqueryFiltered: sqlanvil.IBigQueryOptions = {};
     Object.entries(bigquery).forEach(([key, value]) => {
@@ -281,7 +280,7 @@ export class LegacyConfigConverter {
       if (value) {
         bigqueryFiltered = {
           ...bigqueryFiltered,
-          [key]: value
+          [key]: value,
         };
       }
     });
@@ -289,7 +288,7 @@ export class LegacyConfigConverter {
   }
 
   public static insertLegacyInlineAssertionsToConfigProto<T extends ILegacyTableConfig>(
-    unverifiedConfig: T
+    unverifiedConfig: T,
   ): T {
     // Type `any` is used here to facilitate the type hacking for legacy compatibility.
     const legacyConfig: any = unverifiedConfig;
@@ -301,9 +300,9 @@ export class LegacyConfigConverter {
       }
       // This determines if the uniqueKeys is of the legacy type.
       if (legacyConfig.assertions.uniqueKeys?.[0]?.length > 0) {
-        legacyConfig.assertions.uniqueKeys = (legacyConfig.assertions
-          .uniqueKeys as string[][]).map(uniqueKey =>
-          sqlanvil.ActionConfig.TableAssertionsConfig.UniqueKey.create({ uniqueKey })
+        legacyConfig.assertions.uniqueKeys = (legacyConfig.assertions.uniqueKeys as string[][]).map(
+          (uniqueKey) =>
+            sqlanvil.ActionConfig.TableAssertionsConfig.UniqueKey.create({ uniqueKey }),
         );
       }
       if (typeof legacyConfig.assertions.nonNull === "string") {
@@ -314,7 +313,7 @@ export class LegacyConfigConverter {
   }
 
   public static insertLegacyBigQueryOptionsToConfigProto<T extends ILegacyTableConfig>(
-    unverifiedConfig: T
+    unverifiedConfig: T,
   ): T {
     // Type `any` is used here to facilitate the type hacking for legacy compatibility.
     const legacyConfig: any = unverifiedConfig;
@@ -351,7 +350,7 @@ export class LegacyConfigConverter {
       legacyConfig.additionalOptions = legacyConfig.bigquery.additionalOptions;
       delete legacyConfig.bigquery.additionalOptions;
     }
-    if(!!legacyConfig.bigquery.iceberg) {
+    if (!!legacyConfig.bigquery.iceberg) {
       legacyConfig.iceberg = legacyConfig.bigquery.iceberg;
       delete legacyConfig.bigquery.iceberg;
     }

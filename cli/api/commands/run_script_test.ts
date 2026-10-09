@@ -13,7 +13,7 @@ suite("runner script hook", () => {
     const graph = sqlanvil.ExecutionGraph.create({
       projectConfig: { warehouse: "postgres", vars: { region: "northeast" } },
       warehouseState: { tables: [] },
-      actions: []
+      actions: [],
     });
     return new Runner({} as any, graph, {
       projectDir: "/proj",
@@ -21,7 +21,7 @@ suite("runner script hook", () => {
         calls.push(args);
         return { exitCode: 0 };
       },
-      ...options
+      ...options,
     });
   }
 
@@ -35,8 +35,8 @@ suite("runner script hook", () => {
         language: "python",
         filename: "loader/load.py",
         args: ["northeast"],
-        envRoot: ".venv"
-      }
+        envRoot: ".venv",
+      },
     });
     const actionResult: any = { tasks: [] };
 
@@ -45,7 +45,7 @@ suite("runner script hook", () => {
       sqlanvil.ExecutionTask.create({ type: "script" }),
       actionResult,
       {},
-      action
+      action,
     );
 
     expect(status).equals(sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL);
@@ -61,12 +61,12 @@ suite("runner script hook", () => {
     const runner = makeRunner([], {
       scriptRun: async () => {
         throw new Error("Script exited with code 3. Last output:\nboom");
-      }
+      },
     });
     const action = sqlanvil.ExecutionAction.create({
       target: { schema: "sqlanvil", name: "load" },
       type: "script",
-      script: { language: "python", filename: "loader/load.py" }
+      script: { language: "python", filename: "loader/load.py" },
     });
     const actionResult: any = { tasks: [] };
     const status = await (runner as any).executeTask(
@@ -74,7 +74,7 @@ suite("runner script hook", () => {
       sqlanvil.ExecutionTask.create({ type: "script" }),
       actionResult,
       {},
-      action
+      action,
     );
     expect(status).equals(sqlanvil.TaskResult.ExecutionStatus.FAILED);
     expect(actionResult.tasks[0].errorMessage).contains("Script exited with code 3");
@@ -85,7 +85,7 @@ suite("runner script hook", () => {
     const action = sqlanvil.ExecutionAction.create({
       target: { schema: "sqlanvil", name: "load" },
       type: "script",
-      script: { language: "python", filename: "loader/load.py" }
+      script: { language: "python", filename: "loader/load.py" },
     });
     const actionResult: any = { tasks: [] };
     const status = await (runner as any).executeTask(
@@ -93,7 +93,7 @@ suite("runner script hook", () => {
       sqlanvil.ExecutionTask.create({ type: "script" }),
       actionResult,
       {},
-      action
+      action,
     );
     expect(status).equals(sqlanvil.TaskResult.ExecutionStatus.FAILED);
     expect(actionResult.tasks[0].errorMessage).contains("projectDir");
@@ -120,8 +120,8 @@ suite("runScript spawn contract", () => {
         '  "action": os.environ["SA_ACTION_NAME"],',
         '  "args": sys.argv[1:],',
         "}",
-        'open("probe_out.json", "w").write(json.dumps(out))'
-      ].join("\n")
+        'open("probe_out.json", "w").write(json.dumps(out))',
+      ].join("\n"),
     );
     const lines: string[] = [];
     await runScript({
@@ -129,7 +129,7 @@ suite("runScript spawn contract", () => {
       target: { name: "probe" },
       projectDir,
       vars: { region: "ne" },
-      onOutput: line => lines.push(line)
+      onOutput: (line) => lines.push(line),
     });
     const out = JSON.parse(fs.readFileSync(path.join(projectDir, "probe_out.json"), "utf8"));
     expect(fs.realpathSync(out.cwd)).equals(fs.realpathSync(projectDir));
@@ -142,14 +142,14 @@ suite("runScript spawn contract", () => {
     const projectDir = tmpProject();
     fs.writeFileSync(
       path.join(projectDir, "fail.py"),
-      'import sys\nprint("something went wrong")\nsys.exit(3)\n'
+      'import sys\nprint("something went wrong")\nsys.exit(3)\n',
     );
     try {
       await runScript({
         spec: { language: "python", filename: "fail.py" },
         target: { name: "fail" },
         projectDir,
-        onOutput: () => undefined
+        onOutput: () => undefined,
       });
       expect.fail("expected runScript to reject");
     } catch (e) {
@@ -166,7 +166,7 @@ suite("runScript spawn contract", () => {
         spec: { language: "python", filename: "x.py", envRoot: ".venv" },
         target: { name: "x" },
         projectDir,
-        onOutput: () => undefined
+        onOutput: () => undefined,
       });
       expect.fail("expected runScript to reject");
     } catch (e) {
@@ -182,7 +182,7 @@ suite("runScript spawn contract", () => {
         spec: { language: "python", filename: "sleepy.py", timeoutMillis: 1500 },
         target: { name: "sleepy" },
         projectDir,
-        onOutput: () => undefined
+        onOutput: () => undefined,
       });
       expect.fail("expected runScript to reject");
     } catch (e) {

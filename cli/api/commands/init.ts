@@ -47,7 +47,7 @@ function postgresCredentialsTemplate(warehouse: string): string {
     user: isSupabase ? "postgres.<your-project-ref>" : "postgres",
     password: "",
     sslMode: isSupabase ? "require" : "disable",
-    defaultSchema: "public"
+    defaultSchema: "public",
   };
   return `${JSON.stringify(template, null, 2)}\n`;
 }
@@ -61,7 +61,7 @@ function mysqlCredentialsTemplate(): string {
     database: "sqlanvil",
     user: "root",
     password: "",
-    sslMode: "disable"
+    sslMode: "disable",
   };
   return `${JSON.stringify(template, null, 2)}\n`;
 }
@@ -69,7 +69,7 @@ function mysqlCredentialsTemplate(): string {
 export async function init(
   projectDir: string,
   projectConfig: sqlanvil.IProjectConfig,
-  options: IInitOptions = {}
+  options: IInitOptions = {},
 ): Promise<IInitResult> {
   const workflowSettingsYamlPath = path.join(projectDir, "workflow_settings.yaml");
   const packageJsonPath = path.join(projectDir, "package.json");
@@ -77,7 +77,7 @@ export async function init(
 
   if (fs.existsSync(workflowSettingsYamlPath) || fs.existsSync(packageJsonPath)) {
     throw new Error(
-      "Cannot init sqlanvil project, this already appears to be an NPM or sqlanvil directory."
+      "Cannot init sqlanvil project, this already appears to be an NPM or sqlanvil directory.",
     );
   }
 
@@ -94,7 +94,7 @@ export async function init(
 
   // The order that fields are set here is preserved in the written yaml.
   const workflowSettings: sqlanvil.IWorkflowSettings = {
-    sqlanvilCoreVersion: version
+    sqlanvilCoreVersion: version,
   };
   // BigQuery is core's implicit warehouse when the key is omitted, so it's the only
   // one we leave out; Supabase (the init default) and Postgres set `warehouse:` explicitly.
@@ -111,8 +111,7 @@ export async function init(
   const isPostgresLike = warehouse === "postgres" || warehouse === "supabase";
   workflowSettings.defaultDataset =
     projectConfig.defaultSchema || (isPostgresLike ? "public" : "sqlanvil");
-  workflowSettings.defaultAssertionDataset =
-    projectConfig.assertionSchema || "sqlanvil_assertions";
+  workflowSettings.defaultAssertionDataset = projectConfig.assertionSchema || "sqlanvil_assertions";
   // Iceberg is a BigQuery concept.
   if (isBigQuery && projectConfig.defaultIcebergConfig) {
     workflowSettings.defaultIcebergConfig = projectConfig.defaultIcebergConfig;
@@ -151,8 +150,8 @@ export async function init(
         project: "bigquery-public-data",
         dataset: "geo_us_boundaries",
         billingProject: "REPLACE_WITH_YOUR_GCP_PROJECT",
-        mode: "runner-extract"
-      })
+        mode: "runner-extract",
+      }),
     };
   }
 
@@ -172,8 +171,8 @@ export async function init(
       agentsMdContents({
         warehouse,
         defaultDataset: workflowSettings.defaultDataset || "public",
-        version
-      })
+        version,
+      }),
     );
     filesWritten.push(agentsMdPath);
   }
@@ -190,7 +189,9 @@ export async function init(
     fs.writeFileSync(
       path.join(projectDir, CREDENTIALS_FILENAME),
       options.credentialsJson ??
-        (warehouse === "mysql" ? mysqlCredentialsTemplate() : postgresCredentialsTemplate(warehouse))
+        (warehouse === "mysql"
+          ? mysqlCredentialsTemplate()
+          : postgresCredentialsTemplate(warehouse)),
     );
     filesWritten.push(path.join(projectDir, CREDENTIALS_FILENAME));
   }
@@ -238,7 +239,7 @@ config {
   name: "app_orders",
   description: "Raw orders table owned by the application — replace with one of your tables."
 }
-`
+`,
   );
   write(
     path.join(intermediateDir, "stg_app_orders.sqlx"),
@@ -256,7 +257,7 @@ SELECT
   ordered_at
 FROM \${ref("app_orders")}
 WHERE amount IS NOT NULL
-`
+`,
   );
   write(
     path.join(salesDir, "daily_sales.sqlx"),
@@ -272,7 +273,7 @@ SELECT
   SUM(amount) AS revenue
 FROM \${ref("stg_app_orders")}
 GROUP BY CAST(ordered_at AS DATE), product
-`
+`,
   );
   write(
     path.join(reportingDir, "product_revenue.sqlx"),
@@ -287,7 +288,7 @@ SELECT
   SUM(amount) AS revenue
 FROM \${ref("stg_app_orders")}
 GROUP BY product
-`
+`,
   );
   write(
     path.join(testDir, "assert_sales_amounts_positive.sqlx"),
@@ -300,7 +301,7 @@ GROUP BY product
 SELECT *
 FROM \${ref("daily_sales")}
 WHERE units_sold <= 0 OR revenue <= 0
-`
+`,
   );
 
   if (withBigQuerySource) {
@@ -333,7 +334,7 @@ config {
     state_code: "text"
   }
 }
-`
+`,
     );
     write(
       path.join(intermediateDir, "stg_zip_codes.sqlx"),
@@ -347,7 +348,7 @@ SELECT
   city,
   state_code
 FROM \${ref("zip_codes")}
-`
+`,
     );
     write(
       path.join(reportingDir, "orders_by_region.sqlx"),
@@ -365,12 +366,12 @@ FROM \${ref("stg_app_orders")} o
 JOIN \${ref("stg_zip_codes")} z
   ON z.zip_code = o.postal_code
 GROUP BY z.state_code, z.city
-`
+`,
     );
   }
 
   return {
     filesWritten,
-    dirsCreated
+    dirsCreated,
   };
 }

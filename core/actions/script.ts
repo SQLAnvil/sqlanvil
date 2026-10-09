@@ -6,7 +6,7 @@ import { Session } from "sa/core/session";
 import {
   actionConfigToCompiledGraphTarget,
   checkAssertionsForDependency,
-  configTargetToCompiledGraphTarget
+  configTargetToCompiledGraphTarget,
 } from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -25,8 +25,8 @@ const SPECIFIER_CLAUSE = /^(===|==|!=|<=|>=|~=|<|>)\s*[A-Za-z0-9][A-Za-z0-9.*+!_
 export function isWellFormedVersionSpecifier(specifier: string): boolean {
   return specifier
     .split(",")
-    .map(clause => clause.trim())
-    .every(clause => SPECIFIER_CLAUSE.test(clause));
+    .map((clause) => clause.trim())
+    .every((clause) => SPECIFIER_CLAUSE.test(clause));
 }
 
 /**
@@ -69,7 +69,7 @@ export class Script extends ActionBuilder<sqlanvil.Script> {
     session?: Session,
     unverifiedConfig?: any,
     configPath?: string,
-    projectFiles?: string[]
+    projectFiles?: string[],
   ) {
     super(session);
     this.session = session;
@@ -85,15 +85,15 @@ export class Script extends ActionBuilder<sqlanvil.Script> {
     }
     const target = actionConfigToCompiledGraphTarget(config);
     this.proto.target = this.applySessionToTarget(target, session.projectConfig, configPath, {
-      validateTarget: true
+      validateTarget: true,
     });
     this.proto.canonicalTarget = this.applySessionToTarget(target, session.canonicalProjectConfig);
 
     if (config.dependencyTargets) {
       this.dependencies(
-        config.dependencyTargets.map(dependencyTarget =>
-          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
-        )
+        config.dependencyTargets.map((dependencyTarget) =>
+          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget)),
+        ),
       );
     }
     if (config.disabled) {
@@ -124,7 +124,7 @@ export class Script extends ActionBuilder<sqlanvil.Script> {
   /** @hidden Adds dependencies (explicit dependency_targets). */
   public dependencies(value: Resolvable | Resolvable[]) {
     const newDependencies = Array.isArray(value) ? value : [value];
-    newDependencies.forEach(resolvable => {
+    newDependencies.forEach((resolvable) => {
       const dependencyTarget = checkAssertionsForDependency(this, resolvable);
       if (!!dependencyTarget) {
         this.proto.dependencyTargets.push(dependencyTarget);
@@ -142,7 +142,7 @@ export class Script extends ActionBuilder<sqlanvil.Script> {
   /** @hidden */
   public tags(value: string | string[]) {
     const newTags = typeof value === "string" ? [value] : value;
-    newTags.forEach(t => {
+    newTags.forEach((t) => {
       if (this.proto.tags.indexOf(t) < 0) {
         this.proto.tags.push(t);
       }
@@ -174,7 +174,7 @@ export class Script extends ActionBuilder<sqlanvil.Script> {
     return verifyObjectMatchesProto(
       sqlanvil.Script,
       this.proto,
-      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
     );
   }
 
@@ -189,32 +189,34 @@ export class Script extends ActionBuilder<sqlanvil.Script> {
     if (!this.proto.language) {
       this.session.compileError(
         new Error("Script actions require a `language` (use the `python:` actions.yaml key)."),
-        fileName
+        fileName,
       );
     } else if (!SUPPORTED_LANGUAGES.includes(this.proto.language)) {
       this.session.compileError(
         new Error(
           `Unsupported script language "${this.proto.language}". Supported: ` +
-            `${SUPPORTED_LANGUAGES.join(", ")}.`
+            `${SUPPORTED_LANGUAGES.join(", ")}.`,
         ),
-        fileName
+        fileName,
       );
     }
     if (!this.proto.scriptFilename) {
       this.session.compileError(
-        new Error("Script actions require a `file` (the script path, relative to the project root)."),
-        fileName
+        new Error(
+          "Script actions require a `file` (the script path, relative to the project root).",
+        ),
+        fileName,
       );
     }
     // The compiler's file index skips dotfile paths (e.g. inside .venv/), so only nested,
     // non-dot paths can be existence-checked deterministically here.
     const checkable = (path: string) =>
-      !!projectFiles && path.includes("/") && !path.split("/").some(part => part.startsWith("."));
+      !!projectFiles && path.includes("/") && !path.split("/").some((part) => part.startsWith("."));
     if (this.proto.scriptFilename && checkable(this.proto.scriptFilename)) {
       if (!projectFiles.includes(this.proto.scriptFilename)) {
         this.session.compileError(
           new Error(`Script file not found in the project: "${this.proto.scriptFilename}".`),
-          fileName
+          fileName,
         );
       }
     }
@@ -222,7 +224,7 @@ export class Script extends ActionBuilder<sqlanvil.Script> {
       if (!projectFiles.includes(this.proto.depsFile)) {
         this.session.compileError(
           new Error(`Script requirements file not found in the project: "${this.proto.depsFile}".`),
-          fileName
+          fileName,
         );
       }
     }
@@ -230,15 +232,15 @@ export class Script extends ActionBuilder<sqlanvil.Script> {
       this.session.compileError(
         new Error(
           `Malformed runtime version specifier "${this.proto.runtimeVersion}". Expected ` +
-            `comma-separated clauses like ">=3.11" or ">=3.11,<3.14".`
+            `comma-separated clauses like ">=3.11" or ">=3.11,<3.14".`,
         ),
-        fileName
+        fileName,
       );
     }
     if (this.proto.timeoutMillis < 0) {
       this.session.compileError(
         new Error("Script `timeoutMillis` must be a non-negative number of milliseconds."),
-        fileName
+        fileName,
       );
     }
   }
@@ -250,7 +252,7 @@ export class Script extends ActionBuilder<sqlanvil.Script> {
     return verifyObjectMatchesProto(
       sqlanvil.ActionConfig.ScriptConfig,
       unverifiedConfig,
-      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
+      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK,
     );
   }
 }

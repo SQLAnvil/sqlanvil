@@ -15,14 +15,14 @@ suite("build exports", () => {
           location: "s3://b/orders/",
           format: "parquet",
           overwrite: true,
-          filename: "orders"
-        })
-      ]
+          filename: "orders",
+        }),
+      ],
     });
 
     const executionGraph = new Builder(compiledGraph, {}, { tables: [] }).build();
 
-    const action = executionGraph.actions.find(a => a.type === "export");
+    const action = executionGraph.actions.find((a) => a.type === "export");
     expect(action).to.exist;
     expect(action.export.location).equals("s3://b/orders/");
     expect(action.export.format).equals("parquet");

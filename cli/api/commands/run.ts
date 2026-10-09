@@ -9,7 +9,7 @@ import { MysqlExtractArgs, runMysqlExtract } from "sa/cli/api/dbadapters/mysql_e
 import {
   DuckdbExportArgs,
   resolveLocalLocation,
-  runDuckdbExport
+  runDuckdbExport,
 } from "sa/cli/api/dbadapters/duckdb_export";
 import { DuckdbImportArgs, runDuckdbImport } from "sa/cli/api/dbadapters/duckdb_import";
 import { runScript, ScriptRunArgs } from "sa/cli/api/commands/script_run";
@@ -21,7 +21,7 @@ import { sqlanvil } from "sa/protos/ts";
 
 const CANCEL_EVENT = "jobCancel";
 const flags = {
-  runnerNotificationPeriodMillis: Flags.number("runner-notification-period-millis", 5000)
+  runnerNotificationPeriodMillis: Flags.number("runner-notification-period-millis", 5000),
 };
 
 const isSuccessfulAction = (actionResult: sqlanvil.IActionResult) =>
@@ -73,14 +73,14 @@ export function run(
   graph: sqlanvil.IExecutionGraph,
   executionOptions: IExecutionOptions = {},
   partiallyExecutedRunResult: sqlanvil.IRunResult = {},
-  runnerNotificationPeriodMillis: number = flags.runnerNotificationPeriodMillis.get()
+  runnerNotificationPeriodMillis: number = flags.runnerNotificationPeriodMillis.get(),
 ): Runner {
   return new Runner(
     dbadapter,
     graph,
     executionOptions,
     partiallyExecutedRunResult,
-    runnerNotificationPeriodMillis
+    runnerNotificationPeriodMillis,
   ).execute();
 }
 
@@ -89,7 +89,7 @@ export class Runner {
     dbadapter: dbadapters.IDbAdapter,
     graph: sqlanvil.IExecutionGraph,
     options: IExecutionOptions = {},
-    runnerNotificationPeriodMillis: number = flags.runnerNotificationPeriodMillis.get()
+    runnerNotificationPeriodMillis: number = flags.runnerNotificationPeriodMillis.get(),
   ): Runner {
     return new Runner(dbadapter, graph, options, {}, runnerNotificationPeriodMillis);
   }
@@ -98,7 +98,7 @@ export class Runner {
     dbadapter: dbadapters.IDbAdapter,
     graph: sqlanvil.IExecutionGraph,
     runResult: sqlanvil.IRunResult,
-    runnerNotificationPeriodMillis: number = flags.runnerNotificationPeriodMillis.get()
+    runnerNotificationPeriodMillis: number = flags.runnerNotificationPeriodMillis.get(),
   ): Runner {
     return new Runner(dbadapter, graph, {}, runResult, runnerNotificationPeriodMillis);
   }
@@ -134,7 +134,7 @@ export class Runner {
       this.runningExtracts++;
       return;
     }
-    await new Promise<void>(resolve => this.extractWaiters.push(resolve));
+    await new Promise<void>((resolve) => this.extractWaiters.push(resolve));
     this.runningExtracts++;
   }
 
@@ -151,35 +151,35 @@ export class Runner {
     private readonly graph: sqlanvil.IExecutionGraph,
     executionOptions: IExecutionOptions = {},
     partiallyExecutedRunResult: sqlanvil.IRunResult = {},
-    private readonly runnerNotificationPeriodMillis: number = flags.runnerNotificationPeriodMillis.get()
+    private readonly runnerNotificationPeriodMillis: number = flags.runnerNotificationPeriodMillis.get(),
   ) {
     this.executionOptions = { projectDir: ".", ...executionOptions };
     this.runResult = {
       actions: [],
-      ...partiallyExecutedRunResult
+      ...partiallyExecutedRunResult,
     };
     this.allActionTargets = new Set<string>(
-      graph.actions.map(action => targetStringifier.stringify(action.target))
+      graph.actions.map((action) => targetStringifier.stringify(action.target)),
     );
     this.warehouseStateByTarget = new Map<string, sqlanvil.ITableMetadata>();
-    graph.warehouseState.tables?.forEach(tableMetadata =>
+    graph.warehouseState.tables?.forEach((tableMetadata) =>
       this.warehouseStateByTarget.set(
         targetStringifier.stringify(tableMetadata.target),
-        tableMetadata
-      )
+        tableMetadata,
+      ),
     );
     this.executedActionTargets = new Set(
       this.runResult.actions
-        .filter(action => action.status !== sqlanvil.ActionResult.ExecutionStatus.RUNNING)
-        .map(action => targetStringifier.stringify(action.target))
+        .filter((action) => action.status !== sqlanvil.ActionResult.ExecutionStatus.RUNNING)
+        .map((action) => targetStringifier.stringify(action.target)),
     );
     this.successfullyExecutedActionTargets = new Set<string>(
       this.runResult.actions
         .filter(isSuccessfulAction)
-        .map(action => targetStringifier.stringify(action.target))
+        .map((action) => targetStringifier.stringify(action.target)),
     );
     this.pendingActions = graph.actions.filter(
-      action => !this.executedActionTargets.has(targetStringifier.stringify(action.target))
+      (action) => !this.executedActionTargets.has(targetStringifier.stringify(action.target)),
     );
     this.eEmitter = new EventEmitter();
     // There could feasibly be thousands of listeners to this, 0 makes the limit infinite.
@@ -249,7 +249,7 @@ export class Runner {
     }
     const runResultClone = deepClone(sqlanvil.RunResult, this.runResult);
     this.lastNotificationTimestampMillis = Date.now();
-    this.changeListeners.forEach(listener => listener(runResultClone));
+    this.changeListeners.forEach((listener) => listener(runResultClone));
   }
 
   private async executeGraph() {
@@ -280,7 +280,7 @@ export class Runner {
       this.runResult.status = sqlanvil.RunResult.ExecutionStatus.CANCELLED;
     } else if (
       this.runResult.actions.some(
-        action => action.status === sqlanvil.ActionResult.ExecutionStatus.FAILED
+        (action) => action.status === sqlanvil.ActionResult.ExecutionStatus.FAILED,
       )
     ) {
       this.runResult.status = sqlanvil.RunResult.ExecutionStatus.FAILED;
@@ -293,7 +293,7 @@ export class Runner {
     // Work out all the schemas we are going to need to create first.
     const databaseSchemas = new Map<string, Set<string>>();
     this.graph.actions
-      .filter(action => !!action.target && !!action.target.schema)
+      .filter((action) => !!action.target && !!action.target.schema)
       .forEach(({ target }) => {
         // This field may not be present for older versions of sqlanvil.
         const trueDatabase = target.database || this.graph.projectConfig.defaultDatabase;
@@ -309,10 +309,10 @@ export class Runner {
         const existingSchemas = new Set(await this.dbadapter.schemas(database));
         await Promise.all(
           Array.from(schemas)
-            .filter(schema => !existingSchemas.has(schema))
-            .map(schema => this.dbadapter.createSchema(database, schema))
+            .filter((schema) => !existingSchemas.has(schema))
+            .map((schema) => this.dbadapter.createSchema(database, schema)),
         );
-      })
+      }),
     );
   }
 
@@ -326,25 +326,25 @@ export class Runner {
       const allPendingActions = this.pendingActions;
       this.pendingActions = [];
       const skipErrorMessage = this.skipReason || "Run cancelled before action started";
-      allPendingActions.forEach(pendingAction => {
+      allPendingActions.forEach((pendingAction) => {
         let tasks: sqlanvil.ITaskResult[];
         if (pendingAction.tasks && pendingAction.tasks.length > 0) {
           tasks = pendingAction.tasks.map((_, i) => ({
             status: sqlanvil.TaskResult.ExecutionStatus.SKIPPED,
-            ...(i === 0 ? { errorMessage: skipErrorMessage } : {})
+            ...(i === 0 ? { errorMessage: skipErrorMessage } : {}),
           }));
         } else {
           tasks = [
             {
               status: sqlanvil.TaskResult.ExecutionStatus.SKIPPED,
-              errorMessage: skipErrorMessage
-            }
+              errorMessage: skipErrorMessage,
+            },
           ];
         }
         this.runResult.actions.push({
           target: pendingAction.target,
           status: sqlanvil.ActionResult.ExecutionStatus.SKIPPED,
-          tasks
+          tasks,
         });
       });
       this.notifyListeners();
@@ -359,9 +359,9 @@ export class Runner {
         // An action is executable if all dependencies either: do not exist in the graph, or
         // have executed successfully.
         pendingAction.dependencyTargets.every(
-          dependency =>
+          (dependency) =>
             !this.allActionTargets.has(targetStringifier.stringify(dependency)) ||
-            this.successfullyExecutedActionTargets.has(targetStringifier.stringify(dependency))
+            this.successfullyExecutedActionTargets.has(targetStringifier.stringify(dependency)),
         )
       ) {
         executableActions.push(pendingAction);
@@ -369,9 +369,9 @@ export class Runner {
         // An action is skippable if it is not executable and all dependencies either: do not
         // exist in the graph, or have completed execution.
         pendingAction.dependencyTargets.every(
-          dependency =>
+          (dependency) =>
             !this.allActionTargets.has(targetStringifier.stringify(dependency)) ||
-            this.executedActionTargets.has(targetStringifier.stringify(dependency))
+            this.executedActionTargets.has(targetStringifier.stringify(dependency)),
         )
       ) {
         skippableActions.push(pendingAction);
@@ -384,13 +384,13 @@ export class Runner {
 
     await Promise.all([
       (async () => {
-        skippableActions.forEach(skippableAction => {
+        skippableActions.forEach((skippableAction) => {
           this.runResult.actions.push({
             target: skippableAction.target,
             status: sqlanvil.ActionResult.ExecutionStatus.SKIPPED,
             tasks: skippableAction.tasks.map(() => ({
-              status: sqlanvil.TaskResult.ExecutionStatus.SKIPPED
-            }))
+              status: sqlanvil.TaskResult.ExecutionStatus.SKIPPED,
+            })),
           });
         });
         if (skippableActions.length > 0) {
@@ -399,24 +399,24 @@ export class Runner {
         }
       })(),
       Promise.all(
-        executableActions.map(async executableAction => {
+        executableActions.map(async (executableAction) => {
           const actionResult = await this.executeAction(executableAction);
           this.executedActionTargets.add(targetStringifier.stringify(executableAction.target));
           if (isSuccessfulAction(actionResult)) {
             this.successfullyExecutedActionTargets.add(
-              targetStringifier.stringify(executableAction.target)
+              targetStringifier.stringify(executableAction.target),
             );
           }
           await this.executeAllActionsReadyForExecution();
-        })
-      )
+        }),
+      ),
     ]);
   }
 
   private async executeAction(action: sqlanvil.IExecutionAction): Promise<sqlanvil.IActionResult> {
     let actionResult: sqlanvil.IActionResult = {
       target: action.target,
-      tasks: []
+      tasks: [],
     };
 
     if (action.tasks.length === 0) {
@@ -426,8 +426,8 @@ export class Runner {
       return actionResult;
     }
 
-    const resumedActionResult = this.runResult.actions.find(existingActionResult =>
-      equals(sqlanvil.Target, existingActionResult.target, action.target)
+    const resumedActionResult = this.runResult.actions.find((existingActionResult) =>
+      equals(sqlanvil.Target, existingActionResult.target, action.target),
     );
     if (resumedActionResult) {
       actionResult = resumedActionResult;
@@ -439,7 +439,7 @@ export class Runner {
     actionResult.timing = timer.current();
     this.notifyListeners();
 
-    await this.dbadapter.withClientLock(async client => {
+    await this.dbadapter.withClientLock(async (client) => {
       // Start running tasks from the last executed task (if any), onwards.
       for (const task of action.tasks.slice(actionResult.tasks.length)) {
         if (this.stopped) {
@@ -449,21 +449,27 @@ export class Runner {
           actionResult.status === sqlanvil.ActionResult.ExecutionStatus.RUNNING &&
           !this.cancelled
         ) {
-          const taskStatus = await this.executeTask(client, task, actionResult, {
-            bigquery: {
-              // Merge global run-level labels with action-level labels. Action-level labels take precedence.
-              labels: {
-                ...(this.executionOptions?.bigquery?.labels || {}),
-                ...(action.actionDescriptor?.bigqueryLabels || {})
+          const taskStatus = await this.executeTask(
+            client,
+            task,
+            actionResult,
+            {
+              bigquery: {
+                // Merge global run-level labels with action-level labels. Action-level labels take precedence.
+                labels: {
+                  ...(this.executionOptions?.bigquery?.labels || {}),
+                  ...(action.actionDescriptor?.bigqueryLabels || {}),
+                },
+                actionRetryLimit: this.executionOptions?.bigquery?.actionRetryLimit,
+                jobPrefix: this.executionOptions?.bigquery?.jobPrefix,
+                dryRun: this.executionOptions?.bigquery?.dryRun,
+                reservation:
+                  action.actionDescriptor?.reservation ||
+                  this.graph.projectConfig?.defaultReservation,
               },
-              actionRetryLimit: this.executionOptions?.bigquery?.actionRetryLimit,
-              jobPrefix: this.executionOptions?.bigquery?.jobPrefix,
-              dryRun: this.executionOptions?.bigquery?.dryRun,
-              reservation:
-                action.actionDescriptor?.reservation ||
-                this.graph.projectConfig?.defaultReservation
-            }
-          }, action);
+            },
+            action,
+          );
           if (taskStatus === sqlanvil.TaskResult.ExecutionStatus.FAILED) {
             actionResult.status = sqlanvil.ActionResult.ExecutionStatus.FAILED;
           } else if (taskStatus === sqlanvil.TaskResult.ExecutionStatus.CANCELLED) {
@@ -472,7 +478,7 @@ export class Runner {
         } else {
           actionResult.tasks.push({
             status: sqlanvil.TaskResult.ExecutionStatus.SKIPPED,
-            errorMessage: this.skipReason || "Task skipped after cancellation"
+            errorMessage: this.skipReason || "Task skipped after cancellation",
           });
         }
       }
@@ -499,9 +505,8 @@ export class Runner {
         // For now, we can attach the error to the last task in the action so it gets
         // surfaced properly without ending the entire run, but also not failing silently.
         if (actionResult.tasks.length > 0) {
-          actionResult.tasks[
-            actionResult.tasks.length - 1
-          ].errorMessage = `Error setting metadata: ${e.message}`;
+          actionResult.tasks[actionResult.tasks.length - 1].errorMessage =
+            `Error setting metadata: ${e.message}`;
           actionResult.tasks[actionResult.tasks.length - 1].status =
             sqlanvil.TaskResult.ExecutionStatus.FAILED;
         }
@@ -525,13 +530,13 @@ export class Runner {
     task: sqlanvil.IExecutionTask,
     parentAction: sqlanvil.IActionResult,
     options: { bigquery?: sqlanvil.IBigQueryOptions & IBigQueryExecutionOptions },
-    action?: sqlanvil.IExecutionAction
+    action?: sqlanvil.IExecutionAction,
   ): Promise<sqlanvil.TaskResult.ExecutionStatus> {
     const timer = Timer.start();
     const taskResult: sqlanvil.ITaskResult = {
       status: sqlanvil.TaskResult.ExecutionStatus.RUNNING,
       timing: timer.current(),
-      metadata: {}
+      metadata: {},
     };
     parentAction.tasks.push(taskResult);
     this.notifyListeners();
@@ -548,13 +553,13 @@ export class Runner {
             // cwd-relative.
             location: resolveLocalLocation(
               action.export.location,
-              this.executionOptions.projectDir
-            )
+              this.executionOptions.projectDir,
+            ),
           },
           selectSql: task.statement,
           pg: this.executionOptions.warehouseConnection,
           storage: this.executionOptions.storageCredentials,
-          actionName: action?.target?.name
+          actionName: action?.target?.name,
         });
         taskResult.status = sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL;
       } catch (e) {
@@ -576,12 +581,12 @@ export class Runner {
             // matter where the CLI itself was invoked from.
             location: resolveLocalLocation(
               action.import.location,
-              this.executionOptions.projectDir
-            )
+              this.executionOptions.projectDir,
+            ),
           },
           target: action?.target,
           pg: this.executionOptions.warehouseConnection,
-          storage: this.executionOptions.storageCredentials
+          storage: this.executionOptions.storageCredentials,
         });
         taskResult.status = sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL;
       } catch (e) {
@@ -602,7 +607,7 @@ export class Runner {
           spec: action?.script,
           target: action?.target,
           projectDir: this.executionOptions.projectDir,
-          vars: this.graph.projectConfig?.vars || {}
+          vars: this.graph.projectConfig?.vars || {},
         });
         taskResult.status = sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL;
       } catch (e) {
@@ -626,7 +631,7 @@ export class Runner {
           throw new Error(
             `declaration "${action?.target?.name}" has no columnTypes — scaffold them with: ` +
               `sqlanvil introspect ${action?.extract?.connectionName} ${ds}.${action?.extract?.sourceName} ` +
-              `--output <its .sqlx file>`
+              `--output <its .sqlx file>`,
           );
         }
         const extractor =
@@ -639,7 +644,7 @@ export class Runner {
             spec: action?.extract,
             target: action?.target,
             pg: this.executionOptions.warehouseConnection,
-            connectionCredentials: this.executionOptions.connectionCredentials || {}
+            connectionCredentials: this.executionOptions.connectionCredentials || {},
           });
         } finally {
           this.releaseExtractSlot();
@@ -657,16 +662,19 @@ export class Runner {
         // Inject source-connection credentials into FDW-bridge statements at the last
         // moment (placeholders stay in the in-memory graph; secrets only reach the DB).
         const statement = this.executionOptions.connectionCredentials
-          ? substituteConnectionCredentials(task.statement, this.executionOptions.connectionCredentials)
+          ? substituteConnectionCredentials(
+              task.statement,
+              this.executionOptions.connectionCredentials,
+            )
           : task.statement;
         const { rows, metadata } = await retry(
           () =>
             client.execute(statement, {
-              onCancel: handleCancel => this.eEmitter.on(CANCEL_EVENT, handleCancel),
+              onCancel: (handleCancel) => this.eEmitter.on(CANCEL_EVENT, handleCancel),
               rowLimit: 1,
-              bigquery: options.bigquery
+              bigquery: options.bigquery,
             }),
-          task.type === "operation" ? 1 : options.bigquery.actionRetryLimit + 1 || 1
+          task.type === "operation" ? 1 : options.bigquery.actionRetryLimit + 1 || 1,
         );
         taskResult.metadata = metadata;
         if (task.type === "assertion") {
@@ -686,8 +694,8 @@ export class Runner {
         if (e.metadata?.bigquery?.jobId) {
           taskResult.metadata = {
             bigquery: {
-              jobId: e.metadata.bigquery.jobId
-            }
+              jobId: e.metadata.bigquery.jobId,
+            },
           };
         }
       }
@@ -702,18 +710,18 @@ class Timer {
   public static start(existingTiming?: sqlanvil.ITiming) {
     return new Timer(existingTiming?.startTimeMillis.toNumber() || new Date().valueOf());
   }
-  private constructor(readonly startTimeMillis: number) { }
+  private constructor(readonly startTimeMillis: number) {}
 
   public current(): sqlanvil.ITiming {
     return {
-      startTimeMillis: Long.fromNumber(this.startTimeMillis)
+      startTimeMillis: Long.fromNumber(this.startTimeMillis),
     };
   }
 
   public end(): sqlanvil.ITiming {
     return {
       startTimeMillis: Long.fromNumber(this.startTimeMillis),
-      endTimeMillis: Long.fromNumber(new Date().valueOf())
+      endTimeMillis: Long.fromNumber(new Date().valueOf()),
     };
   }
 }

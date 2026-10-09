@@ -9,7 +9,7 @@ import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
-  VALID_WORKFLOW_SETTINGS_YAML
+  VALID_WORKFLOW_SETTINGS_YAML,
 } from "sa/testing/run_core";
 
 suite("declaration", ({ afterEach }) => {
@@ -24,7 +24,7 @@ suite("declaration", ({ afterEach }) => {
       `
 actions:
 - declaration:
-    name: action`
+    name: action`,
     );
 
     const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -36,15 +36,15 @@ actions:
           target: {
             database: "defaultProject",
             schema: "defaultDataset",
-            name: "action"
+            name: "action",
           },
           canonicalTarget: {
             database: "defaultProject",
             schema: "defaultDataset",
-            name: "action"
-          }
-        }
-      ])
+            name: "action",
+          },
+        },
+      ]),
     );
   });
 
@@ -58,7 +58,7 @@ actions:
 actions:
 - declaration:
     name: action
-    tags: ["tag1"]`
+    tags: ["tag1"]`,
     );
 
     const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -70,16 +70,16 @@ actions:
           target: {
             database: "defaultProject",
             schema: "defaultDataset",
-            name: "action"
+            name: "action",
           },
           canonicalTarget: {
             database: "defaultProject",
             schema: "defaultDataset",
-            name: "action"
+            name: "action",
           },
-          tags: ["tag1"]
-        }
-      ])
+          tags: ["tag1"],
+        },
+      ]),
     );
   });
 
@@ -93,11 +93,11 @@ actions:
 actions:
 - declaration:
     fileName: doesnotexist.sql
-    name: name`
+    name: name`,
     );
 
     expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-      `Unexpected property "fileName", or property value type of "string" is incorrect. See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-ActionConfigs for allowed properties.`
+      `Unexpected property "fileName", or property value type of "string" is incorrect. See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-ActionConfigs for allowed properties.`,
     );
   });
 
@@ -110,11 +110,11 @@ actions:
       `
 actions:
 - declaration:
-    dataset: test`
+    dataset: test`,
     );
 
     expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-      "Declarations must have a populated 'name' field."
+      "Declarations must have a populated 'name' field.",
     );
   });
 
@@ -131,23 +131,23 @@ actions:
       {
         filename: "declaration.sqlx",
         fileContents: `
-config ${declarationConfig}`
+config ${declarationConfig}`,
       },
       {
         filename: "declaration.js",
-        fileContents: `declare(${declarationConfig})`
-      }
-    ].forEach(testParameters => {
+        fileContents: `declare(${declarationConfig})`,
+      },
+    ].forEach((testParameters) => {
       test(`for declarations configured in a ${testParameters.filename} file`, () => {
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
+          VALID_WORKFLOW_SETTINGS_YAML,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
           path.join(projectDir, `definitions/${testParameters.filename}`),
-          testParameters.fileContents
+          testParameters.fileContents,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -159,17 +159,17 @@ config ${declarationConfig}`
               target: {
                 database: "project",
                 schema: "dataset",
-                name: "name"
+                name: "name",
               },
               canonicalTarget: {
                 database: "project",
                 schema: "dataset",
-                name: "name"
+                name: "name",
               },
               fileName: `definitions/${testParameters.filename}`,
-              actionDescriptor: exampleActionDescriptor.outputActionDescriptor
-            }
-          ])
+              actionDescriptor: exampleActionDescriptor.outputActionDescriptor,
+            },
+          ]),
         );
       });
     });
@@ -189,7 +189,7 @@ actions:
     dataset: dataset
     project: project
     description: description
-`
+`,
     );
 
     const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -201,18 +201,18 @@ actions:
           target: {
             database: "project",
             schema: "dataset",
-            name: "name"
+            name: "name",
           },
           canonicalTarget: {
             database: "project",
             schema: "dataset",
-            name: "name"
+            name: "name",
           },
           actionDescriptor: {
-            description: "description"
-          }
-        }
-      ])
+            description: "description",
+          },
+        },
+      ]),
     );
   });
 
@@ -223,7 +223,7 @@ actions:
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -239,7 +239,7 @@ declare(src);
 
 publish("stg_orders", { type: "view", columns: src.columns })
   .query(_ => \`SELECT '\${src.database}.\${src.schema}.\${src.name}' AS declared_from\`);
-`
+`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -247,14 +247,14 @@ publish("stg_orders", { type: "view", columns: src.columns })
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
 
       const stgOrders = result.compile.compiledGraph.tables.find(
-        t => t.target.name === "stg_orders"
+        (t) => t.target.name === "stg_orders",
       );
       expect(stgOrders.query).equals(
-        "SELECT 'defaultProject.defaultDataset.orders' AS declared_from"
+        "SELECT 'defaultProject.defaultDataset.orders' AS declared_from",
       );
       expect(asPlainObject(stgOrders.actionDescriptor.columns)).deep.equals([
         { path: ["id"], description: "Order id" },
-        { path: ["total"], description: "Order total" }
+        { path: ["total"], description: "Order total" },
       ]);
     });
   });
@@ -270,7 +270,7 @@ publish("stg_orders", { type: "view", columns: src.columns })
   name: "legacy",
   dataset: "legacyDataset",
   project: "legacyProject"
-}`
+}`,
     );
     fs.writeFileSync(
       path.join(projectDir, "definitions/current.sqlx"),
@@ -279,8 +279,8 @@ publish("stg_orders", { type: "view", columns: src.columns })
   name: "current",
   schema: "currentSchema",
   database: "currentDatabase"
-}`
-    );    
+}`,
+    );
 
     const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
@@ -291,32 +291,31 @@ publish("stg_orders", { type: "view", columns: src.columns })
           target: {
             database: "currentDatabase",
             schema: "currentSchema",
-            name: "current"
+            name: "current",
           },
           canonicalTarget: {
             database: "currentDatabase",
             schema: "currentSchema",
-            name: "current"
+            name: "current",
           },
-          fileName: "definitions/current.sqlx"
+          fileName: "definitions/current.sqlx",
         },
         {
           target: {
             database: "legacyProject",
             schema: "legacyDataset",
-            name: "legacy"
+            name: "legacy",
           },
           canonicalTarget: {
             database: "legacyProject",
             schema: "legacyDataset",
-            name: "legacy"
+            name: "legacy",
           },
-          fileName: "definitions/legacy.sqlx"
+          fileName: "definitions/legacy.sqlx",
         },
-      ])
+      ]),
     );
   });
-
 
   // Runner-extract connection declarations (1.22 semantics): the declared `schema:` names the
   // SOURCE dataset (overriding the connection default) AND the Postgres schema the extract
@@ -335,23 +334,23 @@ publish("stg_orders", { type: "view", columns: src.columns })
         "    platform: bigquery",
         "    project: acme-analytics",
         "    billingProject: acme-analytics",
-        "    mode: runner-extract"
-      ].join("\n")
+        "    mode: runner-extract",
+      ].join("\n"),
     );
     fs.mkdirsSync(path.join(projectDir, "definitions"));
     fs.writeFileSync(
       path.join(projectDir, "definitions/zip_code.sqlx"),
-      `config { type: "declaration", connection: "bq_acme", schema: "ods", name: "zip_code", columnTypes: {} }`
+      `config { type: "declaration", connection: "bq_acme", schema: "ods", name: "zip_code", columnTypes: {} }`,
     );
     fs.writeFileSync(
       path.join(projectDir, "definitions/legacy_style.sqlx"),
-      `config { type: "declaration", connection: "bq_acme", name: "no_schema", columnTypes: { id: "bigint" } }`
+      `config { type: "declaration", connection: "bq_acme", name: "no_schema", columnTypes: { id: "bigint" } }`,
     );
     // Referenced — unreferenced extracts are pruned from the graph (Dataform-parity).
     fs.writeFileSync(
       path.join(projectDir, "definitions/consumer.sqlx"),
       `config { type: "view" }
-select * from \${ref("zip_code")} union all select * from \${ref("no_schema")}`
+select * from \${ref("zip_code")} union all select * from \${ref("no_schema")}`,
     );
 
     const graph = runMainInVm(coreExecutionRequestFromPath(projectDir)).compile.compiledGraph;

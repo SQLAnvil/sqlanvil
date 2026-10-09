@@ -2,7 +2,7 @@ import {
   decode64,
   encode64,
   verifyObjectMatchesProto,
-  VerifyProtoErrorBehaviour
+  VerifyProtoErrorBehaviour,
 } from "sa/common/protos";
 import { Assertion } from "sa/core/actions/assertion";
 import { DataPreparation } from "sa/core/actions/data_preparation";
@@ -12,7 +12,7 @@ import { Notebook } from "sa/core/actions/notebook";
 import { Operation } from "sa/core/actions/operation";
 import {
   IRealtimePublicationConfig,
-  RealtimePublication
+  RealtimePublication,
 } from "sa/core/actions/realtime_publication";
 import { IRlsPolicyConfig, RlsPolicy } from "sa/core/actions/rls_policy";
 import { Script } from "sa/core/actions/script";
@@ -59,7 +59,7 @@ export function main(coreExecutionRequest: Uint8Array | string): Uint8Array | st
     ...projectConfig,
     ...projectConfigOverride,
     vars: { ...projectConfig.vars, ...projectConfigOverride.vars },
-    connections: { ...projectConfig.connections, ...projectConfigOverride.connections }
+    connections: { ...projectConfig.connections, ...projectConfigOverride.connections },
   });
 
   // Initialize the compilation session.
@@ -74,7 +74,7 @@ export function main(coreExecutionRequest: Uint8Array | string): Uint8Array | st
   mainCompile(compileRequest, session);
 
   const coreExecutionResponse = sqlanvil.CoreExecutionResponse.create({
-    compile: { compiledGraph: session.compile() }
+    compile: { compiledGraph: session.compile() },
   });
 
   if (typeof coreExecutionRequest === "string") {
@@ -96,7 +96,7 @@ export function main(coreExecutionRequest: Uint8Array | string): Uint8Array | st
 function actionConfigFilenameIsInvalidSqlx(
   session: Session,
   actionConfig: sqlanvil.ActionConfig,
-  actionConfigsPath: string
+  actionConfigsPath: string,
 ): boolean {
   const filenamesByActionType: Array<[string, string | null | undefined]> = [
     ["table", actionConfig.table?.filename],
@@ -106,7 +106,7 @@ function actionConfigFilenameIsInvalidSqlx(
     ["operation", actionConfig.operation?.filename],
     ["declaration", actionConfig.declaration?.filename],
     ["notebook", actionConfig.notebook?.filename],
-    ["dataPreparation", actionConfig.dataPreparation?.filename]
+    ["dataPreparation", actionConfig.dataPreparation?.filename],
   ];
   for (const [actionType, filename] of filenamesByActionType) {
     if (filename && filename.toLowerCase().endsWith(".sqlx")) {
@@ -116,9 +116,9 @@ function actionConfigFilenameIsInvalidSqlx(
             `files cannot be referenced from actions.yaml. .sqlx files are ` +
             `compiled directly from the definitions/ directory. Either use a ` +
             `.sql file with the same contents, or remove the actions.yaml ` +
-            `entry and let SQLAnvil pick up the .sqlx file automatically.`
+            `entry and let SQLAnvil pick up the .sqlx file automatically.`,
         ),
-        actionConfigsPath
+        actionConfigsPath,
       );
       return true;
     }
@@ -129,15 +129,15 @@ function actionConfigFilenameIsInvalidSqlx(
 function loadActionConfigs(session: Session, filePaths: string[]) {
   filePaths
     .filter(
-      path =>
+      (path) =>
         path.startsWith(`definitions${Path.separator}`) &&
         Path.basename(path) === "actions" &&
-        Path.fileExtension(path) === "yaml"
+        Path.fileExtension(path) === "yaml",
     )
     .sort()
-    .forEach(actionConfigsPath => {
+    .forEach((actionConfigsPath) => {
       const actionConfigs = loadActionConfigsFile(session, actionConfigsPath);
-      actionConfigs.actions.forEach(nonProtoActionConfig => {
+      actionConfigs.actions.forEach((nonProtoActionConfig) => {
         const actionConfig = sqlanvil.ActionConfig.create(nonProtoActionConfig);
 
         if (actionConfigFilenameIsInvalidSqlx(session, actionConfig, actionConfigsPath)) {
@@ -149,43 +149,45 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
             new Table(
               session,
               sqlanvil.ActionConfig.TableConfig.create(actionConfig.table),
-              actionConfigsPath
-            )
+              actionConfigsPath,
+            ),
           );
         } else if (actionConfig.view) {
           session.actions.push(
             new View(
               session,
               sqlanvil.ActionConfig.ViewConfig.create(actionConfig.view),
-              actionConfigsPath
-            )
+              actionConfigsPath,
+            ),
           );
         } else if (actionConfig.incrementalTable) {
           session.actions.push(
             new IncrementalTable(
               session,
               sqlanvil.ActionConfig.IncrementalTableConfig.create(actionConfig.incrementalTable),
-              actionConfigsPath
-            )
+              actionConfigsPath,
+            ),
           );
         } else if (actionConfig.assertion) {
           session.actions.push(
             new Assertion(
               session,
               sqlanvil.ActionConfig.AssertionConfig.create(actionConfig.assertion),
-              actionConfigsPath
-            )
+              actionConfigsPath,
+            ),
           );
         } else if (actionConfig.operation) {
           session.actions.push(
             new Operation(
               session,
               sqlanvil.ActionConfig.OperationConfig.create(actionConfig.operation),
-              actionConfigsPath
-            )
+              actionConfigsPath,
+            ),
           );
         } else if (actionConfig.declaration) {
-          const declConfig = sqlanvil.ActionConfig.DeclarationConfig.create(actionConfig.declaration);
+          const declConfig = sqlanvil.ActionConfig.DeclarationConfig.create(
+            actionConfig.declaration,
+          );
           if (declConfig.connection) {
             // Route through declare() so the FDW bridge is generated.
             if (!declConfig.filename) {
@@ -200,16 +202,16 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
             new Notebook(
               session,
               sqlanvil.ActionConfig.NotebookConfig.create(actionConfig.notebook),
-              actionConfigsPath
-            )
+              actionConfigsPath,
+            ),
           );
         } else if (actionConfig.dataPreparation) {
           session.actions.push(
             new DataPreparation(
               session,
               sqlanvil.ActionConfig.DataPreparationConfig.create(actionConfig.dataPreparation),
-              actionConfigsPath
-            )
+              actionConfigsPath,
+            ),
           );
         } else if (actionConfig.script) {
           session.actions.push(
@@ -217,30 +219,39 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
               session,
               sqlanvil.ActionConfig.ScriptConfig.create(actionConfig.script),
               actionConfigsPath,
-              filePaths
-            )
+              filePaths,
+            ),
           );
         } else if (actionConfig.rlsPolicy) {
           // Required fields are validated by the constructor, not the proto.
-          pushSupabaseAction(session, actionConfigsPath, () =>
-            new RlsPolicy(session, {
-              ...actionConfig.rlsPolicy,
-              filename: actionConfigsPath
-            } as IRlsPolicyConfig)
+          pushSupabaseAction(
+            session,
+            actionConfigsPath,
+            () =>
+              new RlsPolicy(session, {
+                ...actionConfig.rlsPolicy,
+                filename: actionConfigsPath,
+              } as IRlsPolicyConfig),
           );
         } else if (actionConfig.realtimePublication) {
-          pushSupabaseAction(session, actionConfigsPath, () =>
-            new RealtimePublication(session, {
-              ...actionConfig.realtimePublication,
-              filename: actionConfigsPath
-            } as IRealtimePublicationConfig)
+          pushSupabaseAction(
+            session,
+            actionConfigsPath,
+            () =>
+              new RealtimePublication(session, {
+                ...actionConfig.realtimePublication,
+                filename: actionConfigsPath,
+              } as IRealtimePublicationConfig),
           );
         } else if (actionConfig.vectorIndex) {
-          pushSupabaseAction(session, actionConfigsPath, () =>
-            new VectorIndex(session, {
-              ...actionConfig.vectorIndex,
-              filename: actionConfigsPath
-            } as IVectorIndexConfig)
+          pushSupabaseAction(
+            session,
+            actionConfigsPath,
+            () =>
+              new VectorIndex(session, {
+                ...actionConfig.vectorIndex,
+                filename: actionConfigsPath,
+              } as IVectorIndexConfig),
           );
         } else if (actionConfig.foreignWrapper) {
           // The ForeignWrapperConfig proto predates provider presets, credentials and foreign
@@ -249,9 +260,9 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
             new Error(
               `foreignWrapper actions can't be defined in actions.yaml: a wrapper needs fields ` +
                 `(provider, credential, foreignTables) that action configs don't support. Define ` +
-                `it in a definitions/*.js file with wrapper({ name, provider, server, ... }) instead.`
+                `it in a definitions/*.js file with wrapper({ name, provider, server, ... }) instead.`,
             ),
-            actionConfigsPath
+            actionConfigsPath,
           );
         } else {
           throw Error("Empty action configs are not permitted.");
@@ -272,8 +283,8 @@ const SCRIPT_SUGAR_FIELDS: { [language: string]: { [friendly: string]: string } 
     file: "filename",
     requirements: "depsFile",
     pythonVersion: "runtimeVersion",
-    venv: "envRoot"
-  }
+    venv: "envRoot",
+  },
 };
 
 /**
@@ -299,7 +310,7 @@ function normalizeScriptSugar(actionConfigsAsJson: any): any {
       for (const key of Object.keys(sugar)) {
         if (key === "dependencies" && Array.isArray(sugar[key])) {
           script.dependencyTargets = sugar[key].map((dep: any) =>
-            typeof dep === "string" ? { name: dep } : dep
+            typeof dep === "string" ? { name: dep } : dep,
           );
         } else {
           script[fieldMap[key] || key] = sugar[key];
@@ -317,7 +328,7 @@ function normalizeScriptSugar(actionConfigsAsJson: any): any {
 function pushSupabaseAction(
   session: Session,
   actionConfigsPath: string,
-  build: () => RlsPolicy | RealtimePublication | VectorIndex
+  build: () => RlsPolicy | RealtimePublication | VectorIndex,
 ) {
   try {
     session.actions.push(build());
@@ -328,7 +339,7 @@ function pushSupabaseAction(
 
 function loadActionConfigsFile(
   session: Session,
-  actionConfigsPath: string
+  actionConfigsPath: string,
 ): sqlanvil.ActionConfigs {
   let actionConfigsAsJson = {};
   try {
@@ -341,19 +352,25 @@ function loadActionConfigsFile(
   verifyObjectMatchesProto(
     sqlanvil.ActionConfigs,
     actionConfigsAsJson,
-    VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
+    VerifyProtoErrorBehaviour.SHOW_DOCS_LINK,
   );
   return sqlanvil.ActionConfigs.fromObject(actionConfigsAsJson);
 }
 
 function prologueCompile(compileRequest: sqlanvil.ICompileExecutionRequest, session: Session) {
-  if (compileRequest?.compileConfig?.extension?.compilationMode === sqlanvil.ExtensionCompilationMode.PROLOGUE) {
+  if (
+    compileRequest?.compileConfig?.extension?.compilationMode ===
+    sqlanvil.ExtensionCompilationMode.PROLOGUE
+  ) {
     extensionCompile(compileRequest, session);
   }
 }
 
 function mainCompile(compileRequest: sqlanvil.ICompileExecutionRequest, session: Session) {
-  if (compileRequest?.compileConfig?.extension?.compilationMode === sqlanvil.ExtensionCompilationMode.APPLICATION_CODE) {
+  if (
+    compileRequest?.compileConfig?.extension?.compilationMode ===
+    sqlanvil.ExtensionCompilationMode.APPLICATION_CODE
+  ) {
     extensionCompile(compileRequest, session);
     return;
   }
@@ -379,10 +396,10 @@ function sqlanvilCompile(compileRequest: sqlanvil.ICompileExecutionRequest, sess
   // "includes" files from implicitly depending on other "includes" files.
   const topLevelIncludes: { [key: string]: any } = {};
   compileRequest.compileConfig.filePaths
-    .filter(path => path.startsWith(`includes${Path.separator}`))
-    .filter(path => path.split(Path.separator).length === 2) // Only include top-level "includes" files.
-    .filter(path => Path.fileExtension(path) === "js")
-    .forEach(includePath => {
+    .filter((path) => path.startsWith(`includes${Path.separator}`))
+    .filter((path) => path.split(Path.separator).length === 2) // Only include top-level "includes" files.
+    .filter((path) => Path.fileExtension(path) === "js")
+    .forEach((includePath) => {
       try {
         // tslint:disable-next-line: tsr-detect-non-literal-require
         topLevelIncludes[Path.basename(includePath)] = nativeRequire(includePath);
@@ -410,10 +427,10 @@ function sqlanvilCompile(compileRequest: sqlanvil.ICompileExecutionRequest, sess
 
   // Require all "definitions" files (attaching them to the session).
   compileRequest.compileConfig.filePaths
-    .filter(path => path.startsWith(`definitions${Path.separator}`))
-    .filter(path => Path.fileExtension(path) === "js" || Path.fileExtension(path) === "sqlx")
+    .filter((path) => path.startsWith(`definitions${Path.separator}`))
+    .filter((path) => Path.fileExtension(path) === "js" || Path.fileExtension(path) === "sqlx")
     .sort()
-    .forEach(definitionPath => {
+    .forEach((definitionPath) => {
       try {
         // tslint:disable-next-line: tsr-detect-non-literal-require
         nativeRequire(definitionPath);

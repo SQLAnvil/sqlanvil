@@ -11,7 +11,7 @@ suite("@sqlanvil/sqlx", () => {
         "SELECT SUM(IF(track.event = ",
         new SyntaxTreeNode(SyntaxTreeNodeType.SQL_LITERAL_STRING, ["'example'"]),
         ", 1, 0)) ",
-        new SyntaxTreeNode(SyntaxTreeNodeType.JAVASCRIPT, ["js { }"])
+        new SyntaxTreeNode(SyntaxTreeNodeType.JAVASCRIPT, ["js { }"]),
       ]);
       expect(actual.equals(expected)).equals(true);
     });
@@ -20,8 +20,8 @@ suite("@sqlanvil/sqlx", () => {
       const expected = new SyntaxTreeNode(SyntaxTreeNodeType.SQL, [
         "select * from ",
         new SyntaxTreeNode(SyntaxTreeNodeType.JAVASCRIPT_TEMPLATE_STRING_PLACEHOLDER, [
-          "${ref('dab')}"
-        ])
+          "${ref('dab')}",
+        ]),
       ]);
       expect(actual.equals(expected)).equals(true);
     });
@@ -32,9 +32,9 @@ suite("@sqlanvil/sqlx", () => {
         new SyntaxTreeNode(SyntaxTreeNodeType.SQL_LITERAL_STRING, ['"^/([0-9]+)\\"/.*"']),
         ", ",
         new SyntaxTreeNode(SyntaxTreeNodeType.JAVASCRIPT_TEMPLATE_STRING_PLACEHOLDER, [
-          '${ref("dab")}'
+          '${ref("dab")}',
         ]),
-        ")"
+        ")",
       ]);
       expect(actual.equals(expected)).equals(true);
     });

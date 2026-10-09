@@ -15,7 +15,7 @@ const ansiColorCodes = Object.freeze({
   red: 91,
   green: 32,
   yellow: 93,
-  cyan: 36
+  cyan: 36,
 });
 
 function output(text: string, ansiColorCode: number): string {
@@ -74,14 +74,16 @@ export function interactiveQuestion(questionText: string): string {
  */
 function getTestInput(questionText: string): string {
   const envVar = process.env.DATAFORM_CLI_TEST_INPUTS;
-  if(!envVar) {
+  if (!envVar) {
     throw new Error("Environment variable DATAFORM_CLI_TEST_INPUTS not set.");
   }
 
   try {
     const parsed = JSON.parse(envVar);
-    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-      const inputs = new Map<string, string>(Object.entries(parsed).map(([key, value]) => [key, String(value)]));
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      const inputs = new Map<string, string>(
+        Object.entries(parsed).map(([key, value]) => [key, String(value)]),
+      );
       const trimmedQuestion = questionText.trim();
       const answer = inputs.get(trimmedQuestion);
 
@@ -92,18 +94,19 @@ function getTestInput(questionText: string): string {
         throw new Error(`[MISSING TEST_INPUT for "${trimmedQuestion}"]`);
       }
     } else {
-      throw new Error(`Failed to parse DATAFORM_CLI_TEST_INPUTS: Expected a JSON object, but got ${typeof parsed}.`);
+      throw new Error(
+        `Failed to parse DATAFORM_CLI_TEST_INPUTS: Expected a JSON object, but got ${typeof parsed}.`,
+      );
     }
   } catch (e) {
     throw new Error(`Failed to parse DATAFORM_CLI_TEST_INPUTS: ${e.message || e}`);
   }
 }
 
-
 export function passwordQuestion(questionText: string) {
   return prompt(questionText, {
     hideEchoBack: true,
-    mask: ""
+    mask: "",
   });
 }
 
@@ -132,21 +135,21 @@ export function ynQuestion(questionText: string, defaultValue: boolean = false):
 export function intQuestion(questionText: string, defaultValue?: number) {
   return parseInt(
     prompt(questionText, {
-      limit: value => {
+      limit: (value) => {
         const intValue = parseInt(value, 10);
         return !isNaN(intValue);
       },
       limitMessage: errorOutput("Entered value must be an integer."),
       prompt: `[${defaultValue}] `,
-      defaultInput: `${defaultValue}`
+      defaultInput: `${defaultValue}`,
     }),
-    10
+    10,
   );
 }
 
 export function selectionQuestion(questionText: string, options: string[]) {
   return readlineSync.keyInSelect(options, `${questionText}\n`, {
-    cancel: false
+    cancel: false,
   });
 }
 
@@ -154,7 +157,7 @@ function prompt(questionText: string, options?: readlineSync.BasicOptions) {
   writeStdOut(questionText);
   return readlineSync.prompt({
     ...options,
-    prompt: (options && options.prompt && options.prompt + DEFAULT_PROMPT) || DEFAULT_PROMPT
+    prompt: (options && options.prompt && options.prompt + DEFAULT_PROMPT) || DEFAULT_PROMPT,
   });
 }
 
@@ -173,11 +176,11 @@ export function printError(errorText: string, indentCount: number = 0) {
 export function printInitResult(result: IInitResult) {
   if (result.dirsCreated && result.dirsCreated.length) {
     writeStdOut(successOutput("Directories successfully created:"));
-    result.dirsCreated.forEach(dir => writeStdOut(dir, 1));
+    result.dirsCreated.forEach((dir) => writeStdOut(dir, 1));
   }
   if (result.filesWritten && result.filesWritten.length) {
     writeStdOut(successOutput("Files successfully written:"));
-    result.filesWritten.forEach(file => writeStdOut(file, 1));
+    result.filesWritten.forEach((file) => writeStdOut(file, 1));
   }
 }
 
@@ -187,24 +190,23 @@ export function printInitCredsResult(writtenFilePath: string) {
   writeStdOut("To change connection settings, edit this file directly.");
 }
 
-export function isInteractive({stream = process.stdout} = {}) {
-	return Boolean(
-		stream && stream.isTTY &&
-		process.env.TERM !== 'dumb' &&
-		!('CI' in process.env)
-	);
+export function isInteractive({ stream = process.stdout } = {}) {
+  return Boolean(stream && stream.isTTY && process.env.TERM !== "dumb" && !("CI" in process.env));
 }
 
 export enum compiledGraphOutputType {
   Json = "json",
   Dot = "dot",
-  Summary = "summary"
+  Summary = "summary",
 }
 
-export function printCompiledGraph(graph: sqlanvil.ICompiledGraph, outputType: compiledGraphOutputType, quietCompilation: boolean) {
-  
+export function printCompiledGraph(
+  graph: sqlanvil.ICompiledGraph,
+  outputType: compiledGraphOutputType,
+  quietCompilation: boolean,
+) {
   const interactive = isInteractive();
-  
+
   if (outputType === compiledGraphOutputType.Json) {
     writeStdOut(prettyJsonStringify(graph));
   } else if (outputType === compiledGraphOutputType.Dot) {
@@ -219,33 +221,33 @@ export function printCompiledGraph(graph: sqlanvil.ICompiledGraph, outputType: c
     if (graph.tables && graph.tables.length) {
       graph.tables.forEach(setOrValidateTableEnumType);
       writeStdOut(`${graph.tables.length} dataset(s)${quietCompilation ? "." : ":"}`);
-      if(!quietCompilation){
-          graph.tables.forEach(compiledTable => {
-            writeStdOut(
-              `${datasetString(
-                compiledTable.target,
-                tableTypeEnumToString(compiledTable.enumType),
-                compiledTable.disabled
-              )}`,
-              1
-            );
-          });
+      if (!quietCompilation) {
+        graph.tables.forEach((compiledTable) => {
+          writeStdOut(
+            `${datasetString(
+              compiledTable.target,
+              tableTypeEnumToString(compiledTable.enumType),
+              compiledTable.disabled,
+            )}`,
+            1,
+          );
+        });
       }
     }
     if (graph.assertions && graph.assertions.length) {
       writeStdOut(`${graph.assertions.length} assertion(s)${quietCompilation ? "." : ":"}`);
-      if(!quietCompilation){
-          graph.assertions.forEach(assertion => {
-            writeStdOut(assertionString(assertion.target, assertion.disabled), 1);
-          });
+      if (!quietCompilation) {
+        graph.assertions.forEach((assertion) => {
+          writeStdOut(assertionString(assertion.target, assertion.disabled), 1);
+        });
       }
     }
     if (graph.operations && graph.operations.length) {
       writeStdOut(`${graph.operations.length} operation(s)${quietCompilation ? "." : ":"}`);
-      if(!quietCompilation){
-          graph.operations.forEach(operation => {
-            writeStdOut(operationString(operation.target, operation.disabled), 1);
-          });
+      if (!quietCompilation) {
+        graph.operations.forEach((operation) => {
+          writeStdOut(operationString(operation.target, operation.disabled), 1);
+        });
       }
     }
   }
@@ -271,16 +273,19 @@ export function printCompiledGraphErrors(
   graphErrors: sqlanvil.IGraphErrors,
   // Only `compile` declares --quiet; run/test/validate used to read an undeclared flag that was
   // always undefined (upstream #2291).
-  quietCompilation: boolean = false
+  quietCompilation: boolean = false,
 ) {
   if (graphErrors.compilationErrors && graphErrors.compilationErrors.length > 0) {
     printError("Compilation errors:", 1);
-    graphErrors.compilationErrors.forEach(compileError => {
+    graphErrors.compilationErrors.forEach((compileError) => {
       writeStdErr(
         `${calloutOutput(compileError.fileName)}: ${errorOutput(
-          quietCompilation ? (compileError.message + " " + formatStackTraceForQuietCompilation(compileError) || compileError.stack) : (compileError.stack || compileError.message)
+          quietCompilation
+            ? compileError.message + " " + formatStackTraceForQuietCompilation(compileError) ||
+                compileError.stack
+            : compileError.stack || compileError.message,
         )}`,
-        1
+        1,
       );
     });
   }
@@ -288,10 +293,10 @@ export function printCompiledGraphErrors(
 
 export function printTestResult(testResult: sqlanvil.ITestResult) {
   writeStdOut(
-    `${testResult.name}: ${testResult.successful ? successOutput("passed") : errorOutput("failed")}`
+    `${testResult.name}: ${testResult.successful ? successOutput("passed") : errorOutput("failed")}`,
   );
   if (!testResult.successful) {
-    testResult.messages.forEach(message => writeStdErr(message, 1));
+    testResult.messages.forEach((message) => writeStdErr(message, 1));
   }
 }
 
@@ -302,12 +307,14 @@ export function printExecutionGraph(executionGraph: sqlanvil.ExecutionGraph, asJ
     const actionsByType = {
       table: [] as sqlanvil.IExecutionAction[],
       assertion: [] as sqlanvil.IExecutionAction[],
-      operation: [] as sqlanvil.IExecutionAction[]
+      operation: [] as sqlanvil.IExecutionAction[],
     };
-    executionGraph.actions.forEach(action => {
-      if (
-        !(action.type === "table" || action.type === "assertion" || action.type === "operation")
-      ) {
+    executionGraph.actions.forEach((action) => {
+      if (!(
+        action.type === "table" ||
+        action.type === "assertion" ||
+        action.type === "operation"
+      )) {
         throw new Error(`Unrecognized action type: ${action.type}`);
       }
       actionsByType[action.type].push(action);
@@ -315,25 +322,25 @@ export function printExecutionGraph(executionGraph: sqlanvil.ExecutionGraph, asJ
     const datasetActions = actionsByType.table;
     if (datasetActions && datasetActions.length) {
       writeStdOut(`${datasetActions.length} dataset(s):`);
-      datasetActions.forEach(datasetAction =>
+      datasetActions.forEach((datasetAction) =>
         writeStdOut(
           datasetString(datasetAction.target, datasetAction.type, datasetAction.tasks.length === 0),
-          1
-        )
+          1,
+        ),
       );
     }
     const assertionActions = actionsByType.assertion;
     if (assertionActions && assertionActions.length) {
       writeStdOut(`${assertionActions.length} assertion(s):`);
-      assertionActions.forEach(assertionAction =>
-        writeStdOut(assertionString(assertionAction.target, assertionAction.tasks.length === 0), 1)
+      assertionActions.forEach((assertionAction) =>
+        writeStdOut(assertionString(assertionAction.target, assertionAction.tasks.length === 0), 1),
       );
     }
     const operationActions = actionsByType.operation;
     if (operationActions && operationActions.length) {
       writeStdOut(`${operationActions.length} operation(s):`);
-      operationActions.forEach(operationAction =>
-        writeStdOut(operationString(operationAction.target, operationAction.tasks.length === 0), 1)
+      operationActions.forEach((operationAction) =>
+        writeStdOut(operationString(operationAction.target, operationAction.tasks.length === 0), 1),
       );
     }
   }
@@ -342,16 +349,16 @@ export function printExecutionGraph(executionGraph: sqlanvil.ExecutionGraph, asJ
 export function printExecutedAction(
   executedAction: sqlanvil.IActionResult,
   executionAction: sqlanvil.IExecutionAction,
-  dryRun?: boolean
+  dryRun?: boolean,
 ) {
   const jobIds = executedAction.tasks
-    .filter(task => task.metadata?.bigquery?.jobId)
-    .map(task => task.metadata.bigquery.jobId);
+    .filter((task) => task.metadata?.bigquery?.jobId)
+    .map((task) => task.metadata.bigquery.jobId);
   const bytesBilled = executedAction.tasks
-    .filter(task => task.metadata?.bigquery?.jobId)
-    .map(task => {
-        const bytes = task.metadata.bigquery?.totalBytesBilled?.toNumber?.() ?? 0;
-        return formatBytesInHumanReadableFormat(bytes);
+    .filter((task) => task.metadata?.bigquery?.jobId)
+    .map((task) => {
+      const bytes = task.metadata.bigquery?.totalBytesBilled?.toNumber?.() ?? 0;
+      return formatBytesInHumanReadableFormat(bytes);
     });
 
   const executionSuffix = formatExecutionSuffix(jobIds, bytesBilled);
@@ -364,30 +371,30 @@ export function printExecutedAction(
             `${successOutput(`Table ${dryRun ? "dry run success" : "created"}: `)} ${datasetString(
               executionAction.target,
               executionAction.tableType,
-              executionAction.tasks.length === 0
-            )}${executionSuffix}`
+              executionAction.tasks.length === 0,
+            )}${executionSuffix}`,
           );
           return;
         }
         case "assertion": {
           writeStdOut(
             `${successOutput(
-              `Assertion ${dryRun ? "dry run success" : "passed"}: `
+              `Assertion ${dryRun ? "dry run success" : "passed"}: `,
             )} ${assertionString(
               executionAction.target,
-              executionAction.tasks.length === 0
-            )}${executionSuffix}`
+              executionAction.tasks.length === 0,
+            )}${executionSuffix}`,
           );
           return;
         }
         case "operation": {
           writeStdOut(
             `${successOutput(
-              `Operation ${dryRun ? "dry run success" : "completed successfully"}: `
+              `Operation ${dryRun ? "dry run success" : "completed successfully"}: `,
             )} ${operationString(
               executionAction.target,
-              executionAction.tasks.length === 0
-            )}${executionSuffix}`
+              executionAction.tasks.length === 0,
+            )}${executionSuffix}`,
           );
           return;
         }
@@ -400,8 +407,8 @@ export function printExecutedAction(
             `${errorOutput("Dataset creation failed: ")} ${datasetString(
               executionAction.target,
               executionAction.tableType,
-              executionAction.tasks.length === 0
-            )}${executionSuffix}`
+              executionAction.tasks.length === 0,
+            )}${executionSuffix}`,
           );
           break;
         }
@@ -409,8 +416,8 @@ export function printExecutedAction(
           writeStdErr(
             `${errorOutput("Assertion failed: ")} ${assertionString(
               executionAction.target,
-              executionAction.tasks.length === 0
-            )}${executionSuffix}`
+              executionAction.tasks.length === 0,
+            )}${executionSuffix}`,
           );
           break;
         }
@@ -418,8 +425,8 @@ export function printExecutedAction(
           writeStdErr(
             `${errorOutput("Operation failed: ")} ${operationString(
               executionAction.target,
-              executionAction.tasks.length === 0
-            )}${executionSuffix}`
+              executionAction.tasks.length === 0,
+            )}${executionSuffix}`,
           );
           break;
         }
@@ -436,8 +443,8 @@ export function printExecutedAction(
             `${warningOutput("Skipping dataset creation: ")} ${datasetString(
               executionAction.target,
               executionAction.tableType,
-              executionAction.tasks.length === 0
-            )}${skipSuffix}`
+              executionAction.tasks.length === 0,
+            )}${skipSuffix}`,
           );
           return;
         }
@@ -445,8 +452,8 @@ export function printExecutedAction(
           writeStdOut(
             `${warningOutput("Skipping assertion execution: ")} ${assertionString(
               executionAction.target,
-              executionAction.tasks.length === 0
-            )}${skipSuffix}`
+              executionAction.tasks.length === 0,
+            )}${skipSuffix}`,
           );
           return;
         }
@@ -454,8 +461,8 @@ export function printExecutedAction(
           writeStdOut(
             `${warningOutput("Skipping operation execution: ")} ${operationString(
               executionAction.target,
-              executionAction.tasks.length === 0
-            )}${skipSuffix}`
+              executionAction.tasks.length === 0,
+            )}${skipSuffix}`,
           );
           return;
         }
@@ -469,8 +476,8 @@ export function printExecutedAction(
             `${warningOutput("Dataset creation disabled: ")} ${datasetString(
               executionAction.target,
               executionAction.tableType,
-              executionAction.tasks.length === 0
-            )}`
+              executionAction.tasks.length === 0,
+            )}`,
           );
           return;
         }
@@ -478,8 +485,8 @@ export function printExecutedAction(
           writeStdOut(
             `${warningOutput(`Assertion execution disabled: `)} ${assertionString(
               executionAction.target,
-              executionAction.tasks.length === 0
-            )}`
+              executionAction.tasks.length === 0,
+            )}`,
           );
           return;
         }
@@ -487,8 +494,8 @@ export function printExecutedAction(
           writeStdOut(
             `${warningOutput(`Operation execution disabled: `)} ${operationString(
               executionAction.target,
-              executionAction.tasks.length === 0
-            )}`
+              executionAction.tasks.length === 0,
+            )}`,
           );
           return;
         }
@@ -503,27 +510,27 @@ export function printFormatFilesResult(
     filename: string;
     err?: Error;
     needsFormatting?: boolean;
-  }>
+  }>,
 ) {
   const sorted = formatResults.sort((a, b) => a.filename.localeCompare(b.filename));
-  const successfulFormatResults = sorted.filter(result => !result.err && !result.needsFormatting);
-  const needsFormattingResults = sorted.filter(result => !result.err && result.needsFormatting);
-  const failedFormatResults = sorted.filter(result => !!result.err);
+  const successfulFormatResults = sorted.filter((result) => !result.err && !result.needsFormatting);
+  const needsFormattingResults = sorted.filter((result) => !result.err && result.needsFormatting);
+  const failedFormatResults = sorted.filter((result) => !!result.err);
 
   if (successfulFormatResults.length > 0) {
     printSuccess("Successfully formatted:");
-    successfulFormatResults.forEach(result => writeStdOut(result.filename, 1));
+    successfulFormatResults.forEach((result) => writeStdOut(result.filename, 1));
   }
 
   if (needsFormattingResults.length > 0) {
     printError("Files that need formatting:");
-    needsFormattingResults.forEach(result => writeStdErr(result.filename, 1));
+    needsFormattingResults.forEach((result) => writeStdErr(result.filename, 1));
   }
 
   if (failedFormatResults.length > 0) {
     printError("Errors encountered during formatting:");
-    failedFormatResults.forEach(result =>
-      writeStdOut(`${result.filename}: ${result.err.message}`, 1)
+    failedFormatResults.forEach((result) =>
+      writeStdOut(`${result.filename}: ${result.err.message}`, 1),
     );
   }
 }
@@ -554,26 +561,28 @@ export function dotRepresentation(graph: sqlanvil.ICompiledGraph, interactive: b
 
   const formatTarget = interactive ? targetString : plainTargetString;
 
-  graph.tables?.forEach(table => {
+  graph.tables?.forEach((table) => {
     const nodeName = `${formatTarget(table.target)}`;
-    nodes.push(`"${nodeName}" [label="${formatTarget(table.target)} [${tableTypeEnumToString(table.enumType)}]"]`);
-    table.dependencyTargets?.forEach(dependencyTarget => {
+    nodes.push(
+      `"${nodeName}" [label="${formatTarget(table.target)} [${tableTypeEnumToString(table.enumType)}]"]`,
+    );
+    table.dependencyTargets?.forEach((dependencyTarget) => {
       edges.push(`"${formatTarget(dependencyTarget)}" -> "${nodeName}"`);
     });
   });
 
-  graph.assertions?.forEach(assertion => {
+  graph.assertions?.forEach((assertion) => {
     const nodeName = `${formatTarget(assertion.target)}`;
     nodes.push(`"${nodeName}" [label="${formatTarget(assertion.target)}"]`);
-    assertion.dependencyTargets?.forEach(dependencyTarget => {
+    assertion.dependencyTargets?.forEach((dependencyTarget) => {
       edges.push(`"${formatTarget(dependencyTarget)}" -> "${nodeName}"`);
     });
   });
 
-  graph.operations?.forEach(operation => {
+  graph.operations?.forEach((operation) => {
     const nodeName = `${formatTarget(operation.target)}`;
     nodes.push(`"${nodeName}" [label="${formatTarget(operation.target)}"]`);
-    operation.dependencyTargets?.forEach(dependencyTarget => {
+    operation.dependencyTargets?.forEach((dependencyTarget) => {
       edges.push(`"${formatTarget(dependencyTarget)}" -> "${nodeName}"`);
     });
   });
@@ -583,7 +592,7 @@ export function dotRepresentation(graph: sqlanvil.ICompiledGraph, interactive: b
 
 function printExecutedActionErrors(
   executedAction: sqlanvil.IActionResult,
-  executionAction: sqlanvil.IExecutionAction
+  executionAction: sqlanvil.IExecutionAction,
 ) {
   // executedAction.tasks is positionally aligned with executionAction.tasks (run.ts pushes
   // exactly one result per planned task, in order), so a failing task's statement must be
@@ -597,7 +606,7 @@ function printExecutedActionErrors(
     }
     const statement = executionAction.tasks[i]?.statement;
     if (statement) {
-      statement.split("\n").forEach(line => {
+      statement.split("\n").forEach((line) => {
         writeStdErr(`${DEFAULT_PROMPT}${line}`, 1);
       });
     }

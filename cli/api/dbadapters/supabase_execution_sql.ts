@@ -6,7 +6,7 @@ export class SupabaseExecutionSql extends PostgresExecutionSql {
   constructor(
     project: sqlanvil.IProjectConfig,
     sqlanvilCoreVersion: string,
-    uniqueIdGenerator?: () => string
+    uniqueIdGenerator?: () => string,
   ) {
     super(project, sqlanvilCoreVersion, uniqueIdGenerator);
   }
@@ -14,11 +14,12 @@ export class SupabaseExecutionSql extends PostgresExecutionSql {
   public publishTasks(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ): Tasks {
     // Postgres options may be nested under `supabase.postgres` instead of `postgres`.
     const nestedPostgres = table.supabase?.postgres;
-    const effectiveTable = !table.postgres && nestedPostgres ? { ...table, postgres: nestedPostgres } : table;
+    const effectiveTable =
+      !table.postgres && nestedPostgres ? { ...table, postgres: nestedPostgres } : table;
     return super.publishTasks(effectiveTable, runConfig, tableMetadata);
   }
 
@@ -42,7 +43,7 @@ export class SupabaseExecutionSql extends PostgresExecutionSql {
     if (vectors.length > 0) {
       statements.push("create extension if not exists vector cascade");
     }
-    vectors.forEach(vector => {
+    vectors.forEach((vector) => {
       const params = vector.params || {};
       const indexType =
         vector.indexType === sqlanvil.SupabaseOptions.VectorConfig.IndexType.IVFFLAT
@@ -55,7 +56,7 @@ export class SupabaseExecutionSql extends PostgresExecutionSql {
       const withClause = withOptions.length > 0 ? ` with (${withOptions.join(", ")})` : "";
       const indexName = this.defaultIndexName(table.target.name, [vector.column], false);
       statements.push(
-        `create index "${indexName}" on ${target} using ${indexType} ("${vector.column}" ${opclass})${withClause}`
+        `create index "${indexName}" on ${target} using ${indexType} ("${vector.column}" ${opclass})${withClause}`,
       );
     });
     if (supabase.publishToRealtime) {

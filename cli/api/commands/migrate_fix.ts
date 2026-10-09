@@ -87,7 +87,7 @@ function parseColumnTypes(config: string): string[] {
   const body = config.slice(m.index + m[0].length, end);
   // Keys only, and not the ones inside the TODO comment the converter leaves behind.
   const withoutComments = body.replace(/\/\/[^\n]*/g, "");
-  return [...withoutComments.matchAll(/(^|,)\s*([A-Za-z_]\w*)\s*:/g)].map(x => x[2]);
+  return [...withoutComments.matchAll(/(^|,)\s*([A-Za-z_]\w*)\s*:/g)].map((x) => x[2]);
 }
 
 function loadActions(projectDir: string): Action[] {
@@ -123,14 +123,14 @@ function loadActions(projectDir: string): Action[] {
 function outputName(toks: Token[], start: number, end: number): string | null {
   const items = toks.slice(start, end);
   if (!items.length) return null;
-  if (items.some(t => t.text === "*")) return null;
+  if (items.some((t) => t.text === "*")) return null;
   const last = items[items.length - 1];
   if (isWord(items[items.length - 2], "as")) {
     return (last.value ?? last.text).replace(/^"|"$/g, "");
   }
   // A bare reference exposes its own (possibly qualified) trailing name.
-  const bare = items.filter(t => t.text !== ".");
-  if (bare.every(t => t.kind === "word" || t.kind === "quoted-ident")) {
+  const bare = items.filter((t) => t.text !== ".");
+  if (bare.every((t) => t.kind === "word" || t.kind === "quoted-ident")) {
     return (last.value ?? last.text).replace(/^"|"$/g, "");
   }
   return null;
@@ -150,7 +150,7 @@ class Resolver {
 
   /** Resolve a `${ref(...)}` token to an action, or a reason it cannot be resolved. */
   resolveRef(tok: Token): { action?: Action; reason?: string } {
-    const args = [...tok.text.matchAll(/["']([^"']+)["']/g)].map(m => m[1]);
+    const args = [...tok.text.matchAll(/["']([^"']+)["']/g)].map((m) => m[1]);
     if (!args.length) return { reason: "ref with no literal arguments" };
     const name = args[args.length - 1];
     if (args.length >= 2) {
@@ -192,7 +192,7 @@ class Resolver {
     const names: string[] = [];
     for (const [s, e] of splitOnCommas(toks, scope.listStart, scope.listEnd)) {
       const item = toks.slice(s, e);
-      const star = item.findIndex(t => t.text === "*");
+      const star = item.findIndex((t) => t.text === "*");
       if (star === -1) {
         const n = outputName(toks, s, e);
         if (n === null) return null;
@@ -202,12 +202,12 @@ class Resolver {
       // `t.*` binds to the alias; a bare `*` to the first relation.
       const qualifier =
         star >= 2 && item[star - 1]?.text === "." ? item[star - 2].text.toLowerCase() : null;
-      const rel = qualifier ? rels.find(r => r.alias === qualifier) : rels[0];
+      const rel = qualifier ? rels.find((r) => r.alias === qualifier) : rels[0];
       if (!rel) return null;
       const cols = this.relationColumns(rel.tokens, rel.subquery, seen);
       if (!cols) return null;
       const excluded = starExclusions(item, star);
-      names.push(...cols.filter(c => !excluded.has(c.toLowerCase())));
+      names.push(...cols.filter((c) => !excluded.has(c.toLowerCase())));
     }
     return names.length ? names : null;
   }
@@ -216,11 +216,11 @@ class Resolver {
     if (subquery) {
       const inner = tokens
         .slice(1, -1)
-        .map(t => t.text)
+        .map((t) => t.text)
         .join(" ");
       return this.selectColumns(inner, seen);
     }
-    const tmpl = tokens.find(t => t.kind === "template");
+    const tmpl = tokens.find((t) => t.kind === "template");
     if (tmpl) {
       const { action } = this.resolveRef(tmpl);
       return action ? this.columnsOf(action, seen) : null;
@@ -273,13 +273,13 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
         const rels = scope.from === -1 ? [] : relationsIn(toks, scope.fromStart, scope.fromEnd);
         for (const [s, e] of splitOnCommas(toks, scope.listStart, scope.listEnd)) {
           const item = toks.slice(s, e);
-          const star = item.findIndex(t => t.text === "*");
+          const star = item.findIndex((t) => t.text === "*");
           if (star === -1 || !isWord(item[star + 1], "except")) continue;
           const line = source.slice(0, item[star].start).split("\n").length;
 
           const qualifier =
             star >= 2 && item[star - 1]?.text === "." ? item[star - 2].text.toLowerCase() : null;
-          const rel = qualifier ? rels.find(r => r.alias === qualifier) : rels[0];
+          const rel = qualifier ? rels.find((r) => r.alias === qualifier) : rels[0];
           if (!rel) {
             result.unresolved.push({
               file: action.file,
@@ -294,16 +294,16 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
           let cols = resolver.relationColumns(rel.tokens, rel.subquery, new Set());
           if (!cols) {
             // A bare name is a CTE in this file, or an action referenced without ${ref}.
-            const bare = rel.tokens.map(t => t.text).join("");
+            const bare = rel.tokens.map((t) => t.text).join("");
             const cte = cteColumns(source, bare, resolver);
             cols = cte;
           }
           if (!cols) {
-            const shown = rel.tokens.map(t => t.text).join("");
+            const shown = rel.tokens.map((t) => t.text).join("");
             result.unresolved.push({
               file: action.file,
               line,
-              reason: rel.tokens.some(t => t.kind === "template")
+              reason: rel.tokens.some((t) => t.kind === "template")
                 ? `columns of ${shown} are unknown — has introspect run for it?`
                 : `cannot determine the columns of ${shown}`,
             });
@@ -311,7 +311,7 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
           }
 
           const excluded = starExclusions(item, star);
-          const missing = [...excluded].filter(x => !cols!.some(c => c.toLowerCase() === x));
+          const missing = [...excluded].filter((x) => !cols!.some((c) => c.toLowerCase() === x));
           if (missing.length) {
             result.unresolved.push({
               file: action.file,
@@ -320,7 +320,7 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
             });
             continue;
           }
-          const keep = cols.filter(c => !excluded.has(c.toLowerCase()));
+          const keep = cols.filter((c) => !excluded.has(c.toLowerCase()));
           if (!keep.length) {
             result.unresolved.push({
               file: action.file,
@@ -334,10 +334,10 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
           const lineStart = source.lastIndexOf("\n", item[star].start) + 1;
           const indent = /^[ \t]*/.exec(source.slice(lineStart))![0] + "  ";
           const prefix = qualifier ? `${qualifier}.` : "";
-          const body = keep.map(c => `${indent}${prefix}${quoteIfNeeded(c)}`).join(",\n");
+          const body = keep.map((c) => `${indent}${prefix}${quoteIfNeeded(c)}`).join(",\n");
           const marker =
             `${indent}${MARKER} ${prefix}* from ` +
-            `${rel.tokens.map(t => t.text).join("")} minus (${[...excluded].join(", ")})`;
+            `${rel.tokens.map((t) => t.text).join("")} minus (${[...excluded].join(", ")})`;
           edits.push({
             start: qualifier ? item[star - 2].start : item[star].start,
             end: item[close].end,
@@ -407,10 +407,11 @@ function updateMigrationReport(projectDir: string, result: MigrateFixResult): vo
   const OWNED = new Set(["star-except", "group-by-all"]);
   const remaining = new Map<string, TodoClass>();
   for (const site of result.unresolved) {
-    const id = /GROUP BY ALL/i.test(site.reason) || /star expands/i.test(site.reason)
-      ? "group-by-all"
-      : "star-except";
-    const prior = report.todo.find(t => t.id === id);
+    const id =
+      /GROUP BY ALL/i.test(site.reason) || /star expands/i.test(site.reason)
+        ? "group-by-all"
+        : "star-except";
+    const prior = report.todo.find((t) => t.id === id);
     const entry =
       remaining.get(id) ??
       ({
@@ -425,16 +426,16 @@ function updateMigrationReport(projectDir: string, result: MigrateFixResult): vo
         locations: [],
       } as TodoClass);
     entry.count++;
-    const loc = entry.locations.find(l => l.file === site.file);
+    const loc = entry.locations.find((l) => l.file === site.file);
     if (loc) loc.lines.push(site.line);
     else entry.locations.push({ file: site.file, lines: [site.line] });
     remaining.set(id, entry);
   }
 
-  report.todo = [...report.todo.filter(t => !OWNED.has(t.id)), ...remaining.values()];
+  report.todo = [...report.todo.filter((t) => !OWNED.has(t.id)), ...remaining.values()];
   const applied = (n: number, id: string, title: string) => {
     if (!n) return;
-    const seen = report.applied.find(a => a.id === id);
+    const seen = report.applied.find((a) => a.id === id);
     if (seen) seen.count = n;
     else report.applied.push({ id, title, count: n });
   };
@@ -452,11 +453,37 @@ function updateMigrationReport(projectDir: string, result: MigrateFixResult): vo
  * wrong shape.
  */
 const AGGREGATES = new Set([
-  "count", "sum", "avg", "min", "max", "array_agg", "string_agg", "bool_and", "bool_or", "every",
-  "stddev", "stddev_pop", "stddev_samp", "variance", "var_pop", "var_samp", "jsonb_agg",
-  "json_agg", "jsonb_object_agg", "json_object_agg", "corr", "covar_pop", "covar_samp",
-  "percentile_cont", "percentile_disc", "bit_and", "bit_or", "logical_and", "logical_or",
-  "any_value", "countif",
+  "count",
+  "sum",
+  "avg",
+  "min",
+  "max",
+  "array_agg",
+  "string_agg",
+  "bool_and",
+  "bool_or",
+  "every",
+  "stddev",
+  "stddev_pop",
+  "stddev_samp",
+  "variance",
+  "var_pop",
+  "var_samp",
+  "jsonb_agg",
+  "json_agg",
+  "jsonb_object_agg",
+  "json_object_agg",
+  "corr",
+  "covar_pop",
+  "covar_samp",
+  "percentile_cont",
+  "percentile_disc",
+  "bit_and",
+  "bit_or",
+  "logical_and",
+  "logical_or",
+  "any_value",
+  "countif",
 ]);
 
 /**
@@ -515,7 +542,7 @@ function expandGroupByAll(source: string): {
     }
     const line = source.slice(0, toks[i].start).split("\n").length;
     // The enclosing SELECT is the nearest one before this clause.
-    const scope = scopes.filter(s => s.select < i).pop();
+    const scope = scopes.filter((s) => s.select < i).pop();
     if (!scope) continue;
 
     const items = splitOnCommas(toks, scope.listStart, scope.listEnd);
@@ -555,7 +582,7 @@ function cteColumns(source: string, name: string, resolver: Resolver): string[] 
     if (close < 0) return null;
     const inner = toks
       .slice(i + 3, close)
-      .map(t => t.text)
+      .map((t) => t.text)
       .join(" ");
     return resolver.selectColumns(inner, new Set());
   }

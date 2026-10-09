@@ -16,7 +16,7 @@ suite("verifyObjectMatchesProto", () => {
       verifyObjectMatchesProto(
         sqlanvil.Table,
         { dependencyTargets: null } as any,
-        VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
+        VerifyProtoErrorBehaviour.SHOW_DOCS_LINK,
       );
     }).to.throw(ReferenceError, /Unexpected empty value for "dependencyTargets"/);
   });
@@ -26,11 +26,11 @@ suite("verifyObjectMatchesProto", () => {
       verifyObjectMatchesProto(
         sqlanvil.Table,
         { actionDescriptor: 123 } as any,
-        VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+        VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
       );
     }).to.throw(
       ReferenceError,
-      /Unexpected property "actionDescriptor" for ".*Table".*please report this to the sqlanvil team/
+      /Unexpected property "actionDescriptor" for ".*Table".*please report this to the sqlanvil team/,
     );
   });
 
@@ -39,7 +39,7 @@ suite("verifyObjectMatchesProto", () => {
       verifyObjectMatchesProto(sqlanvil.Table, { actionDescriptor: 123 } as any);
     }).to.throw(
       ReferenceError,
-      /Unexpected property "actionDescriptor", or property value type of "number" is incorrect/
+      /Unexpected property "actionDescriptor", or property value type of "number" is incorrect/,
     );
   });
 
@@ -51,7 +51,7 @@ suite("verifyObjectMatchesProto", () => {
       verifyObjectMatchesProto(
         sqlanvil.ActionConfig.TableConfig,
         { partitionBy: { field: "d", dataType: "date", granularity: "month" } } as any,
-        VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
+        VerifyProtoErrorBehaviour.SHOW_DOCS_LINK,
       );
     }).to.throw(ReferenceError, /Invalid property value: partitionBy: string expected/);
   });
@@ -60,7 +60,7 @@ suite("verifyObjectMatchesProto", () => {
     const proto = verifyObjectMatchesProto(
       sqlanvil.ActionConfig.TableConfig,
       { partitionBy: "DATE_TRUNC(d, MONTH)" } as any,
-      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
+      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK,
     );
     expect(proto.partitionBy).to.equal("DATE_TRUNC(d, MONTH)");
   });
@@ -72,8 +72,8 @@ suite("verifyObjectMatchesProto", () => {
       verifyObjectMatchesProto(
         sqlanvil.ActionConfig.TableConfig,
         { iceberg: { fileFormat: "PARQUET", bucketName: "b", connection: "c" } } as any,
-        VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
-      )
+        VerifyProtoErrorBehaviour.SHOW_DOCS_LINK,
+      ),
     ).not.to.throw();
   });
 });

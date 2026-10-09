@@ -9,14 +9,14 @@ import {
   targetKey,
   topoOrder,
   validateShadowSuffix,
-  ValidationStatus
+  ValidationStatus,
 } from "sa/cli/api/commands/validate_graph";
 import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";
 
 suite("validate_graph", () => {
   const node = (key: string, ...deps: string[]): OrderedNode => ({ key, dependencyKeys: deps });
-  const keys = (nodes: OrderedNode[]) => topoOrder(nodes).map(n => n.key);
+  const keys = (nodes: OrderedNode[]) => topoOrder(nodes).map((n) => n.key);
 
   test("targetKey joins database.schema.name, skipping empties", () => {
     expect(targetKey({ database: "db", schema: "s", name: "t" })).to.equal("db.s.t");
@@ -28,7 +28,7 @@ suite("validate_graph", () => {
     expect(keys([node("leaf", "mid"), node("src"), node("mid", "src")])).to.eql([
       "src",
       "mid",
-      "leaf"
+      "leaf",
     ]);
   });
 
@@ -56,7 +56,7 @@ suite("validate_graph", () => {
     const status = new Map<string, ValidationStatus>([
       ["ok", "PASS"],
       ["bad", "FAILURE"],
-      ["skipped", "SKIPPED"]
+      ["skipped", "SKIPPED"],
     ]);
     expect(dependencyBlocked(["ok"], status)).to.equal(false);
     expect(dependencyBlocked(["ok", "bad"], status)).to.equal(true);
@@ -80,11 +80,11 @@ suite("validate_graph", () => {
       "analytics_prod", // real schema
       `public_sqlanvil_validate_${now - 2 * hour}`, // old orphan → swept
       `public_sqlanvil_validate_${now - 60_000}`, // 1 min old (in-flight) → kept
-      `staging_sqlanvil_validate_${now - 5 * hour}` // old orphan → swept
+      `staging_sqlanvil_validate_${now - 5 * hour}`, // old orphan → swept
     ];
     expect(shadowSchemasToSweep(names, now, hour)).to.eql([
       `public_sqlanvil_validate_${now - 2 * hour}`,
-      `staging_sqlanvil_validate_${now - 5 * hour}`
+      `staging_sqlanvil_validate_${now - 5 * hour}`,
     ]);
   });
 
@@ -100,14 +100,14 @@ suite("validate_graph", () => {
             target: { schema: `looker_${SUFFIX}`, name: "hist" },
             query:
               `select * from "staging_${SUFFIX}"."events" ` +
-              `union all select * from "looker_${SUFFIX}"."hist" where ts < current_date`
-          })
-        ]
+              `union all select * from "looker_${SUFFIX}"."hist" where ts < current_date`,
+          }),
+        ],
       };
       rewriteSelfReferences(graph, SUFFIX, resolve);
       expect(graph.tables[0].query).to.equal(
         `select * from "staging_${SUFFIX}"."events" ` +
-          `union all select * from "looker"."hist" where ts < current_date`
+          `union all select * from "looker"."hist" where ts < current_date`,
       );
     });
 
@@ -119,14 +119,14 @@ suite("validate_graph", () => {
             query: `select * from "src_${SUFFIX}"."raw"`,
             incrementalQuery:
               `select * from "src_${SUFFIX}"."raw" ` +
-              `where ts > (select max(ts) from "public_${SUFFIX}"."inc")`
-          })
-        ]
+              `where ts > (select max(ts) from "public_${SUFFIX}"."inc")`,
+          }),
+        ],
       };
       rewriteSelfReferences(graph, SUFFIX, resolve);
       expect(graph.tables[0].query).to.equal(`select * from "src_${SUFFIX}"."raw"`);
       expect(graph.tables[0].incrementalQuery).to.equal(
-        `select * from "src_${SUFFIX}"."raw" where ts > (select max(ts) from "public"."inc")`
+        `select * from "src_${SUFFIX}"."raw" where ts > (select max(ts) from "public"."inc")`,
       );
     });
 
@@ -136,14 +136,14 @@ suite("validate_graph", () => {
           sqlanvil.Table.create({
             target: { schema: `looker_${SUFFIX}`, name: "dim" },
             query: `select id from "looker_${SUFFIX}"."dim"`,
-            postOps: [`ALTER TABLE "looker_${SUFFIX}"."dim" ADD PRIMARY KEY (id) NOT ENFORCED`]
-          })
-        ]
+            postOps: [`ALTER TABLE "looker_${SUFFIX}"."dim" ADD PRIMARY KEY (id) NOT ENFORCED`],
+          }),
+        ],
       };
       rewriteSelfReferences(graph, SUFFIX, resolve);
       expect(graph.tables[0].query).to.equal(`select id from "looker"."dim"`);
       expect(graph.tables[0].postOps[0]).to.equal(
-        `ALTER TABLE "looker_${SUFFIX}"."dim" ADD PRIMARY KEY (id) NOT ENFORCED`
+        `ALTER TABLE "looker_${SUFFIX}"."dim" ADD PRIMARY KEY (id) NOT ENFORCED`,
       );
     });
 
@@ -152,9 +152,9 @@ suite("validate_graph", () => {
         tables: [
           sqlanvil.Table.create({
             target: { schema: "public", name: "t" },
-            query: `select * from "public"."t"`
-          })
-        ]
+            query: `select * from "public"."t"`,
+          }),
+        ],
       };
       rewriteSelfReferences(graph, SUFFIX, resolve);
       expect(graph.tables[0].query).to.equal(`select * from "public"."t"`);
@@ -166,13 +166,13 @@ suite("validate_graph", () => {
         assertions: [
           sqlanvil.Assertion.create({
             target: { schema: `asserts_${SUFFIX}`, name: "a" },
-            query: `select * from "asserts_${SUFFIX}"."a" join "other_${SUFFIX}"."a" using (id)`
-          })
-        ]
+            query: `select * from "asserts_${SUFFIX}"."a" join "other_${SUFFIX}"."a" using (id)`,
+          }),
+        ],
       };
       rewriteSelfReferences(graph, SUFFIX, resolve);
       expect(graph.assertions[0].query).to.equal(
-        `select * from "asserts"."a" join "other_${SUFFIX}"."a" using (id)`
+        `select * from "asserts"."a" join "other_${SUFFIX}"."a" using (id)`,
       );
     });
   });

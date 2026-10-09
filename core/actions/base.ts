@@ -16,7 +16,7 @@ export abstract class ActionBuilder<T> {
     options?: {
       validateTarget?: boolean;
       useDefaultAssertionDataset?: boolean;
-    }
+    },
   ): sqlanvil.Target {
     const defaultSchema = options?.useDefaultAssertionDataset
       ? projectConfig.assertionSchema || projectConfig.defaultSchema
@@ -24,7 +24,7 @@ export abstract class ActionBuilder<T> {
     const target = sqlanvil.Target.create({
       name: targetFromConfig.name,
       schema: targetFromConfig.schema || defaultSchema || undefined,
-      database: targetFromConfig.database || projectConfig.defaultDatabase || undefined
+      database: targetFromConfig.database || projectConfig.defaultDatabase || undefined,
     });
     if (options?.validateTarget) {
       this.validateTarget(targetFromConfig, fileName);
@@ -40,7 +40,7 @@ export abstract class ActionBuilder<T> {
         : undefined,
       database: targetFromConfig.database
         ? this.session.finalizeDatabase(targetFromConfig.database)
-        : undefined
+        : undefined,
     });
   }
 
@@ -55,7 +55,7 @@ export abstract class ActionBuilder<T> {
 
   protected generateInlineAssertions(
     tableAssertionsConfig: sqlanvil.ActionConfig.TableAssertionsConfig,
-    proto: sqlanvil.Table
+    proto: sqlanvil.Table,
   ): { uniqueKeyAssertions: any[]; rowConditionsAssertion?: any } {
     const inlineAssertions: {
       uniqueKeyAssertions: any[];
@@ -63,18 +63,20 @@ export abstract class ActionBuilder<T> {
     } = { uniqueKeyAssertions: [] };
     if (!!tableAssertionsConfig.uniqueKey?.length && !!tableAssertionsConfig.uniqueKeys?.length) {
       this.session.compileError(
-        new Error("Specify at most one of 'assertions.uniqueKey' and 'assertions.uniqueKeys'.")
+        new Error("Specify at most one of 'assertions.uniqueKey' and 'assertions.uniqueKeys'."),
       );
     }
-    const assertionPrefix = !!this.session.projectConfig.builtinAssertionNamePrefix ? `${this.session.projectConfig.builtinAssertionNamePrefix}_` : "";
-    let uniqueKeys = tableAssertionsConfig.uniqueKeys.map(uniqueKey =>
-      sqlanvil.ActionConfig.TableAssertionsConfig.UniqueKey.create(uniqueKey)
+    const assertionPrefix = !!this.session.projectConfig.builtinAssertionNamePrefix
+      ? `${this.session.projectConfig.builtinAssertionNamePrefix}_`
+      : "";
+    let uniqueKeys = tableAssertionsConfig.uniqueKeys.map((uniqueKey) =>
+      sqlanvil.ActionConfig.TableAssertionsConfig.UniqueKey.create(uniqueKey),
     );
     if (!!tableAssertionsConfig.uniqueKey?.length) {
       uniqueKeys = [
         sqlanvil.ActionConfig.TableAssertionsConfig.UniqueKey.create({
-          uniqueKey: tableAssertionsConfig.uniqueKey
-        })
+          uniqueKey: tableAssertionsConfig.uniqueKey,
+        }),
       ];
     }
     if (uniqueKeys) {
@@ -82,10 +84,10 @@ export abstract class ActionBuilder<T> {
         const uniqueKeyAssertion = this.session
           .assert(
             `${assertionPrefix}${proto.target.schema}_${proto.target.name}_assertions_uniqueKey_${index}`,
-            sqlanvil.ActionConfig.AssertionConfig.create({ filename: proto.fileName })
+            sqlanvil.ActionConfig.AssertionConfig.create({ filename: proto.fileName }),
           )
-          .query(ctx =>
-            this.session.compilationSql().indexAssertion(ctx.ref(proto.target), uniqueKey)
+          .query((ctx) =>
+            this.session.compilationSql().indexAssertion(ctx.ref(proto.target), uniqueKey),
           );
         if (proto.tags) {
           uniqueKeyAssertion.tags(proto.tags);
@@ -103,17 +105,20 @@ export abstract class ActionBuilder<T> {
         typeof tableAssertionsConfig.nonNull === "string"
           ? [tableAssertionsConfig.nonNull]
           : tableAssertionsConfig.nonNull;
-      nonNullCols.forEach(nonNullCol => mergedRowConditions.push(`${nonNullCol} IS NOT NULL`));
+      nonNullCols.forEach((nonNullCol) => mergedRowConditions.push(`${nonNullCol} IS NOT NULL`));
     }
     if (!!mergedRowConditions && mergedRowConditions.length > 0) {
       inlineAssertions.rowConditionsAssertion = this.session
-        .assert(`${assertionPrefix}${proto.target.schema}_${proto.target.name}_assertions_rowConditions`, {
-          filename: proto.fileName
-        } as sqlanvil.ActionConfig.AssertionConfig)
-        .query(ctx =>
+        .assert(
+          `${assertionPrefix}${proto.target.schema}_${proto.target.name}_assertions_rowConditions`,
+          {
+            filename: proto.fileName,
+          } as sqlanvil.ActionConfig.AssertionConfig,
+        )
+        .query((ctx) =>
           this.session
             .compilationSql()
-            .rowConditionsAssertion(ctx.ref(proto.target), mergedRowConditions)
+            .rowConditionsAssertion(ctx.ref(proto.target), mergedRowConditions),
         );
       inlineAssertions.rowConditionsAssertion.setParentAction(sqlanvil.Target.create(proto.target));
       if (proto.disabled) {
@@ -131,21 +136,21 @@ export abstract class ActionBuilder<T> {
       this.session.compileError(
         new Error("Action target names cannot include '.'"),
         fileName,
-        target
+        target,
       );
     }
     if (target.schema.includes(".")) {
       this.session.compileError(
         new Error("Action target datasets cannot include '.'"),
         fileName,
-        target
+        target,
       );
     }
     if (target.database.includes(".")) {
       this.session.compileError(
         new Error("Action target projects cannot include '.'"),
         fileName,
-        target
+        target,
       );
     }
   }

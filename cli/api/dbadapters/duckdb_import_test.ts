@@ -4,7 +4,7 @@ import { buildAttachSql } from "sa/cli/api/dbadapters/duckdb_export";
 import {
   buildImportSql,
   importTargetSql,
-  readerForFormat
+  readerForFormat,
 } from "sa/cli/api/dbadapters/duckdb_import";
 import { suite, test } from "sa/testing";
 import { sqlanvil } from "sa/protos/ts";
@@ -29,7 +29,7 @@ suite("duckdb_import builders", () => {
     expect(sqls).to.have.length(2);
     expect(sqls[0]).equals(`DROP TABLE IF EXISTS pg."analytics"."orders"`);
     expect(sqls[1]).equals(
-      `CREATE TABLE pg."analytics"."orders" AS SELECT * FROM read_parquet('s3://b/orders/*.parquet')`
+      `CREATE TABLE pg."analytics"."orders" AS SELECT * FROM read_parquet('s3://b/orders/*.parquet')`,
     );
   });
 
@@ -39,14 +39,14 @@ suite("duckdb_import builders", () => {
     expect(sqls).to.have.length(1);
     // local:// is stripped to a filesystem path for the reader.
     expect(sqls[0]).equals(
-      `INSERT INTO pg."analytics"."orders" SELECT * FROM read_csv_auto('/tmp/o.csv')`
+      `INSERT INTO pg."analytics"."orders" SELECT * FROM read_csv_auto('/tmp/o.csv')`,
     );
   });
 
   test("import ATTACHes the postgres DSN read-write (no READ_ONLY)", () => {
     const sql = buildAttachSql(
       { host: "h", port: 5432, database: "d", user: "u", password: "p" },
-      { readOnly: false }
+      { readOnly: false },
     );
     expect(sql).contains("host=h port=5432 dbname=d user=u password=p");
     expect(sql).contains("AS pg (TYPE postgres)");

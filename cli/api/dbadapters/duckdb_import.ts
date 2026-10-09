@@ -4,7 +4,7 @@ import {
   buildSecretSql,
   PG_ATTACH_ALIAS,
   schemeOf,
-  toCopyTarget
+  toCopyTarget,
 } from "sa/cli/api/dbadapters/duckdb_export";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -48,7 +48,7 @@ export function buildImportSql(
   target: sqlanvil.ITarget,
   location: string,
   format: string,
-  overwrite: boolean
+  overwrite: boolean,
 ): string[] {
   const reader = readerForFormat(format);
   const source = toCopyTarget(location);
@@ -78,10 +78,10 @@ export async function runDuckdbImport(args: DuckdbImportArgs): Promise<{ source:
   if (scheme !== "local" && !storage?.[scheme]) {
     throw new Error(
       `No "${scheme}" storage credentials found in .df-credentials.json (storage.${scheme}) for ` +
-        `import from ${location}.`
+        `import from ${location}.`,
     );
   }
-  return withDuckdb(async conn => {
+  return withDuckdb(async (conn) => {
     await runAsync(conn, "INSTALL postgres; LOAD postgres; INSTALL httpfs; LOAD httpfs;");
     await runAsync(conn, buildAttachSql(pg, { readOnly: false }));
     if (scheme !== "local") {

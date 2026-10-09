@@ -4,18 +4,21 @@ import { JitAssertionResult } from "sa/core/actions/assertion";
 import { JitOperationResult } from "sa/core/actions/operation";
 import { JitTableResult } from "sa/core/actions/table";
 import { IActionContext, ITableContext, JitContext } from "sa/core/contextables";
-import { IncrementalTableJitContext, SqlActionJitContext, TableJitContext } from "sa/core/jit_context";
+import {
+  IncrementalTableJitContext,
+  SqlActionJitContext,
+  TableJitContext,
+} from "sa/core/jit_context";
 import { sqlanvil } from "sa/protos/ts";
 
 function makeMainBody<Context, T>(code: string): (jctx: JitContext<Context>) => Promise<T> {
-  return (
-    jctx => {
-      // tslint:disable-next-line: tsr-detect-eval-with-expression
-      const body = new Function(
-        "jctx", `const mainAsync = ${code};\nreturn mainAsync(jctx);`
-      ) as (jctx: JitContext<Context>) => Promise<T>;
-      return body(jctx);
-    });
+  return (jctx) => {
+    // tslint:disable-next-line: tsr-detect-eval-with-expression
+    const body = new Function("jctx", `const mainAsync = ${code};\nreturn mainAsync(jctx);`) as (
+      jctx: JitContext<Context>,
+    ) => Promise<T>;
+    return body(jctx);
+  };
 }
 
 function makeJitTableResult(result: JitTableResult): sqlanvil.IJitTableResult {
@@ -35,10 +38,8 @@ function jitCompileOperation(
 ): Promise<sqlanvil.IJitOperationResult> {
   const mainBody = makeMainBody<IActionContext, JitOperationResult>(request.jitCode);
 
-  const jctx: JitContext<IActionContext> = new SqlActionJitContext(
-    adapter, request,
-  );
-  return mainBody(jctx).then(mainResult => {
+  const jctx: JitContext<IActionContext> = new SqlActionJitContext(adapter, request);
+  return mainBody(jctx).then((mainResult) => {
     let queries: string[] | null = [];
     if (typeof mainResult === "string") {
       queries.push(mainResult);
@@ -58,9 +59,7 @@ function jitCompileTable(
 ): Promise<sqlanvil.IJitTableResult> {
   const mainBody = makeMainBody<ITableContext, JitTableResult>(request.jitCode);
 
-  const jctx: JitContext<ITableContext> = new TableJitContext(
-    adapter, request,
-  );
+  const jctx: JitContext<ITableContext> = new TableJitContext(adapter, request);
   return mainBody(jctx).then(makeJitTableResult);
 }
 
@@ -70,14 +69,12 @@ function jitCompileAssertion(
 ): Promise<sqlanvil.IJitAssertionResult> {
   const mainBody = makeMainBody<IActionContext, JitAssertionResult>(request.jitCode);
 
-  const jctx: JitContext<IActionContext> = new SqlActionJitContext(
-    adapter, request,
-  );
+  const jctx: JitContext<IActionContext> = new SqlActionJitContext(adapter, request);
   // Upstream #2221: an assertion's main body may return either the bare query string or an
   // already-shaped result object. Normalise both, then build the proto message as we always
   // have — returning a plain object here would skip proto defaulting and validation.
-  return mainBody(jctx).then(result =>
-    sqlanvil.JitAssertionResult.create(typeof result === "string" ? { query: result } : result)
+  return mainBody(jctx).then((result) =>
+    sqlanvil.JitAssertionResult.create(typeof result === "string" ? { query: result } : result),
   );
 }
 
@@ -87,22 +84,17 @@ function jitCompileIncrementalTable(
 ): Promise<sqlanvil.IJitIncrementalTableResult> {
   const mainBody = makeMainBody<ITableContext, JitTableResult>(request.jitCode);
 
-  const incrementalJctx = new IncrementalTableJitContext(
-    adapter, request, true,
-  );
-  const regularJctx = new IncrementalTableJitContext(
-    adapter, request, false,
-  );
+  const incrementalJctx = new IncrementalTableJitContext(adapter, request, true);
+  const regularJctx = new IncrementalTableJitContext(adapter, request, false);
 
-  return Promise.all([
-    mainBody(incrementalJctx),
-    mainBody(regularJctx),
-  ]).then(([incrementalResult, regularResult]) => {
-    return sqlanvil.JitIncrementalTableResult.create({
-      incremental: makeJitTableResult(incrementalResult),
-      regular: makeJitTableResult(regularResult),
-    });
-  });
+  return Promise.all([mainBody(incrementalJctx), mainBody(regularJctx)]).then(
+    ([incrementalResult, regularResult]) => {
+      return sqlanvil.JitIncrementalTableResult.create({
+        incremental: makeJitTableResult(incrementalResult),
+        regular: makeJitTableResult(regularResult),
+      });
+    },
+  );
 }
 
 export interface IJitCompiler {
@@ -110,9 +102,16 @@ export interface IJitCompiler {
 }
 
 /** RPC callback, implementing DbAdapter. */
-export type RpcCallback = (method: string, request: Uint8Array, callback: (error: Error | null, response: Uint8Array) => void) => void;
+export type RpcCallback = (
+  method: string,
+  request: Uint8Array,
+  callback: (error: Error | null, response: Uint8Array) => void,
+) => void;
 
-export function jitCompile(request: sqlanvil.IJitCompilationRequest, rpcCallback: RpcCallback): Promise<sqlanvil.IJitCompilationResponse> {
+export function jitCompile(
+  request: sqlanvil.IJitCompilationRequest,
+  rpcCallback: RpcCallback,
+): Promise<sqlanvil.IJitCompilationResponse> {
   const rpcImpl: $protobuf.RPCImpl = (method, internalRequest, callback) => {
     rpcCallback(method.name, internalRequest, callback);
   };
@@ -120,17 +119,21 @@ export function jitCompile(request: sqlanvil.IJitCompilationRequest, rpcCallback
 
   switch (request.compilationTargetType) {
     case sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_OPERATION:
-      return jitCompileOperation(request, dbAdapter).then(
-        operation => sqlanvil.JitCompilationResponse.create({ operation }));
+      return jitCompileOperation(request, dbAdapter).then((operation) =>
+        sqlanvil.JitCompilationResponse.create({ operation }),
+      );
     case sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_TABLE:
-      return jitCompileTable(request, dbAdapter).then(
-        table => sqlanvil.JitCompilationResponse.create({ table }));
+      return jitCompileTable(request, dbAdapter).then((table) =>
+        sqlanvil.JitCompilationResponse.create({ table }),
+      );
     case sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_INCREMENTAL_TABLE:
-      return jitCompileIncrementalTable(request, dbAdapter).then(
-        incrementalTable => sqlanvil.JitCompilationResponse.create({ incrementalTable }));
+      return jitCompileIncrementalTable(request, dbAdapter).then((incrementalTable) =>
+        sqlanvil.JitCompilationResponse.create({ incrementalTable }),
+      );
     case sqlanvil.JitCompilationTargetType.JIT_COMPILATION_TARGET_TYPE_ASSERTION:
-      return jitCompileAssertion(request, dbAdapter).then(
-        assertion => sqlanvil.JitCompilationResponse.create({ assertion }));
+      return jitCompileAssertion(request, dbAdapter).then((assertion) =>
+        sqlanvil.JitCompilationResponse.create({ assertion }),
+      );
     default:
       throw new Error(`Unrecognized compilation target type: ${request.compilationTargetType}`);
   }
@@ -141,9 +144,9 @@ export function jitCompiler(rpcCallback: RpcCallback): IJitCompiler {
   return {
     compile: (request: Uint8Array) => {
       const requestMessage = sqlanvil.JitCompilationRequest.decode(request);
-      return jitCompile(requestMessage, rpcCallback).then(
-        response => sqlanvil.JitCompilationResponse.encode(response).finish()
+      return jitCompile(requestMessage, rpcCallback).then((response) =>
+        sqlanvil.JitCompilationResponse.encode(response).finish(),
       );
-    }
+    },
   };
 }

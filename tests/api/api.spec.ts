@@ -28,42 +28,42 @@ suite("@sqlanvil/api", () => {
         type: "table",
         target: {
           schema: "schema",
-          name: "a"
+          name: "a",
         },
         query: "query",
-        dependencyTargets: [{ schema: "schema", name: "b" }]
+        dependencyTargets: [{ schema: "schema", name: "b" }],
       },
       {
         type: "table",
         target: {
           schema: "schema",
-          name: "b"
+          name: "b",
         },
         query: "query",
         dependencyTargets: [{ schema: "schema", name: "c" }],
-        disabled: true
+        disabled: true,
       },
       {
         type: "table",
         target: {
           schema: "schema",
-          name: "c"
+          name: "c",
         },
-        query: "query"
-      }
+        query: "query",
+      },
     ],
     assertions: [
       {
         target: {
           schema: "schema",
-          name: "d"
+          name: "d",
         },
         parentAction: {
           schema: "schema",
-          name: "b"
-        }
-      }
-    ]
+          name: "b",
+        },
+      },
+    ],
   });
 
   const TEST_STATE = sqlanvil.WarehouseState.create({ tables: [] });
@@ -74,13 +74,13 @@ suite("@sqlanvil/api", () => {
       const executionGraph = builder.build();
 
       const actionA = executionGraph.actions.find(
-        n => targetAsReadableString(n.target) === "schema.a"
+        (n) => targetAsReadableString(n.target) === "schema.a",
       );
       const actionB = executionGraph.actions.find(
-        n => targetAsReadableString(n.target) === "schema.b"
+        (n) => targetAsReadableString(n.target) === "schema.b",
       );
       const actionC = executionGraph.actions.find(
-        n => targetAsReadableString(n.target) === "schema.c"
+        (n) => targetAsReadableString(n.target) === "schema.c",
       );
 
       assert.exists(actionA);
@@ -97,7 +97,7 @@ suite("@sqlanvil/api", () => {
         const graphWithErrors: sqlanvil.ICompiledGraph = sqlanvil.CompiledGraph.create({
           projectConfig: { warehouse: "bigquery" },
           graphErrors: { compilationErrors: [{ message: "Some critical error" }] },
-          tables: [{ target: { schema: "schema", name: "a" } }]
+          tables: [{ target: { schema: "schema", name: "a" } }],
         });
 
         const builder = new Builder(graphWithErrors, {}, TEST_STATE);
@@ -113,17 +113,17 @@ suite("@sqlanvil/api", () => {
           {
             target: { schema: "schema", name: "b" },
             type: "incremental",
-            where: "test"
+            where: "test",
           },
-          { target: { schema: "schema", name: "c" }, type: "view" }
+          { target: { schema: "schema", name: "c" }, type: "view" },
         ],
         operations: [
           {
             target: { schema: "schema", name: "d" },
-            queries: ["create or replace view schema.someview as select 1 as test"]
-          }
+            queries: ["create or replace view schema.someview as select 1 as test"],
+          },
         ],
-        assertions: [{ target: { schema: "schema", name: "e" } }]
+        assertions: [{ target: { schema: "schema", name: "e" } }],
       });
 
       const builder = new Builder(graph, {}, TEST_STATE);
@@ -132,22 +132,22 @@ suite("@sqlanvil/api", () => {
       expect(executedGraph.actions.length).greaterThan(0);
 
       graph.tables.forEach((t: sqlanvil.ITable) => {
-        const action = executedGraph.actions.find(item =>
-          equals(sqlanvil.Target, item.target, t.target)
+        const action = executedGraph.actions.find((item) =>
+          equals(sqlanvil.Target, item.target, t.target),
         );
         expect(action).to.include({ type: "table", target: t.target, tableType: t.type });
       });
 
       graph.operations.forEach((o: sqlanvil.IOperation) => {
-        const action = executedGraph.actions.find(item =>
-          equals(sqlanvil.Target, item.target, o.target)
+        const action = executedGraph.actions.find((item) =>
+          equals(sqlanvil.Target, item.target, o.target),
         );
         expect(action).to.include({ type: "operation", target: o.target });
       });
 
       graph.assertions.forEach((a: sqlanvil.IAssertion) => {
-        const action = executedGraph.actions.find(item =>
-          equals(sqlanvil.Target, item.target, a.target)
+        const action = executedGraph.actions.find((item) =>
+          equals(sqlanvil.Target, item.target, a.target),
         );
         expect(action).to.include({ type: "assertion" });
       });
@@ -161,10 +161,10 @@ suite("@sqlanvil/api", () => {
           {
             target: { schema: "schema", name: "b" },
             enumType: sqlanvil.TableType.INCREMENTAL,
-            where: "test"
+            where: "test",
           },
-          { target: { schema: "schema", name: "c" }, enumType: sqlanvil.TableType.VIEW }
-        ]
+          { target: { schema: "schema", name: "c" }, enumType: sqlanvil.TableType.VIEW },
+        ],
       });
 
       const builder = new Builder(graph, {}, TEST_STATE);
@@ -173,13 +173,13 @@ suite("@sqlanvil/api", () => {
       expect(executedGraph.actions.length).greaterThan(0);
 
       graph.tables.forEach((t: sqlanvil.ITable) => {
-        const action = executedGraph.actions.find(item =>
-          equals(sqlanvil.Target, item.target, t.target)
+        const action = executedGraph.actions.find((item) =>
+          equals(sqlanvil.Target, item.target, t.target),
         );
         expect(action).to.include({
           type: "table",
           target: t.target,
-          tableType: sqlanvil.TableType[t.enumType].toLowerCase()
+          tableType: sqlanvil.TableType[t.enumType].toLowerCase(),
         });
       });
     });
@@ -191,13 +191,13 @@ suite("@sqlanvil/api", () => {
           {
             target: { schema: "schema", name: "a" },
             enumType: sqlanvil.TableType.TABLE,
-            type: "incremental"
-          }
-        ]
+            type: "incremental",
+          },
+        ],
       });
 
       expect(() => new Builder(graph, {}, TEST_STATE)).to.throw(
-        /Table str type "incremental" and enumType "table" are not equivalent/
+        /Table str type "incremental" and enumType "table" are not equivalent/,
       );
     });
 
@@ -214,10 +214,10 @@ suite("@sqlanvil/api", () => {
               preOps: ["preOp"],
               incrementalPreOps: ["incremental preOp"],
               postOps: ["postOp"],
-              incrementalPostOps: ["incremental postOp"]
-            }
+              incrementalPostOps: ["incremental postOp"],
+            },
           ],
-          sqlanvilCoreVersion: "1.4.9"
+          sqlanvilCoreVersion: "1.4.9",
         });
 
         test(`${warehouse} when running non incrementally`, () => {
@@ -225,8 +225,8 @@ suite("@sqlanvil/api", () => {
           expect(action.tasks).eql([
             sqlanvil.ExecutionTask.create({
               type: "statement",
-              statement: "preOp;\ncreate or replace table `schema.a` as foo;\npostOp"
-            })
+              statement: "preOp;\ncreate or replace table `schema.a` as foo;\npostOp",
+            }),
           ]);
         });
 
@@ -235,15 +235,15 @@ suite("@sqlanvil/api", () => {
             graph,
             {},
             sqlanvil.WarehouseState.create({
-              tables: [{ target: graph.tables[0].target, fields: [] }]
-            })
+              tables: [{ target: graph.tables[0].target, fields: [] }],
+            }),
           ).build().actions[0];
           expect(action.tasks).eql([
             sqlanvil.ExecutionTask.create({
               type: "statement",
               statement:
-                "incremental preOp;\ndrop view if exists `schema.a`;\ninsert into `schema.a`\t\n()\t\nselect \t\nfrom (incremental foo) as insertions;\nincremental postOp"
-            })
+                "incremental preOp;\ndrop view if exists `schema.a`;\ninsert into `schema.a`\t\n()\t\nselect \t\nfrom (incremental foo) as insertions;\nincremental postOp",
+            }),
           ]);
         });
       }
@@ -262,44 +262,44 @@ suite("@sqlanvil/api", () => {
         {
           target: { schema: "schema", name: "op_a" },
           tags: ["tag1"],
-          queries: ["create or replace view schema.someview as select 1 as test"]
+          queries: ["create or replace view schema.someview as select 1 as test"],
         },
         {
           target: { schema: "schema", name: "op_b" },
           dependencyTargets: [{ schema: "schema", name: "op_a" }],
           tags: ["tag2"],
-          queries: ["create or replace view schema.someview as select 1 as test"]
+          queries: ["create or replace view schema.someview as select 1 as test"],
         },
         {
           target: { schema: "schema", name: "op_c" },
           dependencyTargets: [{ schema: "schema", name: "op_a" }],
           tags: ["tag3"],
-          queries: ["create or replace view schema.someview as select 1 as test"]
+          queries: ["create or replace view schema.someview as select 1 as test"],
         },
         {
           target: { schema: "schema", name: "op_d" },
           tags: ["tag3"],
-          queries: ["create or replace view schema.someview as select 1 as test"]
-        }
+          queries: ["create or replace view schema.someview as select 1 as test"],
+        },
       ],
       tables: [
         {
           target: { schema: "schema", name: "tab_a" },
           dependencyTargets: [{ schema: "schema", name: "op_d" }],
-          tags: ["tag1", "tag2"]
-        }
-      ]
+          tags: ["tag1", "tag2"],
+        },
+      ],
     });
 
     test("prune actions with --tags (with dependencies)", () => {
       const prunedGraph = prune(TEST_GRAPH_WITH_TAGS, {
         actions: ["op_b", "op_d"],
         tags: ["tag1", "tag2", "tag4"],
-        includeDependencies: true
+        includeDependencies: true,
       });
       const actionNames = [
-        ...prunedGraph.tables.map(action => targetAsReadableString(action.target)),
-        ...prunedGraph.operations.map(action => targetAsReadableString(action.target))
+        ...prunedGraph.tables.map((action) => targetAsReadableString(action.target)),
+        ...prunedGraph.operations.map((action) => targetAsReadableString(action.target)),
       ];
       expect(actionNames).includes("schema.op_a");
       expect(actionNames).includes("schema.op_b");
@@ -311,11 +311,11 @@ suite("@sqlanvil/api", () => {
     test("prune actions with --tags (with dependents)", () => {
       const prunedGraph = prune(TEST_GRAPH_WITH_TAGS, {
         tags: ["tag2"],
-        includeDependents: true
+        includeDependents: true,
       });
       const actionNames = [
-        ...prunedGraph.tables.map(action => targetAsReadableString(action.target)),
-        ...prunedGraph.operations.map(action => targetAsReadableString(action.target))
+        ...prunedGraph.tables.map((action) => targetAsReadableString(action.target)),
+        ...prunedGraph.operations.map((action) => targetAsReadableString(action.target)),
       ];
       expect(actionNames).not.includes("schema.op_a");
       expect(actionNames).includes("schema.op_b");
@@ -327,11 +327,11 @@ suite("@sqlanvil/api", () => {
     test("prune actions with dependents", () => {
       const prunedGraph = prune(TEST_GRAPH, {
         actions: ["schema.c"],
-        includeDependents: true
+        includeDependents: true,
       });
       const actionNames = [
-        ...prunedGraph.tables.map(action => targetAsReadableString(action.target)),
-        ...prunedGraph.operations.map(action => targetAsReadableString(action.target))
+        ...prunedGraph.tables.map((action) => targetAsReadableString(action.target)),
+        ...prunedGraph.operations.map((action) => targetAsReadableString(action.target)),
       ];
       expect(actionNames).includes("schema.a");
       expect(actionNames).includes("schema.b");
@@ -342,11 +342,11 @@ suite("@sqlanvil/api", () => {
       const prunedGraph = prune(TEST_GRAPH_WITH_TAGS, {
         tags: ["tag1", "tag2", "tag4"],
         includeDependencies: false,
-        includeDependents: false
+        includeDependents: false,
       });
       const actionNames = [
-        ...prunedGraph.tables.map(action => targetAsReadableString(action.target)),
-        ...prunedGraph.operations.map(action => targetAsReadableString(action.target))
+        ...prunedGraph.tables.map((action) => targetAsReadableString(action.target)),
+        ...prunedGraph.operations.map((action) => targetAsReadableString(action.target)),
       ];
       expect(actionNames).includes("schema.op_a");
       expect(actionNames).includes("schema.op_b");
@@ -358,9 +358,9 @@ suite("@sqlanvil/api", () => {
     test("prune actions with --actions with dependencies", () => {
       const prunedGraph = prune(TEST_GRAPH, { actions: ["schema.a"], includeDependencies: true });
       const actionNames = [
-        ...prunedGraph.tables.map(action => targetAsReadableString(action.target)),
-        ...prunedGraph.operations.map(action => targetAsReadableString(action.target)),
-        ...prunedGraph.assertions.map(action => targetAsReadableString(action.target))
+        ...prunedGraph.tables.map((action) => targetAsReadableString(action.target)),
+        ...prunedGraph.operations.map((action) => targetAsReadableString(action.target)),
+        ...prunedGraph.assertions.map((action) => targetAsReadableString(action.target)),
       ];
       expect(actionNames).includes("schema.a");
       expect(actionNames).includes("schema.b");
@@ -369,9 +369,9 @@ suite("@sqlanvil/api", () => {
     test("prune actions with --actions without dependencies", () => {
       const prunedGraph = prune(TEST_GRAPH, { actions: ["schema.a"], includeDependencies: false });
       const actionNames = [
-        ...prunedGraph.tables.map(action => targetAsReadableString(action.target)),
-        ...prunedGraph.operations.map(action => targetAsReadableString(action.target)),
-        ...prunedGraph.assertions.map(action => targetAsReadableString(action.target))
+        ...prunedGraph.tables.map((action) => targetAsReadableString(action.target)),
+        ...prunedGraph.operations.map((action) => targetAsReadableString(action.target)),
+        ...prunedGraph.assertions.map((action) => targetAsReadableString(action.target)),
       ];
       expect(actionNames).includes("schema.a");
       expect(actionNames).not.includes("schema.b");
@@ -381,37 +381,41 @@ suite("@sqlanvil/api", () => {
 
   suite("sql_generating", () => {
     suite("bigquery_incremental", () => {
-      const projectConfig = { warehouse: "bigquery", defaultDatabase: "deeb", defaultLocation: "US" };
+      const projectConfig = {
+        warehouse: "bigquery",
+        defaultDatabase: "deeb",
+        defaultLocation: "US",
+      };
       const incrementalTable = {
         target: {
           schema: "schema",
-          name: "incremental"
+          name: "incremental",
         },
         type: "incremental",
         query: "select 1 as test",
-        where: "true"
+        where: "true",
       };
       const warehouseState = sqlanvil.WarehouseState.create({
         tables: [
           {
             target: {
               schema: "schema",
-              name: "incremental"
+              name: "incremental",
             },
             type: sqlanvil.TableMetadata.Type.TABLE,
             fields: [
               {
-                name: "existing_field"
-              }
-            ]
-          }
-        ]
+                name: "existing_field",
+              },
+            ],
+          },
+        ],
       });
 
       test("incremental_mode", () => {
         const graph = sqlanvil.CompiledGraph.create({
           projectConfig,
-          tables: [ incrementalTable ]
+          tables: [incrementalTable],
         });
 
         const executionGraph = new Builder(graph, {}, warehouseState).build();
@@ -419,24 +423,24 @@ suite("@sqlanvil/api", () => {
         expect(
           cleanSql(
             executionGraph.actions.filter(
-              n => targetAsReadableString(n.target) === "schema.incremental"
-            )[0].tasks[0].statement
-          )
+              (n) => targetAsReadableString(n.target) === "schema.incremental",
+            )[0].tasks[0].statement,
+          ),
         ).equals(
           cleanSql(
             `insert into \`deeb.schema.incremental\` (\`existing_field\`)
             select \`existing_field\` from (
               select * from (select 1 as test) as subquery
               where true
-            ) as insertions`
-          )
+            ) as insertions`,
+          ),
         );
       });
 
       test("full refresh", () => {
         const graph = sqlanvil.CompiledGraph.create({
           projectConfig,
-          tables: [ incrementalTable ]
+          tables: [incrementalTable],
         });
 
         const executionGraph = new Builder(graph, { fullRefresh: true }, warehouseState).build();
@@ -444,22 +448,20 @@ suite("@sqlanvil/api", () => {
         expect(
           cleanSql(
             executionGraph.actions.filter(
-              n => targetAsReadableString(n.target) === "schema.incremental"
-            )[0].tasks[0].statement
-          )
-        ).equals(
-          cleanSql("create or replace table `deeb.schema.incremental` as select 1 as test")
-        );
+              (n) => targetAsReadableString(n.target) === "schema.incremental",
+            )[0].tasks[0].statement,
+          ),
+        ).equals(cleanSql("create or replace table `deeb.schema.incremental` as select 1 as test"));
       });
 
       test("full refresh of a protected dataset", () => {
-        const protectedIncrementalTable = { 
+        const protectedIncrementalTable = {
           ...incrementalTable,
           protected: true,
         };
         const graph = sqlanvil.CompiledGraph.create({
           projectConfig,
-          tables: [ protectedIncrementalTable ]
+          tables: [protectedIncrementalTable],
         });
 
         const executionGraph = new Builder(graph, { fullRefresh: true }, warehouseState).build();
@@ -467,17 +469,17 @@ suite("@sqlanvil/api", () => {
         expect(
           cleanSql(
             executionGraph.actions.filter(
-              n => targetAsReadableString(n.target) === "schema.incremental"
-            )[0].tasks[0].statement
-          )
+              (n) => targetAsReadableString(n.target) === "schema.incremental",
+            )[0].tasks[0].statement,
+          ),
         ).equals(
           cleanSql(
             `insert into \`deeb.schema.incremental\` (\`existing_field\`)
             select \`existing_field\` from (
               select * from (select 1 as test) as subquery
               where true
-            ) as insertions`
-          )
+            ) as insertions`,
+          ),
         );
       });
     });
@@ -489,21 +491,21 @@ suite("@sqlanvil/api", () => {
           {
             target: {
               schema: "schema",
-              name: "materialized"
+              name: "materialized",
             },
             type: "view",
             query: "select 1 as test",
-            materialized: true
+            materialized: true,
           },
           {
             target: {
               schema: "schema",
-              name: "plain"
+              name: "plain",
             },
             type: "view",
-            query: "select 1 as test"
-          }
-        ]
+            query: "select 1 as test",
+          },
+        ],
       });
       const expectedExecutionActions: sqlanvil.IExecutionAction[] = [
         {
@@ -511,38 +513,38 @@ suite("@sqlanvil/api", () => {
           tableType: "view",
           target: {
             schema: "schema",
-            name: "materialized"
+            name: "materialized",
           },
           tasks: [
             {
               type: "statement",
               statement:
-                "create or replace materialized view `deeb.schema.materialized` as select 1 as test"
-            }
+                "create or replace materialized view `deeb.schema.materialized` as select 1 as test",
+            },
           ],
           dependencyTargets: [],
-          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC,
         },
         {
           type: "table",
           tableType: "view",
           target: {
             schema: "schema",
-            name: "plain"
+            name: "plain",
           },
           tasks: [
             {
               type: "statement",
-              statement: "create or replace view `deeb.schema.plain` as select 1 as test"
-            }
+              statement: "create or replace view `deeb.schema.plain` as select 1 as test",
+            },
           ],
           dependencyTargets: [],
-          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
-        }
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC,
+        },
       ];
       const executionGraph = new Builder(testGraph, {}, sqlanvil.WarehouseState.create({})).build();
       expect(asPlainObject(executionGraph.actions)).deep.equals(
-        asPlainObject(expectedExecutionActions)
+        asPlainObject(expectedExecutionActions),
       );
     });
 
@@ -553,24 +555,24 @@ suite("@sqlanvil/api", () => {
           {
             target: {
               schema: "schema",
-              name: "partitionby"
+              name: "partitionby",
             },
             type: "table",
             query: "select 1 as test",
             bigquery: {
               partitionBy: "DATE(test)",
-              clusterBy: []
-            }
+              clusterBy: [],
+            },
           },
           {
             target: {
               schema: "schema",
-              name: "plain"
+              name: "plain",
             },
             type: "table",
-            query: "select 1 as test"
-          }
-        ]
+            query: "select 1 as test",
+          },
+        ],
       });
       const expectedExecutionActions: sqlanvil.IExecutionAction[] = [
         {
@@ -578,38 +580,38 @@ suite("@sqlanvil/api", () => {
           tableType: "table",
           target: {
             schema: "schema",
-            name: "partitionby"
+            name: "partitionby",
           },
           tasks: [
             {
               type: "statement",
               statement:
-                "create or replace table `deeb.schema.partitionby` partition by DATE(test) as select 1 as test"
-            }
+                "create or replace table `deeb.schema.partitionby` partition by DATE(test) as select 1 as test",
+            },
           ],
           dependencyTargets: [],
-          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC,
         },
         {
           type: "table",
           tableType: "table",
           target: {
             schema: "schema",
-            name: "plain"
+            name: "plain",
           },
           tasks: [
             {
               type: "statement",
-              statement: "create or replace table `deeb.schema.plain` as select 1 as test"
-            }
+              statement: "create or replace table `deeb.schema.plain` as select 1 as test",
+            },
           ],
           dependencyTargets: [],
-          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
-        }
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC,
+        },
       ];
       const executionGraph = new Builder(testGraph, {}, sqlanvil.WarehouseState.create({})).build();
       expect(asPlainObject(executionGraph.actions)).deep.equals(
-        asPlainObject(expectedExecutionActions)
+        asPlainObject(expectedExecutionActions),
       );
     });
 
@@ -620,7 +622,7 @@ suite("@sqlanvil/api", () => {
           {
             target: {
               schema: "schema",
-              name: "partitionby"
+              name: "partitionby",
             },
             type: "table",
             query: "select 1 as test",
@@ -628,18 +630,18 @@ suite("@sqlanvil/api", () => {
               partitionBy: "DATE(test)",
               clusterBy: [],
               partitionExpirationDays: 1,
-              requirePartitionFilter: true
-            }
+              requirePartitionFilter: true,
+            },
           },
           {
             target: {
               schema: "schema",
-              name: "plain"
+              name: "plain",
             },
             type: "table",
-            query: "select 1 as test"
-          }
-        ]
+            query: "select 1 as test",
+          },
+        ],
       });
       const expectedExecutionActions: sqlanvil.IExecutionAction[] = [
         {
@@ -647,38 +649,38 @@ suite("@sqlanvil/api", () => {
           tableType: "table",
           target: {
             schema: "schema",
-            name: "partitionby"
+            name: "partitionby",
           },
           tasks: [
             {
               type: "statement",
               statement:
-                "create or replace table `deeb.schema.partitionby` partition by DATE(test) OPTIONS(partition_expiration_days=1,require_partition_filter=true)as select 1 as test"
-            }
+                "create or replace table `deeb.schema.partitionby` partition by DATE(test) OPTIONS(partition_expiration_days=1,require_partition_filter=true)as select 1 as test",
+            },
           ],
           dependencyTargets: [],
-          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC,
         },
         {
           type: "table",
           tableType: "table",
           target: {
             schema: "schema",
-            name: "plain"
+            name: "plain",
           },
           tasks: [
             {
               type: "statement",
-              statement: "create or replace table `deeb.schema.plain` as select 1 as test"
-            }
+              statement: "create or replace table `deeb.schema.plain` as select 1 as test",
+            },
           ],
           dependencyTargets: [],
-          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
-        }
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC,
+        },
       ];
       const executionGraph = new Builder(testGraph, {}, sqlanvil.WarehouseState.create({})).build();
       expect(asPlainObject(executionGraph.actions)).deep.equals(
-        asPlainObject(expectedExecutionActions)
+        asPlainObject(expectedExecutionActions),
       );
     });
 
@@ -689,24 +691,24 @@ suite("@sqlanvil/api", () => {
           {
             target: {
               schema: "schema",
-              name: "partitionby"
+              name: "partitionby",
             },
             type: "table",
             query: "select 1 as test",
             bigquery: {
               partitionBy: "DATE(test)",
-              clusterBy: ["name", "revenue"]
-            }
+              clusterBy: ["name", "revenue"],
+            },
           },
           {
             target: {
               schema: "schema",
-              name: "plain"
+              name: "plain",
             },
             type: "table",
-            query: "select 1 as test"
-          }
-        ]
+            query: "select 1 as test",
+          },
+        ],
       });
       const expectedExecutionActions: sqlanvil.IExecutionAction[] = [
         {
@@ -714,38 +716,38 @@ suite("@sqlanvil/api", () => {
           tableType: "table",
           target: {
             schema: "schema",
-            name: "partitionby"
+            name: "partitionby",
           },
           tasks: [
             {
               type: "statement",
               statement:
-                "create or replace table `deeb.schema.partitionby` partition by DATE(test) cluster by name, revenue as select 1 as test"
-            }
+                "create or replace table `deeb.schema.partitionby` partition by DATE(test) cluster by name, revenue as select 1 as test",
+            },
           ],
           dependencyTargets: [],
-          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC,
         },
         {
           type: "table",
           tableType: "table",
           target: {
             schema: "schema",
-            name: "plain"
+            name: "plain",
           },
           tasks: [
             {
               type: "statement",
-              statement: "create or replace table `deeb.schema.plain` as select 1 as test"
-            }
+              statement: "create or replace table `deeb.schema.plain` as select 1 as test",
+            },
           ],
           dependencyTargets: [],
-          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
-        }
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC,
+        },
       ];
       const executionGraph = new Builder(testGraph, {}, sqlanvil.WarehouseState.create({})).build();
       expect(asPlainObject(executionGraph.actions)).deep.equals(
-        asPlainObject(expectedExecutionActions)
+        asPlainObject(expectedExecutionActions),
       );
     });
 
@@ -756,7 +758,7 @@ suite("@sqlanvil/api", () => {
           {
             target: {
               schema: "schema",
-              name: "additional_options"
+              name: "additional_options",
             },
             type: "table",
             query: "select 1 as test",
@@ -764,19 +766,19 @@ suite("@sqlanvil/api", () => {
               additionalOptions: {
                 partition_expiration_days: "1",
                 require_partition_filter: "true",
-                friendly_name: '"friendlyName"'
-              }
-            }
+                friendly_name: '"friendlyName"',
+              },
+            },
           },
           {
             target: {
               schema: "schema",
-              name: "plain"
+              name: "plain",
             },
             type: "table",
-            query: "select 1 as test"
-          }
-        ]
+            query: "select 1 as test",
+          },
+        ],
       });
       const expectedExecutionActions: sqlanvil.IExecutionAction[] = [
         {
@@ -784,38 +786,38 @@ suite("@sqlanvil/api", () => {
           tableType: "table",
           target: {
             schema: "schema",
-            name: "additional_options"
+            name: "additional_options",
           },
           tasks: [
             {
               type: "statement",
               statement:
-                'create or replace table `deeb.schema.additional_options` OPTIONS(partition_expiration_days=1,require_partition_filter=true,friendly_name="friendlyName")as select 1 as test'
-            }
+                'create or replace table `deeb.schema.additional_options` OPTIONS(partition_expiration_days=1,require_partition_filter=true,friendly_name="friendlyName")as select 1 as test',
+            },
           ],
           dependencyTargets: [],
-          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC,
         },
         {
           type: "table",
           tableType: "table",
           target: {
             schema: "schema",
-            name: "plain"
+            name: "plain",
           },
           tasks: [
             {
               type: "statement",
-              statement: "create or replace table `deeb.schema.plain` as select 1 as test"
-            }
+              statement: "create or replace table `deeb.schema.plain` as select 1 as test",
+            },
           ],
           dependencyTargets: [],
-          hermeticity: sqlanvil.ActionHermeticity.HERMETIC
-        }
+          hermeticity: sqlanvil.ActionHermeticity.HERMETIC,
+        },
       ];
       const executionGraph = new Builder(testGraph, {}, sqlanvil.WarehouseState.create({})).build();
       expect(asPlainObject(executionGraph.actions)).deep.equals(
-        asPlainObject(expectedExecutionActions)
+        asPlainObject(expectedExecutionActions),
       );
     });
   });
@@ -828,7 +830,7 @@ suite("@sqlanvil/api", () => {
       const credentialsPath = path.join(projectDir, "credentials.json");
       fs.writeFileSync(credentialsPath, "");
       expect(() => credentials.read(credentialsPath)).to.throw(
-        /Error reading credentials file: Unexpected end of JSON input/
+        /Error reading credentials file: Unexpected end of JSON input/,
       );
     });
 
@@ -837,7 +839,7 @@ suite("@sqlanvil/api", () => {
       const credentialsPath = path.join(projectDir, "credentials.json");
       fs.writeFileSync(credentialsPath, "{}");
       expect(() => credentials.read(credentialsPath)).to.throw(
-        /Error reading credentials file: the projectId field is required/
+        /Error reading credentials file: the projectId field is required/,
       );
     });
   });
@@ -849,10 +851,10 @@ suite("@sqlanvil/api", () => {
         defaultSchema: "foo",
         assertionSchema: "bar",
         defaultDatabase: "database",
-        defaultLocation: "US"
+        defaultLocation: "US",
       },
       runConfig: {
-        fullRefresh: true
+        fullRefresh: true,
       },
       warehouseState: {
         tables: [
@@ -860,53 +862,53 @@ suite("@sqlanvil/api", () => {
             type: sqlanvil.TableMetadata.Type.TABLE,
             target: {
               schema: "schema1",
-              name: "target1"
-            }
-          }
-        ]
+              name: "target1",
+            },
+          },
+        ],
       },
       actions: [
         {
           tasks: [
             {
               type: "executionTaskType",
-              statement: "SELECT foo FROM bar"
+              statement: "SELECT foo FROM bar",
             },
             {
               type: "executionTaskType",
-              statement: "SELECT 42"
-            }
+              statement: "SELECT 42",
+            },
           ],
           type: "table",
           target: {
             schema: "schema1",
-            name: "target1"
+            name: "target1",
           },
           tableType: "someTableType",
-          dependencyTargets: []
+          dependencyTargets: [],
         },
         {
           tasks: [
             {
               type: "executionTaskType2",
-              statement: "SELECT bar FROM baz"
-            }
+              statement: "SELECT bar FROM baz",
+            },
           ],
           type: "assertion",
           target: {
             database: "database2",
             schema: "schema2",
-            name: "target2"
+            name: "target2",
           },
           tableType: "someTableType",
           dependencyTargets: [
             {
               schema: "schema1",
-              name: "target1"
-            }
-          ]
-        }
-      ]
+              name: "target1",
+            },
+          ],
+        },
+      ],
     });
 
     const EXPECTED_RUN_RESULT = sqlanvil.RunResult.create({
@@ -922,16 +924,16 @@ suite("@sqlanvil/api", () => {
                 bigquery: {
                   jobId: "abc",
                   totalBytesBilled: Long.fromNumber(0),
-                  totalBytesProcessed: Long.fromNumber(0)
-                }
-              }
+                  totalBytesProcessed: Long.fromNumber(0),
+                },
+              },
             },
             {
               status: sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL,
-              metadata: {}
-            }
+              metadata: {},
+            },
           ],
-          status: sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL
+          status: sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL,
         },
         {
           target: RUN_TEST_GRAPH.actions[1].target,
@@ -939,47 +941,47 @@ suite("@sqlanvil/api", () => {
             {
               status: sqlanvil.TaskResult.ExecutionStatus.FAILED,
               metadata: {},
-              errorMessage: "bigquery error: bad statement"
-            }
+              errorMessage: "bigquery error: bad statement",
+            },
           ],
-          status: sqlanvil.ActionResult.ExecutionStatus.FAILED
-        }
-      ]
+          status: sqlanvil.ActionResult.ExecutionStatus.FAILED,
+        },
+      ],
     });
 
     test("execute", async () => {
       const mockedDbAdapter = mock(BigQueryDbAdapter);
       when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
       when(
-        mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[0].statement, anything())
+        mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[0].statement, anything()),
       ).thenResolve({
         rows: [],
         metadata: {
           bigquery: {
             jobId: "abc",
             totalBytesBilled: Long.fromNumber(0),
-            totalBytesProcessed: Long.fromNumber(0)
-          }
-        }
+            totalBytesProcessed: Long.fromNumber(0),
+          },
+        },
       });
       when(
-        mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[1].statement, anything())
+        mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[1].statement, anything()),
       ).thenResolve({
         rows: [],
-        metadata: {}
+        metadata: {},
       });
       when(
-        mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[1].tasks[0].statement, anything())
+        mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[1].tasks[0].statement, anything()),
       ).thenReject(new Error("bad statement"));
 
       const mockDbAdapterInstance = instance(mockedDbAdapter);
-      mockDbAdapterInstance.withClientLock = async callback =>
+      mockDbAdapterInstance.withClientLock = async (callback) =>
         await callback(mockDbAdapterInstance);
 
       const runner = new Runner(mockDbAdapterInstance, RUN_TEST_GRAPH);
 
       expect(
-        sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
+        sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON(),
       ).to.deep.equal(EXPECTED_RUN_RESULT.toJSON());
       verify(mockedDbAdapter.createSchema("database", "schema1")).once();
       verify(mockedDbAdapter.createSchema("database2", "schema2")).once();
@@ -992,7 +994,7 @@ suite("@sqlanvil/api", () => {
       const mockedDbAdapter = mock(BigQueryDbAdapter);
       when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
       when(
-        mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[0].statement, anything())
+        mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[0].statement, anything()),
       ).thenCall(async () => {
         firstQueryInProgress = true;
         await sleepUntil(() => stopWasCalled);
@@ -1002,23 +1004,23 @@ suite("@sqlanvil/api", () => {
             bigquery: {
               jobId: "abc",
               totalBytesBilled: Long.fromNumber(0),
-              totalBytesProcessed: Long.fromNumber(0)
-            }
-          }
+              totalBytesProcessed: Long.fromNumber(0),
+            },
+          },
         };
       });
       when(
-        mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[1].statement, anything())
+        mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[1].statement, anything()),
       ).thenResolve({
         rows: [],
-        metadata: {}
+        metadata: {},
       });
       when(
-        mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[1].tasks[0].statement, anything())
+        mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[1].tasks[0].statement, anything()),
       ).thenReject(new Error("bad statement"));
 
       const mockDbAdapterInstance = instance(mockedDbAdapter);
-      mockDbAdapterInstance.withClientLock = async callback =>
+      mockDbAdapterInstance.withClientLock = async (callback) =>
         await callback(mockDbAdapterInstance);
 
       let runner = new Runner(mockDbAdapterInstance, RUN_TEST_GRAPH);
@@ -1035,16 +1037,16 @@ suite("@sqlanvil/api", () => {
             {
               target: EXPECTED_RUN_RESULT.actions[0].target,
               status: sqlanvil.ActionResult.ExecutionStatus.RUNNING,
-              tasks: [EXPECTED_RUN_RESULT.actions[0].tasks[0]]
-            }
-          ]
-        }).toJSON()
+              tasks: [EXPECTED_RUN_RESULT.actions[0].tasks[0]],
+            },
+          ],
+        }).toJSON(),
       );
 
       runner = new Runner(mockDbAdapterInstance, RUN_TEST_GRAPH, undefined, result);
 
       expect(
-        sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
+        sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON(),
       ).to.deep.equal(EXPECTED_RUN_RESULT.toJSON());
       verify(mockedDbAdapter.createSchema("database", "schema1")).once();
       verify(mockedDbAdapter.createSchema("database2", "schema2")).once();
@@ -1056,22 +1058,22 @@ suite("@sqlanvil/api", () => {
         const NEW_TEST_GRAPH = RUN_TEST_GRAPH;
         when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
         when(
-          mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[0].tasks[0].statement, anything())
+          mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[0].tasks[0].statement, anything()),
         ).thenResolve({
           rows: [],
           metadata: {
             bigquery: {
               jobId: "abc",
               totalBytesBilled: Long.fromNumber(0),
-              totalBytesProcessed: Long.fromNumber(0)
-            }
-          }
+              totalBytesProcessed: Long.fromNumber(0),
+            },
+          },
         });
         when(
-          mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[1].statement, anything())
+          mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[1].statement, anything()),
         ).thenResolve({
           rows: [],
-          metadata: {}
+          metadata: {},
         });
         when(mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[1].tasks[0].statement, anything()))
           .thenReject(new Error("bad statement"))
@@ -1079,15 +1081,15 @@ suite("@sqlanvil/api", () => {
           .thenResolve({ rows: [], metadata: {} });
 
         const mockDbAdapterInstance = instance(mockedDbAdapter);
-        mockDbAdapterInstance.withClientLock = async callback =>
+        mockDbAdapterInstance.withClientLock = async (callback) =>
           await callback(mockDbAdapterInstance);
 
         const runner = new Runner(mockDbAdapterInstance, NEW_TEST_GRAPH, {
-          bigquery: { actionRetryLimit: 1 }
+          bigquery: { actionRetryLimit: 1 },
         });
 
         expect(
-          sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
+          sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON(),
         ).to.deep.equal(EXPECTED_RUN_RESULT.toJSON());
       });
 
@@ -1096,22 +1098,22 @@ suite("@sqlanvil/api", () => {
         const NEW_TEST_GRAPH = RUN_TEST_GRAPH;
         when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
         when(
-          mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[0].tasks[0].statement, anything())
+          mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[0].tasks[0].statement, anything()),
         ).thenResolve({
           rows: [],
           metadata: {
             bigquery: {
               jobId: "abc",
               totalBytesBilled: Long.fromNumber(0),
-              totalBytesProcessed: Long.fromNumber(0)
-            }
-          }
+              totalBytesProcessed: Long.fromNumber(0),
+            },
+          },
         });
         when(
-          mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[1].statement, anything())
+          mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[1].statement, anything()),
         ).thenResolve({
           rows: [],
-          metadata: {}
+          metadata: {},
         });
         when(mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[1].tasks[0].statement, anything()))
           .thenReject(new Error("bad statement"))
@@ -1119,15 +1121,15 @@ suite("@sqlanvil/api", () => {
           .thenResolve({ rows: [], metadata: {} });
 
         const mockDbAdapterInstance = instance(mockedDbAdapter);
-        mockDbAdapterInstance.withClientLock = async callback =>
+        mockDbAdapterInstance.withClientLock = async (callback) =>
           await callback(mockDbAdapterInstance);
 
         const runner = new Runner(mockDbAdapterInstance, NEW_TEST_GRAPH, {
-          bigquery: { actionRetryLimit: 2 }
+          bigquery: { actionRetryLimit: 2 },
         });
 
         expect(
-          sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
+          sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON(),
         ).to.deep.equal(
           sqlanvil.RunResult.create({
             status: sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL,
@@ -1138,13 +1140,13 @@ suite("@sqlanvil/api", () => {
                 tasks: [
                   {
                     status: sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL,
-                    metadata: {}
-                  }
+                    metadata: {},
+                  },
                 ],
-                status: sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL
-              }
-            ]
-          }).toJSON()
+                status: sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL,
+              },
+            ],
+          }).toJSON(),
         );
       });
 
@@ -1155,43 +1157,43 @@ suite("@sqlanvil/api", () => {
 
         when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
         when(
-          mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[0].statement, anything())
+          mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[0].statement, anything()),
         ).thenResolve({
           rows: [],
           metadata: {
             bigquery: {
               jobId: "abc",
               totalBytesBilled: Long.fromNumber(0),
-              totalBytesProcessed: Long.fromNumber(0)
-            }
-          }
+              totalBytesProcessed: Long.fromNumber(0),
+            },
+          },
         });
         when(
-          mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[1].statement, anything())
+          mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[1].statement, anything()),
         ).thenResolve({
           rows: [],
-          metadata: {}
+          metadata: {},
         });
         when(
           mockedDbAdapter.execute(
             NEW_TEST_GRAPH_WITH_OPERATION.actions[1].tasks[0].statement,
-            anything()
-          )
+            anything(),
+          ),
         )
           .thenReject(new Error("bad statement"))
           .thenReject(new Error("bad statement"))
           .thenResolve({ rows: [], metadata: {} });
 
         const mockDbAdapterInstance = instance(mockedDbAdapter);
-        mockDbAdapterInstance.withClientLock = async callback =>
+        mockDbAdapterInstance.withClientLock = async (callback) =>
           await callback(mockDbAdapterInstance);
 
         const runner = new Runner(mockDbAdapterInstance, NEW_TEST_GRAPH_WITH_OPERATION, {
-          bigquery: { actionRetryLimit: 3 }
+          bigquery: { actionRetryLimit: 3 },
         });
 
         expect(
-          sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
+          sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON(),
         ).to.deep.equal(EXPECTED_RUN_RESULT.toJSON());
       });
     });
@@ -1202,28 +1204,28 @@ suite("@sqlanvil/api", () => {
           warehouse: "bigquery",
           defaultSchema: "foo",
           assertionSchema: "bar",
-          defaultLocation: "US"
+          defaultLocation: "US",
         },
         warehouseState: {
-          tables: []
+          tables: [],
         },
         actions: [
           {
             tasks: [
               {
                 type: "statement",
-                statement: "some statement"
-              }
+                statement: "some statement",
+              },
             ],
             type: "table",
             target: {
               schema: "schema1",
-              name: "target1"
+              name: "target1",
             },
             tableType: "table",
-            dependencyTargets: []
-          }
-        ]
+            dependencyTargets: [],
+          },
+        ],
       });
 
       let wasCancelled = false;
@@ -1235,10 +1237,10 @@ suite("@sqlanvil/api", () => {
               reject(new Error("Run cancelled"));
             });
           }),
-        withClientLock: callback => callback(mockDbAdapter),
-        schemas: _ => Promise.resolve([]),
+        withClientLock: (callback) => callback(mockDbAdapter),
+        schemas: (_) => Promise.resolve([]),
         createSchema: (_, __) => Promise.resolve(),
-        table: _ => undefined
+        table: (_) => undefined,
       } as IDbAdapter;
 
       const runner = new Runner(mockDbAdapter, CANCEL_TEST_GRAPH);
@@ -1252,7 +1254,7 @@ suite("@sqlanvil/api", () => {
       // Cancelling a run doesn't actually throw at the top level.
       // The action should fail, and have an appropriate error message.
       expect(result.actions[0].tasks[0].status).equal(
-        sqlanvil.TaskResult.ExecutionStatus.CANCELLED
+        sqlanvil.TaskResult.ExecutionStatus.CANCELLED,
       );
       expect(result.actions[0].tasks[0].errorMessage).to.match(/cancelled/);
     });
@@ -1260,12 +1262,12 @@ suite("@sqlanvil/api", () => {
     suite("execute with bigquery labels", () => {
       test("should pass labels to executeTask", async () => {
         const executionOptions: Array<{ bigquery?: any }> = [];
-        
+
         const mockedDbAdapter = mock(BigQueryDbAdapter);
         const NEW_TEST_GRAPH = RUN_TEST_GRAPH;
         when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
         when(
-          mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[0].tasks[0].statement, anything())
+          mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[0].tasks[0].statement, anything()),
         ).thenCall((statement: string, options: any) => {
           executionOptions.push(options);
           return Promise.resolve({
@@ -1274,30 +1276,31 @@ suite("@sqlanvil/api", () => {
               bigquery: {
                 jobId: "abc",
                 totalBytesBilled: Long.fromNumber(0),
-                totalBytesProcessed: Long.fromNumber(0)
-              }
-            }
+                totalBytesProcessed: Long.fromNumber(0),
+              },
+            },
           });
         });
         when(
-          mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[1].statement, anything())
+          mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[1].statement, anything()),
         ).thenCall((statement: string, options: any) => {
           executionOptions.push(options);
           return Promise.resolve({ rows: [], metadata: {} });
         });
-        when(mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[1].tasks[0].statement, anything()))
-          .thenCall((statement: string, options: any) => {
-            executionOptions.push(options);
-            return Promise.resolve({ rows: [], metadata: {} });
-          });
+        when(
+          mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[1].tasks[0].statement, anything()),
+        ).thenCall((statement: string, options: any) => {
+          executionOptions.push(options);
+          return Promise.resolve({ rows: [], metadata: {} });
+        });
 
         const mockDbAdapterInstance = instance(mockedDbAdapter);
-        mockDbAdapterInstance.withClientLock = async callback =>
+        mockDbAdapterInstance.withClientLock = async (callback) =>
           await callback(mockDbAdapterInstance);
 
         const labels = { env: "testing", team: "sqlanvil" };
         const runner = new Runner(mockDbAdapterInstance, NEW_TEST_GRAPH, {
-          bigquery: { labels }
+          bigquery: { labels },
         });
 
         const result = await runner.execute().result();
@@ -1305,30 +1308,33 @@ suite("@sqlanvil/api", () => {
 
         // Verify that execute was called at least 3 times (for both tasks in first action and assertion)
         expect(executionOptions.length).to.equal(3);
-        
+
         // Verify that at least some calls included labels in the options
         const callsWithLabels = executionOptions.filter(
-          opts => opts?.bigquery?.labels && 
-                  opts.bigquery.labels.env === "testing" && 
-                  opts.bigquery.labels.team === "sqlanvil"
+          (opts) =>
+            opts?.bigquery?.labels &&
+            opts.bigquery.labels.env === "testing" &&
+            opts.bigquery.labels.team === "sqlanvil",
         );
-        expect(callsWithLabels.length).to.equal(3, 
-          "Expected 3 execute calls to include the labels in options");
+        expect(callsWithLabels.length).to.equal(
+          3,
+          "Expected 3 execute calls to include the labels in options",
+        );
       });
 
       test("should merge global and action-level labels", async () => {
         const executionOptions: Array<{ bigquery?: any }> = [];
-        
+
         const mockedDbAdapter = mock(BigQueryDbAdapter);
         const NEW_TEST_GRAPH = RUN_TEST_GRAPH;
         // Set action-level labels on the first action
         NEW_TEST_GRAPH.actions[0].actionDescriptor = {
-          bigqueryLabels: { action_level: "specific_value" }
+          bigqueryLabels: { action_level: "specific_value" },
         };
 
         when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
         when(
-          mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[0].tasks[0].statement, anything())
+          mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[0].tasks[0].statement, anything()),
         ).thenCall((statement: string, options: any) => {
           executionOptions.push(options);
           return Promise.resolve({
@@ -1337,30 +1343,31 @@ suite("@sqlanvil/api", () => {
               bigquery: {
                 jobId: "abc",
                 totalBytesBilled: Long.fromNumber(0),
-                totalBytesProcessed: Long.fromNumber(0)
-              }
-            }
+                totalBytesProcessed: Long.fromNumber(0),
+              },
+            },
           });
         });
         when(
-          mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[1].statement, anything())
+          mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[1].statement, anything()),
         ).thenCall((statement: string, options: any) => {
           executionOptions.push(options);
           return Promise.resolve({ rows: [], metadata: {} });
         });
-        when(mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[1].tasks[0].statement, anything()))
-          .thenCall((statement: string, options: any) => {
-            executionOptions.push(options);
-            return Promise.resolve({ rows: [], metadata: {} });
-          });
+        when(
+          mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[1].tasks[0].statement, anything()),
+        ).thenCall((statement: string, options: any) => {
+          executionOptions.push(options);
+          return Promise.resolve({ rows: [], metadata: {} });
+        });
 
         const mockDbAdapterInstance = instance(mockedDbAdapter);
-        mockDbAdapterInstance.withClientLock = async callback =>
+        mockDbAdapterInstance.withClientLock = async (callback) =>
           await callback(mockDbAdapterInstance);
 
         const globalLabels = { env: "testing", team: "sqlanvil" };
         const runner = new Runner(mockDbAdapterInstance, NEW_TEST_GRAPH, {
-          bigquery: { labels: globalLabels }
+          bigquery: { labels: globalLabels },
         });
 
         const result = await runner.execute().result();
@@ -1368,24 +1375,32 @@ suite("@sqlanvil/api", () => {
 
         // Verify that execute was called 3 times
         expect(executionOptions.length).to.equal(3);
-        
+
         // For the first two calls (action with both task types), verify merged labels
         const firstActionCalls = executionOptions.slice(0, 2);
         firstActionCalls.forEach((opts, index) => {
           expect(opts?.bigquery?.labels).to.not.equal(undefined);
           // Should have global labels
-          expect(opts.bigquery.labels.env).to.equal("testing", `Call ${index} should have global label 'env'`);
-          expect(opts.bigquery.labels.team).to.equal("sqlanvil", `Call ${index} should have global label 'team'`);
+          expect(opts.bigquery.labels.env).to.equal(
+            "testing",
+            `Call ${index} should have global label 'env'`,
+          );
+          expect(opts.bigquery.labels.team).to.equal(
+            "sqlanvil",
+            `Call ${index} should have global label 'team'`,
+          );
           // Should have action-level label
-          expect(opts.bigquery.labels.action_level).to.equal("specific_value", 
-            `Call ${index} should have action-level label 'action_level'`);
+          expect(opts.bigquery.labels.action_level).to.equal(
+            "specific_value",
+            `Call ${index} should have action-level label 'action_level'`,
+          );
         });
-        
+
         // For the second action (assertion), verify only global labels (no action-level labels)
         const assertionCall = executionOptions[2];
         expect(assertionCall?.bigquery?.labels).to.not.equal(undefined);
-              expect(assertionCall.bigquery.labels.env).to.equal("testing");
-              expect(assertionCall.bigquery.labels.team).to.equal("sqlanvil");
+        expect(assertionCall.bigquery.labels.env).to.equal("testing");
+        expect(assertionCall.bigquery.labels.team).to.equal("sqlanvil");
         // This action doesn't have action-level labels
         expect(assertionCall.bigquery.labels.action_level).to.equal(undefined);
       });
@@ -1397,68 +1412,68 @@ suite("@sqlanvil/api", () => {
           warehouse: "bigquery",
           defaultSchema: "foo",
           assertionSchema: "bar",
-          defaultLocation: "US"
+          defaultLocation: "US",
         },
         warehouseState: {
-          tables: []
+          tables: [],
         },
         actions: [
           {
             tasks: [
               {
                 type: "statement",
-                statement: "some statement"
-              }
+                statement: "some statement",
+              },
             ],
             type: "table",
             target: {
               schema: "schema1",
-              name: "target1"
+              name: "target1",
             },
             actionDescriptor: {
-              description: "desc"
+              description: "desc",
             },
             tableType: "table",
-            dependencyTargets: []
-          }
-        ]
+            dependencyTargets: [],
+          },
+        ],
       });
       const mockedDbAdapter = mock(BigQueryDbAdapter);
       when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
       when(mockedDbAdapter.execute(anything(), anything())).thenResolve({
         rows: [],
-        metadata: {}
+        metadata: {},
       });
       when(mockedDbAdapter.setMetadata(anything())).thenReject(
-        new Error("Error during setMetadata")
+        new Error("Error during setMetadata"),
       );
 
       const mockDbAdapterInstance = instance(mockedDbAdapter);
-      mockDbAdapterInstance.withClientLock = async callback =>
+      mockDbAdapterInstance.withClientLock = async (callback) =>
         await callback(mockDbAdapterInstance);
 
       const runner = new Runner(mockDbAdapterInstance, METADATA_TEST_GRAPH);
 
       expect(
-        sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON()
+        sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON(),
       ).to.deep.equal({
         actions: [
           {
             status: "FAILED",
             target: {
               name: "target1",
-              schema: "schema1"
+              schema: "schema1",
             },
             tasks: [
               {
                 errorMessage: "Error setting metadata: Error during setMetadata",
                 metadata: {},
-                status: "FAILED"
-              }
-            ]
-          }
+                status: "FAILED",
+              },
+            ],
+          },
         ],
-        status: "FAILED"
+        status: "FAILED",
       });
     });
   });
@@ -1467,9 +1482,9 @@ suite("@sqlanvil/api", () => {
 function cleanTiming(runResult: sqlanvil.IRunResult) {
   const newRunResult = sqlanvil.RunResult.create(runResult);
   delete newRunResult.timing;
-  newRunResult.actions.forEach(actionResult => {
+  newRunResult.actions.forEach((actionResult) => {
     delete actionResult.timing;
-    actionResult.tasks.forEach(taskResult => {
+    actionResult.tasks.forEach((taskResult) => {
       delete taskResult.timing;
     });
   });

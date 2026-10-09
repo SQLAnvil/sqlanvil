@@ -6,7 +6,13 @@ import { suite, test } from "sa/testing";
 suite("docs renderDocsHtml", () => {
   const model: DocsModel = {
     generatedAt: "2026-06-24T00:00:00Z",
-    summary: { total: 2, byType: [{ type: "table", n: 1 }, { type: "view", n: 1 }] },
+    summary: {
+      total: 2,
+      byType: [
+        { type: "table", n: 1 },
+        { type: "view", n: 1 },
+      ],
+    },
     latestRun: { runId: 123, status: "FAILED" },
     models: [
       {
@@ -15,11 +21,18 @@ suite("docs renderDocsHtml", () => {
         tags: ["daily"],
         description: "a <b>source</b>",
         status: "SUCCESSFUL",
-        dependsOn: []
+        dependsOn: [],
       },
-      { readable: "s.v", type: "view", tags: [], description: "", status: "FAILED", dependsOn: ["s.src"] }
+      {
+        readable: "s.v",
+        type: "view",
+        tags: [],
+        description: "",
+        status: "FAILED",
+        dependsOn: ["s.src"],
+      },
     ],
-    columns: [{ readable: "s.src", column: "id", description: "the id" }]
+    columns: [{ readable: "s.src", column: "id", description: "the id" }],
   };
 
   test("renders summary, models, columns; escapes HTML", () => {

@@ -8,7 +8,7 @@ import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
-  VALID_WORKFLOW_SETTINGS_YAML
+  VALID_WORKFLOW_SETTINGS_YAML,
 } from "sa/testing/run_core";
 
 suite("script", ({ afterEach }) => {
@@ -19,7 +19,7 @@ suite("script", ({ afterEach }) => {
     if (!files["workflow_settings.yaml"]) {
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
     }
     for (const [name, contents] of Object.entries(files)) {
@@ -45,8 +45,8 @@ suite("script", ({ afterEach }) => {
         "      requirements: loader/requirements.txt",
         '      pythonVersion: ">=3.11"',
         "      venv: .venv",
-        '      tags: ["ingest"]'
-      ].join("\n")
+        '      tags: ["ingest"]',
+      ].join("\n"),
     });
     expect(graph.graphErrors.compilationErrors).deep.equals([]);
     expect(graph.scripts.length).equals(1);
@@ -75,8 +75,8 @@ suite("script", ({ afterEach }) => {
         "  - python:",
         "      name: step_b",
         "      file: loader/b.py",
-        '      dependencies: ["step_a"]'
-      ].join("\n")
+        '      dependencies: ["step_a"]',
+      ].join("\n"),
     });
     expect(graph.graphErrors.compilationErrors).deep.equals([]);
     const stepB = graph.scripts.find((s: any) => s.target.name === "step_b");
@@ -90,11 +90,11 @@ suite("script", ({ afterEach }) => {
         "actions:",
         "  - python:",
         "      name: stage_files",
-        "      file: loader/load.py"
+        "      file: loader/load.py",
       ].join("\n"),
       "definitions/orders_in.sqlx":
         `config { type: "import", dependencyTargets: [{name: "stage_files"}], ` +
-        `import: { location: "gs://b/orders/*.parquet", format: "parquet" } }`
+        `import: { location: "gs://b/orders/*.parquet", format: "parquet" } }`,
     });
     expect(graph.graphErrors.compilationErrors).deep.equals([]);
     const imp = graph.imports[0];
@@ -109,8 +109,8 @@ suite("script", ({ afterEach }) => {
         "  - script:",
         '      language: "python"',
         "      name: stage_files",
-        "      filename: loader/load.py"
-      ].join("\n")
+        "      filename: loader/load.py",
+      ].join("\n"),
     });
     expect(graph.graphErrors.compilationErrors).deep.equals([]);
     expect(graph.scripts.length).equals(1);
@@ -123,8 +123,8 @@ suite("script", ({ afterEach }) => {
       "definitions/actions.yaml": [
         "actions:",
         "  - python:",
-        "      file: loader/load_openaddresses.py"
-      ].join("\n")
+        "      file: loader/load_openaddresses.py",
+      ].join("\n"),
     });
     expect(graph.graphErrors.compilationErrors).deep.equals([]);
     expect(graph.scripts[0].target.name).equals("load_openaddresses");
@@ -136,8 +136,8 @@ suite("script", ({ afterEach }) => {
         "actions:",
         "  - python:",
         "      name: load",
-        "      file: loader/missing.py"
-      ].join("\n")
+        "      file: loader/missing.py",
+      ].join("\n"),
     });
     const errors = JSON.stringify(graph.graphErrors.compilationErrors);
     expect(errors).contains("Script file not found in the project");
@@ -151,8 +151,8 @@ suite("script", ({ afterEach }) => {
         "  - python:",
         "      name: load",
         "      file: loader/load.py",
-        "      requirements: loader/missing_requirements.txt"
-      ].join("\n")
+        "      requirements: loader/missing_requirements.txt",
+      ].join("\n"),
     });
     const errors = JSON.stringify(graph.graphErrors.compilationErrors);
     expect(errors).contains("Script requirements file not found in the project");
@@ -166,8 +166,8 @@ suite("script", ({ afterEach }) => {
         "  - python:",
         "      name: load",
         "      file: loader/load.py",
-        '      pythonVersion: "3.11 or newer"'
-      ].join("\n")
+        '      pythonVersion: "3.11 or newer"',
+      ].join("\n"),
     });
     const errors = JSON.stringify(graph.graphErrors.compilationErrors);
     expect(errors).contains("Malformed runtime version specifier");
@@ -181,8 +181,8 @@ suite("script", ({ afterEach }) => {
         "  - script:",
         '      language: "ruby"',
         "      name: load",
-        "      filename: loader/load.rb"
-      ].join("\n")
+        "      filename: loader/load.rb",
+      ].join("\n"),
     });
     const errors = JSON.stringify(graph.graphErrors.compilationErrors);
     expect(errors).contains("Unsupported script language");
@@ -190,7 +190,7 @@ suite("script", ({ afterEach }) => {
 
   test("requires a script file", () => {
     const graph = compileProject({
-      "definitions/actions.yaml": ["actions:", "  - python:", "      name: load"].join("\n")
+      "definitions/actions.yaml": ["actions:", "  - python:", "      name: load"].join("\n"),
     });
     const errors = JSON.stringify(graph.graphErrors.compilationErrors);
     expect(errors).contains("require a `file`");

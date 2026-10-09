@@ -24,19 +24,24 @@ export class RealtimePublication extends ActionBuilder<sqlanvil.Operation> {
     if (!config.table) {
       throw new Error(`Realtime publications must have a populated 'table' field.`);
     }
-    const tableTarget = this.applySessionToTarget(sqlanvil.Target.create({ name: config.table }), session.projectConfig);
+    const tableTarget = this.applySessionToTarget(
+      sqlanvil.Target.create({ name: config.table }),
+      session.projectConfig,
+    );
     const pubName = config.name || "supabase_realtime";
     const target = sqlanvil.Target.create({ name: `${config.table}_realtime_${pubName}` });
-    this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, { validateTarget: true });
+    this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, {
+      validateTarget: true,
+    });
     this.proto.canonicalTarget = this.applySessionToTarget(target, session.canonicalProjectConfig);
     this.proto.fileName = config.filename || "";
 
     // Automatically establish a compiler dependency on the parent table!
     this.proto.dependencyTargets.push(tableTarget);
-    (config.dependencyTargets || []).forEach(dependencyTarget =>
+    (config.dependencyTargets || []).forEach((dependencyTarget) =>
       this.proto.dependencyTargets.push(
-        configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
-      )
+        configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget)),
+      ),
     );
   }
 
@@ -56,7 +61,7 @@ export class RealtimePublication extends ActionBuilder<sqlanvil.Operation> {
     // Generate realtime publication queries
     const queries = [
       `alter table ${resolvedTable} replica identity full`,
-      `alter publication ${pubName} add table ${resolvedTable}`
+      `alter publication ${pubName} add table ${resolvedTable}`,
     ];
 
     this.proto.queries = queries;
@@ -64,7 +69,7 @@ export class RealtimePublication extends ActionBuilder<sqlanvil.Operation> {
     return verifyObjectMatchesProto(
       sqlanvil.Operation,
       this.proto,
-      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
     );
   }
 }

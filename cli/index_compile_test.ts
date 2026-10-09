@@ -28,17 +28,17 @@ suite("compile command", ({ afterEach }) => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(sqlanvil.WorkflowSettings.create({ defaultProject: "sqlanvil" }))
+        dumpYaml(sqlanvil.WorkflowSettings.create({ defaultProject: "sqlanvil" })),
       );
 
       expect(
         (await getProcessResult(execFile(nodePath, [cliEntryPointPath, "compile", projectDir])))
-          .stderr
+          .stderr,
       ).contains(
         "sqlanvilCoreVersion must be specified either in workflow_settings.yaml or via a " +
-          "package.json"
+          "package.json",
       );
-    }
+    },
   );
 
   test("compile error when package.json and no package is installed", async () => {
@@ -49,7 +49,7 @@ suite("compile command", ({ afterEach }) => {
   "dependencies":{
     "@sqlanvil/core": "${version}"
   }
-}`
+}`,
     );
     fs.writeFileSync(
       path.join(projectDir, "workflow_settings.yaml"),
@@ -57,88 +57,88 @@ suite("compile command", ({ afterEach }) => {
 defaultDataset: sa_integration_test
 defaultAssertionDataset: sa_integration_test_assertions
 defaultLocation: "${DEFAULT_LOCATION}"
-`
+`,
     );
 
     expect(
       (await getProcessResult(execFile(nodePath, [cliEntryPointPath, "compile", projectDir])))
-        .stderr
+        .stderr,
     ).contains(
       "Could not find a recent installed version of @sqlanvil/core in the project. Check that " +
         "either `sqlanvilCoreVersion` is specified in `workflow_settings.yaml`, or " +
         "`@sqlanvil/core` is specified in `package.json`. If using `package.json`, then run " +
-        "`sqlanvil install`."
+        "`sqlanvil install`.",
     );
   });
 
   if (runPublishedCoreTests) {
-  test("compile rejects @sqlanvil/core with incompatible version", async () => {
-    const projectDir = tmpDirFixture.createNewTmpDir();
-    // sqlanvilCoreVersion in workflow_settings.yaml triggers the stateless
-    // install path (compile.ts copies to a tmp dir and runs `npm i`), so the
-    // test exercises the same flow real users hit. 2.9.0 is the latest 2.x on
-    // the registry; its major (2) is incompatible with the current CLI (3.x).
-    fs.writeFileSync(
-      path.join(projectDir, "workflow_settings.yaml"),
-      dumpYaml(
-        sqlanvil.WorkflowSettings.create({
-          defaultProject: "dataform",
-          sqlanvilCoreVersion: "2.9.0"
-        })
-      )
-    );
+    test("compile rejects @sqlanvil/core with incompatible version", async () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      // sqlanvilCoreVersion in workflow_settings.yaml triggers the stateless
+      // install path (compile.ts copies to a tmp dir and runs `npm i`), so the
+      // test exercises the same flow real users hit. 2.9.0 is the latest 2.x on
+      // the registry; its major (2) is incompatible with the current CLI (3.x).
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        dumpYaml(
+          sqlanvil.WorkflowSettings.create({
+            defaultProject: "dataform",
+            sqlanvilCoreVersion: "2.9.0",
+          }),
+        ),
+      );
 
-    // npm needs a writable cache; ~/.npm is read-only in the bazel sandbox.
-    const npmCacheDir = tmpDirFixture.createNewTmpDir();
-    const stderr = (
-      await getProcessResult(
-        execFile(nodePath, [cliEntryPointPath, "compile", projectDir], {
-          env: { ...process.env, NPM_CONFIG_CACHE: npmCacheDir }
-        })
-      )
-    ).stderr;
-    expect(stderr).contains("@sqlanvil/core 2.9.0 is not compatible with @sqlanvil/cli");
-    expect(stderr).contains("matching major.minor");
-    expect(stderr).contains("Set `sqlanvilCoreVersion:");
-  });
+      // npm needs a writable cache; ~/.npm is read-only in the bazel sandbox.
+      const npmCacheDir = tmpDirFixture.createNewTmpDir();
+      const stderr = (
+        await getProcessResult(
+          execFile(nodePath, [cliEntryPointPath, "compile", projectDir], {
+            env: { ...process.env, NPM_CONFIG_CACHE: npmCacheDir },
+          }),
+        )
+      ).stderr;
+      expect(stderr).contains("@sqlanvil/core 2.9.0 is not compatible with @sqlanvil/cli");
+      expect(stderr).contains("matching major.minor");
+      expect(stderr).contains("Set `sqlanvilCoreVersion:");
+    });
 
-  test("compile succeeds with @sqlanvil/core <= 3.0.56 via caller-file shim", async () => {
-    const projectDir = tmpDirFixture.createNewTmpDir();
-    // 3.0.50 predates 3.0.57, which is when @sqlanvil/core started reading
-    // global.__sqlanvil_current_file as a fallback in getCallerFile(). The
-    // compile path text-patches the bundle to add that fallback; this test
-    // proves the patch + host-side file stack drive a real action's
-    // fileName from inside vm2 3.11.3's path-stripped sandbox.
-    fs.writeFileSync(
-      path.join(projectDir, "workflow_settings.yaml"),
-      dumpYaml({
-        defaultProject: DEFAULT_DATABASE,
-        defaultLocation: DEFAULT_LOCATION,
-        defaultDataset: "dataform",
-        sqlanvilCoreVersion: "3.0.50"
-      })
-    );
-    fs.ensureFileSync(path.join(projectDir, "definitions", "example.sqlx"));
-    fs.writeFileSync(
-      path.join(projectDir, "definitions", "example.sqlx"),
-      `config { type: "table" }\nSELECT 1 AS id`
-    );
+    test("compile succeeds with @sqlanvil/core <= 3.0.56 via caller-file shim", async () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      // 3.0.50 predates 3.0.57, which is when @sqlanvil/core started reading
+      // global.__sqlanvil_current_file as a fallback in getCallerFile(). The
+      // compile path text-patches the bundle to add that fallback; this test
+      // proves the patch + host-side file stack drive a real action's
+      // fileName from inside vm2 3.11.3's path-stripped sandbox.
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        dumpYaml({
+          defaultProject: DEFAULT_DATABASE,
+          defaultLocation: DEFAULT_LOCATION,
+          defaultDataset: "dataform",
+          sqlanvilCoreVersion: "3.0.50",
+        }),
+      );
+      fs.ensureFileSync(path.join(projectDir, "definitions", "example.sqlx"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions", "example.sqlx"),
+        `config { type: "table" }\nSELECT 1 AS id`,
+      );
 
-    const npmCacheDir = tmpDirFixture.createNewTmpDir();
-    const result = await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json"], {
-        env: { ...process.env, NPM_CONFIG_CACHE: npmCacheDir }
-      })
-    );
+      const npmCacheDir = tmpDirFixture.createNewTmpDir();
+      const result = await getProcessResult(
+        execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json"], {
+          env: { ...process.env, NPM_CONFIG_CACHE: npmCacheDir },
+        }),
+      );
 
-    expect(result.exitCode, `compile failed: ${result.stderr}`).equals(0);
-    const compiled = JSON.parse(result.stdout);
-    expect(compiled.tables).to.have.lengthOf(1);
-    expect(compiled.tables[0].fileName).equals("definitions/example.sqlx");
-  });
+      expect(result.exitCode, `compile failed: ${result.stderr}`).equals(0);
+      const compiled = JSON.parse(result.stdout);
+      expect(compiled.tables).to.have.lengthOf(1);
+      expect(compiled.tables[0].fileName).equals("definitions/example.sqlx");
+    });
   } // end runPublishedCoreTests gate
 
-  ["package.json", "package-lock.json", "node_modules"].forEach(npmFile => {
+  ["package.json", "package-lock.json", "node_modules"].forEach((npmFile) => {
     test(`compile throws an error when sqlanvilCoreVersion in workflow_settings.yaml and ${npmFile} is present`, async () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
@@ -146,9 +146,9 @@ defaultLocation: "${DEFAULT_LOCATION}"
         dumpYaml(
           sqlanvil.WorkflowSettings.create({
             defaultProject: "sqlanvil",
-            sqlanvilCoreVersion: "3.0.0"
-          })
-        )
+            sqlanvilCoreVersion: "3.0.0",
+          }),
+        ),
       );
       const resolvedNpmPath = path.join(projectDir, npmFile);
       if (npmFile === "node_modules") {
@@ -159,7 +159,7 @@ defaultLocation: "${DEFAULT_LOCATION}"
 
       expect(
         (await getProcessResult(execFile(nodePath, [cliEntryPointPath, "compile", projectDir])))
-          .stderr
+          .stderr,
       ).contains(`${npmFile}' unexpected; remove it and try again`);
     });
   });
@@ -183,13 +183,13 @@ suite("disable-assertions flag (compilation)", ({ afterEach, beforeEach }) => {
         DEFAULT_DATABASE,
         DEFAULT_LOCATION,
         // The suite deep-equals compile output, so keep the 1.21+ sample project out.
-        "--bare"
-      ])
+        "--bare",
+      ]),
     );
 
     const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
     const workflowSettings = sqlanvil.WorkflowSettings.create(
-      loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+      loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
     );
     delete workflowSettings.sqlanvilCoreVersion;
     fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
@@ -200,7 +200,7 @@ suite("disable-assertions flag (compilation)", ({ afterEach, beforeEach }) => {
   "dependencies":{
     "@sqlanvil/core": "${version}"
   }
-}`
+}`,
     );
     await getProcessResult(
       execFile(npmPath, [
@@ -209,8 +209,8 @@ suite("disable-assertions flag (compilation)", ({ afterEach, beforeEach }) => {
         projectDir,
         "--cache",
         npmCacheDir,
-        corePackageTarPath
-      ])
+        corePackageTarPath,
+      ]),
     );
 
     const assertionFilePath = path.join(projectDir, "definitions", "test_assertion.sqlx");
@@ -220,7 +220,7 @@ suite("disable-assertions flag (compilation)", ({ afterEach, beforeEach }) => {
       `
 config { type: "assertion" }
 SELECT 1 WHERE FALSE
-`
+`,
     );
 
     const tableFilePath = path.join(projectDir, "definitions", "example_table.sqlx");
@@ -235,14 +235,14 @@ config {
   }
 }
 SELECT 1 as id
-`
+`,
     );
   }
 
   async function setUpWorkflowSettings(disableAssertions: boolean): Promise<void> {
     const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
     const workflowSettings = sqlanvil.WorkflowSettings.create(
-      loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+      loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
     );
     workflowSettings.disableAssertions = disableAssertions;
     fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
@@ -259,21 +259,21 @@ SELECT 1 as id
         canonicalTarget: {
           database: DEFAULT_DATABASE,
           name: "sqlanvil_example_table_assertions_uniqueKey_0",
-          schema: "sqlanvil_assertions"
+          schema: "sqlanvil_assertions",
         },
         dependencyTargets: [
           {
             database: DEFAULT_DATABASE,
             name: "example_table",
-            schema: "sqlanvil"
-          }
+            schema: "sqlanvil",
+          },
         ],
         disabled: true,
         fileName: "definitions/example_table.sqlx",
         parentAction: {
           database: DEFAULT_DATABASE,
           name: "example_table",
-          schema: "sqlanvil"
+          schema: "sqlanvil",
         },
         query:
           // tslint:disable-next-line:tsr-detect-sql-literal-injection
@@ -281,14 +281,14 @@ SELECT 1 as id
         target: {
           database: DEFAULT_DATABASE,
           name: "sqlanvil_example_table_assertions_uniqueKey_0",
-          schema: "sqlanvil_assertions"
-        }
+          schema: "sqlanvil_assertions",
+        },
       },
       {
         canonicalTarget: {
           database: DEFAULT_DATABASE,
           name: "test_assertion",
-          schema: "sqlanvil_assertions"
+          schema: "sqlanvil_assertions",
         },
         disabled: true,
         fileName: "definitions/test_assertion.sqlx",
@@ -296,9 +296,9 @@ SELECT 1 as id
         target: {
           database: DEFAULT_DATABASE,
           name: "test_assertion",
-          schema: "sqlanvil_assertions"
-        }
-      }
+          schema: "sqlanvil_assertions",
+        },
+      },
     ],
     sqlanvilCoreVersion: version,
     graphErrors: {},
@@ -309,14 +309,14 @@ SELECT 1 as id
       defaultLocation: DEFAULT_LOCATION,
       defaultSchema: "sqlanvil",
       disableAssertions: true,
-      warehouse: "bigquery"
+      warehouse: "bigquery",
     },
     tables: [
       {
         canonicalTarget: {
           database: DEFAULT_DATABASE,
           name: "example_table",
-          schema: "sqlanvil"
+          schema: "sqlanvil",
         },
         disabled: false,
         enumType: "TABLE",
@@ -326,28 +326,28 @@ SELECT 1 as id
         target: {
           database: DEFAULT_DATABASE,
           name: "example_table",
-          schema: "sqlanvil"
+          schema: "sqlanvil",
         },
-        type: "table"
-      }
+        type: "table",
+      },
     ],
     targets: [
       {
         database: DEFAULT_DATABASE,
         name: "sqlanvil_example_table_assertions_uniqueKey_0",
-        schema: "sqlanvil_assertions"
+        schema: "sqlanvil_assertions",
       },
       {
         database: DEFAULT_DATABASE,
         name: "example_table",
-        schema: "sqlanvil"
+        schema: "sqlanvil",
       },
       {
         database: DEFAULT_DATABASE,
         name: "test_assertion",
-        schema: "sqlanvil_assertions"
-      }
-    ]
+        schema: "sqlanvil_assertions",
+      },
+    ],
   };
 
   test("with --disable-assertions flag", async () => {
@@ -359,8 +359,8 @@ SELECT 1 as id
         "compile",
         projectDir,
         "--json",
-        "--disable-assertions"
-      ])
+        "--disable-assertions",
+      ]),
     );
 
     expect(compileResult.exitCode).equals(0);
@@ -371,7 +371,7 @@ SELECT 1 as id
     await setUpWorkflowSettings(true);
 
     const compileResult = await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json"])
+      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json"]),
     );
 
     expect(compileResult.exitCode).equals(0);
@@ -396,13 +396,13 @@ suite("compile node selection", ({ afterEach }) => {
         DEFAULT_DATABASE,
         DEFAULT_LOCATION,
         // The selection assertions expect ONLY the three tables below — no sample project.
-        "--bare"
-      ])
+        "--bare",
+      ]),
     );
 
     const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
     const workflowSettings = sqlanvil.WorkflowSettings.create(
-      loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+      loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
     );
     delete workflowSettings.sqlanvilCoreVersion;
     fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
@@ -413,7 +413,7 @@ suite("compile node selection", ({ afterEach }) => {
   "dependencies":{
     "@sqlanvil/core": "${version}"
   }
-}`
+}`,
     );
     await getProcessResult(
       execFile(npmPath, [
@@ -422,8 +422,8 @@ suite("compile node selection", ({ afterEach }) => {
         projectDir,
         "--cache",
         npmCacheDir,
-        corePackageTarPath
-      ])
+        corePackageTarPath,
+      ]),
     );
 
     const def = (name: string, contents: string) => {
@@ -439,12 +439,14 @@ suite("compile node selection", ({ afterEach }) => {
   }
 
   const tableNames = (stdout: string): string[] =>
-    JSON.parse(stdout).tables.map((table: any) => table.target.name).sort();
+    JSON.parse(stdout)
+      .tables.map((table: any) => table.target.name)
+      .sort();
 
   test("no selector emits the entire graph", async () => {
     const projectDir = await setupSelectionProject();
     const result = await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json"])
+      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json"]),
     );
     expect(result.exitCode, result.stderr).equals(0);
     expect(tableNames(result.stdout)).deep.equals(["downstream", "midstream", "upstream"]);
@@ -453,7 +455,14 @@ suite("compile node selection", ({ afterEach }) => {
   test("--actions filters output to the selected action", async () => {
     const projectDir = await setupSelectionProject();
     const result = await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--actions", "midstream", "--json"])
+      execFile(nodePath, [
+        cliEntryPointPath,
+        "compile",
+        projectDir,
+        "--actions",
+        "midstream",
+        "--json",
+      ]),
     );
     expect(result.exitCode, result.stderr).equals(0);
     expect(tableNames(result.stdout)).deep.equals(["midstream"]);
@@ -469,8 +478,8 @@ suite("compile node selection", ({ afterEach }) => {
         "--actions",
         "midstream",
         "--include-deps",
-        "--json"
-      ])
+        "--json",
+      ]),
     );
     expect(result.exitCode, result.stderr).equals(0);
     expect(tableNames(result.stdout)).deep.equals(["midstream", "upstream"]);
@@ -486,8 +495,8 @@ suite("compile node selection", ({ afterEach }) => {
         "--actions",
         "midstream",
         "--include-dependents",
-        "--json"
-      ])
+        "--json",
+      ]),
     );
     expect(result.exitCode, result.stderr).equals(0);
     expect(tableNames(result.stdout)).deep.equals(["downstream", "midstream"]);
@@ -496,7 +505,7 @@ suite("compile node selection", ({ afterEach }) => {
   test("--tags filters output to actions carrying the tag", async () => {
     const projectDir = await setupSelectionProject();
     const result = await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--tags", "daily", "--json"])
+      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--tags", "daily", "--json"]),
     );
     expect(result.exitCode, result.stderr).equals(0);
     expect(tableNames(result.stdout)).deep.equals(["upstream"]);
@@ -505,7 +514,7 @@ suite("compile node selection", ({ afterEach }) => {
   test("selector matching nothing emits an empty graph and exits zero", async () => {
     const projectDir = await setupSelectionProject();
     const result = await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--actions", "nope", "--json"])
+      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--actions", "nope", "--json"]),
     );
     expect(result.exitCode, result.stderr).equals(0);
     expect(tableNames(result.stdout)).deep.equals([]);
@@ -514,7 +523,7 @@ suite("compile node selection", ({ afterEach }) => {
   test("--include-deps without a selector is rejected", async () => {
     const projectDir = await setupSelectionProject();
     const result = await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--include-deps", "--json"])
+      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--include-deps", "--json"]),
     );
     expect(result.exitCode).not.equals(0);
     expect(result.stderr).contains("--include-deps");
@@ -523,7 +532,7 @@ suite("compile node selection", ({ afterEach }) => {
   test("artifacts are written by default", async () => {
     const projectDir = await setupSelectionProject();
     const result = await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json"])
+      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json"]),
     );
     expect(result.exitCode, result.stderr).equals(0);
     expect(fs.existsSync(path.join(projectDir, "target", "catalog"))).equals(true);
@@ -535,7 +544,7 @@ suite("compile node selection", ({ afterEach }) => {
   test("--no-artifacts is accepted and skips writing target/", async () => {
     const projectDir = await setupSelectionProject();
     const result = await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json", "--no-artifacts"])
+      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json", "--no-artifacts"]),
     );
     expect(result.exitCode, result.stderr).equals(0);
     expect(result.stderr).does.not.contain("Unknown argument");
@@ -562,7 +571,7 @@ suite("extension config", ({ afterEach }) => {
           name: "test-extension",
           compilationMode: "PROLOGUE",
         },
-      })
+      }),
     );
     fs.mkdirSync(path.join(projectDir, "definitions"));
     fs.mkdirSync(path.join(projectDir, "includes"));
@@ -573,7 +582,7 @@ suite("extension config", ({ afterEach }) => {
   "dependencies":{
     "@sqlanvil/core": "${version}"
   }
-}`
+}`,
     );
     await getProcessResult(
       execFile(npmPath, [
@@ -582,12 +591,12 @@ suite("extension config", ({ afterEach }) => {
         projectDir,
         "--cache",
         npmCacheDir,
-        corePackageTarPath
-      ])
+        corePackageTarPath,
+      ]),
     );
 
     const compileResult = await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "compile", projectDir])
+      execFile(nodePath, [cliEntryPointPath, "compile", projectDir]),
     );
 
     expect(compileResult.exitCode).equals(0);
@@ -602,86 +611,101 @@ suite("extension config", ({ afterEach }) => {
         warehouse: "postgres",
         defaultDataset: "analytics",
         sqlanvilCoreVersion: "3.0.0",
-        environments: { dev: { schemaSuffix: "dev" } }
-      })
+        environments: { dev: { schemaSuffix: "dev" } },
+      }),
     );
     const result = await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--environment", "nope"])
+      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--environment", "nope"]),
     );
     expect(result.exitCode).to.not.equal(0);
     expect(result.stderr).to.contain('Environment "nope" not found');
     expect(result.stderr).to.contain("dev");
   });
 
-  test("compile --environment applies the env's schemaSuffix + vars; CLI flag overrides", { timeout: 120000 }, async () => {
-    const projectDir = tmpDirFixture.createNewTmpDir();
-    const npmCacheDir = tmpDirFixture.createNewTmpDir();
+  test(
+    "compile --environment applies the env's schemaSuffix + vars; CLI flag overrides",
+    { timeout: 120000 },
+    async () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      const npmCacheDir = tmpDirFixture.createNewTmpDir();
 
-    // No sqlanvilCoreVersion → uses the locally installed core (below), not the
-    // stateless npm-registry fetch. environments: defines a `dev` env.
-    fs.writeFileSync(
-      path.join(projectDir, "workflow_settings.yaml"),
-      dumpYaml({
-        defaultProject: DEFAULT_DATABASE,
-        defaultLocation: DEFAULT_LOCATION,
-        defaultDataset: "sqlanvil",
-        environments: {
-          dev: { schemaSuffix: "dev_env", vars: { greeting: "hello" } }
-        }
-      })
-    );
-    fs.writeFileSync(
-      path.join(projectDir, "package.json"),
-      `{
+      // No sqlanvilCoreVersion → uses the locally installed core (below), not the
+      // stateless npm-registry fetch. environments: defines a `dev` env.
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        dumpYaml({
+          defaultProject: DEFAULT_DATABASE,
+          defaultLocation: DEFAULT_LOCATION,
+          defaultDataset: "sqlanvil",
+          environments: {
+            dev: { schemaSuffix: "dev_env", vars: { greeting: "hello" } },
+          },
+        }),
+      );
+      fs.writeFileSync(
+        path.join(projectDir, "package.json"),
+        `{
   "dependencies":{
     "@sqlanvil/core": "${version}"
   }
-}`
-    );
-    // Install the local core tarball (avoids bazel read-only sandbox + network).
-    await getProcessResult(
-      execFile(npmPath, ["install", "--prefix", projectDir, "--cache", npmCacheDir, corePackageTarPath])
-    );
-
-    const filePath = path.join(projectDir, "definitions", "example.sqlx");
-    fs.ensureFileSync(filePath);
-    fs.writeFileSync(
-      filePath,
-      `config { type: "table" }\nselect 1 as \${sqlanvil.projectConfig.vars.greeting}`
-    );
-
-    // --environment dev: env's schemaSuffix + vars apply.
-    const envResult = await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--environment", "dev", "--json"], {
-        env: { ...process.env, NPM_CONFIG_CACHE: npmCacheDir }
-      })
-    );
-    expect(envResult.exitCode, `compile failed: ${envResult.stderr}`).equals(0);
-    const envCompiled = JSON.parse(envResult.stdout);
-    expect(envCompiled.tables[0].target.schema).equals("sqlanvil_dev_env");
-    expect(envCompiled.tables[0].query).contains("hello");
-
-    // --environment dev --schema-suffix qa: explicit CLI flag overrides the env.
-    const overrideResult = await getProcessResult(
-      execFile(
-        nodePath,
-        [
-          cliEntryPointPath,
-          "compile",
+}`,
+      );
+      // Install the local core tarball (avoids bazel read-only sandbox + network).
+      await getProcessResult(
+        execFile(npmPath, [
+          "install",
+          "--prefix",
           projectDir,
-          "--environment",
-          "dev",
-          "--schema-suffix",
-          "qa",
-          "--json"
-        ],
-        { env: { ...process.env, NPM_CONFIG_CACHE: npmCacheDir } }
-      )
-    );
-    expect(overrideResult.exitCode, `compile failed: ${overrideResult.stderr}`).equals(0);
-    const overrideCompiled = JSON.parse(overrideResult.stdout);
-    expect(overrideCompiled.tables[0].target.schema).equals("sqlanvil_qa");
-    // Env vars still apply (CLI --schema-suffix doesn't touch vars).
-    expect(overrideCompiled.tables[0].query).contains("hello");
-  });
+          "--cache",
+          npmCacheDir,
+          corePackageTarPath,
+        ]),
+      );
+
+      const filePath = path.join(projectDir, "definitions", "example.sqlx");
+      fs.ensureFileSync(filePath);
+      fs.writeFileSync(
+        filePath,
+        `config { type: "table" }\nselect 1 as \${sqlanvil.projectConfig.vars.greeting}`,
+      );
+
+      // --environment dev: env's schemaSuffix + vars apply.
+      const envResult = await getProcessResult(
+        execFile(
+          nodePath,
+          [cliEntryPointPath, "compile", projectDir, "--environment", "dev", "--json"],
+          {
+            env: { ...process.env, NPM_CONFIG_CACHE: npmCacheDir },
+          },
+        ),
+      );
+      expect(envResult.exitCode, `compile failed: ${envResult.stderr}`).equals(0);
+      const envCompiled = JSON.parse(envResult.stdout);
+      expect(envCompiled.tables[0].target.schema).equals("sqlanvil_dev_env");
+      expect(envCompiled.tables[0].query).contains("hello");
+
+      // --environment dev --schema-suffix qa: explicit CLI flag overrides the env.
+      const overrideResult = await getProcessResult(
+        execFile(
+          nodePath,
+          [
+            cliEntryPointPath,
+            "compile",
+            projectDir,
+            "--environment",
+            "dev",
+            "--schema-suffix",
+            "qa",
+            "--json",
+          ],
+          { env: { ...process.env, NPM_CONFIG_CACHE: npmCacheDir } },
+        ),
+      );
+      expect(overrideResult.exitCode, `compile failed: ${overrideResult.stderr}`).equals(0);
+      const overrideCompiled = JSON.parse(overrideResult.stdout);
+      expect(overrideCompiled.tables[0].target.schema).equals("sqlanvil_qa");
+      // Env vars still apply (CLI --schema-suffix doesn't touch vars).
+      expect(overrideCompiled.tables[0].query).contains("hello");
+    },
+  );
 });

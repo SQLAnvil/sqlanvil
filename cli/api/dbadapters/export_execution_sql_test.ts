@@ -9,7 +9,7 @@ const exp = (o: any) =>
     target: { name: "orders" },
     query: "SELECT 1 AS id",
     overwrite: true,
-    ...o
+    ...o,
   });
 
 suite("createExportTasks", () => {
@@ -40,7 +40,7 @@ suite("createExportTasks", () => {
   test("disabled export yields no tasks", () => {
     const sql = new ExecutionSql({ warehouse: "bigquery" } as any, "1.8.0");
     expect(
-      sql.createExportTasks(exp({ location: "gs://b/o/", format: "csv", disabled: true }))
+      sql.createExportTasks(exp({ location: "gs://b/o/", format: "csv", disabled: true })),
     ).to.have.length(0);
   });
 });

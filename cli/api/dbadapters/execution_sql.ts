@@ -18,12 +18,9 @@ export interface IExecutionSql {
   publishTasks(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ): Tasks;
-  assertTasks(
-    assertion: sqlanvil.IAssertion,
-    projectConfig: sqlanvil.IProjectConfig
-  ): Tasks;
+  assertTasks(assertion: sqlanvil.IAssertion, projectConfig: sqlanvil.IProjectConfig): Tasks;
   dropIfExists(target: sqlanvil.ITarget, type: sqlanvil.TableMetadata.Type): string;
   createExportTasks(exp: sqlanvil.IExport): sqlanvil.IExecutionTask[];
   createImportTasks(imp: sqlanvil.IImport): sqlanvil.IExecutionTask[];
@@ -40,7 +37,7 @@ export class ExecutionSql implements IExecutionSql {
   constructor(
     private readonly project: sqlanvil.IProjectConfig,
     private readonly sqlanvilCoreVersion: string,
-    uniqueIdGenerator?: () => string
+    uniqueIdGenerator?: () => string,
   ) {
     const warehouse = (project.warehouse || "bigquery").toLowerCase();
     if (warehouse === "supabase") {
@@ -61,7 +58,7 @@ export class ExecutionSql implements IExecutionSql {
   public publishTasks(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ): Tasks {
     return this.delegate.publishTasks(table, runConfig, tableMetadata);
   }
@@ -69,7 +66,7 @@ export class ExecutionSql implements IExecutionSql {
   public createTableTasks(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ): sqlanvil.IExecutionTask[] {
     return table.disabled ? [] : this.publishTasks(table, runConfig, tableMetadata).build();
   }
@@ -77,8 +74,8 @@ export class ExecutionSql implements IExecutionSql {
   public createOperationTasks(operation: sqlanvil.IOperation): sqlanvil.IExecutionTask[] {
     return operation.disabled
       ? []
-      : operation.queries.map(statement =>
-          sqlanvil.ExecutionTask.create({ type: "statement", statement })
+      : operation.queries.map((statement) =>
+          sqlanvil.ExecutionTask.create({ type: "statement", statement }),
         );
   }
 
@@ -96,7 +93,7 @@ export class ExecutionSql implements IExecutionSql {
 
   public assertTasks(
     assertion: sqlanvil.IAssertion,
-    projectConfig: sqlanvil.IProjectConfig
+    projectConfig: sqlanvil.IProjectConfig,
   ): Tasks {
     return this.delegate.assertTasks(assertion, projectConfig);
   }
@@ -121,7 +118,7 @@ export class ExecutionSql implements IExecutionSql {
 export function collectEvaluationQueries(
   queryOrAction: QueryOrAction,
   concatenate: boolean,
-  queryModifier: (mod: string) => string = (q: string) => q
+  queryModifier: (mod: string) => string = (q: string) => q,
 ): IValidationQuery[] {
   const validationQueries = new Array<IValidationQuery>();
   if (typeof queryOrAction === "string") {
@@ -132,37 +129,37 @@ export function collectEvaluationQueries(
         if (queryOrAction.enumType === sqlanvil.TableType.INCREMENTAL) {
           const incrementalTableQueries = queryOrAction.incrementalPreOps.concat(
             queryOrAction.incrementalQuery,
-            queryOrAction.incrementalPostOps
+            queryOrAction.incrementalPostOps,
           );
           if (concatenate) {
             validationQueries.push({
               query: concatenateQueries(incrementalTableQueries, queryModifier),
-              incremental: true
+              incremental: true,
             });
           } else {
-            incrementalTableQueries.forEach(q =>
-              validationQueries.push({ query: queryModifier(q), incremental: true })
+            incrementalTableQueries.forEach((q) =>
+              validationQueries.push({ query: queryModifier(q), incremental: true }),
             );
           }
         }
         const tableQueries = queryOrAction.preOps.concat(
           queryOrAction.query,
-          queryOrAction.postOps
+          queryOrAction.postOps,
         );
         if (concatenate) {
           validationQueries.push({
-            query: concatenateQueries(tableQueries, queryModifier)
+            query: concatenateQueries(tableQueries, queryModifier),
           });
         } else {
-          tableQueries.forEach(q => validationQueries.push({ query: queryModifier(q) }));
+          tableQueries.forEach((q) => validationQueries.push({ query: queryModifier(q) }));
         }
       } else if (queryOrAction instanceof sqlanvil.Operation) {
         if (concatenate) {
           validationQueries.push({
-            query: concatenateQueries(queryOrAction.queries, queryModifier)
+            query: concatenateQueries(queryOrAction.queries, queryModifier),
           });
         } else {
-          queryOrAction.queries.forEach(q => validationQueries.push({ query: queryModifier(q) }));
+          queryOrAction.queries.forEach((q) => validationQueries.push({ query: queryModifier(q) }));
         }
       } else if (queryOrAction instanceof sqlanvil.Assertion) {
         validationQueries.push({ query: queryModifier(queryOrAction.query) });
@@ -174,6 +171,6 @@ export function collectEvaluationQueries(
     }
   }
   return validationQueries
-    .map(validationQuery => ({ query: validationQuery.query.trim(), ...validationQuery }))
-    .filter(validationQuery => !!validationQuery.query);
+    .map((validationQuery) => ({ query: validationQuery.query.trim(), ...validationQuery }))
+    .filter((validationQuery) => !!validationQuery.query);
 }

@@ -14,7 +14,7 @@ const CONNECTION_TOKEN = /\$\{SA_CONN:([^:}]+):([^}]+)\}/g;
  */
 export function substituteConnectionCredentials(
   statement: string,
-  connections: { [name: string]: any }
+  connections: { [name: string]: any },
 ): string {
   return statement.replace(CONNECTION_TOKEN, (_match, connectionName, field) => {
     const entry = connections[connectionName];
@@ -22,14 +22,14 @@ export function substituteConnectionCredentials(
       throw new Error(
         `Connection "${connectionName}" is referenced by an FDW bridge but has no entry under ` +
           `"connections" in .df-credentials.json. Add connections.${connectionName} with the ` +
-          `source user/password.`
+          `source user/password.`,
       );
     }
     const value = entry[field];
     if (value === undefined || value === null || value === "") {
       throw new Error(
         `Connection "${connectionName}" is missing "${field}" under "connections.${connectionName}" ` +
-          `in .df-credentials.json.`
+          `in .df-credentials.json.`,
       );
     }
     return String(value).replace(/'/g, "''");
@@ -43,13 +43,13 @@ export function substituteConnectionCredentials(
  */
 export function assertConnectionCredentialsAvailable(
   graph: sqlanvil.IExecutionGraph,
-  connections: { [name: string]: any }
+  connections: { [name: string]: any },
 ): void {
-  (graph.actions || []).forEach(action =>
-    (action.tasks || []).forEach(task => {
+  (graph.actions || []).forEach((action) =>
+    (action.tasks || []).forEach((task) => {
       if (task.statement) {
         substituteConnectionCredentials(task.statement, connections);
       }
-    })
+    }),
   );
 }

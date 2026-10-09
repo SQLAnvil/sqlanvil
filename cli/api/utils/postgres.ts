@@ -22,13 +22,13 @@ export class PgPoolExecutor {
     maybeInitializePg();
     this.pool = new pg.Pool({
       ...clientConfig,
-      max: options?.concurrencyLimit
+      max: options?.concurrencyLimit,
     });
     // https://node-postgres.com/api/pool#events
     // Idle clients in the pool are still connected to the remote host and as such can
     // emit errors. If/when they do, they will automatically be removed from the pool,
     // but we still need to handle the error to prevent crashing the process.
-    this.pool.on("error", err => {
+    this.pool.on("error", (err) => {
       // tslint:disable-next-line: no-console
       console.error("pg.Pool idle client error", err.message, err.stack);
     });
@@ -60,9 +60,9 @@ export class PgPoolExecutor {
           onCancel?: (handleCancel: () => void) => void;
           rowLimit?: number;
           byteLimit?: number;
-        }
+        },
       ): Promise<any[]>;
-    }) => Promise<T>
+    }) => Promise<T>,
   ) {
     const client = await this.pool.connect();
     // The client can be released from several places: the client "error" handler,
@@ -102,13 +102,13 @@ export class PgPoolExecutor {
             onCancel?: (handleCancel: () => void) => void;
             rowLimit?: number;
             byteLimit?: number;
-          } = { rowLimit: 1000, byteLimit: 1024 * 1024 }
+          } = { rowLimit: 1000, byteLimit: 1024 * 1024 },
         ) => {
           return await new Promise<any[]>((resolve, reject) => {
             const query = client.query(new QueryStream(statement, options?.params));
             const results = new LimitedResultSet({
               rowLimit: options?.rowLimit,
-              byteLimit: options?.byteLimit
+              byteLimit: options?.byteLimit,
             });
             options?.onCancel?.(() => query.destroy(new Error("Query cancelled.")));
             query.on("data", (row: any) => {
@@ -125,7 +125,7 @@ export class PgPoolExecutor {
                 (query as any).cursor.close();
               }
             });
-            query.on("error", err => {
+            query.on("error", (err) => {
               // Errors don't cause "end" to fire, additionally errored connections
               // cause issues when released back to the pool. Instead, close the connection
               // by passing the error to release(). https://github.com/dataform-co/dataform/issues/914
@@ -136,7 +136,7 @@ export class PgPoolExecutor {
               resolve(results.rows);
             });
           });
-        }
+        },
       });
     } finally {
       // The handler is scoped to this lock: pooled connections are REUSED, so a
@@ -154,7 +154,7 @@ export class PgPoolExecutor {
 
 function verifyUniqueColumnNames(fields: pg.FieldDef[]) {
   const colNames = new Set<string>();
-  fields.forEach(field => {
+  fields.forEach((field) => {
     if (colNames.has(field.name)) {
       throw new Error(`Ambiguous column name: ${field.name}`);
     }

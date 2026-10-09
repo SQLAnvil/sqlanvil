@@ -40,10 +40,10 @@ suite("named connections (compiled through packaged core)", ({ afterEach }) => {
             platform: "bigquery",
             project: "bigquery-public-data",
             dataset: "geo_us_boundaries",
-            saKeyId: "vault-secret-id"
-          }
-        }
-      })
+            saKeyId: "vault-secret-id",
+          },
+        },
+      }),
     );
 
     fs.mkdirSync(path.join(projectDir, "definitions"));
@@ -54,7 +54,7 @@ suite("named connections (compiled through packaged core)", ({ afterEach }) => {
   connection: "bigquery_public",
   name: "zip_codes",
   columnTypes: { zip_code: "text" }
-}`
+}`,
     );
 
     fs.writeFileSync(
@@ -63,7 +63,7 @@ suite("named connections (compiled through packaged core)", ({ afterEach }) => {
   "dependencies":{
     "@sqlanvil/core": "${version}"
   }
-}`
+}`,
     );
 
     // Install the real (minified) core tarball into the project, mirroring a
@@ -76,12 +76,12 @@ suite("named connections (compiled through packaged core)", ({ afterEach }) => {
         projectDir,
         "--cache",
         npmCacheDir,
-        corePackageTarPath
-      ])
+        corePackageTarPath,
+      ]),
     );
 
     const compileResult = await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json"])
+      execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json"]),
     );
 
     expect(compileResult.exitCode, `compile failed: ${compileResult.stderr}`).equals(0);
@@ -89,17 +89,19 @@ suite("named connections (compiled through packaged core)", ({ afterEach }) => {
 
     // 1. The directly-dropped field: `connections` must round-trip through the
     //    minified ProjectConfig. Under the bug this was `{}`.
-    expect(compiled.projectConfig.connections, "projectConfig.connections was dropped").to.have.property(
-      "bigquery_public"
-    );
+    expect(
+      compiled.projectConfig.connections,
+      "projectConfig.connections was dropped",
+    ).to.have.property("bigquery_public");
 
     // 2. End-to-end proof the connection is usable: a connection-tagged
     //    declaration routes through declare(), which looks the connection up in
     //    projectConfig.connections. Under the bug that lookup failed and emitted
     //    an "Unknown connection" compilation error instead of the FDW bridge.
-    expect(compiled.graphErrors.compilationErrors || [], "unexpected compilation errors").to.deep.equal(
-      []
-    );
+    expect(
+      compiled.graphErrors.compilationErrors || [],
+      "unexpected compilation errors",
+    ).to.deep.equal([]);
 
     // 3. The FDW bridge actions (Wrapper server-setup operation + ref-able
     //    foreign table) are emitted under `operations`.
@@ -107,7 +109,7 @@ suite("named connections (compiled through packaged core)", ({ afterEach }) => {
     const serverNames = operationTargets.map((t: any) => t.name);
     expect(serverNames, "FDW server-setup operation missing").to.include("bigquery_public_srv");
     const foreignTable = operationTargets.find(
-      (t: any) => t.name === "zip_codes" && t.schema === "bigquery_public_ext"
+      (t: any) => t.name === "zip_codes" && t.schema === "bigquery_public_ext",
     );
     expect(foreignTable, "ref-able foreign table missing").to.not.equal(undefined);
   });

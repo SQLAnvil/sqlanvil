@@ -8,14 +8,17 @@ const imp = (o: any) =>
   sqlanvil.Import.create({
     target: { schema: "analytics", name: "orders" },
     overwrite: true,
-    ...o
+    ...o,
   });
 
 suite("createImportTasks", () => {
   test("BigQuery renders LOAD DATA OVERWRITE from gs:// files", () => {
-    const sql = new ExecutionSql({ warehouse: "bigquery", defaultDatabase: "proj" } as any, "1.11.0");
+    const sql = new ExecutionSql(
+      { warehouse: "bigquery", defaultDatabase: "proj" } as any,
+      "1.11.0",
+    );
     const [task] = sql.createImportTasks(
-      imp({ location: "gs://b/orders/*.parquet", format: "parquet" })
+      imp({ location: "gs://b/orders/*.parquet", format: "parquet" }),
     );
     expect(task.type).equals("statement");
     expect(task.statement).contains("LOAD DATA OVERWRITE");
@@ -24,16 +27,21 @@ suite("createImportTasks", () => {
   });
 
   test("BigQuery uses LOAD DATA INTO for append (overwrite:false)", () => {
-    const sql = new ExecutionSql({ warehouse: "bigquery", defaultDatabase: "proj" } as any, "1.11.0");
+    const sql = new ExecutionSql(
+      { warehouse: "bigquery", defaultDatabase: "proj" } as any,
+      "1.11.0",
+    );
     const [task] = sql.createImportTasks(
-      imp({ location: "gs://b/orders/*.csv", format: "csv", overwrite: false })
+      imp({ location: "gs://b/orders/*.csv", format: "csv", overwrite: false }),
     );
     expect(task.statement).contains("LOAD DATA INTO");
   });
 
   test("Postgres emits an import-type marker task", () => {
     const sql = new ExecutionSql({ warehouse: "postgres" } as any, "1.11.0");
-    const [task] = sql.createImportTasks(imp({ location: "s3://b/o/*.parquet", format: "parquet" }));
+    const [task] = sql.createImportTasks(
+      imp({ location: "s3://b/o/*.parquet", format: "parquet" }),
+    );
     expect(task.type).equals("import");
   });
 
@@ -46,7 +54,7 @@ suite("createImportTasks", () => {
   test("MySQL throws (not supported yet)", () => {
     const sql = new ExecutionSql({ warehouse: "mysql" } as any, "1.11.0");
     expect(() =>
-      sql.createImportTasks(imp({ location: "local:///tmp/o.parquet", format: "parquet" }))
+      sql.createImportTasks(imp({ location: "local:///tmp/o.parquet", format: "parquet" })),
     ).to.throw("not supported on MySQL");
   });
 
@@ -54,8 +62,8 @@ suite("createImportTasks", () => {
     const sql = new ExecutionSql({ warehouse: "bigquery" } as any, "1.11.0");
     expect(
       sql.createImportTasks(
-        imp({ location: "gs://b/o/*.parquet", format: "parquet", disabled: true })
-      )
+        imp({ location: "gs://b/o/*.parquet", format: "parquet", disabled: true }),
+      ),
     ).to.have.length(0);
   });
 });

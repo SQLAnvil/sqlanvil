@@ -9,7 +9,7 @@ import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
-  VALID_WORKFLOW_SETTINGS_YAML
+  VALID_WORKFLOW_SETTINGS_YAML,
 } from "sa/testing/run_core";
 
 suite("operation", ({ afterEach }) => {
@@ -20,7 +20,7 @@ suite("operation", ({ afterEach }) => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -28,7 +28,7 @@ suite("operation", ({ afterEach }) => {
         `
 actions:
 - operation:
-    filename: action.sql`
+    filename: action.sql`,
       );
       fs.writeFileSync(path.join(projectDir, "definitions/action.sql"), "SELECT 1");
 
@@ -41,18 +41,18 @@ actions:
             target: {
               database: "defaultProject",
               schema: "defaultDataset",
-              name: "action"
+              name: "action",
             },
             canonicalTarget: {
               database: "defaultProject",
               schema: "defaultDataset",
-              name: "action"
+              name: "action",
             },
             fileName: "definitions/action.sql",
             queries: ["SELECT 1"],
-            hermeticity: "NON_HERMETIC"
-          }
-        ])
+            hermeticity: "NON_HERMETIC",
+          },
+        ]),
       );
     });
   });
@@ -79,27 +79,27 @@ actions:
         filename: "operation.sqlx",
         fileContents: `
 config ${operationConfig}
-SELECT 1`
+SELECT 1`,
       },
       {
         filename: "operation.js",
-        fileContents: `operate("name", ${operationConfig}).queries(ctx => \`\n\nSELECT 1\`)`
-      }
-    ].forEach(testParameters => {
+        fileContents: `operate("name", ${operationConfig}).queries(ctx => \`\n\nSELECT 1\`)`,
+      },
+    ].forEach((testParameters) => {
       test(`for operations configured in a ${testParameters.filename} file`, () => {
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
+          VALID_WORKFLOW_SETTINGS_YAML,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
           path.join(projectDir, "definitions/table.sqlx"),
-          `config {type: "view"} SELECT 1`
+          `config {type: "view"} SELECT 1`,
         );
         fs.writeFileSync(
           path.join(projectDir, `definitions/${testParameters.filename}`),
-          testParameters.fileContents
+          testParameters.fileContents,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -111,19 +111,19 @@ SELECT 1`
               target: {
                 database: "project",
                 schema: "dataset",
-                name: "name"
+                name: "name",
               },
               canonicalTarget: {
                 database: "project",
                 schema: "dataset",
-                name: "name"
+                name: "name",
               },
               dependencyTargets: [
                 {
                   database: "defaultProject",
                   schema: "defaultDataset",
-                  name: "table"
-                }
+                  name: "table",
+                },
               ],
               disabled: true,
               fileName: `definitions/${testParameters.filename}`,
@@ -133,10 +133,10 @@ SELECT 1`
               queries: ["\n\nSELECT 1"],
               actionDescriptor: {
                 ...exampleActionDescriptor.outputActionDescriptor,
-                reservation: "reservation"
-              }
-            }
-          ])
+                reservation: "reservation",
+              },
+            },
+          ]),
         );
       });
     });
@@ -148,7 +148,7 @@ SELECT 1`
     fs.mkdirSync(path.join(projectDir, "definitions"));
     fs.writeFileSync(
       path.join(projectDir, "definitions/table.sqlx"),
-      `config {type: "view"} SELECT 1`
+      `config {type: "view"} SELECT 1`,
     );
     fs.writeFileSync(path.join(projectDir, "definitions/filename.sql"), "SELECT 1");
     fs.writeFileSync(
@@ -171,7 +171,7 @@ actions:
     dependOnDependencyAssertions: true
     hermetic: true
     reservation: reservation
-`
+`,
     );
 
     const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -183,19 +183,19 @@ actions:
           target: {
             database: "project",
             schema: "dataset",
-            name: "name"
+            name: "name",
           },
           canonicalTarget: {
             database: "project",
             schema: "dataset",
-            name: "name"
+            name: "name",
           },
           dependencyTargets: [
             {
               database: "defaultProject",
               schema: "defaultDataset",
-              name: "table"
-            }
+              name: "table",
+            },
           ],
           disabled: true,
           fileName: "definitions/filename.sql",
@@ -205,10 +205,10 @@ actions:
           queries: ["SELECT 1"],
           actionDescriptor: {
             description: "description",
-            reservation: "reservation"
-          }
-        }
-      ])
+            reservation: "reservation",
+          },
+        },
+      ]),
     );
   });
 
@@ -218,19 +218,22 @@ actions:
   suite("jit compilation", () => {
     test("jitCode is rejected at compile time", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
-      fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), VALID_WORKFLOW_SETTINGS_YAML);
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        VALID_WORKFLOW_SETTINGS_YAML,
+      );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
         path.join(projectDir, "definitions/op.js"),
-        `operate("op").jitCode((ctx) => Promise.resolve("select 1"))`
+        `operate("op").jitCode((ctx) => Promise.resolve("select 1"))`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       expect(
-        result.compile.compiledGraph.graphErrors.compilationErrors.some(e =>
-          e.message.includes("Operation .jitCode() is not supported by sqlanvil")
-        )
+        result.compile.compiledGraph.graphErrors.compilationErrors.some((e) =>
+          e.message.includes("Operation .jitCode() is not supported by sqlanvil"),
+        ),
       ).equals(true);
       // The rejected action must not survive into the graph.
       expect(asPlainObject(result.compile.compiledGraph.operations)).deep.equals([]);
@@ -238,19 +241,22 @@ actions:
 
     test("jitCode is rejected even when queries are also provided", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
-      fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), VALID_WORKFLOW_SETTINGS_YAML);
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        VALID_WORKFLOW_SETTINGS_YAML,
+      );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
         path.join(projectDir, "definitions/op.js"),
-        `operate("op").jitCode((ctx) => "select 1").queries("select 1")`
+        `operate("op").jitCode((ctx) => "select 1").queries("select 1")`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       expect(
-        result.compile.compiledGraph.graphErrors.compilationErrors.some(e =>
-          e.message.includes("Operation .jitCode() is not supported by sqlanvil")
-        )
+        result.compile.compiledGraph.graphErrors.compilationErrors.some((e) =>
+          e.message.includes("Operation .jitCode() is not supported by sqlanvil"),
+        ),
       ).equals(true);
     });
   });

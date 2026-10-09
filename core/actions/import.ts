@@ -6,7 +6,7 @@ import { Session } from "sa/core/session";
 import {
   actionConfigToCompiledGraphTarget,
   checkAssertionsForDependency,
-  configTargetToCompiledGraphTarget
+  configTargetToCompiledGraphTarget,
 } from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -72,15 +72,15 @@ export class Import extends ActionBuilder<sqlanvil.Import> {
     }
     const target = actionConfigToCompiledGraphTarget(config);
     this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, {
-      validateTarget: true
+      validateTarget: true,
     });
     this.proto.canonicalTarget = this.applySessionToTarget(target, session.canonicalProjectConfig);
 
     if (config.dependencyTargets) {
       this.dependencies(
-        config.dependencyTargets.map(dependencyTarget =>
-          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
-        )
+        config.dependencyTargets.map((dependencyTarget) =>
+          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget)),
+        ),
       );
     }
     if (config.hermetic !== undefined) {
@@ -123,7 +123,7 @@ export class Import extends ActionBuilder<sqlanvil.Import> {
   /** @hidden Adds dependencies (used by `${ref()}` resolution and explicit dependency_targets). */
   public dependencies(value: Resolvable | Resolvable[]) {
     const newDependencies = Array.isArray(value) ? value : [value];
-    newDependencies.forEach(resolvable => {
+    newDependencies.forEach((resolvable) => {
       const dependencyTarget = checkAssertionsForDependency(this, resolvable);
       if (!!dependencyTarget) {
         this.proto.dependencyTargets.push(dependencyTarget);
@@ -148,7 +148,7 @@ export class Import extends ActionBuilder<sqlanvil.Import> {
   /** @hidden */
   public tags(value: string | string[]) {
     const newTags = typeof value === "string" ? [value] : value;
-    newTags.forEach(t => {
+    newTags.forEach((t) => {
       if (this.proto.tags.indexOf(t) < 0) {
         this.proto.tags.push(t);
       }
@@ -171,7 +171,7 @@ export class Import extends ActionBuilder<sqlanvil.Import> {
       sqlanvil.Target.create({ ...this.proto.target, database }),
       this.session.projectConfig,
       this.proto.fileName,
-      { validateTarget: true }
+      { validateTarget: true },
     );
     return this;
   }
@@ -182,7 +182,7 @@ export class Import extends ActionBuilder<sqlanvil.Import> {
       sqlanvil.Target.create({ ...this.proto.target, schema }),
       this.session.projectConfig,
       this.proto.fileName,
-      { validateTarget: true }
+      { validateTarget: true },
     );
     return this;
   }
@@ -204,7 +204,7 @@ export class Import extends ActionBuilder<sqlanvil.Import> {
     return verifyObjectMatchesProto(
       sqlanvil.Import,
       this.proto,
-      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
     );
   }
 
@@ -214,7 +214,7 @@ export class Import extends ActionBuilder<sqlanvil.Import> {
     if (!this.proto.location) {
       this.session.compileError(
         new Error("Import actions require a `location` in the import config."),
-        fileName
+        fileName,
       );
       return;
     }
@@ -222,10 +222,10 @@ export class Import extends ActionBuilder<sqlanvil.Import> {
       this.session.compileError(
         new Error(
           `Invalid import format "${this.proto.format}". Valid formats: ${VALID_FORMATS.join(
-            ", "
-          )}.`
+            ", ",
+          )}.`,
         ),
-        fileName
+        fileName,
       );
     }
     const warehouse = (this.session.projectConfig.warehouse || "bigquery").toLowerCase();
@@ -235,7 +235,7 @@ export class Import extends ActionBuilder<sqlanvil.Import> {
         : "a local path";
       this.session.compileError(
         new Error(`BigQuery imports support only gs:// sources; got ${scheme}.`),
-        fileName
+        fileName,
       );
     }
   }
@@ -247,7 +247,7 @@ export class Import extends ActionBuilder<sqlanvil.Import> {
     return verifyObjectMatchesProto(
       sqlanvil.ActionConfig.ImportConfig,
       unverifiedConfig,
-      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
+      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK,
     );
   }
 }

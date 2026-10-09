@@ -6,7 +6,7 @@ import * as path from "path";
 import {
   exampleActionDescriptor,
   exampleBuiltInAssertions,
-  exampleBuiltInAssertionsAsYaml
+  exampleBuiltInAssertionsAsYaml,
 } from "sa/core/actions/index_test";
 import { sqlanvil } from "sa/protos/ts";
 import { asPlainObject, suite, test } from "sa/testing";
@@ -14,7 +14,7 @@ import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
-  VALID_WORKFLOW_SETTINGS_YAML
+  VALID_WORKFLOW_SETTINGS_YAML,
 } from "sa/testing/run_core";
 
 suite("incremental table", ({ afterEach }) => {
@@ -25,7 +25,7 @@ suite("incremental table", ({ afterEach }) => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -37,7 +37,7 @@ actions:
     protected: true
     uniqueKey:
     -  someKey1
-    -  someKey2`
+    -  someKey2`,
       );
       fs.writeFileSync(path.join(projectDir, "definitions/action.sql"), "SELECT 1");
 
@@ -50,12 +50,12 @@ actions:
             target: {
               database: "defaultProject",
               schema: "defaultDataset",
-              name: "action"
+              name: "action",
             },
             canonicalTarget: {
               database: "defaultProject",
               schema: "defaultDataset",
-              name: "action"
+              name: "action",
             },
             fileName: "definitions/action.sql",
             hermeticity: "NON_HERMETIC",
@@ -67,9 +67,9 @@ actions:
             enumType: "INCREMENTAL",
             protected: true,
             disabled: false,
-            uniqueKey: ["someKey1", "someKey2"]
-          }
-        ])
+            uniqueKey: ["someKey1", "someKey2"],
+          },
+        ]),
       );
     });
   });
@@ -119,24 +119,24 @@ actions:
         filename: "incremental.sqlx",
         fileContents: `
 config ${incrementalTableConfig}
-SELECT 1`
+SELECT 1`,
       },
       {
         filename: "incremental.js",
-        fileContents: `publish("name", ${incrementalTableConfig}).query(ctx => \`\n\n\nSELECT 1\`)`
-      }
-    ].forEach(testParameters => {
+        fileContents: `publish("name", ${incrementalTableConfig}).query(ctx => \`\n\n\nSELECT 1\`)`,
+      },
+    ].forEach((testParameters) => {
       test(`for incremental tables configured in a ${testParameters.filename} file`, () => {
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
+          VALID_WORKFLOW_SETTINGS_YAML,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(path.join(projectDir, "definitions/operation.sqlx"), "SELECT 1");
         fs.writeFileSync(
           path.join(projectDir, `definitions/${testParameters.filename}`),
-          testParameters.fileContents
+          testParameters.fileContents,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -147,12 +147,12 @@ SELECT 1`
             target: {
               database: "project",
               schema: "dataset",
-              name: "name"
+              name: "name",
             },
             canonicalTarget: {
               database: "project",
               schema: "dataset",
-              name: "name"
+              name: "name",
             },
             type: "incremental",
             disabled: true,
@@ -162,16 +162,16 @@ SELECT 1`
             bigquery: {
               additionalOptions: {
                 option1Key: "option1",
-                option2Key: "option2"
+                option2Key: "option2",
               },
               clusterBy: ["clusterBy"],
               labels: {
-                key: "val"
+                key: "val",
               },
               partitionBy: "partitionBy",
               partitionExpirationDays: 1,
               requirePartitionFilter: true,
-              updatePartitionFilter: "updatePartitionFilter"
+              updatePartitionFilter: "updatePartitionFilter",
             },
             tags: ["tag1", "tag2"],
             uniqueKey: ["key1", "key2"],
@@ -179,8 +179,8 @@ SELECT 1`
               {
                 database: "defaultProject",
                 schema: "defaultDataset",
-                name: "operation"
-              }
+                name: "operation",
+              },
             ],
             enumType: "INCREMENTAL",
             fileName: `definitions/${testParameters.filename}`,
@@ -192,21 +192,21 @@ SELECT 1`
               reservation: "reservation",
               // sqlxConfig.bigquery.labels are placed as bigqueryLabels.
               bigqueryLabels: {
-                key: "val"
+                key: "val",
               },
               metadata: {
                 overview: "incremental table overview",
                 extraProperties: {
                   fields: {
-                    priority: { stringValue: "high" }
-                  }
-                }
+                    priority: { stringValue: "high" },
+                  },
+                },
               },
-            }
-          }
+            },
+          },
         ]);
         expect(asPlainObject(result.compile.compiledGraph.assertions)).deep.equals(
-          exampleBuiltInAssertions.outputAssertions(testParameters.filename)
+          exampleBuiltInAssertions.outputAssertions(testParameters.filename),
         );
       });
     });
@@ -220,13 +220,13 @@ SELECT 1`;
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(path.join(projectDir, "definitions/operation.sqlx"), "SELECT 1");
       fs.writeFileSync(
         path.join(projectDir, `definitions/${minimalIncrementalTableName}.sqlx`),
-        minimalIncrementalTableContent
+        minimalIncrementalTableContent,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -237,12 +237,12 @@ SELECT 1`;
           target: {
             database: "defaultProject",
             schema: "defaultDataset",
-            name: minimalIncrementalTableName
+            name: minimalIncrementalTableName,
           },
           canonicalTarget: {
             database: "defaultProject",
             schema: "defaultDataset",
-            name: minimalIncrementalTableName
+            name: minimalIncrementalTableName,
           },
           type: "incremental",
           disabled: false,
@@ -254,15 +254,15 @@ SELECT 1`;
           query: "\n\n\nSELECT 1",
           incrementalQuery: "\n\n\nSELECT 1",
           incrementalStrategy: "INCREMENTAL_STRATEGY_UNSPECIFIED",
-        }
+        },
       ]);
-    })
+    });
 
     test("throws an error when incrementalPredicates is not an array", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -273,16 +273,16 @@ SELECT 1`;
     incrementalPredicates: "not_an_array"
   }
 }
-SELECT 1`
+SELECT 1`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).equals(1);
-      expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains("incrementalPredicates");
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains(
+        "incrementalPredicates",
+      );
     });
-
-
   });
 
   test("action config options", () => {
@@ -327,7 +327,7 @@ actions:
     hermetic: true
     reservation: reservation
     onSchemaChange: FAIL
-  `
+  `,
     );
 
     const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -338,12 +338,12 @@ actions:
         target: {
           database: "project",
           schema: "dataset",
-          name: "name"
+          name: "name",
         },
         canonicalTarget: {
           database: "project",
           schema: "dataset",
-          name: "name"
+          name: "name",
         },
         type: "incremental",
         disabled: true,
@@ -353,16 +353,16 @@ actions:
         bigquery: {
           additionalOptions: {
             option1Key: "option1",
-            option2Key: "option2"
+            option2Key: "option2",
           },
           clusterBy: ["clusterBy"],
           labels: {
-            key: "val"
+            key: "val",
           },
           partitionBy: "partitionBy",
           partitionExpirationDays: 1,
           requirePartitionFilter: true,
-          updatePartitionFilter: "updatePartitionFilter"
+          updatePartitionFilter: "updatePartitionFilter",
         },
         tags: ["tag1", "tag2"],
         uniqueKey: ["key1", "key2"],
@@ -370,8 +370,8 @@ actions:
           {
             database: "defaultProject",
             schema: "defaultDataset",
-            name: "operation"
-          }
+            name: "operation",
+          },
         ],
         enumType: "INCREMENTAL",
         fileName: "definitions/filename.sql",
@@ -380,15 +380,15 @@ actions:
         incrementalStrategy: "INCREMENTAL_STRATEGY_UNSPECIFIED",
         actionDescriptor: {
           bigqueryLabels: {
-            key: "val"
+            key: "val",
           },
           description: "description",
-          reservation: "reservation"
-        }
-      }
+          reservation: "reservation",
+        },
+      },
     ]);
     expect(asPlainObject(result.compile.compiledGraph.assertions)).deep.equals(
-      exampleBuiltInAssertionsAsYaml.outputAssertions
+      exampleBuiltInAssertionsAsYaml.outputAssertions,
     );
   });
 
@@ -409,7 +409,7 @@ actions:
     }
   }
 }
-SELECT 1`
+SELECT 1`,
     );
 
     const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -417,22 +417,24 @@ SELECT 1`
     expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
     expect(asPlainObject(result.compile.compiledGraph.tables[0]).onSchemaChange).equals("IGNORE");
     expect(
-      asPlainObject(result.compile.compiledGraph.tables[0].actionDescriptor.metadata)
+      asPlainObject(result.compile.compiledGraph.tables[0].actionDescriptor.metadata),
     ).deep.equals({
       extraProperties: {
         fields: {
-          priority: { stringValue: "high" }
-        }
-      }
+          priority: { stringValue: "high" },
+        },
+      },
     });
   });
 
   suite("Iceberg incremental table options", () => {
-    const setupFiles = (projectDir: string, filename: string, fileContents: string, wsContent: string) => {
-      fs.writeFileSync(
-        path.join(projectDir, "workflow_settings.yaml"),
-        wsContent
-      );
+    const setupFiles = (
+      projectDir: string,
+      filename: string,
+      fileContents: string,
+      wsContent: string,
+    ) => {
+      fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), wsContent);
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(path.join(projectDir, `definitions/${filename}`), fileContents);
     };
@@ -530,7 +532,8 @@ defaultIcebergConfig:
         wsContent: VALID_WORKFLOW_SETTINGS_YAML,
       },
       {
-        testName: "defaults to dataset and name for tableFolderSubpath with dataset and table name provided",
+        testName:
+          "defaults to dataset and name for tableFolderSubpath with dataset and table name provided",
         configBlock: `
         type: "incremental",
         name: "my-incremental",
@@ -556,7 +559,8 @@ defaultIcebergConfig:
         wsContent: VALID_WORKFLOW_SETTINGS_YAML,
       },
       {
-        testName: "defaults to dataset and name for tableFolderSubpath with dataset from workflow settings",
+        testName:
+          "defaults to dataset and name for tableFolderSubpath with dataset from workflow settings",
         configBlock: `
         type: "incremental",
         name: "my-incremental",
@@ -673,7 +677,8 @@ defaultIcebergConfig:
             tableFolderSubpath: "my-subpath",
           }
         }`,
-        expectError: "The connection must be in the format `{project}.{location}.{connection_id}` or `projects/{project}/locations/{location}/connections/{connection_id}`, or be set to `DEFAULT`.",
+        expectError:
+          "The connection must be in the format `{project}.{location}.{connection_id}` or `projects/{project}/locations/{location}/connections/{connection_id}`, or be set to `DEFAULT`.",
         wsContent: VALID_WORKFLOW_SETTINGS_YAML,
       },
       {
@@ -687,7 +692,7 @@ defaultIcebergConfig:
             bucketName: "my-bucket",
           }
         }`,
-        expectError: "Unexpected file format; only \"PARQUET\" is allowed, got \"AVRO\".",
+        expectError: 'Unexpected file format; only "PARQUET" is allowed, got "AVRO".',
         wsContent: VALID_WORKFLOW_SETTINGS_YAML,
       },
       {
@@ -703,7 +708,8 @@ defaultIcebergConfig:
             tableFolderSubpath: "my-subpath",
           }
         }`,
-        expectError: "When defining an Iceberg table, bucket name must be defined in workflow_settings.yaml or the config block.",
+        expectError:
+          "When defining an Iceberg table, bucket name must be defined in workflow_settings.yaml or the config block.",
         wsContent: VALID_WORKFLOW_SETTINGS_YAML,
       },
       {
@@ -726,7 +732,11 @@ defaultIcebergConfig:
           }
         }`,
         expected: {
-          target: { name: "iceberg_incremental_mixed", schema: "mixed_dataset", database: "defaultProject" },
+          target: {
+            name: "iceberg_incremental_mixed",
+            schema: "mixed_dataset",
+            database: "defaultProject",
+          },
           bigquery: {
             tableFormat: "ICEBERG",
             fileFormat: "PARQUET",
@@ -734,8 +744,8 @@ defaultIcebergConfig:
             storageUri: "gs://my-bucket/my-root/my-subpath",
             partitionBy: "partition_col",
             clusterBy: ["cluster_col1", "cluster_col2"],
-            labels: { "env": "test", "type": "iceberg" },
-            additionalOptions: { "key1": "val1", "key2": "val2" },
+            labels: { env: "test", type: "iceberg" },
+            additionalOptions: { key1: "val1", key2: "val2" },
           },
         },
         expectError: false,
@@ -758,7 +768,11 @@ defaultIcebergConfig:
           }
         }`,
         expected: {
-          target: { name: "incremental_ws_bucket", schema: "dataset_ws", database: "defaultProject" },
+          target: {
+            name: "incremental_ws_bucket",
+            schema: "dataset_ws",
+            database: "defaultProject",
+          },
           bigquery: {
             tableFormat: "ICEBERG",
             fileFormat: "PARQUET",
@@ -888,7 +902,11 @@ defaultIcebergConfig:
           }
         }`,
         expected: {
-          target: { name: "incremental_override", schema: "dataset_ovr", database: "defaultProject" },
+          target: {
+            name: "incremental_override",
+            schema: "dataset_ovr",
+            database: "defaultProject",
+          },
           bigquery: {
             tableFormat: "ICEBERG",
             fileFormat: "PARQUET",
@@ -911,7 +929,8 @@ defaultIcebergConfig:
             tableFolderSubpath: "my-subpath",
           }
         }`,
-        expectError: "When defining an Iceberg table, bucket name must be defined in workflow_settings.yaml or the config block.",
+        expectError:
+          "When defining an Iceberg table, bucket name must be defined in workflow_settings.yaml or the config block.",
         wsContent: VALID_WORKFLOW_SETTINGS_YAML, // Ensure no defaults are set here
       },
     ];
@@ -931,7 +950,7 @@ defaultIcebergConfig:
         },
       ];
 
-      paramsToTest.forEach(params => {
+      paramsToTest.forEach((params) => {
         test(`${testCase.testName} in ${params.filename}`, () => {
           const projectDir = tmpDirFixture.createNewTmpDir();
           setupFiles(projectDir, params.filename, params.fileContents, testCase.wsContent);
@@ -939,7 +958,9 @@ defaultIcebergConfig:
           const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
           if (testCase.expectError) {
-            expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).greaterThan(0);
+            expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).greaterThan(
+              0,
+            );
             const error = result.compile.compiledGraph.graphErrors.compilationErrors[0];
             expect(error.message).contains(testCase.expectError);
             expect(error.fileName).equals(`definitions/${params.filename}`);
@@ -954,7 +975,7 @@ defaultIcebergConfig:
 
             // Compare the bigquery object
             expect(asPlainObject(compiledTable.bigquery)).deep.equals(
-              asPlainObject(testCase.expected!.bigquery)
+              asPlainObject(testCase.expected!.bigquery),
             );
           }
         });
@@ -969,7 +990,7 @@ defaultIcebergConfig:
       path.join(projectDir, "workflow_settings.yaml"),
       `defaultDataset: sqlanvil
 defaultLocation: europe-west2
-`
+`,
     );
     fs.mkdirSync(path.join(projectDir, "definitions"));
     fs.writeFileSync(
@@ -979,7 +1000,7 @@ defaultLocation: europe-west2
     name: "incremental_table_without_default_project"
 }
 
-select \${incremental()} as is_incremental`
+select \${incremental()} as is_incremental`,
     );
 
     const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -1003,19 +1024,22 @@ select \${incremental()} as is_incremental`
   suite("jit compilation", () => {
     test("jitCode is rejected at compile time", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
-      fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), VALID_WORKFLOW_SETTINGS_YAML);
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        VALID_WORKFLOW_SETTINGS_YAML,
+      );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
         path.join(projectDir, "definitions/incremental.js"),
-        `publish("incremental", {type: "incremental"}).jitCode((ctx) => Promise.resolve({query: "select 1", incrementalQuery: "select 1"}))`
+        `publish("incremental", {type: "incremental"}).jitCode((ctx) => Promise.resolve({query: "select 1", incrementalQuery: "select 1"}))`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       expect(
-        result.compile.compiledGraph.graphErrors.compilationErrors.some(e =>
-          e.message.includes("Incremental table .jitCode() is not supported by sqlanvil")
-        )
+        result.compile.compiledGraph.graphErrors.compilationErrors.some((e) =>
+          e.message.includes("Incremental table .jitCode() is not supported by sqlanvil"),
+        ),
       ).equals(true);
       // The rejected action must not survive into the graph.
       expect(asPlainObject(result.compile.compiledGraph.tables)).deep.equals([]);
@@ -1023,25 +1047,31 @@ select \${incremental()} as is_incremental`
 
     test("jitCode is rejected even when a query is also provided", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
-      fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), VALID_WORKFLOW_SETTINGS_YAML);
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        VALID_WORKFLOW_SETTINGS_YAML,
+      );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
         path.join(projectDir, "definitions/incremental.js"),
-        `publish("incremental", {type: "incremental"}).jitCode((ctx) => ({query: "select 1", incrementalQuery: "select 1"})).query("select 1")`
+        `publish("incremental", {type: "incremental"}).jitCode((ctx) => ({query: "select 1", incrementalQuery: "select 1"})).query("select 1")`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       expect(
-        result.compile.compiledGraph.graphErrors.compilationErrors.some(e =>
-          e.message.includes("Incremental table .jitCode() is not supported by sqlanvil")
-        )
+        result.compile.compiledGraph.graphErrors.compilationErrors.some((e) =>
+          e.message.includes("Incremental table .jitCode() is not supported by sqlanvil"),
+        ),
       ).equals(true);
     });
 
     test("mysql action config can be parsed and compiled", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
-      fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), VALID_WORKFLOW_SETTINGS_YAML);
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        VALID_WORKFLOW_SETTINGS_YAML,
+      );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
         path.join(projectDir, "definitions/incremental.sqlx"),
@@ -1054,7 +1084,7 @@ config {
     indexes: [{ columns: ["id"], unique: true }]
   }
 }
-SELECT 1 AS id`
+SELECT 1 AS id`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -1062,7 +1092,7 @@ SELECT 1 AS id`
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
       expect(asPlainObject(result.compile.compiledGraph.tables[0].mysql)).deep.equals({
         engine: "InnoDB",
-        indexes: [{ columns: ["id"], unique: true }]
+        indexes: [{ columns: ["id"], unique: true }],
       });
     });
   });
@@ -1072,7 +1102,7 @@ SELECT 1 AS id`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1082,7 +1112,7 @@ SELECT 1 AS id`
           incrementalStrategy: "insert_overwrite",
           partitionBy: "DATE(ts)"
         }
-        SELECT 1`
+        SELECT 1`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -1094,12 +1124,12 @@ SELECT 1 AS id`
             target: {
               database: "defaultProject",
               schema: "defaultDataset",
-              name: "incremental"
+              name: "incremental",
             },
             canonicalTarget: {
               database: "defaultProject",
               schema: "defaultDataset",
-              name: "incremental"
+              name: "incremental",
             },
             fileName: "definitions/incremental.sqlx",
             hermeticity: "NON_HERMETIC",
@@ -1112,10 +1142,10 @@ SELECT 1 AS id`
             protected: false,
             disabled: false,
             bigquery: {
-              partitionBy: "DATE(ts)"
-            }
-          }
-        ])
+              partitionBy: "DATE(ts)",
+            },
+          },
+        ]),
       );
     });
 
@@ -1123,7 +1153,7 @@ SELECT 1 AS id`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1132,14 +1162,14 @@ SELECT 1 AS id`
           type: "incremental",
           incrementalStrategy: "insert_overwrite"
         }
-        SELECT 1`
+        SELECT 1`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).greaterThan(0);
       expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains(
-        "IncrementalStrategy 'insert_overwrite' requires 'partitionBy' to be set"
+        "IncrementalStrategy 'insert_overwrite' requires 'partitionBy' to be set",
       );
     });
 
@@ -1151,7 +1181,7 @@ SELECT 1 AS id`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        `defaultProject: dataform\ndefaultDataset: analytics\ndefaultAssertionDataset: assertions\nwarehouse: postgres`
+        `defaultProject: dataform\ndefaultDataset: analytics\ndefaultAssertionDataset: assertions\nwarehouse: postgres`,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1160,14 +1190,16 @@ SELECT 1 AS id`
           type: "incremental",
           incrementalStrategy: "insert_overwrite"
         }
-        SELECT 1`
+        SELECT 1`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
-      const messages = result.compile.compiledGraph.graphErrors.compilationErrors.map(e => e.message);
+      const messages = result.compile.compiledGraph.graphErrors.compilationErrors.map(
+        (e) => e.message,
+      );
       expect(messages.join("\n")).contains(
-        "IncrementalStrategy 'insert_overwrite' is currently BigQuery-only"
+        "IncrementalStrategy 'insert_overwrite' is currently BigQuery-only",
       );
       // Specifically NOT the partitionBy message — that would be a dead end on Postgres.
       expect(messages.join("\n")).does.not.contain("requires 'partitionBy' to be set");
@@ -1177,7 +1209,7 @@ SELECT 1 AS id`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1187,7 +1219,7 @@ SELECT 1 AS id`
           incrementalStrategy: "merge",
           uniqueKey: ["id"]
         }
-        SELECT 1`
+        SELECT 1`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -1199,12 +1231,12 @@ SELECT 1 AS id`
             target: {
               database: "defaultProject",
               schema: "defaultDataset",
-              name: "incremental"
+              name: "incremental",
             },
             canonicalTarget: {
               database: "defaultProject",
               schema: "defaultDataset",
-              name: "incremental"
+              name: "incremental",
             },
             fileName: "definitions/incremental.sqlx",
             hermeticity: "NON_HERMETIC",
@@ -1216,9 +1248,9 @@ SELECT 1 AS id`
             enumType: "INCREMENTAL",
             protected: false,
             disabled: false,
-            uniqueKey: ["id"]
-          }
-        ])
+            uniqueKey: ["id"],
+          },
+        ]),
       );
     });
 
@@ -1226,7 +1258,7 @@ SELECT 1 AS id`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1235,14 +1267,14 @@ SELECT 1 AS id`
           type: "incremental",
           incrementalStrategy: "merge"
         }
-        SELECT 1`
+        SELECT 1`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).greaterThan(0);
       expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains(
-        "IncrementalStrategy 'merge' requires 'uniqueKey' to be set"
+        "IncrementalStrategy 'merge' requires 'uniqueKey' to be set",
       );
     });
 
@@ -1250,7 +1282,7 @@ SELECT 1 AS id`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1259,14 +1291,14 @@ SELECT 1 AS id`
           type: "incremental",
           incrementalStrategy: "invalid_strategy"
         }
-        SELECT 1`
+        SELECT 1`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).greaterThan(0);
       expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains(
-        'IncrementalStrategy value "invalid_strategy" is not supported'
+        'IncrementalStrategy value "invalid_strategy" is not supported',
       );
     });
 
@@ -1274,7 +1306,7 @@ SELECT 1 AS id`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -1286,14 +1318,14 @@ SELECT 1 AS id`
             incrementalPredicates: ["bar = 2"]
           }
         }
-        SELECT 1`
+        SELECT 1`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).equals(1);
       expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains(
-        "incrementalPredicates and updatePartitionFilter cannot be both set. Use only incrementalPredicates."
+        "incrementalPredicates and updatePartitionFilter cannot be both set. Use only incrementalPredicates.",
       );
     });
   });

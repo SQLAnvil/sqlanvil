@@ -11,7 +11,8 @@ const nativeRequire = typeof __webpack_require__ === "function" ? __non_webpack_
 
 export function readWorkflowSettings(failIfMissing: boolean = true): sqlanvil.ProjectConfig {
   const globalAny = global as any;
-  const workflowSettingsYaml = globalAny.workflowSettingsYaml || maybeRequire("workflow_settings.yaml");
+  const workflowSettingsYaml =
+    globalAny.workflowSettingsYaml || maybeRequire("workflow_settings.yaml");
 
   if (workflowSettingsYaml) {
     const workflowSettingsAsJson = workflowSettingsYaml.asJson;
@@ -36,8 +37,8 @@ function verifyWorkflowSettingsAsJson(workflowSettingsAsJson: object): sqlanvil.
         workflowSettingsAsJson as {
           [key: string]: any;
         },
-        VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
-      )
+        VerifyProtoErrorBehaviour.SHOW_DOCS_LINK,
+      ),
     );
   } catch (e) {
     if (e instanceof ReferenceError) {
@@ -50,7 +51,7 @@ function verifyWorkflowSettingsAsJson(workflowSettingsAsJson: object): sqlanvil.
   if (!!workflowSettings.sqlanvilCoreVersion && workflowSettings.sqlanvilCoreVersion !== version) {
     throw Error(
       `Version mismatch: workflow settings specifies version ${workflowSettings.sqlanvilCoreVersion}` +
-        `, but ${version} was found`
+        `, but ${version} was found`,
     );
   }
 
@@ -74,7 +75,7 @@ function maybeRequire(file: string): any {
 }
 
 export function workflowSettingsAsProjectConfig(
-  workflowSettings: sqlanvil.WorkflowSettings
+  workflowSettings: sqlanvil.WorkflowSettings,
 ): sqlanvil.ProjectConfig {
   const projectConfig = sqlanvil.ProjectConfig.create();
   // A bare number in YAML (`defaultDataset: 12345`) survives proto verification as a number and
@@ -85,7 +86,7 @@ export function workflowSettingsAsProjectConfig(
     if (value !== undefined && value !== null && typeof value !== "string") {
       throw Error(
         `Workflow settings error: ${key} must be a string (got ${JSON.stringify(value)}); ` +
-          `quote the value in workflow_settings.yaml.`
+          `quote the value in workflow_settings.yaml.`,
       );
     }
   }
@@ -118,7 +119,7 @@ export function workflowSettingsAsProjectConfig(
   }
   if (workflowSettings.defaultNotebookRuntimeOptions) {
     projectConfig.defaultNotebookRuntimeOptions = {};
-    const {outputBucket, runtimeTemplateName, repositorySnapshotDestination} =
+    const { outputBucket, runtimeTemplateName, repositorySnapshotDestination } =
       workflowSettings.defaultNotebookRuntimeOptions;
     if (outputBucket) {
       projectConfig.defaultNotebookRuntimeOptions.outputBucket = outputBucket;
@@ -137,26 +138,31 @@ export function workflowSettingsAsProjectConfig(
       } else {
         throw Error(
           "Invalid repository_snapshot_destination: either repository_snapshot_uri or output_bucket " +
-            "has to be defined");
+            "has to be defined",
+        );
       }
     }
   }
-  if(workflowSettings.defaultIcebergConfig) {
+  if (workflowSettings.defaultIcebergConfig) {
     projectConfig.defaultIcebergConfig = {};
-    if(workflowSettings.defaultIcebergConfig.bucketName) {
-      projectConfig.defaultIcebergConfig.bucketName = workflowSettings.defaultIcebergConfig.bucketName;
+    if (workflowSettings.defaultIcebergConfig.bucketName) {
+      projectConfig.defaultIcebergConfig.bucketName =
+        workflowSettings.defaultIcebergConfig.bucketName;
     }
-    if(workflowSettings.defaultIcebergConfig.tableFolderRoot) {
-      projectConfig.defaultIcebergConfig.tableFolderRoot = workflowSettings.defaultIcebergConfig.tableFolderRoot;
+    if (workflowSettings.defaultIcebergConfig.tableFolderRoot) {
+      projectConfig.defaultIcebergConfig.tableFolderRoot =
+        workflowSettings.defaultIcebergConfig.tableFolderRoot;
     }
-    if(workflowSettings.defaultIcebergConfig.tableFolderSubpath) {
-      projectConfig.defaultIcebergConfig.tableFolderSubpath = workflowSettings.defaultIcebergConfig.tableFolderSubpath;
+    if (workflowSettings.defaultIcebergConfig.tableFolderSubpath) {
+      projectConfig.defaultIcebergConfig.tableFolderSubpath =
+        workflowSettings.defaultIcebergConfig.tableFolderSubpath;
     }
-    if(workflowSettings.defaultIcebergConfig.connection) {
-      projectConfig.defaultIcebergConfig.connection = workflowSettings.defaultIcebergConfig.connection;
+    if (workflowSettings.defaultIcebergConfig.connection) {
+      projectConfig.defaultIcebergConfig.connection =
+        workflowSettings.defaultIcebergConfig.connection;
     }
   }
-  if(workflowSettings.disableAssertions) {
+  if (workflowSettings.disableAssertions) {
     projectConfig.disableAssertions = workflowSettings.disableAssertions;
   }
   if (workflowSettings.defaultReservation) {
@@ -175,7 +181,7 @@ export function workflowSettingsAsProjectConfig(
     projectConfig.connections = workflowSettings.connections;
     // Validate every connection's platform (not just the warehouse's) so a typo in a
     // source connection fails at compile time rather than at run time.
-    Object.keys(workflowSettings.connections).forEach(name => {
+    Object.keys(workflowSettings.connections).forEach((name) => {
       const connection = workflowSettings.connections[name];
       if (!connection.platform) {
         throw new Error(`Connection "${name}" is missing required field "platform".`);
@@ -183,7 +189,7 @@ export function workflowSettingsAsProjectConfig(
       if (!supportedWarehouses.includes(connection.platform)) {
         throw new Error(
           `Connection "${name}" has unsupported platform "${connection.platform}". ` +
-            `Supported platforms: ${supportedWarehouses.join(", ")}.`
+            `Supported platforms: ${supportedWarehouses.join(", ")}.`,
         );
       }
     });
@@ -199,7 +205,7 @@ export function workflowSettingsAsProjectConfig(
           ? `Connection "${workflowSettings.warehouse}" has unsupported platform "${platform}". ` +
               `Supported platforms: ${supportedWarehouses.join(", ")}.`
           : `Unsupported warehouse "${workflowSettings.warehouse}". ` +
-              `Supported warehouses: ${supportedWarehouses.join(", ")}.`
+              `Supported warehouses: ${supportedWarehouses.join(", ")}.`,
       );
     }
     projectConfig.warehouse = platform;

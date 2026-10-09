@@ -1,12 +1,29 @@
 import { default as TarjanGraphConstructor, Graph as TarjanGraph } from "tarjan-graph";
 
-import { encode64, unknownToValue, verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
-import { Action, ActionProto, ILegacyTableConfig, TableType, RlsPolicy, IRlsPolicyConfig, RealtimePublication, IRealtimePublicationConfig, Wrapper, IWrapperConfig, ForeignTable, IForeignTableConfig, VectorIndex, IVectorIndexConfig } from "sa/core/actions";
-import { AContextable, Assertion, AssertionContext } from "sa/core/actions/assertion";
 import {
-  DataPreparation,
-  DataPreparationContext,
-} from "sa/core/actions/data_preparation";
+  encode64,
+  unknownToValue,
+  verifyObjectMatchesProto,
+  VerifyProtoErrorBehaviour,
+} from "sa/common/protos";
+import {
+  Action,
+  ActionProto,
+  ILegacyTableConfig,
+  TableType,
+  RlsPolicy,
+  IRlsPolicyConfig,
+  RealtimePublication,
+  IRealtimePublicationConfig,
+  Wrapper,
+  IWrapperConfig,
+  ForeignTable,
+  IForeignTableConfig,
+  VectorIndex,
+  IVectorIndexConfig,
+} from "sa/core/actions";
+import { AContextable, Assertion, AssertionContext } from "sa/core/actions/assertion";
+import { DataPreparation, DataPreparationContext } from "sa/core/actions/data_preparation";
 import { Declaration } from "sa/core/actions/declaration";
 import { Export } from "sa/core/actions/export";
 import { Import } from "sa/core/actions/import";
@@ -27,10 +44,9 @@ import { ResolvableMap, toResolvable } from "sa/core/utils";
 import { version as sqlanvilCoreVersion } from "sa/core/version";
 import { sqlanvil, google } from "sa/protos/ts";
 
-
 const DEFAULT_CONFIG = {
   defaultSchema: "sqlanvil",
-  assertionSchema: "sqlanvil_assertions"
+  assertionSchema: "sqlanvil_assertions",
 };
 
 /**
@@ -80,7 +96,7 @@ export class Session {
   constructor(
     rootDir?: string,
     projectConfig?: sqlanvil.ProjectConfig,
-    originalProjectConfig?: sqlanvil.ProjectConfig
+    originalProjectConfig?: sqlanvil.ProjectConfig,
   ) {
     this.init(rootDir, projectConfig, originalProjectConfig);
   }
@@ -88,12 +104,12 @@ export class Session {
   public init(
     rootDir: string,
     projectConfig?: sqlanvil.ProjectConfig,
-    originalProjectConfig?: sqlanvil.ProjectConfig
+    originalProjectConfig?: sqlanvil.ProjectConfig,
   ) {
     this.rootDir = rootDir;
     this.projectConfig = sqlanvil.ProjectConfig.create(projectConfig || DEFAULT_CONFIG);
     this.canonicalProjectConfig = getCanonicalProjectConfig(
-      sqlanvil.ProjectConfig.create(originalProjectConfig || projectConfig || DEFAULT_CONFIG)
+      sqlanvil.ProjectConfig.create(originalProjectConfig || projectConfig || DEFAULT_CONFIG),
     );
     this.actions = [];
     this.foreignServers = new Set();
@@ -109,11 +125,13 @@ export class Session {
   public getContents(filePath: string): string {
     const callerFile = utils.getCallerFile(this.rootDir);
     const callerDir = Path.dirName(callerFile);
-    const resolvedPath = Path.join(callerDir,filePath);
+    const resolvedPath = Path.join(callerDir, filePath);
     const absolutePath = Path.separator + Path.normalize(Path.join(this.rootDir, resolvedPath));
-    const rootDir = this.rootDir.endsWith(Path.separator) ? this.rootDir : this.rootDir + Path.separator;
+    const rootDir = this.rootDir.endsWith(Path.separator)
+      ? this.rootDir
+      : this.rootDir + Path.separator;
 
-    if (!absolutePath.startsWith(rootDir)){
+    if (!absolutePath.startsWith(rootDir)) {
       throw new Error(`Cannot read "${filePath}": path resolves outside the project directory.`);
     }
 
@@ -125,7 +143,7 @@ export class Session {
     }
 
     if (!module || typeof module.contents !== "string") {
-      throw new Error (`Cannot read "${filePath}": only .md files are supported.`)
+      throw new Error(`Cannot read "${filePath}": only .md files are supported.`);
     }
     return module.contents;
   }
@@ -141,7 +159,7 @@ export class Session {
         | AssertionContext
         | OperationContext
         | DataPreparationContext
-        | IActionContext
+        | IActionContext,
     ) => string[];
     incrementalWhereContextable: (ctx: ITableContext) => string;
     preOperationsContextable: (ctx: ITableContext) => string[];
@@ -150,24 +168,24 @@ export class Session {
       {
         refName: string[];
         contextable: (ctx: IActionContext) => string;
-      }
+      },
     ];
   }) {
     const { sqlxConfig } = actionOptions;
     const actionType = sqlxConfig.hasOwnProperty("type") ? sqlxConfig.type : "operations";
     if (actionOptions.sqlStatementCount > 1 && actionType !== "operations") {
       this.compileError(
-        "Actions may only contain more than one SQL statement if they are of type 'operations'."
+        "Actions may only contain more than one SQL statement if they are of type 'operations'.",
       );
     }
     if (sqlxConfig.hasOwnProperty("protected") && actionType !== "incremental") {
       this.compileError(
-        "Actions may only specify 'protected: true' if they are of type 'incremental'."
+        "Actions may only specify 'protected: true' if they are of type 'incremental'.",
       );
     }
     if (actionOptions.incrementalWhereContextable && actionType !== "incremental") {
       this.compileError(
-        "Actions may only include incremental_where if they are of type 'incremental'."
+        "Actions may only include incremental_where if they are of type 'incremental'.",
       );
     }
     if (actionOptions.inputContextables.length > 0 && actionType !== "test") {
@@ -186,7 +204,9 @@ export class Session {
 
     switch (actionType) {
       case "view":
-        const view = new View(this, sqlxConfig).query(ctx => actionOptions.sqlContextable(ctx)[0]);
+        const view = new View(this, sqlxConfig).query(
+          (ctx) => actionOptions.sqlContextable(ctx)[0],
+        );
         if (actionOptions.incrementalWhereContextable) {
           view.where(actionOptions.incrementalWhereContextable);
         }
@@ -200,7 +220,7 @@ export class Session {
         break;
       case "incremental":
         const incrementalTable = new IncrementalTable(this, sqlxConfig).query(
-          ctx => actionOptions.sqlContextable(ctx)[0]
+          (ctx) => actionOptions.sqlContextable(ctx)[0],
         );
         if (actionOptions.incrementalWhereContextable) {
           incrementalTable.where(actionOptions.incrementalWhereContextable);
@@ -215,7 +235,7 @@ export class Session {
         break;
       case "table":
         const table = new Table(this, sqlxConfig).query(
-          ctx => actionOptions.sqlContextable(ctx)[0]
+          (ctx) => actionOptions.sqlContextable(ctx)[0],
         );
         if (actionOptions.incrementalWhereContextable) {
           table.where(actionOptions.incrementalWhereContextable);
@@ -230,12 +250,12 @@ export class Session {
         break;
       case "assertion":
         this.actions.push(
-          new Assertion(this, sqlxConfig).query(ctx => actionOptions.sqlContextable(ctx)[0])
+          new Assertion(this, sqlxConfig).query((ctx) => actionOptions.sqlContextable(ctx)[0]),
         );
         break;
       case "dataPreparation":
         const dataPreparation = new DataPreparation(this, sqlxConfig).query(
-          ctx => actionOptions.sqlContextable(ctx)[0]
+          (ctx) => actionOptions.sqlContextable(ctx)[0],
         );
         this.actions.push(dataPreparation);
         break;
@@ -244,7 +264,7 @@ export class Session {
         break;
       case "export":
         this.actions.push(
-          new Export(this, sqlxConfig).query(ctx => actionOptions.sqlContextable(ctx)[0])
+          new Export(this, sqlxConfig).query((ctx) => actionOptions.sqlContextable(ctx)[0]),
         );
         break;
       case "import":
@@ -256,7 +276,7 @@ export class Session {
       case "test":
         const testCase = this.test(sqlxConfig.name)
           .config(sqlxConfig)
-          .expect(ctx => actionOptions.sqlContextable(ctx)[0]);
+          .expect((ctx) => actionOptions.sqlContextable(ctx)[0]);
         actionOptions.inputContextables.forEach(({ refName, contextable }) => {
           testCase.input(refName, contextable);
         });
@@ -280,7 +300,7 @@ export class Session {
     let candidates = found;
     if (!refTarget.database && this.projectConfig.defaultDatabase) {
       const inDefaultDatabase = candidates.filter(
-        action => action.getTarget().database === this.projectConfig.defaultDatabase
+        (action) => action.getTarget().database === this.projectConfig.defaultDatabase,
       );
       if (inDefaultDatabase.length > 0) {
         candidates = inDefaultDatabase;
@@ -288,7 +308,7 @@ export class Session {
     }
     if (!refTarget.schema && this.projectConfig.defaultSchema) {
       const inDefaultSchema = candidates.filter(
-        action => action.getTarget().schema === this.projectConfig.defaultSchema
+        (action) => action.getTarget().schema === this.projectConfig.defaultSchema,
       );
       if (inDefaultSchema.length > 0) {
         candidates = inDefaultSchema;
@@ -308,7 +328,7 @@ export class Session {
 
     if (resolved && resolved instanceof Operation && !resolved.getHasOutput()) {
       this.compileError(
-        new Error("Actions cannot resolve operations which do not produce output.")
+        new Error("Actions cannot resolve operations which do not produce output."),
       );
       return "";
     }
@@ -322,7 +342,7 @@ export class Session {
         database:
           resolved.getTarget().database && this.finalizeDatabase(resolved.getTarget().database),
         schema: this.finalizeSchema(resolved.getTarget().schema),
-        name: this.finalizeName(resolved.getTarget().name)
+        name: this.finalizeName(resolved.getTarget().name),
       });
     }
 
@@ -340,8 +360,7 @@ export class Session {
   public operate(
     name: string,
     queryOrConfig?:
-      | Contextable<IActionContext, string | string[]>
-      | sqlanvil.ActionConfig.OperationConfig
+      Contextable<IActionContext, string | string[]> | sqlanvil.ActionConfig.OperationConfig,
   ): Operation {
     const filename = utils.getCallerFile(this.rootDir);
     let operation: Operation;
@@ -375,7 +394,7 @@ export class Session {
     const filename = utils.getCallerFile(this.rootDir);
     const wrapper = new Wrapper(this, { filename, ...config });
     this.actions.push(wrapper);
-    (config.foreignTables || []).forEach(ft => {
+    (config.foreignTables || []).forEach((ft) => {
       const foreignTable = new ForeignTable(this, {
         filename,
         name: ft.name,
@@ -383,7 +402,7 @@ export class Session {
         server: config.server,
         options: ft.options,
         columns: ft.columns,
-        dependsOn: config.name
+        dependsOn: config.name,
       });
       this.actions.push(foreignTable);
     });
@@ -416,14 +435,14 @@ export class Session {
       | ILegacyTableConfig
       // `any` is used here to facilitate the type merging of legacy table configs, which are very
       // different to the new structures.
-      | any
+      | any,
   ): Table | IncrementalTable | View {
     // In v4, consider replacing publish with separate methods for each action type.
     const filename = utils.getCallerFile(this.rootDir);
     let newTable: Table | IncrementalTable | View = new View(this, {
       type: "view",
       name,
-      filename
+      filename,
     });
     if (!!queryOrConfig) {
       if (typeof queryOrConfig === "object") {
@@ -434,7 +453,7 @@ export class Session {
             type: "incremental",
             name,
             filename,
-            ...queryOrConfig
+            ...queryOrConfig,
           });
         } else if (queryOrConfig?.type === "table") {
           newTable = new Table(this, { type: "table", name, filename, ...queryOrConfig });
@@ -459,7 +478,7 @@ export class Session {
    */
   public assert(
     name: string,
-    queryOrConfig?: AContextable<string> | sqlanvil.ActionConfig.AssertionConfig
+    queryOrConfig?: AContextable<string> | sqlanvil.ActionConfig.AssertionConfig,
     // // `any` is used here to facilitate the type merging of legacy declaration configs options,
     // // without breaking typescript consumers of sqlanvil.
     // | any
@@ -490,7 +509,7 @@ export class Session {
       | sqlanvil.ActionConfig.DeclarationConfig
       // `any` is used here to facilitate the type merging of legacy declaration configs options,
       // without breaking typescript consumers of sqlanvil.
-      | any
+      | any,
   ): Declaration {
     const filename = config.filename || utils.getCallerFile(this.rootDir);
     const connectionName = config.connection;
@@ -516,7 +535,7 @@ export class Session {
       this.compileError(
         new Error(`Unknown connection "${connectionName}" on declaration "${config.name}".`),
         filename,
-        declaration.getTarget()
+        declaration.getTarget(),
       );
       this.actions.push(declaration);
       return declaration;
@@ -525,14 +544,17 @@ export class Session {
     // for migrations, where hundreds of declarations get introspected incrementally); the
     // extract fails at RUN time with the introspect command to fix it.
 
-    if (this.projectConfig.warehouse !== "postgres" && this.projectConfig.warehouse !== "supabase") {
+    if (
+      this.projectConfig.warehouse !== "postgres" &&
+      this.projectConfig.warehouse !== "supabase"
+    ) {
       this.compileError(
         new Error(
           `Reading connection "${connectionName}" from a ${this.projectConfig.warehouse} ` +
-            "warehouse is not yet supported."
+            "warehouse is not yet supported.",
         ),
         filename,
-        declaration.getTarget()
+        declaration.getTarget(),
       );
       this.actions.push(declaration);
       return declaration;
@@ -544,16 +566,15 @@ export class Session {
     // MySQL/MariaDB sources have no Postgres FDW — runner-extract is their default and only mode.
     // Reject an explicit `mode: "fdw"` with a clear error instead of emitting a broken
     // postgres_fdw server against a MySQL host.
-    const mode =
-      connection.mode || (connection.platform === "mysql" ? "runner-extract" : "fdw");
+    const mode = connection.mode || (connection.platform === "mysql" ? "runner-extract" : "fdw");
     if (connection.platform === "mysql" && mode !== "runner-extract") {
       this.compileError(
         new Error(
           `Connection "${connectionName}": MySQL/MariaDB sources support only ` +
-            `mode "runner-extract" (there is no Postgres FDW for MySQL); got "${mode}".`
+            `mode "runner-extract" (there is no Postgres FDW for MySQL); got "${mode}".`,
         ),
         filename,
-        declaration.getTarget()
+        declaration.getTarget(),
       );
       this.actions.push(declaration);
       return declaration;
@@ -588,13 +609,11 @@ export class Session {
               ? declaredSchema || connection.dataset
               : connection.dataset,
           database:
-            connection.platform === "mysql"
-              ? declaredSchema || connection.database
-              : undefined,
+            connection.platform === "mysql" ? declaredSchema || connection.database : undefined,
           sourceName: config.name,
           billingProject: connection.billingProject,
-          columnTypes: config.columnTypes
-        })
+          columnTypes: config.columnTypes,
+        }),
       );
       // The Extract (above) is the ref-able stand-in; the plain `declaration` built earlier is
       // intentionally NOT pushed, mirroring the FDW path.
@@ -609,10 +628,10 @@ export class Session {
         new Error(
           `Declaration "${config.name}" on FDW connection "${connectionName}" requires ` +
             "`columnTypes`; run `sqlanvil introspect " +
-            `${connectionName} ${config.schema || config.dataset || ""}.${config.name}\`.`
+            `${connectionName} ${config.schema || config.dataset || ""}.${config.name}\`.`,
         ),
         filename,
-        declaration.getTarget()
+        declaration.getTarget(),
       );
       this.actions.push(declaration);
       return declaration;
@@ -631,10 +650,10 @@ export class Session {
               // Bill query jobs to `billingProject` when set (e.g. read bigquery-public-data
               // but bill your own project); otherwise the source project bills itself.
               project_id: connection.billingProject || connection.project,
-              dataset_id: connection.dataset
+              dataset_id: connection.dataset,
             },
-            credential: { saKeyId: connection.saKeyId }
-          })
+            credential: { saKeyId: connection.saKeyId },
+          }),
         );
       } else {
         this.actions.push(
@@ -646,12 +665,12 @@ export class Session {
             serverOptions: {
               host: connection.host,
               port: String(connection.port || 5432),
-              dbname: connection.database
+              dbname: connection.database,
             },
             // Emit a CREATE USER MAPPING; user/password are injected at run time
             // from .df-credentials.json's `connections` map (see run-time substitution).
-            userMappingConnection: connectionName
-          })
+            userMappingConnection: connectionName,
+          }),
         );
       }
     }
@@ -669,9 +688,8 @@ export class Session {
         : {
             // Accept both the legacy `schema` and the modern `dataset` spelling, else an
             // explicit source schema silently falls back to the connection default.
-            schema_name:
-              config.schema || config.dataset || connection.defaultSchema || "public",
-            table_name: config.name
+            schema_name: config.schema || config.dataset || connection.defaultSchema || "public",
+            table_name: config.name,
           };
 
     this.actions.push(
@@ -682,8 +700,8 @@ export class Session {
         server: serverName,
         options: ftOptions,
         columns: config.columnTypes,
-        dependsOn: serverName
-      })
+        dependsOn: serverName,
+      }),
     );
     // The ForeignTable (above) is the ref-able stand-in for this source; the
     // `declaration` constructed earlier is intentionally NOT pushed in the bridge path.
@@ -706,7 +724,7 @@ export class Session {
     newTest.session = this;
     newTest.setFilename(utils.getCallerFile(this.rootDir));
     // Add it to global index.
-    this.tests.push(newTest)
+    this.tests.push(newTest);
     return newTest;
   }
 
@@ -735,7 +753,6 @@ export class Session {
     }
 
     this.jitContextData.fields[key] = unknownToValue(data);
-
   }
   public compileError(err: Error | string, path?: string, actionTarget?: sqlanvil.ITarget) {
     const fileName =
@@ -744,7 +761,7 @@ export class Session {
     const compileError = sqlanvil.CompilationError.create({
       fileName,
       actionName: !!actionTarget ? targetAsReadableString(actionTarget) : undefined,
-      actionTarget
+      actionTarget,
     });
     if (typeof err === "string") {
       compileError.message = err;
@@ -758,13 +775,13 @@ export class Session {
   public compile(): sqlanvil.CompiledGraph {
     this.actions.push(...this.tests);
     this.indexedActions = new ResolvableMap(
-      this.actions.map(action => ({ actionTarget: action.getTarget(), value: action }))
+      this.actions.map((action) => ({ actionTarget: action.getTarget(), value: action })),
     );
 
     // defaultLocation is no longer a required parameter to support location auto-selection.
     if (
       !!this.projectConfig.vars &&
-      !Object.values(this.projectConfig.vars).every(value => typeof value === "string")
+      !Object.values(this.projectConfig.vars).every((value) => typeof value === "string")
     ) {
       throw new Error("Custom variables defined in workflow settings can only be strings.");
     }
@@ -773,41 +790,41 @@ export class Session {
       projectConfig: this.projectConfig,
       tables: this.compileGraphChunk(
         this.actions.filter(
-          action =>
-            action instanceof Table || action instanceof View || action instanceof IncrementalTable
-        )
+          (action) =>
+            action instanceof Table || action instanceof View || action instanceof IncrementalTable,
+        ),
       ),
       operations: this.compileGraphChunk(
         this.actions.filter(
-          action =>
+          (action) =>
             action instanceof Operation ||
             action instanceof RlsPolicy ||
             action instanceof RealtimePublication ||
             action instanceof Wrapper ||
             action instanceof ForeignTable ||
-            action instanceof VectorIndex
-        )
+            action instanceof VectorIndex,
+        ),
       ),
       assertions: this.compileGraphChunk(
-        this.actions.filter(action => action instanceof Assertion)
+        this.actions.filter((action) => action instanceof Assertion),
       ),
       declarations: this.compileGraphChunk(
-        this.actions.filter(action => action instanceof Declaration)
+        this.actions.filter((action) => action instanceof Declaration),
       ),
-      tests: this.compileGraphChunk(
-        this.actions.filter(action => action instanceof Test)
+      tests: this.compileGraphChunk(this.actions.filter((action) => action instanceof Test)),
+      notebooks: this.compileGraphChunk(
+        this.actions.filter((action) => action instanceof Notebook),
       ),
-      notebooks: this.compileGraphChunk(this.actions.filter(action => action instanceof Notebook)),
       dataPreparations: this.compileGraphChunk(
-        this.actions.filter(action => action instanceof DataPreparation)
+        this.actions.filter((action) => action instanceof DataPreparation),
       ),
-      exports: this.compileGraphChunk(this.actions.filter(action => action instanceof Export)),
-      imports: this.compileGraphChunk(this.actions.filter(action => action instanceof Import)),
-      extracts: this.compileGraphChunk(this.actions.filter(action => action instanceof Extract)),
-      scripts: this.compileGraphChunk(this.actions.filter(action => action instanceof Script)),
+      exports: this.compileGraphChunk(this.actions.filter((action) => action instanceof Export)),
+      imports: this.compileGraphChunk(this.actions.filter((action) => action instanceof Import)),
+      extracts: this.compileGraphChunk(this.actions.filter((action) => action instanceof Extract)),
+      scripts: this.compileGraphChunk(this.actions.filter((action) => action instanceof Script)),
       graphErrors: this.graphErrors,
       sqlanvilCoreVersion,
-      targets: this.actions.map(action => action.getTarget()),
+      targets: this.actions.map((action) => action.getTarget()),
       jitData: this.jitContextData,
     });
 
@@ -826,8 +843,8 @@ export class Session {
         compiledGraph.imports,
         compiledGraph.extracts,
         compiledGraph.scripts,
-        compiledGraph.tests
-      )
+        compiledGraph.tests,
+      ),
     );
 
     this.removeUnreferencedExtracts(compiledGraph);
@@ -843,9 +860,9 @@ export class Session {
         compiledGraph.imports,
         compiledGraph.extracts,
         compiledGraph.scripts,
-        compiledGraph.tests
+        compiledGraph.tests,
       ),
-      [].concat(compiledGraph.declarations.map(declaration => declaration.target))
+      [].concat(compiledGraph.declarations.map((declaration) => declaration.target)),
     );
 
     this.removeNonUniqueActionsFromCompiledGraph(compiledGraph);
@@ -863,13 +880,13 @@ export class Session {
         compiledGraph.imports,
         compiledGraph.extracts,
         compiledGraph.scripts,
-        compiledGraph.tests
-      )
+        compiledGraph.tests,
+      ),
     );
     verifyObjectMatchesProto(
       sqlanvil.CompiledGraph,
       compiledGraph,
-      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
     );
     return compiledGraph;
   }
@@ -905,7 +922,7 @@ export class Session {
   private compileGraphChunk<T>(actions: Action[]): T[] {
     const compiledChunks: T[] = [];
 
-    actions.forEach(action => {
+    actions.forEach((action) => {
       // Track the action's file so that compileError() called synchronously
       // from within the action's callback (e.g. Session.resolve) can attribute
       // the error without depending on getCallerFile / the vm2 sandbox stack.
@@ -945,31 +962,31 @@ export class Session {
         compiledGraph.exports,
         compiledGraph.imports,
         compiledGraph.scripts,
-        compiledGraph.tests
+        compiledGraph.tests,
       )
       .forEach((action: { dependencyTargets?: sqlanvil.ITarget[] }) =>
-        (action.dependencyTargets || []).forEach(dependency =>
-          referenced.add(targetStringifier.stringify(dependency))
-        )
+        (action.dependencyTargets || []).forEach((dependency) =>
+          referenced.add(targetStringifier.stringify(dependency)),
+        ),
       );
     const prunedTargets = new Set(
       compiledGraph.extracts
-        .filter(extract => !referenced.has(targetStringifier.stringify(extract.target)))
-        .map(extract => targetStringifier.stringify(extract.target))
+        .filter((extract) => !referenced.has(targetStringifier.stringify(extract.target)))
+        .map((extract) => targetStringifier.stringify(extract.target)),
     );
     if (prunedTargets.size === 0) {
       return;
     }
     compiledGraph.extracts = compiledGraph.extracts.filter(
-      extract => !prunedTargets.has(targetStringifier.stringify(extract.target))
+      (extract) => !prunedTargets.has(targetStringifier.stringify(extract.target)),
     );
     compiledGraph.targets = compiledGraph.targets.filter(
-      target => !prunedTargets.has(targetStringifier.stringify(target))
+      (target) => !prunedTargets.has(targetStringifier.stringify(target)),
     );
   }
 
   private fullyQualifyDependencies(actions: ActionProto[]) {
-    actions.forEach(action => {
+    actions.forEach((action) => {
       const fullyQualifiedDependencies: { [name: string]: sqlanvil.ITarget } = {};
       if (action instanceof sqlanvil.Declaration || !action.dependencyTargets) {
         // Declarations cannot have dependencies.
@@ -982,11 +999,11 @@ export class Session {
           this.compileError(
             new Error(
               `Missing dependency detected: Action "${targetAsReadableString(
-                action.target
-              )}" depends on "${utils.stringifyResolvable(dependency)}" which does not exist`
+                action.target,
+              )}" depends on "${utils.stringifyResolvable(dependency)}" which does not exist`,
             ),
             action.fileName,
-            action.target
+            action.target,
           );
         } else if (possibleDeps.length === 1) {
           // We found a single matching target, and fully-qualify it if it's a normal dependency.
@@ -997,10 +1014,9 @@ export class Session {
             this.actionAssertionMap
               .find(dependency)
               .forEach(
-                assertion =>
-                (fullyQualifiedDependencies[
-                  targetAsReadableString(assertion.getTarget())
-                ] = assertion.getTarget())
+                (assertion) =>
+                  (fullyQualifiedDependencies[targetAsReadableString(assertion.getTarget())] =
+                    assertion.getTarget()),
               );
           }
         } else {
@@ -1008,7 +1024,7 @@ export class Session {
           this.compileError(
             new Error(utils.ambiguousActionNameMsg(dependency, possibleDeps)),
             action.fileName,
-            action.target
+            action.target,
           );
         }
       }
@@ -1024,21 +1040,21 @@ export class Session {
     }
 
     const newTargetByOriginalTarget = new Map<string, sqlanvil.ITarget>();
-    declarationTargets.forEach(declarationTarget =>
+    declarationTargets.forEach((declarationTarget) =>
       newTargetByOriginalTarget.set(
         targetStringifier.stringify(declarationTarget),
-        declarationTarget
-      )
+        declarationTarget,
+      ),
     );
 
-    actions.forEach(action => {
+    actions.forEach((action) => {
       newTargetByOriginalTarget.set(targetStringifier.stringify(action.target), {
         ...action.target,
         database:
           action.target.database &&
           `${action.target.database}${this.getDatabaseSuffixWithUnderscore()}`,
         schema: `${action.target.schema}${this.getSchemaSuffixWithUnderscore()}`,
-        name: `${this.getTablePrefixWithUnderscore()}${action.target.name}`
+        name: `${this.getTablePrefixWithUnderscore()}${action.target.name}`,
       });
       action.target = newTargetByOriginalTarget.get(targetStringifier.stringify(action.target));
     });
@@ -1052,7 +1068,7 @@ export class Session {
       }
       return newTargetByOriginalTarget.get(targetStringifier.stringify(originalTarget));
     };
-    actions.forEach(action => {
+    actions.forEach((action) => {
       if (!(action instanceof sqlanvil.Declaration)) {
         // Declarations cannot have dependencies.
         action.dependencyTargets = (action.dependencyTargets || []).map(getUpdatedTarget);
@@ -1066,11 +1082,11 @@ export class Session {
 
   private checkTestNameUniqueness(tests: sqlanvil.ITest[]) {
     const allNames: string[] = [];
-    tests.forEach(testProto => {
+    tests.forEach((testProto) => {
       if (allNames.includes(testProto.name)) {
         this.compileError(
           new Error(`Duplicate test name detected: "${testProto.name}"`),
-          testProto.fileName
+          testProto.fileName,
         );
       }
       allNames.push(testProto.name);
@@ -1079,30 +1095,31 @@ export class Session {
 
   private checkCircularity(actions: ActionProto[]) {
     const allActionsByStringifiedTarget = new Map<string, ActionProto>(
-      actions.map(action => [targetStringifier.stringify(action.target), action])
+      actions.map((action) => [targetStringifier.stringify(action.target), action]),
     );
 
     // Type exports for tarjan-graph are unfortunately wrong, so we have to do this minor hack.
     const tarjanGraph: TarjanGraph = new (TarjanGraphConstructor as any)();
-    actions.forEach(action => {
+    actions.forEach((action) => {
       // Declarations cannot have dependencies.
-      const cleanedDependencies = (action instanceof sqlanvil.Declaration ||
-        !action.dependencyTargets
-        ? []
-        : action.dependencyTargets
+      const cleanedDependencies = (
+        action instanceof sqlanvil.Declaration || !action.dependencyTargets
+          ? []
+          : action.dependencyTargets
       ).filter(
-        dependency => !!allActionsByStringifiedTarget.get(targetStringifier.stringify(dependency))
+        (dependency) =>
+          !!allActionsByStringifiedTarget.get(targetStringifier.stringify(dependency)),
       );
       tarjanGraph.add(
         targetStringifier.stringify(action.target),
-        cleanedDependencies.map(target => targetStringifier.stringify(target))
+        cleanedDependencies.map((target) => targetStringifier.stringify(target)),
       );
     });
     const cycles = tarjanGraph.getCycles();
-    cycles.forEach(cycle => {
+    cycles.forEach((cycle) => {
       const firstActionInCycle = allActionsByStringifiedTarget.get(cycle[0].name);
       const message = `Circular dependency detected in chain: [${cycle
-        .map(vertex => vertex.name)
+        .map((vertex) => vertex.name)
         .join(" > ")} > ${targetAsReadableString(firstActionInCycle.target)}]`;
       this.compileError(new Error(message), firstActionInCycle.fileName, firstActionInCycle.target);
     });
@@ -1110,25 +1127,26 @@ export class Session {
 
   private addTestsToCompiledGraph(actions: Action[]) {
     actions
-      .filter(action => action instanceof Test)
-      .map(test => test as Test)
-      .forEach(currentTest => {
+      .filter((action) => action instanceof Test)
+      .map((test) => test as Test)
+      .forEach((currentTest) => {
         const testTargets = this.indexedActions.find(currentTest.getTestTarget());
+        testTargets.forEach((action) => {
+          if (!(action instanceof Table || action instanceof View)) {
+            this.compileError(
+              new Error(
+                `Tests are only supported for Tables and Views. Action "${targetAsReadableString(action.getTarget())}" is not a table or view".`,
+              ),
+              action.getFileName(),
+              action.getTarget(),
+            );
+          }
+        });
         testTargets
-          .forEach(action => {
-            if (!(action instanceof Table || action instanceof View)) {
-              this.compileError(
-                new Error(
-                  `Tests are only supported for Tables and Views. Action "${targetAsReadableString(action.getTarget())}" is not a table or view".`
-                ),
-                action.getFileName(),
-                action.getTarget()
-              );
-            }
-          });
-        testTargets
-          .map(action => action as Table | View)
-          .forEach(tableOrViewAction => tableOrViewAction.dependencies(utils.resolvableAsTarget(currentTest.getTarget())));
+          .map((action) => action as Table | View)
+          .forEach((tableOrViewAction) =>
+            tableOrViewAction.dependencies(utils.resolvableAsTarget(currentTest.getTarget())),
+          );
       });
   }
 
@@ -1137,7 +1155,7 @@ export class Session {
       const allTargets = new Set<string>();
       const nonUniqueTargets = new Set<string>();
 
-      targets.forEach(target => {
+      targets.forEach((target) => {
         if (allTargets.has(targetStringifier.stringify(target))) {
           nonUniqueTargets.add(targetStringifier.stringify(target));
         }
@@ -1154,42 +1172,42 @@ export class Session {
       compiledGraph.declarations,
       compiledGraph.notebooks,
       compiledGraph.dataPreparations,
-      compiledGraph.scripts
+      compiledGraph.scripts,
     );
 
-    const nonUniqueActionsTargets = getNonUniqueTargets(actions.map(action => action.target));
+    const nonUniqueActionsTargets = getNonUniqueTargets(actions.map((action) => action.target));
     const nonUniqueActionsCanonicalTargets = getNonUniqueTargets(
-      actions.map(action => action.canonicalTarget)
+      actions.map((action) => action.canonicalTarget),
     );
 
     const isUniqueAction = (action: ActionProto) => {
       const isNonUniqueTarget = nonUniqueActionsTargets.has(
-        targetStringifier.stringify(action.target)
+        targetStringifier.stringify(action.target),
       );
       const isNonUniqueCanonicalTarget = nonUniqueActionsCanonicalTargets.has(
-        targetStringifier.stringify(action.canonicalTarget)
+        targetStringifier.stringify(action.canonicalTarget),
       );
 
       if (isNonUniqueTarget) {
         this.compileError(
           new Error(
             `Duplicate action name detected. Names within a schema must be unique across tables, declarations, assertions, and operations:\n"${JSON.stringify(
-              action.target
-            )}"`
+              action.target,
+            )}"`,
           ),
           action.fileName,
-          action.target
+          action.target,
         );
       }
       if (isNonUniqueCanonicalTarget) {
         this.compileError(
           new Error(
             `Duplicate canonical target detected. Canonical targets must be unique across tables, declarations, assertions, and operations:\n"${JSON.stringify(
-              action.canonicalTarget
-            )}"`
+              action.canonicalTarget,
+            )}"`,
           ),
           action.fileName,
-          action.target
+          action.target,
         );
       }
 
@@ -1215,6 +1233,6 @@ function getCanonicalProjectConfig(originalProjectConfig: sqlanvil.ProjectConfig
     warehouse: originalProjectConfig.warehouse,
     defaultSchema: originalProjectConfig.defaultSchema,
     defaultDatabase: originalProjectConfig.defaultDatabase,
-    assertionSchema: originalProjectConfig.assertionSchema
+    assertionSchema: originalProjectConfig.assertionSchema,
   });
 }

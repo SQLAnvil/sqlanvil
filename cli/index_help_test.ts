@@ -25,11 +25,15 @@ suite("help command", () => {
     const output = result.stdout;
     expect(output).to.include("Create a new sqlanvil project");
     expect(output).to.include("--iceberg");
-    expect(output).to.include("Initialize the project with workflow-level Iceberg tables configuration.");
+    expect(output).to.include(
+      "Initialize the project with workflow-level Iceberg tables configuration.",
+    );
   });
 
   test("shows help for 'install' command", async () => {
-    const result = await getProcessResult(execFile(nodePath, [cliEntryPointPath, "help", "install"]));
+    const result = await getProcessResult(
+      execFile(nodePath, [cliEntryPointPath, "help", "install"]),
+    );
     expect(result.exitCode).equals(0);
     const output = result.stdout;
     expect(output).to.include("Install a project's NPM dependencies.");
@@ -37,17 +41,23 @@ suite("help command", () => {
   });
 
   test("shows help for 'init-creds' command", async () => {
-    const result = await getProcessResult(execFile(nodePath, [cliEntryPointPath, "help", "init-creds"]));
+    const result = await getProcessResult(
+      execFile(nodePath, [cliEntryPointPath, "help", "init-creds"]),
+    );
     expect(result.exitCode).equals(0);
     const output = result.stdout;
-    expect(output).to.include("Create a .df-credentials.json file for sqlanvil to use when accessing BigQuery.");
+    expect(output).to.include(
+      "Create a .df-credentials.json file for sqlanvil to use when accessing BigQuery.",
+    );
     expect(output).to.include("[project-dir]");
     expect(output).to.include("--test-connection");
     expect(output).to.include("If true, a test query will be run using your final credentials.");
   });
 
   test("shows help for 'compile' command", async () => {
-    const result = await getProcessResult(execFile(nodePath, [cliEntryPointPath, "help", "compile"]));
+    const result = await getProcessResult(
+      execFile(nodePath, [cliEntryPointPath, "help", "compile"]),
+    );
     expect(result.exitCode).equals(0);
     const output = result.stdout;
     expect(output).to.include("Compile the sqlanvil project.");
@@ -93,8 +103,10 @@ suite("help command", () => {
     expect(output).to.include("Wall-clock deadline for the entire run");
   });
 
-   test("shows help for 'format' command", async () => {
-    const result = await getProcessResult(execFile(nodePath, [cliEntryPointPath, "help", "format"]));
+  test("shows help for 'format' command", async () => {
+    const result = await getProcessResult(
+      execFile(nodePath, [cliEntryPointPath, "help", "format"]),
+    );
     expect(result.exitCode).equals(0);
     const output = result.stdout;
     expect(output).to.include("Format the sqlanvil project's files.");

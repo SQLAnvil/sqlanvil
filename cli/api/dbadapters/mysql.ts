@@ -4,13 +4,13 @@ import {
   IDbClient,
   IExecutionResult,
   IExecutionResultRaw,
-  OnCancel
+  OnCancel,
 } from "sa/cli/api/dbadapters/index";
 import {
   convertFieldType,
   escapeMysqlString,
   MySqlPoolExecutor,
-  reconstructColumnDef
+  reconstructColumnDef,
 } from "sa/cli/api/utils/mysql";
 import { ErrorWithCause } from "sa/common/errors/errors";
 import { sqlanvil } from "sa/protos/ts";
@@ -18,17 +18,12 @@ import { sqlanvil } from "sa/protos/ts";
 // MySQL/MariaDB has no catalog level above the database, so "schema" and
 // "database" are the same thing — these are the engine-managed databases we
 // never treat as user schemas.
-const INTERNAL_SCHEMAS = new Set([
-  "information_schema",
-  "mysql",
-  "performance_schema",
-  "sys"
-]);
+const INTERNAL_SCHEMAS = new Set(["information_schema", "mysql", "performance_schema", "sys"]);
 
 export class MySqlDbAdapter implements IDbAdapter {
   public static async create(
     credentials: sqlanvil.IMysqlConnection,
-    options?: { concurrencyLimit?: number; disableSslForTestsOnly?: boolean }
+    options?: { concurrencyLimit?: number; disableSslForTestsOnly?: boolean },
   ): Promise<MySqlDbAdapter> {
     const sslMode = (credentials.sslMode || "").toLowerCase();
     const ssl =
@@ -45,9 +40,9 @@ export class MySqlDbAdapter implements IDbAdapter {
         user: credentials.user,
         password: credentials.password,
         database: credentials.database || undefined,
-        ssl
+        ssl,
       },
-      options
+      options,
     );
     // Fail fast on a single connection before any command fans out.
     try {
@@ -57,7 +52,7 @@ export class MySqlDbAdapter implements IDbAdapter {
       throw new ErrorWithCause(
         `Could not connect to MySQL at ${credentials.host}:${credentials.port || 3306} ` +
           `as "${credentials.user}": ${e.message}`,
-        e
+        e,
       );
     }
     return new MySqlDbAdapter(queryExecutor);
@@ -73,9 +68,9 @@ export class MySqlDbAdapter implements IDbAdapter {
       rowLimit?: number;
       byteLimit?: number;
       includeQueryInError?: boolean;
-    } = { rowLimit: 1000, byteLimit: 1024 * 1024 }
+    } = { rowLimit: 1000, byteLimit: 1024 * 1024 },
   ): Promise<IExecutionResult> {
-    return await this.withClientLock(client => client.execute(statement, options));
+    return await this.withClientLock((client) => client.execute(statement, options));
   }
 
   public async executeRaw(
@@ -83,14 +78,14 @@ export class MySqlDbAdapter implements IDbAdapter {
     options: {
       params?: any[];
       rowLimit?: number;
-    } = { rowLimit: 1000 }
+    } = { rowLimit: 1000 },
   ): Promise<IExecutionResultRaw> {
     const result = await this.execute(statement, options);
     return { ...result, schema: [] };
   }
 
   public async withClientLock<T>(callback: (client: IDbClient) => Promise<T>): Promise<T> {
-    return await this.queryExecutor.withClientLock(client =>
+    return await this.queryExecutor.withClientLock((client) =>
       callback({
         execute: async (
           stmt: string,
@@ -100,10 +95,13 @@ export class MySqlDbAdapter implements IDbAdapter {
             rowLimit?: number;
             byteLimit?: number;
             includeQueryInError?: boolean;
-          } = { rowLimit: 1000, byteLimit: 1024 * 1024 }
+          } = { rowLimit: 1000, byteLimit: 1024 * 1024 },
         ): Promise<IExecutionResult> => {
           try {
-            const rows = await client.execute(stmt, { params: opts.params, rowLimit: opts.rowLimit });
+            const rows = await client.execute(stmt, {
+              params: opts.params,
+              rowLimit: opts.rowLimit,
+            });
             return { rows, metadata: {} };
           } catch (e) {
             if (opts.includeQueryInError) {
@@ -114,13 +112,13 @@ export class MySqlDbAdapter implements IDbAdapter {
         },
         executeRaw: async (
           stmt: string,
-          opts: { params?: { [name: string]: any }; rowLimit?: number } = { rowLimit: 1000 }
+          opts: { params?: { [name: string]: any }; rowLimit?: number } = { rowLimit: 1000 },
         ): Promise<IExecutionResultRaw> => {
           const positional = opts.params ? Object.values(opts.params) : undefined;
           const rows = await client.execute(stmt, { params: positional, rowLimit: opts.rowLimit });
           return { rows, schema: [], metadata: {} };
-        }
-      })
+        },
+      }),
     );
   }
 
@@ -128,14 +126,14 @@ export class MySqlDbAdapter implements IDbAdapter {
     // EXPLAIN parses + plans without executing, catching syntax errors and
     // missing tables/columns.
     const validationQueries = collectEvaluationQueries(queryOrAction, false, (query: string) =>
-      !!query ? `explain ${query}` : ""
+      !!query ? `explain ${query}` : "",
     ).map((validationQuery, index) => ({ index, validationQuery }));
     const validationQueriesWithoutWrappers = collectEvaluationQueries(queryOrAction, false);
 
     const queryEvaluations = new Array<sqlanvil.IQueryEvaluation>();
     for (const { index, validationQuery } of validationQueries) {
       let evaluationResponse: sqlanvil.IQueryEvaluation = {
-        status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       };
       try {
         await this.execute(validationQuery.query);
@@ -143,16 +141,16 @@ export class MySqlDbAdapter implements IDbAdapter {
         evaluationResponse = {
           status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE,
           error: sqlanvil.QueryEvaluationError.create({
-            message: e?.message ? String(e.message) : String(e)
-          })
+            message: e?.message ? String(e.message) : String(e),
+          }),
         };
       }
       queryEvaluations.push(
         sqlanvil.QueryEvaluation.create({
           ...evaluationResponse,
           incremental: validationQuery.incremental,
-          query: validationQueriesWithoutWrappers[index].query
-        })
+          query: validationQueriesWithoutWrappers[index].query,
+        }),
       );
     }
     return queryEvaluations;
@@ -170,18 +168,18 @@ export class MySqlDbAdapter implements IDbAdapter {
        from information_schema.tables
        where table_schema not in ('information_schema', 'mysql', 'performance_schema', 'sys')
        ${schemaClause}`,
-      { params, rowLimit: 10000, includeQueryInError: true }
+      { params, rowLimit: 10000, includeQueryInError: true },
     );
-    const targets = queryResult.rows.map(row => ({
+    const targets = queryResult.rows.map((row) => ({
       schema: row.table_schema as string,
-      name: row.table_name as string
+      name: row.table_name as string,
     }));
-    return await Promise.all(targets.map(target => this.table(target)));
+    return await Promise.all(targets.map((target) => this.table(target)));
   }
 
   public async search(
     searchText: string,
-    options: { limit: number } = { limit: 1000 }
+    options: { limit: number } = { limit: 1000 },
   ): Promise<sqlanvil.ITableMetadata[]> {
     const results = await this.execute(
       `select tables.table_schema as table_schema, tables.table_name as table_name
@@ -195,16 +193,16 @@ export class MySqlDbAdapter implements IDbAdapter {
        group by 1, 2`,
       {
         params: [`%${searchText}%`, `%${searchText}%`, `%${searchText}%`],
-        rowLimit: options.limit
-      }
+        rowLimit: options.limit,
+      },
     );
     return await Promise.all(
-      results.rows.map(row =>
+      results.rows.map((row) =>
         this.table({
           schema: row.table_schema,
-          name: row.table_name
-        })
-      )
+          name: row.table_name,
+        }),
+      ),
     );
   }
 
@@ -214,15 +212,15 @@ export class MySqlDbAdapter implements IDbAdapter {
       this.execute(
         `select table_type, table_comment from information_schema.tables
          where table_schema = ? and table_name = ?`,
-        { params, includeQueryInError: true }
+        { params, includeQueryInError: true },
       ),
       this.execute(
         `select column_name, data_type, ordinal_position, column_comment
          from information_schema.columns
          where table_schema = ? and table_name = ?
          order by ordinal_position`,
-        { params, includeQueryInError: true }
-      )
+        { params, includeQueryInError: true },
+      ),
     ]);
 
     if (tableResults.rows.length === 0) {
@@ -232,23 +230,24 @@ export class MySqlDbAdapter implements IDbAdapter {
     // mysql2 returns information_schema column names in their canonical
     // upper/lower case depending on server config; normalise via lower-cased keys.
     const tableType = String(
-      tableResults.rows[0].table_type ?? tableResults.rows[0].TABLE_TYPE
+      tableResults.rows[0].table_type ?? tableResults.rows[0].TABLE_TYPE,
     ).toUpperCase();
     const tableComment = String(
-      tableResults.rows[0].table_comment ?? tableResults.rows[0].TABLE_COMMENT ?? ""
+      tableResults.rows[0].table_comment ?? tableResults.rows[0].TABLE_COMMENT ?? "",
     );
     return sqlanvil.TableMetadata.create({
       target,
-      type: tableType === "VIEW" ? sqlanvil.TableMetadata.Type.VIEW : sqlanvil.TableMetadata.Type.TABLE,
+      type:
+        tableType === "VIEW" ? sqlanvil.TableMetadata.Type.VIEW : sqlanvil.TableMetadata.Type.TABLE,
       description: tableComment || undefined,
-      fields: columnResults.rows.map(row => {
+      fields: columnResults.rows.map((row) => {
         const comment = String(row.column_comment ?? row.COLUMN_COMMENT ?? "");
         return sqlanvil.Field.create({
           name: (row.column_name ?? row.COLUMN_NAME) as string,
           primitive: convertFieldType((row.data_type ?? row.DATA_TYPE) as string),
-          description: comment || undefined
+          description: comment || undefined,
         });
-      })
+      }),
     });
   }
 
@@ -259,22 +258,22 @@ export class MySqlDbAdapter implements IDbAdapter {
     }
     const kind = metadata.type === sqlanvil.TableMetadata.Type.VIEW ? "view" : "table";
     await this.execute(`drop ${kind} if exists \`${target.schema}\`.\`${target.name}\``, {
-      includeQueryInError: true
+      includeQueryInError: true,
     });
   }
 
   public async schemas(_database: string): Promise<string[]> {
     const result = await this.execute(`select schema_name from information_schema.schemata`, {
-      includeQueryInError: true
+      includeQueryInError: true,
     });
     return result.rows
-      .map(row => (row.schema_name ?? row.SCHEMA_NAME) as string)
-      .filter(name => !INTERNAL_SCHEMAS.has(name));
+      .map((row) => (row.schema_name ?? row.SCHEMA_NAME) as string)
+      .filter((name) => !INTERNAL_SCHEMAS.has(name));
   }
 
   public async createSchema(_database: string, schema: string): Promise<void> {
     await this.execute(`create database if not exists \`${schema}\``, {
-      includeQueryInError: true
+      includeQueryInError: true,
     });
   }
 
@@ -294,7 +293,7 @@ export class MySqlDbAdapter implements IDbAdapter {
     if (actionDescriptor?.description) {
       await this.execute(
         `alter table ${resolved} comment = '${escapeMysqlString(actionDescriptor.description)}'`,
-        { includeQueryInError: true }
+        { includeQueryInError: true },
       );
     }
 
@@ -302,10 +301,10 @@ export class MySqlDbAdapter implements IDbAdapter {
     // (MySQL has no standalone column-comment statement, and MODIFY rewrites the
     // whole column).
     const columnComments = (actionDescriptor?.columns || []).filter(
-      column =>
+      (column) =>
         column.path?.length === 1 &&
         column.description != null &&
-        actualMetadata.fields.some(f => f.name === column.path[0])
+        actualMetadata.fields.some((f) => f.name === column.path[0]),
     );
     if (columnComments.length === 0) {
       return;
@@ -315,10 +314,10 @@ export class MySqlDbAdapter implements IDbAdapter {
               collation_name, generation_expression
        from information_schema.columns
        where table_schema = ? and table_name = ?`,
-      { params: [target.schema, target.name], includeQueryInError: true }
+      { params: [target.schema, target.name], includeQueryInError: true },
     );
     const defByName = new Map<string, any>();
-    defResult.rows.forEach(row => defByName.set(String(row.column_name ?? row.COLUMN_NAME), row));
+    defResult.rows.forEach((row) => defByName.set(String(row.column_name ?? row.COLUMN_NAME), row));
     for (const column of columnComments) {
       const name = column.path[0];
       const row = defByName.get(name);
@@ -340,13 +339,13 @@ export class MySqlDbAdapter implements IDbAdapter {
         generationExpression:
           (row.generation_expression ?? row.GENERATION_EXPRESSION ?? null) === null
             ? null
-            : String(row.generation_expression ?? row.GENERATION_EXPRESSION)
+            : String(row.generation_expression ?? row.GENERATION_EXPRESSION),
       });
       await this.execute(
         `alter table ${resolved} modify column \`${name}\` ${def} comment '${escapeMysqlString(
-          column.description
+          column.description,
         )}'`,
-        { includeQueryInError: true }
+        { includeQueryInError: true },
       );
     }
   }

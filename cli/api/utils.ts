@@ -9,13 +9,13 @@ export function prettyJsonStringify(obj: object) {
 }
 
 export function readSqlanvilCoreVersionFromWorkflowSettings(
-  resolvedProjectPath: string
+  resolvedProjectPath: string,
 ): string | undefined {
   return readConfigFromWorkflowSettings(resolvedProjectPath)?.sqlanvilCoreVersion;
 }
 
 export function readConfigFromWorkflowSettings(
-  resolvedProjectPath: string
+  resolvedProjectPath: string,
 ): sqlanvil.WorkflowSettings | undefined {
   const workflowSettingsPath = path.join(resolvedProjectPath, "workflow_settings.yaml");
   if (!fs.existsSync(workflowSettingsPath)) {

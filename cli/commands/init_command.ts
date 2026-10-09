@@ -20,13 +20,13 @@ interface InitArgv {
 const icebergOption = option("iceberg", {
   describe: "Initialize the project with workflow-level Iceberg tables configuration.",
   type: "boolean",
-  default: false
+  default: false,
 });
 
 const bareOption = option("bare", {
   describe: "Skip the sample project files — scaffold bare (gitkept) directories only.",
   type: "boolean",
-  default: false
+  default: false,
 });
 
 const interactiveOption = option("interactive", {
@@ -35,14 +35,14 @@ const interactiveOption = option("interactive", {
     "convert an existing Dataform project. Other init arguments are ignored except " +
     "[project-dir], which seeds the directory prompt.",
   type: "boolean",
-  default: false
+  default: false,
 });
 
 const warehouseOption = option("warehouse", {
   describe: "Target warehouse for the new project.",
   type: "string",
   choices: ["bigquery", "postgres", "supabase", "mysql"],
-  default: "supabase"
+  default: "supabase",
 });
 
 export const initCommand: ICommand = {
@@ -57,7 +57,7 @@ export const initCommand: ICommand = {
     positionalOption(
       ProjectConfigOptions.defaultDatabase.name,
       {
-        describe: "The default database to use, equivalent to Google Cloud Project ID."
+        describe: "The default database to use, equivalent to Google Cloud Project ID.",
       },
       (argv: InitArgv) => {
         const warehouse = argv[warehouseOption.name] || "bigquery";
@@ -68,17 +68,17 @@ export const initCommand: ICommand = {
         ) {
           throw new Error(
             `The ${ProjectConfigOptions.defaultDatabase.name} positional argument is ` +
-              `required for BigQuery projects. Use "sqlanvil help init" for more info.`
+              `required for BigQuery projects. Use "sqlanvil help init" for more info.`,
           );
         }
-      }
+      },
     ),
     positionalOption(
       ProjectConfigOptions.defaultLocation.name,
       {
         describe:
           "The default location to use. See " +
-          "https://cloud.google.com/bigquery/docs/locations for supported values."
+          "https://cloud.google.com/bigquery/docs/locations for supported values.",
       },
       (argv: InitArgv) => {
         const warehouse = argv[warehouseOption.name] || "bigquery";
@@ -89,11 +89,11 @@ export const initCommand: ICommand = {
         ) {
           throw new Error(
             `The ${ProjectConfigOptions.defaultLocation.name} positional argument is ` +
-              `required for BigQuery projects. Use "sqlanvil help init" for more info.`
+              `required for BigQuery projects. Use "sqlanvil help init" for more info.`,
           );
         }
-      }
-    )
+      },
+    ),
   ],
   options: [warehouseOption, icebergOption, bareOption, interactiveOption],
   processFn: async (argv: InitArgv) => {
@@ -118,9 +118,9 @@ export const initCommand: ICommand = {
     print("Writing project files...\n");
 
     const initResult = await init(projectDir, projectConfig, {
-      includeSample: !argv[bareOption.name]
+      includeSample: !argv[bareOption.name],
     });
     printInitResult(initResult);
     return 0;
-  }
+  },
 };

@@ -18,18 +18,18 @@ export const introspectCommand: ICommand = {
     "Read a source table's schema from a connection and write a declaration .sqlx with columnTypes.",
   positionalOptions: [
     positionalOption("connection", {
-      describe: "Connection name (from workflow_settings.yaml connections)."
+      describe: "Connection name (from workflow_settings.yaml connections).",
     }),
     positionalOption("tableRef", {
-      describe: "Source table as schema.table (or just table)."
+      describe: "Source table as schema.table (or just table).",
     }),
-    projectDirOption
+    projectDirOption,
   ],
   options: [
     option("output", {
       describe: "File to write the declaration .sqlx to. Prints to stdout if omitted.",
-      type: "string"
-    })
+      type: "string",
+    }),
   ],
   processFn: async (argv: IntrospectArgv) => {
     const projectDir = argv[projectDirOption.name];
@@ -41,5 +41,5 @@ export const introspectCommand: ICommand = {
       print(sqlx);
     }
     return 0;
-  }
+  },
 };

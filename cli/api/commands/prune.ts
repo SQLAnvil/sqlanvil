@@ -13,49 +13,49 @@ type CompileAction =
 
 export function prune(
   compiledGraph: sqlanvil.ICompiledGraph,
-  runConfig: sqlanvil.IRunConfig
+  runConfig: sqlanvil.IRunConfig,
 ): sqlanvil.ICompiledGraph {
   compiledGraph.tables.forEach(utils.setOrValidateTableEnumType);
   const includedActionNames = computeIncludedActionNames(compiledGraph, runConfig);
   return {
     ...compiledGraph,
-    tables: compiledGraph.tables.filter(action =>
-      includedActionNames.has(targetAsReadableString(action.target))
+    tables: compiledGraph.tables.filter((action) =>
+      includedActionNames.has(targetAsReadableString(action.target)),
     ),
-    assertions: compiledGraph.assertions.filter(action =>
-      includedActionNames.has(targetAsReadableString(action.target))
+    assertions: compiledGraph.assertions.filter((action) =>
+      includedActionNames.has(targetAsReadableString(action.target)),
     ),
-    operations: compiledGraph.operations.filter(action =>
-      includedActionNames.has(targetAsReadableString(action.target))
+    operations: compiledGraph.operations.filter((action) =>
+      includedActionNames.has(targetAsReadableString(action.target)),
     ),
-    exports: compiledGraph.exports.filter(action =>
-      includedActionNames.has(targetAsReadableString(action.target))
+    exports: compiledGraph.exports.filter((action) =>
+      includedActionNames.has(targetAsReadableString(action.target)),
     ),
-    imports: compiledGraph.imports.filter(action =>
-      includedActionNames.has(targetAsReadableString(action.target))
+    imports: compiledGraph.imports.filter((action) =>
+      includedActionNames.has(targetAsReadableString(action.target)),
     ),
     // Extracts (runner-extract source materializations) prune like any other action: a
     // selective run only reads a source if a selected action depends on it (--include-deps
     // pulls it in) — it shouldn't re-extract (and bill) unrelated sources.
-    extracts: (compiledGraph.extracts || []).filter(action =>
-      includedActionNames.has(targetAsReadableString(action.target))
+    extracts: (compiledGraph.extracts || []).filter((action) =>
+      includedActionNames.has(targetAsReadableString(action.target)),
     ),
-    scripts: (compiledGraph.scripts || []).filter(action =>
-      includedActionNames.has(targetAsReadableString(action.target))
+    scripts: (compiledGraph.scripts || []).filter((action) =>
+      includedActionNames.has(targetAsReadableString(action.target)),
     ),
     // `targets` is declarative output — nothing downstream reads it — but `compile` prints it, so
     // leaving it whole made `compile --actions x --json` emit a filtered action list beside a full
     // target list, describing a graph that was never produced. Upstream fixed the same omission in
     // dataform 3.0.63 (#2212); this is that fix, written against our own action set.
-    targets: (compiledGraph.targets || []).filter(target =>
-      includedActionNames.has(targetAsReadableString(target))
-    )
+    targets: (compiledGraph.targets || []).filter((target) =>
+      includedActionNames.has(targetAsReadableString(target)),
+    ),
   };
 }
 
 function computeIncludedActionNames(
   compiledGraph: sqlanvil.ICompiledGraph,
-  runConfig: sqlanvil.IRunConfig
+  runConfig: sqlanvil.IRunConfig,
 ): Set<string> {
   // Union all tables, operations, assertions.
   const allActions: CompileAction[] = [].concat(
@@ -65,14 +65,14 @@ function computeIncludedActionNames(
     compiledGraph.exports,
     compiledGraph.imports,
     compiledGraph.extracts || [],
-    compiledGraph.scripts || []
+    compiledGraph.scripts || [],
   );
 
   const allActionNames = new Set<string>(
-    allActions.map(action => targetAsReadableString(action.target))
+    allActions.map((action) => targetAsReadableString(action.target)),
   );
   const allActionsByName = new Map<string, CompileAction>(
-    allActions.map(action => [targetAsReadableString(action.target), action])
+    allActions.map((action) => [targetAsReadableString(action.target), action]),
   );
 
   const hasActionSelector = runConfig.actions?.length > 0;
@@ -89,14 +89,14 @@ function computeIncludedActionNames(
   if (hasActionSelector) {
     utils
       .matchPatterns(runConfig.actions, [...allActionNames])
-      .forEach(actionName => includedActionNames.add(actionName));
+      .forEach((actionName) => includedActionNames.add(actionName));
   }
 
   // Determine actions selected with --tag option and update applicable actions
   if (hasTagSelector) {
     allActions
-      .filter(action => action.tags.some(tag => runConfig.tags.includes(tag)))
-      .forEach(action => includedActionNames.add(targetAsReadableString(action.target)));
+      .filter((action) => action.tags.some((tag) => runConfig.tags.includes(tag)))
+      .forEach((action) => includedActionNames.add(targetAsReadableString(action.target)));
   }
 
   // Compute all transitive dependencies.
@@ -108,11 +108,11 @@ function computeIncludedActionNames(
       const matchingDependencyNames =
         action.dependencyTargets?.length > 0
           ? utils.matchPatterns(
-              action.dependencyTargets.map(dependency => targetAsReadableString(dependency)),
-              [...allActionNames]
+              action.dependencyTargets.map((dependency) => targetAsReadableString(dependency)),
+              [...allActionNames],
             )
           : [];
-      matchingDependencyNames.forEach(dependencyName => {
+      matchingDependencyNames.forEach((dependencyName) => {
         if (!includedActionNames.has(dependencyName)) {
           queue.push(dependencyName);
           includedActionNames.add(dependencyName);
@@ -128,16 +128,16 @@ function computeIncludedActionNames(
       const actionName = queue.pop();
       const matchingDependentNames = allActions
         .filter(
-          compileAction =>
+          (compileAction) =>
             utils.matchPatterns(
               [actionName],
-              compileAction.dependencyTargets?.map(dependency =>
-                targetAsReadableString(dependency)
-              ) || []
-            ).length >= 1
+              compileAction.dependencyTargets?.map((dependency) =>
+                targetAsReadableString(dependency),
+              ) || [],
+            ).length >= 1,
         )
-        .map(compileAction => targetAsReadableString(compileAction.target));
-      matchingDependentNames.forEach(dependentName => {
+        .map((compileAction) => targetAsReadableString(compileAction.target));
+      matchingDependentNames.forEach((dependentName) => {
         if (!includedActionNames.has(dependentName)) {
           queue.push(dependentName);
           includedActionNames.add(dependentName);

@@ -9,7 +9,7 @@ suite("runner export hook", () => {
     const graph = sqlanvil.ExecutionGraph.create({
       projectConfig: { warehouse: "postgres" },
       warehouseState: { tables: [] },
-      actions: []
+      actions: [],
     });
     return new Runner({} as any, graph, {
       warehouseConnection: { host: "h", port: 5432, database: "d", user: "u", password: "p" },
@@ -17,7 +17,7 @@ suite("runner export hook", () => {
       duckdbExport: async (args: any) => {
         calls.push(args);
         return { destination: "s3://b/o/orders.parquet" };
-      }
+      },
     });
   }
 
@@ -27,7 +27,7 @@ suite("runner export hook", () => {
     const action = sqlanvil.ExecutionAction.create({
       target: { name: "orders" },
       type: "export",
-      export: { location: "s3://b/o/", format: "parquet", filename: "orders" }
+      export: { location: "s3://b/o/", format: "parquet", filename: "orders" },
     });
     const actionResult: any = { tasks: [] };
 
@@ -36,7 +36,7 @@ suite("runner export hook", () => {
       sqlanvil.ExecutionTask.create({ type: "export", statement: "SELECT 1 AS id" }),
       actionResult,
       {},
-      action
+      action,
     );
 
     expect(status).equals(sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL);
@@ -48,19 +48,23 @@ suite("runner export hook", () => {
   });
 
   test("a failing exporter marks the task FAILED", async () => {
-    const runner = new Runner({} as any, sqlanvil.ExecutionGraph.create({
-      projectConfig: { warehouse: "supabase" },
-      warehouseState: { tables: [] },
-      actions: []
-    }), {
-      duckdbExport: async () => {
-        throw new Error("boom");
-      }
-    });
+    const runner = new Runner(
+      {} as any,
+      sqlanvil.ExecutionGraph.create({
+        projectConfig: { warehouse: "supabase" },
+        warehouseState: { tables: [] },
+        actions: [],
+      }),
+      {
+        duckdbExport: async () => {
+          throw new Error("boom");
+        },
+      },
+    );
     const action = sqlanvil.ExecutionAction.create({
       target: { name: "orders" },
       type: "export",
-      export: { location: "s3://b/o/", format: "parquet" }
+      export: { location: "s3://b/o/", format: "parquet" },
     });
     const actionResult: any = { tasks: [] };
     const status = await (runner as any).executeTask(
@@ -68,7 +72,7 @@ suite("runner export hook", () => {
       sqlanvil.ExecutionTask.create({ type: "export", statement: "SELECT 1" }),
       actionResult,
       {},
-      action
+      action,
     );
     expect(status).equals(sqlanvil.TaskResult.ExecutionStatus.FAILED);
     expect(actionResult.tasks[0].errorMessage).contains("boom");

@@ -20,20 +20,22 @@ let tmpCounter = 0;
 export async function writeParquet(
   rows: object[],
   outPath: string,
-  columns: string[]
+  columns: string[],
 ): Promise<void> {
   await fs.ensureDir(path.dirname(outPath));
-  const tmp = path.join(os.tmpdir(), `sa_artifact_${process.pid}_${Date.now()}_${tmpCounter++}.json`);
+  const tmp = path.join(
+    os.tmpdir(),
+    `sa_artifact_${process.pid}_${Date.now()}_${tmpCounter++}.json`,
+  );
   // For an empty rowset, emit one all-null row and filter it out, so the Parquet keeps its columns.
-  const payload =
-    rows.length > 0 ? rows : [columns.reduce((o: any, c) => ((o[c] = null), o), {})];
+  const payload = rows.length > 0 ? rows : [columns.reduce((o: any, c) => ((o[c] = null), o), {})];
   const whereFalse = rows.length > 0 ? "" : " WHERE false";
   await fs.writeFile(tmp, JSON.stringify(payload));
   try {
-    await withDuckdb(async conn => {
+    await withDuckdb(async (conn) => {
       await runAsync(
         conn,
-        `COPY (SELECT * FROM read_json_auto('${tmp}')${whereFalse}) TO '${outPath}' (FORMAT parquet)`
+        `COPY (SELECT * FROM read_json_auto('${tmp}')${whereFalse}) TO '${outPath}' (FORMAT parquet)`,
       );
     });
   } finally {
@@ -61,13 +63,16 @@ const normalizeValue = (v: unknown): unknown =>
     : v;
 
 export async function queryParquet(sql: string, views: ArtifactView[]): Promise<any[]> {
-  return withDuckdb(async conn => {
+  return withDuckdb(async (conn) => {
     for (const view of views) {
-      await runAsync(conn, `create view ${view.name} as select * from read_parquet('${view.glob}')`);
+      await runAsync(
+        conn,
+        `create view ${view.name} as select * from read_parquet('${view.glob}')`,
+      );
     }
     const rows = await allAsync(conn, sql);
     return rows.map((row: any) =>
-      Object.fromEntries(Object.entries(row).map(([k, v]) => [k, normalizeValue(v)]))
+      Object.fromEntries(Object.entries(row).map(([k, v]) => [k, normalizeValue(v)])),
     );
   });
 }

@@ -12,7 +12,7 @@ import {
   rejectJitCompilation,
   resolveActionsConfigFilename,
   toResolvable,
-  validateQueryString
+  validateQueryString,
 } from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -132,13 +132,13 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
     const target = actionConfigToCompiledGraphTarget(config);
     this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, {
       validateTarget: true,
-      useDefaultAssertionDataset: true
+      useDefaultAssertionDataset: true,
     });
     this.proto.canonicalTarget = this.applySessionToTarget(
       target,
       session.canonicalProjectConfig,
       undefined,
-      { validateTarget: false, useDefaultAssertionDataset: true }
+      { validateTarget: false, useDefaultAssertionDataset: true },
     );
 
     if (configPath) {
@@ -148,9 +148,9 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
 
     if (config.dependencyTargets) {
       this.dependencies(
-        config.dependencyTargets.map(dependencyTarget =>
-          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
-        )
+        config.dependencyTargets.map((dependencyTarget) =>
+          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget)),
+        ),
       );
     }
     if (config.hermetic) {
@@ -201,7 +201,8 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
     if (!this.proto.actionDescriptor) {
       this.proto.actionDescriptor = {};
     }
-    this.proto.actionDescriptor.compilationMode = sqlanvil.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
+    this.proto.actionDescriptor.compilationMode =
+      sqlanvil.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
     this.contextableJitCode = jitCode;
     return this;
   }
@@ -214,7 +215,7 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
    */
   public dependencies(value: Resolvable | Resolvable[]) {
     const newDependencies = Array.isArray(value) ? value : [value];
-    newDependencies.forEach(resolvable => {
+    newDependencies.forEach((resolvable) => {
       const resolvableTarget = resolvableAsTarget(resolvable);
       this.session.actionAssertionMap.set(resolvableTarget, this);
       this.proto.dependencyTargets.push(resolvableTarget);
@@ -256,7 +257,7 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
    */
   public tags(value: string | string[]) {
     const newTags = typeof value === "string" ? [value] : value;
-    newTags.forEach(t => {
+    newTags.forEach((t) => {
       if (this.proto.tags.indexOf(t) < 0) {
         this.proto.tags.push(t);
       }
@@ -288,7 +289,7 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
       sqlanvil.Target.create({ ...this.proto.target, database }),
       this.session.projectConfig,
       this.proto.fileName,
-      { validateTarget: true, useDefaultAssertionDataset: true }
+      { validateTarget: true, useDefaultAssertionDataset: true },
     );
     return this;
   }
@@ -306,7 +307,7 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
       sqlanvil.Target.create({ ...this.proto.target, schema }),
       this.session.projectConfig,
       this.proto.fileName,
-      { validateTarget: true, useDefaultAssertionDataset: true }
+      { validateTarget: true, useDefaultAssertionDataset: true },
     );
     return this;
   }
@@ -339,7 +340,7 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
       this.session.compileError(
         new Error("Assertion may set either .jitCode() or .query(), but not both."),
         this.proto.fileName,
-        this.proto.target
+        this.proto.target,
       );
       return this.proto;
     }
@@ -354,7 +355,7 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
     return verifyObjectMatchesProto(
       sqlanvil.Assertion,
       this.proto,
-      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
     );
   }
 
@@ -364,11 +365,11 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
    * converted to the new structure.
    */
   private verifyConfig(
-    unverifiedConfig: ILegacyAssertionConfig
+    unverifiedConfig: ILegacyAssertionConfig,
   ): sqlanvil.ActionConfig.AssertionConfig {
     if (unverifiedConfig.dependencies) {
       unverifiedConfig.dependencyTargets = unverifiedConfig.dependencies.map(
-        (dependency: string | object) => resolvableAsActionConfigTarget(dependency)
+        (dependency: string | object) => resolvableAsActionConfigTarget(dependency),
       );
       delete unverifiedConfig.dependencies;
     }
@@ -392,7 +393,7 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
     return verifyObjectMatchesProto(
       sqlanvil.ActionConfig.AssertionConfig,
       unverifiedConfig,
-      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
+      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK,
     );
   }
 }
@@ -436,7 +437,7 @@ export class AssertionContext implements IActionContext {
   public database(): string {
     if (!this.assertion.getTarget().database) {
       this.assertion.session.compileError(
-        new Error(`Warehouse does not support multiple databases`)
+        new Error(`Warehouse does not support multiple databases`),
       );
       return "";
     }

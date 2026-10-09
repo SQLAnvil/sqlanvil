@@ -22,8 +22,8 @@ export class MysqlFixture {
     return isDockerBypassed()
       ? process.env.MYSQL_HOST || "localhost"
       : USE_CLOUD_BUILD_NETWORK
-      ? DOCKER_CONTAINER_NAME
-      : "localhost";
+        ? DOCKER_CONTAINER_NAME
+        : "localhost";
   }
 
   public static get port() {
@@ -61,8 +61,8 @@ export class MysqlFixture {
             "-d",
             `-p ${MysqlFixture.port}:${MYSQL_SERVE_PORT}`,
             USE_CLOUD_BUILD_NETWORK ? "--network cloudbuild" : "",
-            MYSQL_IMAGE
-          ].join(" ")
+            MYSQL_IMAGE,
+          ].join(" "),
         );
       }
 
@@ -75,7 +75,7 @@ export class MysqlFixture {
             host: MysqlFixture.host,
             port: MysqlFixture.port,
             user: MysqlFixture.user,
-            password: MysqlFixture.password
+            password: MysqlFixture.password,
           });
           await conn.query("select 1");
           return true;

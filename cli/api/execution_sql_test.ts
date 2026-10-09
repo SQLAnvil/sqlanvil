@@ -9,10 +9,10 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
   const executionSql = new ExecutionSql(
     {
       defaultDatabase: "project-id",
-      defaultSchema: "dataset-id"
+      defaultSchema: "dataset-id",
     },
     "2.0.0",
-    () => "test_uuid"
+    () => "test_uuid",
   );
 
   const baseTable: sqlanvil.ITable = {
@@ -21,10 +21,10 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
     target: {
       database: "project-id",
       schema: "dataset-id",
-      name: "incremental_on_schema_change"
+      name: "incremental_on_schema_change",
     },
     query: "select 1 as id, 'a' as field1",
-    incrementalQuery: "select 1 as id, 'a' as field1, 'new' as field2"
+    incrementalQuery: "select 1 as id, 'a' as field1, 'new' as field2",
   };
 
   const tableMetadata: sqlanvil.ITableMetadata = {
@@ -32,22 +32,25 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
     fields: [
       {
         name: "id",
-        primitive: sqlanvil.Field.Primitive.INTEGER
+        primitive: sqlanvil.Field.Primitive.INTEGER,
       },
       {
         name: "field1",
-        primitive: sqlanvil.Field.Primitive.STRING
-      }
-    ]
+        primitive: sqlanvil.Field.Primitive.STRING,
+      },
+    ],
   };
 
   test("generates procedure for FAIL strategy", () => {
     const table = {
       ...baseTable,
-      onSchemaChange: sqlanvil.OnSchemaChange.FAIL
+      onSchemaChange: sqlanvil.OnSchemaChange.FAIL,
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
-    const procedureSql = tasks.build().map(t => t.statement).join("\n;\n");
+    const procedureSql = tasks
+      .build()
+      .map((t) => t.statement)
+      .join("\n;\n");
     const expectedSql = fs.readFileSync("cli/api/goldens/on_schema_change_fail.sql", "utf8");
     expect(procedureSql).to.equal(expectedSql.trim());
   });
@@ -55,10 +58,13 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
   test("generates procedure for EXTEND strategy", () => {
     const table = {
       ...baseTable,
-      onSchemaChange: sqlanvil.OnSchemaChange.EXTEND
+      onSchemaChange: sqlanvil.OnSchemaChange.EXTEND,
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
-    const procedureSql = tasks.build().map(t => t.statement).join("\n;\n");
+    const procedureSql = tasks
+      .build()
+      .map((t) => t.statement)
+      .join("\n;\n");
     const expectedSql = fs.readFileSync("cli/api/goldens/on_schema_change_extend.sql", "utf8");
     expect(procedureSql).to.equal(expectedSql.trim());
   });
@@ -67,10 +73,13 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
     const table = {
       ...baseTable,
       onSchemaChange: sqlanvil.OnSchemaChange.SYNCHRONIZE,
-      uniqueKey: ["id"]
+      uniqueKey: ["id"],
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
-    const procedureSql = tasks.build().map(t => t.statement).join("\n;\n");
+    const procedureSql = tasks
+      .build()
+      .map((t) => t.statement)
+      .join("\n;\n");
     const expectedSql = fs.readFileSync("cli/api/goldens/on_schema_change_synchronize.sql", "utf8");
     expect(procedureSql).to.equal(expectedSql.trim());
   });
@@ -81,12 +90,12 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
     for (const strategy of [
       sqlanvil.OnSchemaChange.FAIL,
       sqlanvil.OnSchemaChange.EXTEND,
-      sqlanvil.OnSchemaChange.SYNCHRONIZE
+      sqlanvil.OnSchemaChange.SYNCHRONIZE,
     ]) {
       const table = {
         ...baseTable,
         onSchemaChange: strategy,
-        uniqueKey: ["id"]
+        uniqueKey: ["id"],
       };
       const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
       const createProcedureSql = tasks.build()[0].statement;
@@ -95,21 +104,21 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
       const procedureBody = createProcedureSql.split("BEGIN\n")[1].split("\nEND;")[0];
       const statements = procedureBody
         .split(";")
-        .map(s =>
+        .map((s) =>
           s
             .split("\n")
-            .filter(line => !line.trim().startsWith("--"))
+            .filter((line) => !line.trim().startsWith("--"))
             .join("\n")
-            .trim()
+            .trim(),
         )
-        .filter(s => s.length > 0);
+        .filter((s) => s.length > 0);
 
       let seenNonDeclare = false;
       for (const stmt of statements) {
         if (stmt.toUpperCase().startsWith("DECLARE ")) {
           expect(
             seenNonDeclare,
-            `DECLARE statement appeared after non-DECLARE statement in strategy ${sqlanvil.OnSchemaChange[strategy]}: "${stmt}"`
+            `DECLARE statement appeared after non-DECLARE statement in strategy ${sqlanvil.OnSchemaChange[strategy]}: "${stmt}"`,
           ).to.equal(false);
         } else {
           seenNonDeclare = true;
@@ -122,10 +131,13 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
     const table = {
       ...baseTable,
       onSchemaChange: sqlanvil.OnSchemaChange.IGNORE,
-      uniqueKey: ["id"]
+      uniqueKey: ["id"],
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
-    const procedureSql = tasks.build().map(t => t.statement).join("\n;\n");
+    const procedureSql = tasks
+      .build()
+      .map((t) => t.statement)
+      .join("\n;\n");
     const expectedSql = fs.readFileSync("cli/api/goldens/on_schema_change_ignore.sql", "utf8");
     expect(procedureSql).to.equal(expectedSql.trim());
   });
@@ -136,14 +148,14 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
       incrementalStrategy: sqlanvil.IncrementalStrategy.INSERT_OVERWRITE,
       bigquery: {
         partitionBy: "DATE(ts)",
-        incrementalPredicates: [
-          "T.ts >= '2024-01-01'",
-          "S.ts >= '2024-01-01'"
-        ]
-      }
+        incrementalPredicates: ["T.ts >= '2024-01-01'", "S.ts >= '2024-01-01'"],
+      },
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
-    const sql = tasks.build().map(t => t.statement).join("\n;\n");
+    const sql = tasks
+      .build()
+      .map((t) => t.statement)
+      .join("\n;\n");
     const expectedSql = fs.readFileSync("cli/api/goldens/insert_overwrite_ignore.sql", "utf8");
     expect(sql).to.equal(expectedSql.trim());
   });
@@ -154,11 +166,14 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
       incrementalStrategy: sqlanvil.IncrementalStrategy.INSERT_OVERWRITE,
       onSchemaChange: sqlanvil.OnSchemaChange.EXTEND,
       bigquery: {
-        partitionBy: "DATE(ts)"
-      }
+        partitionBy: "DATE(ts)",
+      },
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
-    const sql = tasks.build().map(t => t.statement).join("\n;\n");
+    const sql = tasks
+      .build()
+      .map((t) => t.statement)
+      .join("\n;\n");
     const expectedSql = fs.readFileSync("cli/api/goldens/insert_overwrite_extend.sql", "utf8");
     expect(sql).to.equal(expectedSql.trim());
   });
@@ -170,13 +185,16 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
     const table = {
       ...baseTable,
       incrementalStrategy: sqlanvil.IncrementalStrategy.INSERT_OVERWRITE,
-      bigquery: { partitionBy: "date_col" }
+      bigquery: { partitionBy: "date_col" },
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false }, tableMetadata);
-    const sql = tasks.build().map(t => t.statement).join("\n;\n");
+    const sql = tasks
+      .build()
+      .map((t) => t.statement)
+      .join("\n;\n");
     const expectedSql = fs.readFileSync(
       "cli/api/goldens/insert_overwrite_simple_column.sql",
-      "utf8"
+      "utf8",
     );
     expect(sql).to.equal(expectedSql.trim());
   });
@@ -186,8 +204,8 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
       executionSql.validationStubSql({
         enumType: sqlanvil.TableType.TABLE,
         target: { database: "project-id", schema: "dataset-id", name: "x" },
-        query: "select 1 as id"
-      })
+        query: "select 1 as id",
+      }),
     ).to.equal("create table `project-id.dataset-id.x` as select * from (select 1 as id) limit 0");
   });
 
@@ -196,17 +214,17 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
       executionSql.validationStubSql({
         enumType: sqlanvil.TableType.VIEW,
         target: { database: "project-id", schema: "dataset-id", name: "x" },
-        query: "select 1 as id"
-      })
+        query: "select 1 as id",
+      }),
     ).to.equal("create view `project-id.dataset-id.x` as select 1 as id");
   });
 
   test("validate: shadow dataset create/drop are project-qualified + cascade (BigQuery)", () => {
     expect(executionSql.createSchemaSql("dataset-id__sqlanvil_validate_1")).to.equal(
-      "create schema if not exists `project-id.dataset-id__sqlanvil_validate_1`"
+      "create schema if not exists `project-id.dataset-id__sqlanvil_validate_1`",
     );
     expect(executionSql.dropSchemaCascadeSql("dataset-id__sqlanvil_validate_1")).to.equal(
-      "drop schema if exists `project-id.dataset-id__sqlanvil_validate_1` cascade"
+      "drop schema if exists `project-id.dataset-id__sqlanvil_validate_1` cascade",
     );
   });
 });
@@ -216,9 +234,9 @@ suite("ExecutionSql with Postgres/Supabase", () => {
     {
       warehouse: "postgres",
       defaultDatabase: "my_db",
-      defaultSchema: "public"
+      defaultSchema: "public",
     },
-    "2.0.0"
+    "2.0.0",
   );
 
   const baseTable: sqlanvil.ITable = {
@@ -226,50 +244,54 @@ suite("ExecutionSql with Postgres/Supabase", () => {
     enumType: sqlanvil.TableType.TABLE,
     target: {
       schema: "public",
-      name: "my_table"
+      name: "my_table",
     },
-    query: "select 1 as id, 'a' as field1"
+    query: "select 1 as id, 'a' as field1",
   };
 
   test("generates drop and create table", () => {
     const tasks = executionSql.publishTasks(baseTable, { fullRefresh: false });
-    const statements = tasks.build().map(t => t.statement);
+    const statements = tasks.build().map((t) => t.statement);
     expect(statements).to.have.lengthOf(2);
     expect(statements[0]).to.equal('drop table if exists "my_db"."public"."my_table" cascade');
-    expect(statements[1]).to.equal('create table "my_db"."public"."my_table" as select 1 as id, \'a\' as field1');
+    expect(statements[1]).to.equal(
+      'create table "my_db"."public"."my_table" as select 1 as id, \'a\' as field1',
+    );
   });
 
   test("generates drop and create view", () => {
     const viewTable = {
       ...baseTable,
       type: "view",
-      enumType: sqlanvil.TableType.VIEW
+      enumType: sqlanvil.TableType.VIEW,
     };
     const tasks = executionSql.publishTasks(viewTable, { fullRefresh: false });
-    const statements = tasks.build().map(t => t.statement);
+    const statements = tasks.build().map((t) => t.statement);
     expect(statements).to.have.lengthOf(2);
     expect(statements[0]).to.equal('drop view if exists "my_db"."public"."my_table" cascade');
-    expect(statements[1]).to.equal('create view "my_db"."public"."my_table" as select 1 as id, \'a\' as field1');
+    expect(statements[1]).to.equal(
+      'create view "my_db"."public"."my_table" as select 1 as id, \'a\' as field1',
+    );
   });
 
   test("generates incremental insert (no unique keys)", () => {
     const incTable = {
       ...baseTable,
       type: "incremental",
-      enumType: sqlanvil.TableType.INCREMENTAL
+      enumType: sqlanvil.TableType.INCREMENTAL,
     };
     const tableMetadata: sqlanvil.ITableMetadata = {
       type: sqlanvil.TableMetadata.Type.TABLE,
       fields: [
         { name: "id", primitive: sqlanvil.Field.Primitive.INTEGER },
-        { name: "field1", primitive: sqlanvil.Field.Primitive.STRING }
-      ]
+        { name: "field1", primitive: sqlanvil.Field.Primitive.STRING },
+      ],
     };
     const tasks = executionSql.publishTasks(incTable, { fullRefresh: false }, tableMetadata);
-    const statements = tasks.build().map(t => t.statement);
+    const statements = tasks.build().map((t) => t.statement);
     expect(statements).to.have.lengthOf(1);
     expect(statements[0]).to.equal(
-      'insert into "my_db"."public"."my_table" ("id", "field1") select "id", "field1" from (select 1 as id, \'a\' as field1) as insertions'
+      'insert into "my_db"."public"."my_table" ("id", "field1") select "id", "field1" from (select 1 as id, \'a\' as field1) as insertions',
     );
   });
 
@@ -278,32 +300,32 @@ suite("ExecutionSql with Postgres/Supabase", () => {
       ...baseTable,
       type: "incremental",
       enumType: sqlanvil.TableType.INCREMENTAL,
-      uniqueKey: ["id"]
+      uniqueKey: ["id"],
     };
     const tableMetadata: sqlanvil.ITableMetadata = {
       type: sqlanvil.TableMetadata.Type.TABLE,
       fields: [
         { name: "id", primitive: sqlanvil.Field.Primitive.INTEGER },
-        { name: "field1", primitive: sqlanvil.Field.Primitive.STRING }
-      ]
+        { name: "field1", primitive: sqlanvil.Field.Primitive.STRING },
+      ],
     };
     const tasks = executionSql.publishTasks(incTable, { fullRefresh: false }, tableMetadata);
-    const statements = tasks.build().map(t => t.statement);
+    const statements = tasks.build().map((t) => t.statement);
     expect(statements).to.have.lengthOf(1);
     expect(statements[0]).to.equal(
-      'insert into "my_db"."public"."my_table" ("id", "field1") select "id", "field1" from (select 1 as id, \'a\' as field1) as insertions on conflict ("id") do update set "field1" = EXCLUDED."field1"'
+      'insert into "my_db"."public"."my_table" ("id", "field1") select "id", "field1" from (select 1 as id, \'a\' as field1) as insertions on conflict ("id") do update set "field1" = EXCLUDED."field1"',
     );
   });
 
   test("create table applies postgres storage options (unlogged, fillfactor, tablespace)", () => {
     const table: sqlanvil.ITable = {
       ...baseTable,
-      postgres: { unlogged: true, fillfactor: 70, tablespace: "fast_ssd" }
+      postgres: { unlogged: true, fillfactor: 70, tablespace: "fast_ssd" },
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false });
-    const statements = tasks.build().map(t => t.statement);
+    const statements = tasks.build().map((t) => t.statement);
     expect(statements[1]).to.equal(
-      'create unlogged table "my_db"."public"."my_table" with (fillfactor=70) tablespace "fast_ssd" as select 1 as id, \'a\' as field1'
+      'create unlogged table "my_db"."public"."my_table" with (fillfactor=70) tablespace "fast_ssd" as select 1 as id, \'a\' as field1',
     );
   });
 
@@ -315,7 +337,7 @@ suite("ExecutionSql with Postgres/Supabase", () => {
           {
             name: "ix_my_table_id",
             columns: ["id"],
-            method: sqlanvil.PostgresOptions.Index.Method.BTREE
+            method: sqlanvil.PostgresOptions.Index.Method.BTREE,
           },
           {
             name: "ix_my_table_field1",
@@ -323,19 +345,19 @@ suite("ExecutionSql with Postgres/Supabase", () => {
             method: sqlanvil.PostgresOptions.Index.Method.GIN,
             unique: true,
             include: ["id"],
-            where: "field1 is not null"
-          }
-        ]
-      }
+            where: "field1 is not null",
+          },
+        ],
+      },
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false });
-    const statements = tasks.build().map(t => t.statement);
+    const statements = tasks.build().map((t) => t.statement);
     expect(statements).to.have.lengthOf(4);
     expect(statements[2]).to.equal(
-      'create index "ix_my_table_id" on "my_db"."public"."my_table" using btree ("id")'
+      'create index "ix_my_table_id" on "my_db"."public"."my_table" using btree ("id")',
     );
     expect(statements[3]).to.equal(
-      'create unique index "ix_my_table_field1" on "my_db"."public"."my_table" using gin ("field1") include ("id") where (field1 is not null)'
+      'create unique index "ix_my_table_field1" on "my_db"."public"."my_table" using gin ("field1") include ("id") where (field1 is not null)',
     );
   });
 
@@ -343,25 +365,22 @@ suite("ExecutionSql with Postgres/Supabase", () => {
     const table: sqlanvil.ITable = {
       ...baseTable,
       postgres: {
-        indexes: [
-          { columns: ["id"] },
-          { columns: ["field1", "id"], unique: true }
-        ]
-      }
+        indexes: [{ columns: ["id"] }, { columns: ["field1", "id"], unique: true }],
+      },
     };
     const statements = executionSql
       .publishTasks(table, { fullRefresh: false })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     // Names are derived as <table>_<cols>_idx (or _key for unique) -- never "".
     expect(statements).to.not.include.members([
-      'create index "" on "my_db"."public"."my_table" using btree ("id")'
+      'create index "" on "my_db"."public"."my_table" using btree ("id")',
     ]);
     expect(statements[2]).to.equal(
-      'create index "my_table_id_idx" on "my_db"."public"."my_table" using btree ("id")'
+      'create index "my_table_id_idx" on "my_db"."public"."my_table" using btree ("id")',
     );
     expect(statements[3]).to.equal(
-      'create unique index "my_table_field1_id_key" on "my_db"."public"."my_table" using btree ("field1", "id")'
+      'create unique index "my_table_field1_id_key" on "my_db"."public"."my_table" using btree ("field1", "id")',
     );
   });
 
@@ -372,15 +391,15 @@ suite("ExecutionSql with Postgres/Supabase", () => {
       enumType: sqlanvil.TableType.INCREMENTAL,
       postgres: {
         indexes: [
-          { name: "ix_inc", columns: ["id"], method: sqlanvil.PostgresOptions.Index.Method.BRIN }
-        ]
-      }
+          { name: "ix_inc", columns: ["id"], method: sqlanvil.PostgresOptions.Index.Method.BRIN },
+        ],
+      },
     };
     // No tableMetadata -> the table doesn't exist yet -> fresh create path.
     const tasks = executionSql.publishTasks(incTable, { fullRefresh: false });
-    const statements = tasks.build().map(t => t.statement);
+    const statements = tasks.build().map((t) => t.statement);
     expect(statements).to.include(
-      'create index "ix_inc" on "my_db"."public"."my_table" using brin ("id")'
+      'create index "ix_inc" on "my_db"."public"."my_table" using brin ("id")',
     );
   });
 
@@ -389,16 +408,16 @@ suite("ExecutionSql with Postgres/Supabase", () => {
       ...baseTable,
       type: "view",
       enumType: sqlanvil.TableType.VIEW,
-      materialized: true
+      materialized: true,
     };
     const tasks = executionSql.publishTasks(mvTable, { fullRefresh: false });
-    const statements = tasks.build().map(t => t.statement);
+    const statements = tasks.build().map((t) => t.statement);
     expect(statements).to.have.lengthOf(2);
     expect(statements[0]).to.equal(
-      'drop materialized view if exists "my_db"."public"."my_table" cascade'
+      'drop materialized view if exists "my_db"."public"."my_table" cascade',
     );
     expect(statements[1]).to.equal(
-      'create materialized view "my_db"."public"."my_table" as select 1 as id, \'a\' as field1'
+      'create materialized view "my_db"."public"."my_table" as select 1 as id, \'a\' as field1',
     );
   });
 
@@ -411,15 +430,15 @@ suite("ExecutionSql with Postgres/Supabase", () => {
             name: "ix_doc_trgm",
             columns: ["field1"],
             method: sqlanvil.PostgresOptions.Index.Method.GIN,
-            opclass: "gin_trgm_ops"
-          }
-        ]
-      }
+            opclass: "gin_trgm_ops",
+          },
+        ],
+      },
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false });
-    const statements = tasks.build().map(t => t.statement);
+    const statements = tasks.build().map((t) => t.statement);
     expect(statements[2]).to.equal(
-      'create index "ix_doc_trgm" on "my_db"."public"."my_table" using gin ("field1" gin_trgm_ops)'
+      'create index "ix_doc_trgm" on "my_db"."public"."my_table" using gin ("field1" gin_trgm_ops)',
     );
   });
 
@@ -431,12 +450,12 @@ suite("ExecutionSql with Postgres/Supabase", () => {
           kind: sqlanvil.PostgresOptions.Partition.Kind.RANGE,
           columns: ["id"],
           partitions: [{ name: "p0", values: "FROM (0) TO (100)" }],
-          includeDefault: true
-        }
-      }
+          includeDefault: true,
+        },
+      },
     };
     const tasks = executionSql.publishTasks(table, { fullRefresh: false });
-    const statements = tasks.build().map(t => t.statement);
+    const statements = tasks.build().map((t) => t.statement);
     expect(statements).to.eql([
       'drop table if exists "my_db"."public"."my_table__sa_stage" cascade',
       'create unlogged table "my_db"."public"."my_table__sa_stage" as select 1 as id, \'a\' as field1 with no data',
@@ -445,7 +464,7 @@ suite("ExecutionSql with Postgres/Supabase", () => {
       'create table "my_db"."public"."my_table__p0" partition of "my_db"."public"."my_table" for values FROM (0) TO (100)',
       'create table "my_db"."public"."my_table__default" partition of "my_db"."public"."my_table" default',
       'insert into "my_db"."public"."my_table" select * from (select 1 as id, \'a\' as field1) as q',
-      'drop table if exists "my_db"."public"."my_table__sa_stage" cascade'
+      'drop table if exists "my_db"."public"."my_table__sa_stage" cascade',
     ]);
   });
 
@@ -457,16 +476,16 @@ suite("ExecutionSql with Postgres/Supabase", () => {
         partition: {
           kind: sqlanvil.PostgresOptions.Partition.Kind.RANGE,
           columns: ["id"],
-          partitions: [{ name: "p0", values: "FROM (0) TO (100)" }]
-        }
-      }
+          partitions: [{ name: "p0", values: "FROM (0) TO (100)" }],
+        },
+      },
     };
     const statements = executionSql
       .publishTasks(table, { fullRefresh: false })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(statements).to.include(
-      'create table "my_db"."public"."my_table" (like "my_db"."public"."my_table__sa_stage" including defaults) partition by range ("id") tablespace "fast_ssd"'
+      'create table "my_db"."public"."my_table" (like "my_db"."public"."my_table__sa_stage" including defaults) partition by range ("id") tablespace "fast_ssd"',
     );
   });
 
@@ -484,22 +503,22 @@ suite("ExecutionSql with Postgres/Supabase", () => {
               subPartition: {
                 kind: sqlanvil.PostgresOptions.Partition.Kind.LIST,
                 columns: ["field1"],
-                partitions: [{ name: "us", values: "IN ('a')" }]
-              }
-            }
-          ]
-        }
-      }
+                partitions: [{ name: "us", values: "IN ('a')" }],
+              },
+            },
+          ],
+        },
+      },
     };
     const statements = executionSql
       .publishTasks(table, { fullRefresh: false })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(statements).to.include(
-      'create table "my_db"."public"."my_table__p0" partition of "my_db"."public"."my_table" for values FROM (0) TO (100) partition by list ("field1")'
+      'create table "my_db"."public"."my_table__p0" partition of "my_db"."public"."my_table" for values FROM (0) TO (100) partition by list ("field1")',
     );
     expect(statements).to.include(
-      'create table "my_db"."public"."my_table__p0__us" partition of "my_db"."public"."my_table__p0" for values IN (\'a\')'
+      'create table "my_db"."public"."my_table__p0__us" partition of "my_db"."public"."my_table__p0" for values IN (\'a\')',
     );
   });
 
@@ -509,14 +528,14 @@ suite("ExecutionSql with Postgres/Supabase", () => {
       type: "view",
       enumType: sqlanvil.TableType.VIEW,
       materialized: true,
-      postgres: { noData: true }
+      postgres: { noData: true },
     };
     const statements = executionSql
       .publishTasks(mvTable, { fullRefresh: false })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(statements[1]).to.equal(
-      'create materialized view "my_db"."public"."my_table" as select 1 as id, \'a\' as field1 with no data'
+      'create materialized view "my_db"."public"."my_table" as select 1 as id, \'a\' as field1 with no data',
     );
   });
 
@@ -526,16 +545,16 @@ suite("ExecutionSql with Postgres/Supabase", () => {
       type: "view",
       enumType: sqlanvil.TableType.VIEW,
       materialized: true,
-      postgres: { refreshPolicy: "on_dependency_change" }
+      postgres: { refreshPolicy: "on_dependency_change" },
     };
     const existing: sqlanvil.ITableMetadata = {
       type: sqlanvil.TableMetadata.Type.MATERIALIZED_VIEW,
-      fields: []
+      fields: [],
     };
     const statements = executionSql
       .publishTasks(mvTable, { fullRefresh: false }, existing)
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(statements).to.eql(['refresh materialized view "my_db"."public"."my_table"']);
   });
 
@@ -550,11 +569,11 @@ suite("ExecutionSql with Postgres/Supabase", () => {
       preOps: ["create-time preop"],
       postOps: ["alter table add primary key (id)"], // one-time DDL
       incrementalPreOps: ["append preop"],
-      incrementalPostOps: ["append postop"]
+      incrementalPostOps: ["append postop"],
     };
     const tableMetadata: sqlanvil.ITableMetadata = {
       type: sqlanvil.TableMetadata.Type.TABLE,
-      fields: [{ name: "id", primitive: sqlanvil.Field.Primitive.INTEGER }]
+      fields: [{ name: "id", primitive: sqlanvil.Field.Primitive.INTEGER }],
     };
 
     // Create / full-refresh (no existing table): plain preOps/postOps run, so the
@@ -562,7 +581,7 @@ suite("ExecutionSql with Postgres/Supabase", () => {
     const created = executionSql
       .publishTasks(incTable, { fullRefresh: false })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(created).to.include("create-time preop");
     expect(created).to.include("alter table add primary key (id)");
     expect(created).to.not.include("append postop");
@@ -572,7 +591,7 @@ suite("ExecutionSql with Postgres/Supabase", () => {
     const appended = executionSql
       .publishTasks(incTable, { fullRefresh: false }, tableMetadata)
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(appended).to.include("append preop");
     expect(appended).to.include("append postop");
     expect(appended).to.not.include("alter table add primary key (id)");
@@ -580,23 +599,23 @@ suite("ExecutionSql with Postgres/Supabase", () => {
 
   test("validate: table stub is CREATE TABLE … WITH NO DATA", () => {
     expect(executionSql.validationStubSql(baseTable)).to.equal(
-      'create table "my_db"."public"."my_table" as select 1 as id, \'a\' as field1 with no data'
+      'create table "my_db"."public"."my_table" as select 1 as id, \'a\' as field1 with no data',
     );
   });
 
   test("validate: view stub is CREATE VIEW", () => {
     const view = { ...baseTable, enumType: sqlanvil.TableType.VIEW };
     expect(executionSql.validationStubSql(view)).to.equal(
-      'create view "my_db"."public"."my_table" as select 1 as id, \'a\' as field1'
+      'create view "my_db"."public"."my_table" as select 1 as id, \'a\' as field1',
     );
   });
 
   test("validate: schema create/drop are isolated + cascade", () => {
     expect(executionSql.createSchemaSql("public__sqlanvil_validate_1")).to.equal(
-      'create schema if not exists "public__sqlanvil_validate_1"'
+      'create schema if not exists "public__sqlanvil_validate_1"',
     );
     expect(executionSql.dropSchemaCascadeSql("public__sqlanvil_validate_1")).to.equal(
-      'drop schema if exists "public__sqlanvil_validate_1" cascade'
+      'drop schema if exists "public__sqlanvil_validate_1" cascade',
     );
   });
 });
@@ -604,7 +623,7 @@ suite("ExecutionSql with Postgres/Supabase", () => {
 suite("ExecutionSql with the Supabase table block", () => {
   const executionSql = new ExecutionSql(
     { warehouse: "supabase", defaultDatabase: "my_db", defaultSchema: "public" },
-    "2.0.0"
+    "2.0.0",
   );
   const target = '"my_db"."public"."documents"';
   const IndexType = sqlanvil.SupabaseOptions.VectorConfig.IndexType;
@@ -619,8 +638,8 @@ suite("ExecutionSql with the Supabase table block", () => {
       ownerRole: "service_role",
       enableRls: true,
       publishToRealtime: true,
-      vectors: [{ column: "embedding", indexType: IndexType.HNSW, params: { m: "16" } }]
-    }
+      vectors: [{ column: "embedding", indexType: IndexType.HNSW, params: { m: "16" } }],
+    },
   };
   const supabaseStatements = [
     `alter table ${target} owner to "service_role"`,
@@ -628,19 +647,19 @@ suite("ExecutionSql with the Supabase table block", () => {
     "create extension if not exists vector cascade",
     `create index "documents_embedding_idx" on ${target} using hnsw ("embedding" vector_cosine_ops) with (m = 16)`,
     `alter table ${target} replica identity full`,
-    `alter publication supabase_realtime add table ${target}`
+    `alter publication supabase_realtime add table ${target}`,
   ];
 
   test("table: applies the block after create, before post-ops", () => {
     const statements = executionSql
       .publishTasks(baseTable, { fullRefresh: false })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(statements).deep.equals([
       `drop table if exists ${target} cascade`,
       `create table ${target} as select 1 as id`,
       ...supabaseStatements,
-      "user post op"
+      "user post op",
     ]);
   });
 
@@ -655,18 +674,18 @@ suite("ExecutionSql with the Supabase table block", () => {
               {
                 column: "embedding",
                 indexType: IndexType.IVFFLAT,
-                params: { opclass: "vector_l2_ops", lists: "100" }
-              }
-            ]
-          }
+                params: { opclass: "vector_l2_ops", lists: "100" },
+              },
+            ],
+          },
         },
-        { fullRefresh: false }
+        { fullRefresh: false },
       )
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(statements.slice(2)).deep.equals([
       "create extension if not exists vector cascade",
-      `create index "documents_embedding_idx" on ${target} using ivfflat ("embedding" vector_l2_ops) with (lists = 100)`
+      `create index "documents_embedding_idx" on ${target} using ivfflat ("embedding" vector_l2_ops) with (lists = 100)`,
     ]);
   });
 
@@ -677,12 +696,12 @@ suite("ExecutionSql with the Supabase table block", () => {
       enumType: sqlanvil.TableType.INCREMENTAL,
       incrementalQuery: "select 1 as id",
       postOps: [],
-      incrementalPostOps: []
+      incrementalPostOps: [],
     };
     const created = executionSql
       .publishTasks(incTable, { fullRefresh: false })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(created.slice(-supabaseStatements.length)).deep.equals(supabaseStatements);
 
     const appended = executionSql
@@ -691,12 +710,12 @@ suite("ExecutionSql with the Supabase table block", () => {
         { fullRefresh: false },
         {
           type: sqlanvil.TableMetadata.Type.TABLE,
-          fields: [{ name: "id", primitive: sqlanvil.Field.Primitive.INTEGER }]
-        }
+          fields: [{ name: "id", primitive: sqlanvil.Field.Primitive.INTEGER }],
+        },
       )
       .build()
-      .map(t => t.statement);
-    supabaseStatements.forEach(statement => expect(appended).not.to.include(statement));
+      .map((t) => t.statement);
+    supabaseStatements.forEach((statement) => expect(appended).not.to.include(statement));
   });
 
   test("nested supabase.postgres options apply when postgres is not set", () => {
@@ -705,16 +724,16 @@ suite("ExecutionSql with the Supabase table block", () => {
         {
           ...baseTable,
           postOps: [],
-          supabase: { postgres: { unlogged: true, indexes: [{ name: "ix_id", columns: ["id"] }] } }
+          supabase: { postgres: { unlogged: true, indexes: [{ name: "ix_id", columns: ["id"] }] } },
         },
-        { fullRefresh: false }
+        { fullRefresh: false },
       )
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(statements).deep.equals([
       `drop table if exists ${target} cascade`,
       `create unlogged table ${target} as select 1 as id`,
-      `create index "ix_id" on ${target} using btree ("id")`
+      `create index "ix_id" on ${target} using btree ("id")`,
     ]);
   });
 
@@ -722,10 +741,10 @@ suite("ExecutionSql with the Supabase table block", () => {
     const statements = executionSql
       .publishTasks({ ...baseTable, postOps: [], supabase: undefined }, { fullRefresh: false })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(statements).deep.equals([
       `drop table if exists ${target} cascade`,
-      `create table ${target} as select 1 as id`
+      `create table ${target} as select 1 as id`,
     ]);
   });
 });
@@ -737,14 +756,14 @@ suite("mysql execution sql", () => {
     target: { schema: "db", name: "t" },
     query: "select 1 as id",
     enumType: sqlanvil.TableType.TABLE,
-    ...over
+    ...over,
   });
 
   test("table: drop + CTAS with backticks", () => {
     const stmts = sql
       .publishTasks(baseTable(), { fullRefresh: false })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(stmts).to.include("drop table if exists `db`.`t`");
     expect(stmts).to.include("create table `db`.`t` as select 1 as id");
   });
@@ -753,21 +772,20 @@ suite("mysql execution sql", () => {
     const stmts = sql
       .publishTasks(baseTable({ enumType: sqlanvil.TableType.VIEW }), { fullRefresh: false })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(stmts).to.include("create or replace view `db`.`t` as select 1 as id");
   });
 
   test("incremental fresh-create adds a unique index on the uniqueKey", () => {
     const stmts = sql
-      .publishTasks(
-        baseTable({ enumType: sqlanvil.TableType.INCREMENTAL, uniqueKey: ["id"] }),
-        { fullRefresh: true }
-      )
+      .publishTasks(baseTable({ enumType: sqlanvil.TableType.INCREMENTAL, uniqueKey: ["id"] }), {
+        fullRefresh: true,
+      })
       .build()
-      .map(t => t.statement);
-    expect(stmts.some(s => /alter table `db`\.`t` add unique index .* \(`id`\)/.test(s))).to.equal(
-      true
-    );
+      .map((t) => t.statement);
+    expect(
+      stmts.some((s) => /alter table `db`\.`t` add unique index .* \(`id`\)/.test(s)),
+    ).to.equal(true);
   });
 
   test("incremental append upserts via ON DUPLICATE KEY UPDATE", () => {
@@ -776,34 +794,33 @@ suite("mysql execution sql", () => {
         baseTable({
           enumType: sqlanvil.TableType.INCREMENTAL,
           uniqueKey: ["id"],
-          incrementalQuery: "select 1 as id"
+          incrementalQuery: "select 1 as id",
         }),
         { fullRefresh: false },
         {
           target: { schema: "db", name: "t" },
           type: sqlanvil.TableMetadata.Type.TABLE,
-          fields: [{ name: "id" }, { name: "v" }]
-        }
+          fields: [{ name: "id" }, { name: "v" }],
+        },
       )
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(
-      stmts.some(s => s.includes("on duplicate key update") && s.includes("`v` = values(`v`)"))
+      stmts.some((s) => s.includes("on duplicate key update") && s.includes("`v` = values(`v`)")),
     ).to.equal(true);
   });
 
   test("materialized view builds a refreshed table snapshot (drop view+table, CTAS)", () => {
     const stmts = sql
-      .publishTasks(
-        baseTable({ enumType: sqlanvil.TableType.VIEW, materialized: true }),
-        { fullRefresh: false }
-      )
+      .publishTasks(baseTable({ enumType: sqlanvil.TableType.VIEW, materialized: true }), {
+        fullRefresh: false,
+      })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(stmts).to.include("drop view if exists `db`.`t`");
     expect(stmts).to.include("drop table if exists `db`.`t`");
     expect(stmts).to.include("create table `db`.`t` as select 1 as id");
-    expect(stmts.some(s => /create or replace view/.test(s))).to.equal(false);
+    expect(stmts.some((s) => /create or replace view/.test(s))).to.equal(false);
   });
 
   test("materialized view honors the mysql:{} block (engine + indexes)", () => {
@@ -812,93 +829,92 @@ suite("mysql execution sql", () => {
         baseTable({
           enumType: sqlanvil.TableType.VIEW,
           materialized: true,
-          mysql: { engine: "InnoDB", indexes: [{ name: "ix_id", columns: ["id"] }] }
+          mysql: { engine: "InnoDB", indexes: [{ name: "ix_id", columns: ["id"] }] },
         }),
-        { fullRefresh: false }
+        { fullRefresh: false },
       )
       .build()
-      .map(t => t.statement);
-    expect(stmts.some(s => /create table `db`\.`t` engine=InnoDB as /.test(s))).to.equal(true);
+      .map((t) => t.statement);
+    expect(stmts.some((s) => /create table `db`\.`t` engine=InnoDB as /.test(s))).to.equal(true);
     expect(stmts).to.include("alter table `db`.`t` add index `ix_id` (`id`)");
   });
 
   test("table options: engine + charset land in the CTAS", () => {
     const stmts = sql
       .publishTasks(baseTable({ mysql: { engine: "InnoDB", charset: "utf8mb4" } }), {
-        fullRefresh: false
+        fullRefresh: false,
       })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(
-      stmts.some(s => /create table `db`\.`t` engine=InnoDB default charset=utf8mb4 as /.test(s))
+      stmts.some((s) => /create table `db`\.`t` engine=InnoDB default charset=utf8mb4 as /.test(s)),
     ).to.equal(true);
   });
 
   test("indexes emit ALTER TABLE ADD INDEX after the CTAS", () => {
     const stmts = sql
-      .publishTasks(
-        baseTable({ mysql: { indexes: [{ name: "ix_label", columns: ["label"] }] } }),
-        { fullRefresh: false }
-      )
+      .publishTasks(baseTable({ mysql: { indexes: [{ name: "ix_label", columns: ["label"] }] } }), {
+        fullRefresh: false,
+      })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(stmts).to.include("alter table `db`.`t` add index `ix_label` (`label`)");
   });
 
   test("unique index emits ADD UNIQUE INDEX with a derived name when unnamed", () => {
     const stmts = sql
       .publishTasks(baseTable({ mysql: { indexes: [{ columns: ["id"], unique: true }] } }), {
-        fullRefresh: false
+        fullRefresh: false,
       })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(stmts).to.include("alter table `db`.`t` add unique index `t_id_key` (`id`)");
   });
 
   test("row_format lands in the CTAS after the other table options", () => {
     const stmts = sql
       .publishTasks(baseTable({ mysql: { engine: "InnoDB", rowFormat: "DYNAMIC" } }), {
-        fullRefresh: false
+        fullRefresh: false,
       })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(
-      stmts.some(s => /create table `db`\.`t` engine=InnoDB row_format=DYNAMIC as /.test(s))
+      stmts.some((s) => /create table `db`\.`t` engine=InnoDB row_format=DYNAMIC as /.test(s)),
     ).to.equal(true);
   });
 
   test("fulltext index emits ADD FULLTEXT INDEX", () => {
     const stmts = sql
       .publishTasks(
-        baseTable({ mysql: { indexes: [{ name: "ft_body", columns: ["body"], type: "fulltext" }] } }),
-        { fullRefresh: false }
+        baseTable({
+          mysql: { indexes: [{ name: "ft_body", columns: ["body"], type: "fulltext" }] },
+        }),
+        { fullRefresh: false },
       )
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(stmts).to.include("alter table `db`.`t` add fulltext index `ft_body` (`body`)");
   });
 
   test("spatial index emits ADD SPATIAL INDEX", () => {
     const stmts = sql
-      .publishTasks(
-        baseTable({ mysql: { indexes: [{ columns: ["geom"], type: "spatial" }] } }),
-        { fullRefresh: false }
-      )
+      .publishTasks(baseTable({ mysql: { indexes: [{ columns: ["geom"], type: "spatial" }] } }), {
+        fullRefresh: false,
+      })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(stmts).to.include("alter table `db`.`t` add spatial index `t_geom_idx` (`geom`)");
   });
 
   test("index column prefix lengths emit MySQL prefix syntax and stay out of derived names", () => {
     const stmts = sql
-      .publishTasks(
-        baseTable({ mysql: { indexes: [{ columns: ["description(50)", "id"] }] } }),
-        { fullRefresh: false }
-      )
+      .publishTasks(baseTable({ mysql: { indexes: [{ columns: ["description(50)", "id"] }] } }), {
+        fullRefresh: false,
+      })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(stmts).to.include(
-      "alter table `db`.`t` add index `t_description_id_idx` (`description`(50), `id`)"
+      "alter table `db`.`t` add index `t_description_id_idx` (`description`(50), `id`)",
     );
   });
 
@@ -906,21 +922,22 @@ suite("mysql execution sql", () => {
     expect(() =>
       sql
         .publishTasks(
-          baseTable({ mysql: { indexes: [{ columns: ["body"], type: "fulltext", unique: true }] } }),
-          { fullRefresh: false }
+          baseTable({
+            mysql: { indexes: [{ columns: ["body"], type: "fulltext", unique: true }] },
+          }),
+          { fullRefresh: false },
         )
-        .build()
+        .build(),
     ).to.throw(/fulltext index cannot also be unique/);
   });
 
   test("an unknown index type is rejected", () => {
     expect(() =>
       sql
-        .publishTasks(
-          baseTable({ mysql: { indexes: [{ columns: ["id"], type: "hash" }] } }),
-          { fullRefresh: false }
-        )
-        .build()
+        .publishTasks(baseTable({ mysql: { indexes: [{ columns: ["id"], type: "hash" }] } }), {
+          fullRefresh: false,
+        })
+        .build(),
     ).to.throw(/index type must be "fulltext" or "spatial"/);
   });
 
@@ -930,33 +947,32 @@ suite("mysql execution sql", () => {
         baseTable({
           enumType: sqlanvil.TableType.INCREMENTAL,
           uniqueKey: ["id"],
-          mysql: { engine: "InnoDB", indexes: [{ name: "ix_label", columns: ["label"] }] }
+          mysql: { engine: "InnoDB", indexes: [{ name: "ix_label", columns: ["label"] }] },
         }),
-        { fullRefresh: true }
+        { fullRefresh: true },
       )
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     // CTAS on the fresh-create path carries the engine option.
-    expect(stmts.some(s => /create table `db`\.`t` engine=InnoDB as /.test(s))).to.equal(true);
+    expect(stmts.some((s) => /create table `db`\.`t` engine=InnoDB as /.test(s))).to.equal(true);
     // The auto uniqueKey unique index is still emitted.
-    expect(stmts.some(s => /add unique index `uq_db_t` \(`id`\)/.test(s))).to.equal(true);
+    expect(stmts.some((s) => /add unique index `uq_db_t` \(`id`\)/.test(s))).to.equal(true);
     // The user-declared index is additive.
     expect(stmts).to.include("alter table `db`.`t` add index `ix_label` (`label`)");
   });
 
   test("table pre_operations / post_operations run around the build (issue #44)", () => {
     const stmts = sql
-      .publishTasks(
-        baseTable({ preOps: ["set @x = 1"], postOps: ["analyze table `db`.`t`"] }),
-        { fullRefresh: false }
-      )
+      .publishTasks(baseTable({ preOps: ["set @x = 1"], postOps: ["analyze table `db`.`t`"] }), {
+        fullRefresh: false,
+      })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(stmts[0]).to.equal("set @x = 1");
     expect(stmts[stmts.length - 1]).to.equal("analyze table `db`.`t`");
     // Ops bracket the create: preOp before the CTAS, postOp after.
     expect(stmts.indexOf("set @x = 1")).to.be.lessThan(
-      stmts.findIndex(s => s.startsWith("create table"))
+      stmts.findIndex((s) => s.startsWith("create table")),
     );
   });
 
@@ -966,16 +982,16 @@ suite("mysql execution sql", () => {
         baseTable({
           enumType: sqlanvil.TableType.VIEW,
           preOps: ["set @v = 1"],
-          postOps: ["set @v = 2"]
+          postOps: ["set @v = 2"],
         }),
-        { fullRefresh: false }
+        { fullRefresh: false },
       )
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(stmts).to.eql([
       "set @v = 1",
       "create or replace view `db`.`t` as select 1 as id",
-      "set @v = 2"
+      "set @v = 2",
     ]);
   });
 
@@ -987,27 +1003,31 @@ suite("mysql execution sql", () => {
       preOps: ["create-time preop"],
       postOps: ["alter table `db`.`t` add primary key (`id`)"], // one-time DDL
       incrementalPreOps: ["append preop"],
-      incrementalPostOps: ["append postop"]
+      incrementalPostOps: ["append postop"],
     });
 
     // Create / full-refresh (no existing table): plain preOps/postOps run.
     const created = sql
       .publishTasks(incTable, { fullRefresh: false })
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(created).to.include("create-time preop");
     expect(created).to.include("alter table `db`.`t` add primary key (`id`)");
     expect(created).to.not.include("append postop");
 
     // Incremental append (table already exists): incremental* ops run, one-time DDL does not.
     const appended = sql
-      .publishTasks(incTable, { fullRefresh: false }, {
-        target: { schema: "db", name: "t" },
-        type: sqlanvil.TableMetadata.Type.TABLE,
-        fields: [{ name: "id" }]
-      })
+      .publishTasks(
+        incTable,
+        { fullRefresh: false },
+        {
+          target: { schema: "db", name: "t" },
+          type: sqlanvil.TableMetadata.Type.TABLE,
+          fields: [{ name: "id" }],
+        },
+      )
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(appended).to.include("append preop");
     expect(appended).to.include("append postop");
     expect(appended).to.not.include("alter table `db`.`t` add primary key (`id`)");
@@ -1024,18 +1044,18 @@ suite("mysql execution sql", () => {
               expression: "id",
               partitions: [
                 { name: "p0", values: "values less than (10)" },
-                { name: "pmax", values: "values less than maxvalue" }
-              ]
-            }
-          }
+                { name: "pmax", values: "values less than maxvalue" },
+              ],
+            },
+          },
         }),
-        { fullRefresh: false }
+        { fullRefresh: false },
       )
       .build()
-      .map(t => t.statement);
+      .map((t) => t.statement);
     expect(stmts).to.include(
       "create table `db`.`t` engine=InnoDB partition by range (id) " +
-        "(partition p0 values less than (10), partition pmax values less than maxvalue) as select 1 as id"
+        "(partition p0 values less than (10), partition pmax values less than maxvalue) as select 1 as id",
     );
   });
 
@@ -1043,24 +1063,40 @@ suite("mysql execution sql", () => {
     const hash = sql
       .publishTasks(
         baseTable({
-          mysql: { partition: { kind: sqlanvil.MysqlOptions.Partition.Kind.HASH, expression: "id", count: 4 } }
+          mysql: {
+            partition: {
+              kind: sqlanvil.MysqlOptions.Partition.Kind.HASH,
+              expression: "id",
+              count: 4,
+            },
+          },
         }),
-        { fullRefresh: false }
+        { fullRefresh: false },
       )
       .build()
-      .map(t => t.statement);
-    expect(hash).to.include("create table `db`.`t` partition by hash (id) partitions 4 as select 1 as id");
+      .map((t) => t.statement);
+    expect(hash).to.include(
+      "create table `db`.`t` partition by hash (id) partitions 4 as select 1 as id",
+    );
 
     const key = sql
       .publishTasks(
         baseTable({
-          mysql: { partition: { kind: sqlanvil.MysqlOptions.Partition.Kind.KEY, expression: "id", count: 2 } }
+          mysql: {
+            partition: {
+              kind: sqlanvil.MysqlOptions.Partition.Kind.KEY,
+              expression: "id",
+              count: 2,
+            },
+          },
         }),
-        { fullRefresh: false }
+        { fullRefresh: false },
       )
       .build()
-      .map(t => t.statement);
-    expect(key).to.include("create table `db`.`t` partition by key (id) partitions 2 as select 1 as id");
+      .map((t) => t.statement);
+    expect(key).to.include(
+      "create table `db`.`t` partition by key (id) partitions 2 as select 1 as id",
+    );
   });
 
   test("partition: applies on the incremental fresh-create path", () => {
@@ -1073,38 +1109,39 @@ suite("mysql execution sql", () => {
             partition: {
               kind: sqlanvil.MysqlOptions.Partition.Kind.RANGE,
               expression: "id",
-              partitions: [{ name: "pmax", values: "values less than maxvalue" }]
-            }
-          }
+              partitions: [{ name: "pmax", values: "values less than maxvalue" }],
+            },
+          },
         }),
-        { fullRefresh: true }
+        { fullRefresh: true },
       )
       .build()
-      .map(t => t.statement);
-    expect(stmts.some(s => /partition by range \(id\) \(partition pmax values less than maxvalue\) as /.test(s))).to.equal(
-      true
-    );
+      .map((t) => t.statement);
+    expect(
+      stmts.some((s) =>
+        /partition by range \(id\) \(partition pmax values less than maxvalue\) as /.test(s),
+      ),
+    ).to.equal(true);
   });
 
   test("validate: table stub wraps the query + LIMIT 0", () => {
     expect(sql.validationStubSql(baseTable())).to.equal(
-      "create table `db`.`t` as select * from (select 1 as id) as _sa_stub limit 0"
+      "create table `db`.`t` as select * from (select 1 as id) as _sa_stub limit 0",
     );
   });
 
   test("validate: view stub is CREATE OR REPLACE VIEW", () => {
     expect(sql.validationStubSql(baseTable({ enumType: sqlanvil.TableType.VIEW }))).to.equal(
-      "create or replace view `db`.`t` as select 1 as id"
+      "create or replace view `db`.`t` as select 1 as id",
     );
   });
 
   test("validate: shadow schema is a CREATE/DROP DATABASE", () => {
     expect(sql.createSchemaSql("db__sqlanvil_validate_1")).to.equal(
-      "create database if not exists `db__sqlanvil_validate_1`"
+      "create database if not exists `db__sqlanvil_validate_1`",
     );
     expect(sql.dropSchemaCascadeSql("db__sqlanvil_validate_1")).to.equal(
-      "drop database if exists `db__sqlanvil_validate_1`"
+      "drop database if exists `db__sqlanvil_validate_1`",
     );
   });
 });
-

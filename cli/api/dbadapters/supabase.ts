@@ -8,7 +8,7 @@ import { sqlanvil } from "sa/protos/ts";
 export class SupabaseDbAdapter extends PostgresDbAdapter {
   public static async create(
     credentials: sqlanvil.IPostgresConnection,
-    options?: { concurrencyLimit?: number; disableSslForTestsOnly?: boolean }
+    options?: { concurrencyLimit?: number; disableSslForTestsOnly?: boolean },
   ): Promise<SupabaseDbAdapter> {
     const sslMode = (credentials.sslMode || "").toLowerCase();
     const sslEnabled = !options?.disableSslForTestsOnly && sslMode !== "disable";
@@ -20,9 +20,9 @@ export class SupabaseDbAdapter extends PostgresDbAdapter {
       password: credentials.password,
       ssl: sslEnabled
         ? {
-            rejectUnauthorized: sslMode === "verify-ca" || sslMode === "verify-full"
+            rejectUnauthorized: sslMode === "verify-ca" || sslMode === "verify-full",
           }
-        : false
+        : false,
     };
     const queryExecutor = new PgPoolExecutor(clientConfig, options);
     // Fail fast on a single connection before any command fans out, so a bad
@@ -35,7 +35,7 @@ export class SupabaseDbAdapter extends PostgresDbAdapter {
       throw new ErrorWithCause(
         `Could not connect to Supabase Postgres at ${credentials.host}:${credentials.port} ` +
           `as "${credentials.user}": ${e.message}`,
-        e
+        e,
       );
     }
     return new SupabaseDbAdapter(queryExecutor);
@@ -58,7 +58,7 @@ export class SupabaseDbAdapter extends PostgresDbAdapter {
   public async validatePublicationState(pubName: string = "supabase_realtime"): Promise<boolean> {
     try {
       const result = await this.execute(`select 1 from pg_publication where pubname = $1`, {
-        params: [pubName]
+        params: [pubName],
       });
       return result.rows.length > 0;
     } catch {

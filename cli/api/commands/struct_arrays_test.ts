@@ -35,8 +35,12 @@ from \${ref("products")} as p
 
   test("an ARRAY of scalars is not a struct array", () => {
     // `ARRAY(select x from t)` unnests to a plain column and needs none of this.
-    expect(findStructArrays("f.sqlx", 'config { type: "view" }\n\nselect ARRAY(select x from t) as xs\n'))
-      .to.have.length(0);
+    expect(
+      findStructArrays(
+        "f.sqlx",
+        'config { type: "view" }\n\nselect ARRAY(select x from t) as xs\n',
+      ),
+    ).to.have.length(0);
   });
 
   test("collapse when every read is an UNNEST — the array is a round trip", () => {

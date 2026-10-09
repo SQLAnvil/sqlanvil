@@ -3,7 +3,7 @@ import { prettyJsonStringify } from "sa/cli/api/utils";
 import {
   NO_ARTIFACTS,
   printArtifactRows,
-  resolveArtifactViews
+  resolveArtifactViews,
 } from "sa/cli/commands/artifact_views";
 import { jsonOutputOption, projectDirOption } from "sa/cli/common_options";
 import { print, printError } from "sa/cli/console";
@@ -37,11 +37,11 @@ export const queryCommand: ICommand = {
         if (!argv.sql) {
           throw new Error('Provide a SQL query, e.g. sqlanvil query "select * from actions".');
         }
-      }
+      },
     ),
-    projectDirOption
+    projectDirOption,
   ],
   options: [jsonOutputOption],
   processFn: async (argv: any) =>
-    runQuery(argv[projectDirOption.name], argv.sql, argv[jsonOutputOption.name])
+    runQuery(argv[projectDirOption.name], argv.sql, argv[jsonOutputOption.name]),
 };

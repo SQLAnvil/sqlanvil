@@ -21,7 +21,7 @@ export function extensionForFormat(format: string): string {
 export function resolveExportUri(
   spec: { location?: string | null; format?: string | null; filename?: string | null },
   actionName: string,
-  opts: { wildcard: boolean }
+  opts: { wildcard: boolean },
 ): string {
   const prefix = (spec.location || "").replace(/\/+$/, "");
   const base = spec.filename || actionName;

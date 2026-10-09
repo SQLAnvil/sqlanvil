@@ -10,14 +10,18 @@ import { sqlanvil } from "sa/protos/ts";
 export function compile(compileConfig: sqlanvil.ICompileConfig) {
   compileConfig.projectDir = fs.realpathSync(path.resolve(compileConfig.projectDir));
   const coreBundlePath = path.join(
-    compileConfig.projectDir, "node_modules", "@sqlanvil", "core", "bundle.js"
+    compileConfig.projectDir,
+    "node_modules",
+    "@sqlanvil",
+    "core",
+    "bundle.js",
   );
   if (!fs.existsSync(coreBundlePath)) {
     throw new Error(
       "Could not find a recent installed version of @sqlanvil/core in the project. Check that " +
         "either `sqlanvilCoreVersion` is specified in `workflow_settings.yaml`, or " +
         "`@sqlanvil/core` is specified in `package.json`. If using `package.json`, then run " +
-        "`sqlanvil install`."
+        "`sqlanvil install`.",
     );
   }
 
@@ -33,16 +37,16 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
       context: "sandbox",
       root: compileConfig.projectDir,
       external: true,
-      builtin: ["path"]
-    }
+      builtin: ["path"],
+    },
   });
   const compiler: CompilerFunction = indexGeneratorVm.run(
     'return require("@sqlanvil/core").compiler',
-    vmIndexFileName
+    vmIndexFileName,
   );
   const sqlanvilCoreVersion: string = indexGeneratorVm.run(
     'return require("@sqlanvil/core").version || "0.0.0"',
-    vmIndexFileName
+    vmIndexFileName,
   );
   // The upstream Dataform release the core is based on. Decoupled sqlanvil cores
   // export `dataformVersion`; legacy cores (whose `version` tracked the Dataform
@@ -50,7 +54,7 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
   // below — keyed on the Dataform layout, not sqlanvil's own SemVer.
   const coreDataformVersion: string = indexGeneratorVm.run(
     'return require("@sqlanvil/core").dataformVersion || require("@sqlanvil/core").version || "0.0.0"',
-    vmIndexFileName
+    vmIndexFileName,
   );
 
   const cliVersion = readCliVersion();
@@ -69,7 +73,7 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
           `${cliVersion}. The CLI requires @sqlanvil/core >= ${minCoreVersion} ` +
           `(matching major.minor). Set \`sqlanvilCoreVersion: ${cliVersion}\` in ` +
           `workflow_settings.yaml (or pin @sqlanvil/core in package.json), then run ` +
-          `\`sqlanvil install\`.`
+          `\`sqlanvil install\`.`,
       );
     }
   }
@@ -85,9 +89,13 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
   const userCodeVm = new NodeVM({
     wrapper: "none",
     sandbox: {
-      __df_enter: (p: string) => { fileStack.push(p); },
-      __df_exit: () => { fileStack.pop(); },
-      __df_current: () => fileStack.length > 0 ? fileStack[fileStack.length - 1] : null
+      __df_enter: (p: string) => {
+        fileStack.push(p);
+      },
+      __df_exit: () => {
+        fileStack.pop();
+      },
+      __df_current: () => (fileStack.length > 0 ? fileStack[fileStack.length - 1] : null),
     },
     require: {
       builtin: ["path"],
@@ -95,7 +103,11 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
       external: true,
       root: compileConfig.projectDir,
       resolve: (moduleName, parentDirName) =>
-        path.join(parentDirName, path.relative(parentDirName, compileConfig.projectDir), moduleName)
+        path.join(
+          parentDirName,
+          path.relative(parentDirName, compileConfig.projectDir),
+          moduleName,
+        ),
     },
     sourceExtensions: ["js", "sql", "sqlx", "yaml", "yml"],
     compiler: (code, filePath) => {
@@ -112,11 +124,11 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
           __df_exit();
         }
       `;
-    }
+    },
   });
 
   const hasWorkflowSettingsYaml = fs.existsSync(
-    path.join(compileConfig.projectDir, "workflow_settings.yaml")
+    path.join(compileConfig.projectDir, "workflow_settings.yaml"),
   );
 
   return userCodeVm.run(
@@ -125,12 +137,14 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
         configurable: true,
         get: function() { return __df_current(); }
       });
-      ${hasWorkflowSettingsYaml
-        ? 'global.workflowSettingsYaml = require("./workflow_settings.yaml");'
-        : ''}
+      ${
+        hasWorkflowSettingsYaml
+          ? 'global.workflowSettingsYaml = require("./workflow_settings.yaml");'
+          : ""
+      }
       return require("@sqlanvil/core").main("${createCoreExecutionRequest(compileConfig)}")
     `,
-    vmIndexFileName
+    vmIndexFileName,
   );
 }
 
@@ -164,9 +178,7 @@ if (require.main === module) {
 // by pkg_json(version = SQLANVIL_VERSION). Returns "0.0.0" when unreadable.
 function readCliVersion(): string {
   try {
-    const pkg = JSON.parse(
-      fs.readFileSync(path.join(__dirname, "package.json"), "utf8")
-    );
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "package.json"), "utf8"));
     return pkg.version || "0.0.0";
   } catch {
     return "0.0.0";
@@ -181,7 +193,7 @@ function readCliVersion(): string {
 const OLD_CORE_THROW =
   'if(!t)throw new Error("Unable to find valid caller file; please report this issue.")';
 const OLD_CORE_WITH_FALLBACK =
-  'if(!t){if(global.__sqlanvil_current_file){t=global.__sqlanvil_current_file}' +
+  "if(!t){if(global.__sqlanvil_current_file){t=global.__sqlanvil_current_file}" +
   'else{throw new Error("Unable to find valid caller file; please report this issue.")}}';
 
 function patchOldCoreCallerFile(source: string): string {
@@ -193,11 +205,11 @@ function patchOldCoreCallerFile(source: string): string {
  */
 function createCoreExecutionRequest(compileConfig: sqlanvil.ICompileConfig): string {
   const filePaths = Array.from(
-    new Set<string>(glob.sync("!(node_modules)/**/*.*", { cwd: compileConfig.projectDir }))
+    new Set<string>(glob.sync("!(node_modules)/**/*.*", { cwd: compileConfig.projectDir })),
   );
 
   return encode64(sqlanvil.CoreExecutionRequest, {
     // Add the list of file paths to the compile config if not already set.
-    compile: { compileConfig: { filePaths, ...compileConfig } }
+    compile: { compileConfig: { filePaths, ...compileConfig } },
   });
 }

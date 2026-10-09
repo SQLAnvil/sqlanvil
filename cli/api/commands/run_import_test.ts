@@ -9,7 +9,7 @@ suite("runner import hook", () => {
     const graph = sqlanvil.ExecutionGraph.create({
       projectConfig: { warehouse: "postgres" },
       warehouseState: { tables: [] },
-      actions: []
+      actions: [],
     });
     return new Runner({} as any, graph, {
       warehouseConnection: { host: "h", port: 5432, database: "d", user: "u", password: "p" },
@@ -17,7 +17,7 @@ suite("runner import hook", () => {
       duckdbImport: async (args: any) => {
         calls.push(args);
         return { source: "s3://b/o/orders.parquet" };
-      }
+      },
     });
   }
 
@@ -27,7 +27,7 @@ suite("runner import hook", () => {
     const action = sqlanvil.ExecutionAction.create({
       target: { schema: "analytics", name: "orders" },
       type: "import",
-      import: { location: "s3://b/o/*.parquet", format: "parquet", overwrite: true }
+      import: { location: "s3://b/o/*.parquet", format: "parquet", overwrite: true },
     });
     const actionResult: any = { tasks: [] };
 
@@ -36,7 +36,7 @@ suite("runner import hook", () => {
       sqlanvil.ExecutionTask.create({ type: "import" }),
       actionResult,
       {},
-      action
+      action,
     );
 
     expect(status).equals(sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL);
@@ -52,32 +52,32 @@ suite("runner import hook", () => {
     const graph = sqlanvil.ExecutionGraph.create({
       projectConfig: { warehouse: "postgres" },
       warehouseState: { tables: [] },
-      actions: []
+      actions: [],
     });
     const runner = new Runner({} as any, graph, {
       projectDir: "/proj",
       duckdbImport: async (args: any) => {
         calls.push(args);
         return { source: "x" };
-      }
+      },
     });
     for (const [location, resolved] of [
       ["staged/cities.csv", "/proj/staged/cities.csv"],
       ["local://staged/cities.csv", "local:///proj/staged/cities.csv"],
       ["/abs/cities.csv", "/abs/cities.csv"], // absolute passes through
-      ["s3://b/o/*.parquet", "s3://b/o/*.parquet"] // remote passes through
+      ["s3://b/o/*.parquet", "s3://b/o/*.parquet"], // remote passes through
     ]) {
       const action = sqlanvil.ExecutionAction.create({
         target: { schema: "analytics", name: "orders" },
         type: "import",
-        import: { location, format: "csv" }
+        import: { location, format: "csv" },
       });
       await (runner as any).executeTask(
         null,
         sqlanvil.ExecutionTask.create({ type: "import" }),
         { tasks: [] },
         {},
-        action
+        action,
       );
       expect(calls.pop().spec.location).equals(resolved);
     }
@@ -89,18 +89,18 @@ suite("runner import hook", () => {
       sqlanvil.ExecutionGraph.create({
         projectConfig: { warehouse: "supabase" },
         warehouseState: { tables: [] },
-        actions: []
+        actions: [],
       }),
       {
         duckdbImport: async () => {
           throw new Error("boom");
-        }
-      }
+        },
+      },
     );
     const action = sqlanvil.ExecutionAction.create({
       target: { schema: "analytics", name: "orders" },
       type: "import",
-      import: { location: "s3://b/o/*.parquet", format: "parquet" }
+      import: { location: "s3://b/o/*.parquet", format: "parquet" },
     });
     const actionResult: any = { tasks: [] };
     const status = await (runner as any).executeTask(
@@ -108,7 +108,7 @@ suite("runner import hook", () => {
       sqlanvil.ExecutionTask.create({ type: "import" }),
       actionResult,
       {},
-      action
+      action,
     );
     expect(status).equals(sqlanvil.TaskResult.ExecutionStatus.FAILED);
     expect(actionResult.tasks[0].errorMessage).contains("boom");

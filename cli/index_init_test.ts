@@ -16,7 +16,7 @@ import {
   ICEBERG_TABLE_FOLDER_ROOT_HINT,
   ICEBERG_TABLE_FOLDER_ROOT_PROMPT_QUESTION,
   ICEBERG_TABLE_FOLDER_ROOT_SUBPATH_HINT,
-  ICEBERG_TABLE_FOLDER_SUBPATH_PROMPT_QUESTION
+  ICEBERG_TABLE_FOLDER_SUBPATH_PROMPT_QUESTION,
 } from "sa/cli/util";
 import { version } from "sa/core/version";
 import { sqlanvil } from "sa/protos/ts";
@@ -37,8 +37,8 @@ suite("init command", ({ afterEach }) => {
         // init defaults to the supabase warehouse; this case verifies a BigQuery project.
         "--warehouse=bigquery",
         "--default-database=sqlanvil-database",
-        "--default-location=us-central1"
-      ])
+        "--default-location=us-central1",
+      ]),
     );
 
     expect(fs.readFileSync(path.join(projectDir, "workflow_settings.yaml"), "utf8")).to
@@ -61,19 +61,23 @@ defaultAssertionDataset: sqlanvil_assertions
       };
 
       const result = await getProcessResult(
-        execFile(nodePath, [
-          cliEntryPointPath,
-          "init",
-          projectDir,
-          "sqlanvil-iceberg-test",
-          "us-central1",
-          // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
-          "--warehouse=bigquery",
-          "--iceberg"
-        ], {
-          // Inject test inputs via environment variable
-          env: { ...process.env, DATAFORM_CLI_TEST_INPUTS: JSON.stringify(testInputs) }
-        })
+        execFile(
+          nodePath,
+          [
+            cliEntryPointPath,
+            "init",
+            projectDir,
+            "sqlanvil-iceberg-test",
+            "us-central1",
+            // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
+            "--warehouse=bigquery",
+            "--iceberg",
+          ],
+          {
+            // Inject test inputs via environment variable
+            env: { ...process.env, DATAFORM_CLI_TEST_INPUTS: JSON.stringify(testInputs) },
+          },
+        ),
       );
 
       expect(result.exitCode).equals(0);
@@ -84,7 +88,7 @@ defaultAssertionDataset: sqlanvil_assertions
       assert.isTrue(fs.existsSync(workflowSettingsPath));
 
       const workflowSettings = sqlanvil.WorkflowSettings.create(
-        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
       );
 
       expect(workflowSettings.defaultIcebergConfig).to.deep.equal({
@@ -105,19 +109,23 @@ defaultAssertionDataset: sqlanvil_assertions
       };
 
       const result = await getProcessResult(
-        execFile(nodePath, [
-          cliEntryPointPath,
-          "init",
-          projectDir,
-          "sqlanvil-iceberg-partial",
-          "us-east1",
-          // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
-          "--warehouse=bigquery",
-          "--iceberg"
-        ], {
-          // Inject test inputs via environment variable
-          env: { ...process.env, DATAFORM_CLI_TEST_INPUTS: JSON.stringify(testInputs) }
-        })
+        execFile(
+          nodePath,
+          [
+            cliEntryPointPath,
+            "init",
+            projectDir,
+            "sqlanvil-iceberg-partial",
+            "us-east1",
+            // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
+            "--warehouse=bigquery",
+            "--iceberg",
+          ],
+          {
+            // Inject test inputs via environment variable
+            env: { ...process.env, DATAFORM_CLI_TEST_INPUTS: JSON.stringify(testInputs) },
+          },
+        ),
       );
 
       expect(result.exitCode).equals(0);
@@ -133,7 +141,7 @@ defaultAssertionDataset: sqlanvil_assertions
       assert.isTrue(fs.existsSync(workflowSettingsPath));
 
       const workflowSettings = sqlanvil.WorkflowSettings.create(
-        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
       );
 
       expect(workflowSettings.defaultIcebergConfig).to.deep.equal({
@@ -148,24 +156,29 @@ defaultAssertionDataset: sqlanvil_assertions
       const testInputs = {
         [ICEBERG_BUCKET_NAME_PROMPT_QUESTION]: "my-iceberg-bucket-with-empty-tablefolderroot",
         [ICEBERG_TABLE_FOLDER_ROOT_PROMPT_QUESTION]: "", // Empty input
-        [ICEBERG_TABLE_FOLDER_SUBPATH_PROMPT_QUESTION]: "my-iceberg-subpath-with-empty-tableFolderRoot",
+        [ICEBERG_TABLE_FOLDER_SUBPATH_PROMPT_QUESTION]:
+          "my-iceberg-subpath-with-empty-tableFolderRoot",
         [ICEBERG_CONNECTION_QUESTION]: "my.default.connection",
       };
 
       const result = await getProcessResult(
-        execFile(nodePath, [
-          cliEntryPointPath,
-          "init",
-          projectDir,
-          "sqlanvil-iceberg-partial",
-          "us-east1",
-          // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
-          "--warehouse=bigquery",
-          "--iceberg"
-        ], {
-          // Inject test inputs via environment variable
-          env: { ...process.env, DATAFORM_CLI_TEST_INPUTS: JSON.stringify(testInputs) }
-        })
+        execFile(
+          nodePath,
+          [
+            cliEntryPointPath,
+            "init",
+            projectDir,
+            "sqlanvil-iceberg-partial",
+            "us-east1",
+            // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
+            "--warehouse=bigquery",
+            "--iceberg",
+          ],
+          {
+            // Inject test inputs via environment variable
+            env: { ...process.env, DATAFORM_CLI_TEST_INPUTS: JSON.stringify(testInputs) },
+          },
+        ),
       );
 
       expect(result.exitCode).equals(0);
@@ -181,7 +194,7 @@ defaultAssertionDataset: sqlanvil_assertions
       assert.isTrue(fs.existsSync(workflowSettingsPath));
 
       const workflowSettings = sqlanvil.WorkflowSettings.create(
-        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
       );
 
       expect(workflowSettings.defaultIcebergConfig).to.deep.equal({
@@ -195,25 +208,30 @@ defaultAssertionDataset: sqlanvil_assertions
       const projectDir = tmpDirFixture.createNewTmpDir();
       const testInputs = {
         [ICEBERG_BUCKET_NAME_PROMPT_QUESTION]: "my-iceberg-bucket-with-empty-tablefoldersubpath",
-        [ICEBERG_TABLE_FOLDER_ROOT_PROMPT_QUESTION]: "my-iceberg-root-with-empty-tableFolderSubpath",
+        [ICEBERG_TABLE_FOLDER_ROOT_PROMPT_QUESTION]:
+          "my-iceberg-root-with-empty-tableFolderSubpath",
         [ICEBERG_TABLE_FOLDER_SUBPATH_PROMPT_QUESTION]: "", // Empty input
         [ICEBERG_CONNECTION_QUESTION]: "my.default.connection",
       };
 
       const result = await getProcessResult(
-        execFile(nodePath, [
-          cliEntryPointPath,
-          "init",
-          projectDir,
-          "sqlanvil-iceberg-partial",
-          "us-east1",
-          // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
-          "--warehouse=bigquery",
-          "--iceberg"
-        ], {
-          // Inject test inputs via environment variable
-          env: { ...process.env, DATAFORM_CLI_TEST_INPUTS: JSON.stringify(testInputs) }
-        })
+        execFile(
+          nodePath,
+          [
+            cliEntryPointPath,
+            "init",
+            projectDir,
+            "sqlanvil-iceberg-partial",
+            "us-east1",
+            // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
+            "--warehouse=bigquery",
+            "--iceberg",
+          ],
+          {
+            // Inject test inputs via environment variable
+            env: { ...process.env, DATAFORM_CLI_TEST_INPUTS: JSON.stringify(testInputs) },
+          },
+        ),
       );
 
       expect(result.exitCode).equals(0);
@@ -229,7 +247,7 @@ defaultAssertionDataset: sqlanvil_assertions
       assert.isTrue(fs.existsSync(workflowSettingsPath));
 
       const workflowSettings = sqlanvil.WorkflowSettings.create(
-        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
       );
 
       expect(workflowSettings.defaultIcebergConfig).to.deep.equal({
@@ -249,19 +267,23 @@ defaultAssertionDataset: sqlanvil_assertions
       };
 
       const result = await getProcessResult(
-        execFile(nodePath, [
-          cliEntryPointPath,
-          "init",
-          projectDir,
-          "sqlanvil-iceberg-partial",
-          "us-east1",
-          // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
-          "--warehouse=bigquery",
-          "--iceberg"
-        ], {
-          // Inject test inputs via environment variable
-          env: { ...process.env, DATAFORM_CLI_TEST_INPUTS: JSON.stringify(testInputs) }
-        })
+        execFile(
+          nodePath,
+          [
+            cliEntryPointPath,
+            "init",
+            projectDir,
+            "sqlanvil-iceberg-partial",
+            "us-east1",
+            // Iceberg config is a BigQuery-only feature; init now defaults to supabase.
+            "--warehouse=bigquery",
+            "--iceberg",
+          ],
+          {
+            // Inject test inputs via environment variable
+            env: { ...process.env, DATAFORM_CLI_TEST_INPUTS: JSON.stringify(testInputs) },
+          },
+        ),
       );
 
       expect(result.exitCode).equals(0);
@@ -277,7 +299,7 @@ defaultAssertionDataset: sqlanvil_assertions
       assert.isTrue(fs.existsSync(workflowSettingsPath));
 
       const workflowSettings = sqlanvil.WorkflowSettings.create(
-        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8"))
+        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
       );
 
       expect(workflowSettings.defaultIcebergConfig).to.deep.equal({
@@ -295,11 +317,11 @@ suite("init-creds command", ({ afterEach }) => {
   test("init-creds fails for directory without sqlanvil config", async () => {
     const emptyDir = tmpDirFixture.createNewTmpDir();
     const result = await getProcessResult(
-      execFile(nodePath, [cliEntryPointPath, "init-creds", emptyDir])
+      execFile(nodePath, [cliEntryPointPath, "init-creds", emptyDir]),
     );
     expect(result.exitCode).to.not.equal(0);
     expect(result.stderr).to.include(
-      `${emptyDir} does not appear to be a sqlanvil directory (missing workflow_settings.yaml file).`
+      `${emptyDir} does not appear to be a sqlanvil directory (missing workflow_settings.yaml file).`,
     );
   });
 });

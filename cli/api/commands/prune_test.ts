@@ -15,22 +15,22 @@ suite("prune", () => {
           enumType: sqlanvil.TableType.VIEW,
           query: "select 1",
           dependencyTargets: [{ schema: "public", name: "app_orders" }],
-          tags: []
+          tags: [],
         },
         {
           target: { schema: "public", name: "daily_sales" },
           enumType: sqlanvil.TableType.TABLE,
           query: "select 1",
           dependencyTargets: [{ schema: "public", name: "stg_app_orders" }],
-          tags: []
+          tags: [],
         },
         {
           target: { schema: "public", name: "stg_zip_codes" },
           enumType: sqlanvil.TableType.VIEW,
           query: "select 1",
           dependencyTargets: [{ schema: "bigquery_public_ext", name: "zip_codes" }],
-          tags: []
-        }
+          tags: [],
+        },
       ],
       operations: [],
       assertions: [],
@@ -43,7 +43,7 @@ suite("prune", () => {
         { schema: "public", name: "stg_app_orders" },
         { schema: "public", name: "daily_sales" },
         { schema: "public", name: "stg_zip_codes" },
-        { schema: "bigquery_public_ext", name: "zip_codes" }
+        { schema: "bigquery_public_ext", name: "zip_codes" },
       ],
       extracts: [
         {
@@ -51,14 +51,14 @@ suite("prune", () => {
           connectionName: "bigquery_public",
           platform: "bigquery",
           dependencyTargets: [],
-          tags: []
-        }
-      ]
+          tags: [],
+        },
+      ],
     } as sqlanvil.ICompiledGraph;
   }
 
   const names = (actions: Array<{ target?: sqlanvil.ITarget }>) =>
-    actions.map(a => a.target.name).sort();
+    actions.map((a) => a.target.name).sort();
 
   test("no selectors: everything (including extracts) is kept", () => {
     const pruned = prune(graph(), {});
@@ -69,7 +69,7 @@ suite("prune", () => {
   test("selecting an unrelated chain excludes the extract", () => {
     const pruned = prune(graph(), {
       actions: ["daily_sales"],
-      includeDependencies: true
+      includeDependencies: true,
     });
     expect(names(pruned.tables)).deep.equals(["daily_sales", "stg_app_orders"]);
     expect(pruned.extracts).deep.equals([]);
@@ -78,7 +78,7 @@ suite("prune", () => {
   test("--include-deps pulls the extract in when a selected action reads it", () => {
     const pruned = prune(graph(), {
       actions: ["stg_zip_codes"],
-      includeDependencies: true
+      includeDependencies: true,
     });
     expect(names(pruned.tables)).deep.equals(["stg_zip_codes"]);
     expect(names(pruned.extracts)).deep.equals(["zip_codes"]);
@@ -94,7 +94,7 @@ suite("prune", () => {
     const pruned = prune(graph(), { actions: ["stg_zip_codes"], includeDependencies: true });
     // Without this, `compile --actions … --json` printed a filtered action list beside all four
     // targets — a graph that was never produced.
-    expect(pruned.targets.map(target => target.name)).deep.equals(["stg_zip_codes", "zip_codes"]);
+    expect(pruned.targets.map((target) => target.name)).deep.equals(["stg_zip_codes", "zip_codes"]);
   });
 
   test("no selection leaves targets whole", () => {

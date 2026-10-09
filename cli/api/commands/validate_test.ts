@@ -14,7 +14,7 @@ function graph(): sqlanvil.ICompiledGraph {
     target: { schema: "s", name },
     query: `select 1 from ${name}`,
     enumType: sqlanvil.TableType.TABLE,
-    dependencyTargets: deps.map(d => ({ schema: "s", name: d }))
+    dependencyTargets: deps.map((d) => ({ schema: "s", name: d })),
   });
   return {
     tables: [t("leaf", "mid"), t("src"), t("mid", "src")],
@@ -22,10 +22,10 @@ function graph(): sqlanvil.ICompiledGraph {
       {
         target: { schema: "s", name: "assert_leaf" },
         query: "select 1 from leaf where false",
-        dependencyTargets: [{ schema: "s", name: "leaf" }]
-      }
+        dependencyTargets: [{ schema: "s", name: "leaf" }],
+      },
     ],
-    operations: []
+    operations: [],
   } as sqlanvil.ICompiledGraph;
 }
 
@@ -41,7 +41,7 @@ class FakeDeps implements ValidateDeps {
   }
 
   public async evaluate(
-    action: sqlanvil.ITable | sqlanvil.IAssertion
+    action: sqlanvil.ITable | sqlanvil.IAssertion,
   ): Promise<sqlanvil.IQueryEvaluation[]> {
     const name = action.target.name;
     this.evaluated.push(name);
@@ -52,8 +52,8 @@ class FakeDeps implements ValidateDeps {
     return [
       {
         status: o === "FAILURE" ? FAILURE : SUCCESS,
-        error: o === "FAILURE" ? { message: "syntax error" } : undefined
-      }
+        error: o === "FAILURE" ? { message: "syntax error" } : undefined,
+      },
     ];
   }
   public async execute(sql: string): Promise<void> {
@@ -71,7 +71,7 @@ class FakeDeps implements ValidateDeps {
 }
 
 const statusOf = (results: ValidationResult[], name: string): ValidationStatus =>
-  results.find(r => r.target.name === name).status;
+  results.find((r) => r.target.name === name).status;
 
 suite("validate orchestrator", () => {
   test("all valid → every action PASS; stubs created after pass; schema created + dropped", async () => {
@@ -135,7 +135,7 @@ suite("validate orchestrator", () => {
     deps.schemas = [
       "public",
       `public_sqlanvil_validate_${now - 2 * hour}`, // stale orphan
-      `public_sqlanvil_validate_${now - 60_000}` // in-flight
+      `public_sqlanvil_validate_${now - 60_000}`, // in-flight
     ];
     await sweepOrphanShadows(deps, now, hour);
     expect(deps.executed).to.eql([`DROP SCHEMA public_sqlanvil_validate_${now - 2 * hour}`]);
@@ -149,24 +149,24 @@ suite("validate orchestrator", () => {
           target: { schema: "s", name: "stg" },
           query: "select 1 from oa_ext.addresses",
           enumType: sqlanvil.TableType.TABLE,
-          dependencyTargets: [{ schema: "oa_ext", name: "addresses" }]
-        }
+          dependencyTargets: [{ schema: "oa_ext", name: "addresses" }],
+        },
       ],
       assertions: [],
       operations: [],
       imports: [
         {
           target: { schema: "oa_ext", name: "addresses" },
-          dependencyTargets: [{ schema: "s", name: "load_files" }]
-        }
+          dependencyTargets: [{ schema: "s", name: "load_files" }],
+        },
       ],
       scripts: [
         {
           target: { schema: "s", name: "load_files" },
           language: "python",
-          scriptFilename: "loader/load.py"
-        }
-      ]
+          scriptFilename: "loader/load.py",
+        },
+      ],
     } as sqlanvil.ICompiledGraph;
   }
 
@@ -177,9 +177,9 @@ suite("validate orchestrator", () => {
           target: { schema: "s", name: "dim" },
           query: "select 1 as id",
           enumType: sqlanvil.TableType.TABLE,
-          postOps: ["ALTER TABLE s.dim ADD PRIMARY KEY (id) NOT ENFORCED"]
-        }
-      ]
+          postOps: ["ALTER TABLE s.dim ADD PRIMARY KEY (id) NOT ENFORCED"],
+        },
+      ],
     } as sqlanvil.ICompiledGraph;
     const deps = new FakeDeps(new Map());
     const opCalls: string[] = [];
@@ -190,7 +190,7 @@ suite("validate orchestrator", () => {
       return [{ status: SUCCESS }];
     };
     const origEvaluate = deps.evaluate.bind(deps);
-    deps.evaluate = async action => {
+    deps.evaluate = async (action) => {
       // The main evaluation must not see the ops.
       expect((action as sqlanvil.ITable).postOps || []).to.eql([]);
       return origEvaluate(action);
@@ -207,15 +207,15 @@ suite("validate orchestrator", () => {
           target: { schema: "s", name: "dim" },
           query: "select 1 as id",
           enumType: sqlanvil.TableType.TABLE,
-          postOps: ["ALTER TABLE nope"]
+          postOps: ["ALTER TABLE nope"],
         },
         {
           target: { schema: "s", name: "child" },
           query: "select * from dim",
           enumType: sqlanvil.TableType.TABLE,
-          dependencyTargets: [{ schema: "s", name: "dim" }]
-        }
-      ]
+          dependencyTargets: [{ schema: "s", name: "dim" }],
+        },
+      ],
     } as sqlanvil.ICompiledGraph;
     const deps = new FakeDeps(new Map());
     deps.evaluateOp = async () => [{ status: FAILURE, error: { message: "bad DDL" } }];
@@ -231,9 +231,9 @@ suite("validate orchestrator", () => {
           target: { schema: "s", name: "dim" },
           query: "select 1 as id",
           enumType: sqlanvil.TableType.TABLE,
-          postOps: ["ALTER TABLE s.dim ADD PRIMARY KEY (id)"]
-        }
-      ]
+          postOps: ["ALTER TABLE s.dim ADD PRIMARY KEY (id)"],
+        },
+      ],
     } as sqlanvil.ICompiledGraph;
     const deps = new FakeDeps(new Map());
     const results = await validate(opsGraph, deps);
@@ -256,11 +256,11 @@ suite("validate orchestrator", () => {
   test("a failing script env-check is FAILURE with its errors, and blocks dependents", async () => {
     const deps = new FakeDeps(new Map());
     (deps as ValidateDeps).checkScript = async () => [
-      { status: FAILURE, error: { message: "requirements: requests is not installed" } }
+      { status: FAILURE, error: { message: "requirements: requests is not installed" } },
     ];
     const results = await validate(scriptGraph(), deps);
     expect(statusOf(results, "load_files")).to.equal("FAILURE");
-    const scriptResult = results.find(r => r.target.name === "load_files");
+    const scriptResult = results.find((r) => r.target.name === "load_files");
     expect(scriptResult.errors[0].error.message).to.contain("requests is not installed");
     expect(scriptResult.type).to.equal("script");
     // Imports are never validated (SKIPPED regardless), and anything reading them is BLOCKED —

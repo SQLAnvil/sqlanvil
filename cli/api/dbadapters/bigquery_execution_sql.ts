@@ -14,7 +14,8 @@ export class BigQueryExecutionSql implements IExecutionSql {
   constructor(
     private readonly project: sqlanvil.IProjectConfig,
     private readonly sqlanvilCoreVersion: string,
-    private readonly uniqueIdGenerator: () => string = () => Math.random().toString(36).substring(2)
+    private readonly uniqueIdGenerator: () => string = () =>
+      Math.random().toString(36).substring(2),
   ) {
     this.CompilationSql = new CompilationSql(project, sqlanvilCoreVersion);
   }
@@ -72,7 +73,7 @@ from (${query}) as insertions`;
   public shouldWriteIncrementally(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ) {
     return (
       (!runConfig.fullRefresh || table.protected) &&
@@ -84,7 +85,7 @@ from (${query}) as insertions`;
   public preOps(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ): Task[] {
     let preOps = table.preOps;
     if (
@@ -94,13 +95,13 @@ from (${query}) as insertions`;
     ) {
       preOps = table.incrementalPreOps;
     }
-    return (preOps || []).map(pre => Task.statement(pre));
+    return (preOps || []).map((pre) => Task.statement(pre));
   }
 
   public postOps(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ): Task[] {
     let postOps = table.postOps;
     if (
@@ -110,7 +111,7 @@ from (${query}) as insertions`;
     ) {
       postOps = table.incrementalPostOps;
     }
-    return (postOps || []).map(post => Task.statement(post));
+    return (postOps || []).map((post) => Task.statement(post));
   }
 
   public resolveTarget(target: sqlanvil.ITarget) {
@@ -124,16 +125,16 @@ from (${query}) as insertions`;
   public publishTasks(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ): Tasks {
     const tasks = new Tasks();
 
-    this.preOps(table, runConfig, tableMetadata).forEach(statement => tasks.add(statement));
+    this.preOps(table, runConfig, tableMetadata).forEach((statement) => tasks.add(statement));
 
     const baseTableType = this.baseTableType(table.enumType);
     if (tableMetadata && tableMetadata.type !== baseTableType) {
       tasks.add(
-        Task.statement(this.dropIfExists(table.target, this.oppositeTableType(baseTableType)))
+        Task.statement(this.dropIfExists(table.target, this.oppositeTableType(baseTableType))),
       );
     }
 
@@ -147,13 +148,16 @@ from (${query}) as insertions`;
           case sqlanvil.OnSchemaChange.EXTEND:
           case sqlanvil.OnSchemaChange.SYNCHRONIZE:
             this.buildIncrementalSchemaChangeTasks(tasks, table);
-            // Fall through to run the static DML after the procedure alters the schema
+          // Fall through to run the static DML after the procedure alters the schema
           case sqlanvil.OnSchemaChange.IGNORE:
           default:
             tasks.add(
               Task.statement(
-                this.getIncrementalDmlStatement(table, tableMetadata?.fields.map(f => f.name) || [])
-              )
+                this.getIncrementalDmlStatement(
+                  table,
+                  tableMetadata?.fields.map((f) => f.name) || [],
+                ),
+              ),
             );
             break;
         }
@@ -162,7 +166,7 @@ from (${query}) as insertions`;
       tasks.add(Task.statement(this.createOrReplace(table)));
     }
 
-    this.postOps(table, runConfig, tableMetadata).forEach(statement => tasks.add(statement));
+    this.postOps(table, runConfig, tableMetadata).forEach((statement) => tasks.add(statement));
 
     return tasks.concatenate();
   }
@@ -244,14 +248,14 @@ from (${query}) as insertions`;
 
     const emptyTempTableTarget = {
       ...table.target,
-      name: `${table.target.name}_sa_temp_${uniqueId}_empty`
+      name: `${table.target.name}_sa_temp_${uniqueId}_empty`,
     };
 
     const procedureName = this.createProcedureName(table.target, uniqueId);
     const procedureBody = this.incrementalSchemaChangeBody(
       table,
       this.resolveTarget(table.target),
-      emptyTempTableTarget
+      emptyTempTableTarget,
     );
 
     const createProcedureSql = `CREATE OR REPLACE PROCEDURE ${procedureName}()
@@ -262,7 +266,7 @@ END;`;
 
     const callProcedureSql = this.safeCallAndDropProcedure(
       procedureName,
-      this.resolveTarget(emptyTempTableTarget)
+      this.resolveTarget(emptyTempTableTarget),
     );
     tasks.add(Task.statement(createProcedureSql));
     tasks.add(Task.statement(callProcedureSql));
@@ -271,14 +275,11 @@ END;`;
   private createProcedureName(target: sqlanvil.ITarget, uniqueId: string): string {
     return this.resolveTarget({
       ...target,
-      name: `sa_osc_${uniqueId}`
+      name: `sa_osc_${uniqueId}`,
     });
   }
 
-  private safeCallAndDropProcedure(
-    procedureName: string,
-    emptyTempTableName: string
-  ): string {
+  private safeCallAndDropProcedure(procedureName: string, emptyTempTableName: string): string {
     return `
 BEGIN
   CALL ${procedureName}();
@@ -316,7 +317,7 @@ DECLARE columns_removed ARRAY<STRING>;`;
 
   private compareSchemasSql(
     target: sqlanvil.ITarget,
-    emptyTempTableTarget: sqlanvil.ITarget
+    emptyTempTableTarget: sqlanvil.ITarget,
   ): string {
     return `
 -- Compare schemas
@@ -346,7 +347,7 @@ SET columns_removed = (
 
   private applySchemaChangeStrategySql(
     table: sqlanvil.ITable,
-    qualifiedTargetTableName: string
+    qualifiedTargetTableName: string,
   ): string {
     const onSchemaChange = table.onSchemaChange || sqlanvil.OnSchemaChange.IGNORE;
     let sql = `
@@ -429,7 +430,7 @@ DROP TABLE IF EXISTS ${emptyTempTableName};
   private incrementalSchemaChangeBody(
     table: sqlanvil.ITable,
     qualifiedTargetTableName: string,
-    emptyTempTableTarget: sqlanvil.ITarget
+    emptyTempTableTarget: sqlanvil.ITarget,
   ): string {
     const emptyTempTableName = this.resolveTarget(emptyTempTableTarget);
     const query = this.getIncrementalQuery(table);
@@ -437,12 +438,9 @@ DROP TABLE IF EXISTS ${emptyTempTableName};
     const statements: string[] = [
       this.declareSchemaChangeVariablesSql(onSchemaChange),
       this.createEmptyTempTableSql(emptyTempTableName, query),
-      this.compareSchemasSql(
-        table.target,
-        emptyTempTableTarget
-      ),
+      this.compareSchemasSql(table.target, emptyTempTableTarget),
       this.applySchemaChangeStrategySql(table, qualifiedTargetTableName),
-      this.cleanupSql(emptyTempTableName)
+      this.cleanupSql(emptyTempTableName),
     ];
 
     return statements.join("\n\n");
@@ -463,7 +461,7 @@ DROP TABLE IF EXISTS ${emptyTempTableName};
     }
 
     return `create or replace ${table.materialized ? "materialized " : ""}${this.tableTypeAsSql(
-      this.baseTableType(table.enumType)
+      this.baseTableType(table.enumType),
     )} ${this.resolveTarget(table.target)} ${
       table.bigquery && table.bigquery.partitionBy
         ? `partition by ${table.bigquery.partitionBy} `
@@ -501,23 +499,23 @@ DROP TABLE IF EXISTS ${emptyTempTableName};
             columns,
             incrementalQuery,
             table.uniqueKey,
-            table.bigquery
+            table.bigquery,
           );
         }
         return this.insertInto(
           table.target,
-          columns.map(column => `\`${column}\``),
-          incrementalQuery
+          columns.map((column) => `\`${column}\``),
+          incrementalQuery,
         );
     }
   }
 
   private buildIncrementalPredicatesString(incrementalPredicates?: string[] | null): string {
-    const valid = incrementalPredicates?.filter(p => p.trim() !== "") ?? [];
+    const valid = incrementalPredicates?.filter((p) => p.trim() !== "") ?? [];
     if (valid.length === 0) {
       return "";
     }
-    return `and ${valid.map(p => `(${p})`).join(" and ")}`;
+    return `and ${valid.map((p) => `(${p})`).join(" and ")}`;
   }
 
   /**
@@ -534,15 +532,15 @@ DROP TABLE IF EXISTS ${emptyTempTableName};
     target: sqlanvil.ITarget,
     columns: string[],
     query: string,
-    bigquery?: sqlanvil.IBigQueryOptions
+    bigquery?: sqlanvil.IBigQueryOptions,
   ): string {
     const partitionBy = bigquery?.partitionBy;
     const updatePartitionFilter = bigquery?.updatePartitionFilter;
     const incrementalPredicatesString = this.buildIncrementalPredicatesString(
-      bigquery?.incrementalPredicates
+      bigquery?.incrementalPredicates,
     );
     const stagingTableUnqualified = `staging_table_temp_${this.uniqueIdGenerator()}`;
-    const backtickedColumns = columns.map(column => `\`${column}\``);
+    const backtickedColumns = columns.map((column) => `\`${column}\``);
 
     return `CREATE OR REPLACE TEMP TABLE \`${stagingTableUnqualified}\` AS (
   ${query}
@@ -561,8 +559,8 @@ BEGIN
   USING \`${stagingTableUnqualified}\` S
   ON FALSE
   WHEN NOT MATCHED BY SOURCE AND ${partitionBy} IN UNNEST(partitions_for_replacement)${
-      updatePartitionFilter ? ` and T.${updatePartitionFilter}` : ""
-    }${incrementalPredicatesString ? ` ${incrementalPredicatesString}` : ""}
+    updatePartitionFilter ? ` and T.${updatePartitionFilter}` : ""
+  }${incrementalPredicatesString ? ` ${incrementalPredicatesString}` : ""}
   THEN
     DELETE
   WHEN NOT MATCHED BY TARGET THEN
@@ -577,23 +575,23 @@ DROP TABLE IF EXISTS \`${stagingTableUnqualified}\`;`;
     columns: string[],
     query: string,
     uniqueKey: string[],
-    bigquery?: sqlanvil.IBigQueryOptions
+    bigquery?: sqlanvil.IBigQueryOptions,
   ) {
     const updatePartitionFilter = bigquery?.updatePartitionFilter;
     const incrementalPredicatesString = this.buildIncrementalPredicatesString(
-      bigquery?.incrementalPredicates
+      bigquery?.incrementalPredicates,
     );
-    const backtickedColumns = columns.map(column => `\`${column}\``);
+    const backtickedColumns = columns.map((column) => `\`${column}\``);
     return `
 merge ${this.resolveTarget(target)} T
 using (${query}
 ) S
-on ${uniqueKey.map(uniqueKeyCol => `T.${uniqueKeyCol} = S.${uniqueKeyCol}`).join(` and `)}
+on ${uniqueKey.map((uniqueKeyCol) => `T.${uniqueKeyCol} = S.${uniqueKeyCol}`).join(` and `)}
   ${updatePartitionFilter ? `and T.${updatePartitionFilter}` : ""}${
-      incrementalPredicatesString ? `\n  ${incrementalPredicatesString}` : ""
-    }
+    incrementalPredicatesString ? `\n  ${incrementalPredicatesString}` : ""
+  }
 when matched then
-  update set ${columns.map(column => `\`${column}\` = S.${column}`).join(",")}
+  update set ${columns.map((column) => `\`${column}\` = S.${column}`).join(",")}
 when not matched then
   insert (${backtickedColumns.join(",")}) values (${backtickedColumns.join(",")})`;
   }

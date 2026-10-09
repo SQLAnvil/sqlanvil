@@ -44,10 +44,10 @@ export interface StructArraySite {
 }
 
 /** Locate `ARRAY(SELECT AS STRUCT …)` items in one file. */
-export function findStructArrays(file: string, source: string): Omit<
-  StructArraySite,
-  "strategy" | "rationale" | "consumers"
->[] {
+export function findStructArrays(
+  file: string,
+  source: string,
+): Omit<StructArraySite, "strategy" | "rationale" | "consumers">[] {
   const toks = significant(tokenize(source));
   const found: Omit<StructArraySite, "strategy" | "rationale" | "consumers">[] = [];
 
@@ -57,13 +57,17 @@ export function findStructArrays(file: string, source: string): Omit<
     if (close < 0) continue;
     // `ARRAY(SELECT AS STRUCT …)` — the AS STRUCT is what makes it a struct array rather than an
     // array of scalars, which unnests to a plain column and needs none of this.
-    if (!isWord(toks[i + 2], "select") || !isWord(toks[i + 3], "as") || !isWord(toks[i + 4], "struct")) {
+    if (
+      !isWord(toks[i + 2], "select") ||
+      !isWord(toks[i + 3], "as") ||
+      !isWord(toks[i + 4], "struct")
+    ) {
       continue;
     }
 
     // Field names come from the inner select list; the relation from its FROM.
     const inner = toks.slice(i + 5, close);
-    const innerSql = inner.map(t => t.text).join(" ");
+    const innerSql = inner.map((t) => t.text).join(" ");
     const innerToks = significant(tokenize(`select ${innerSql}`));
     const [scope] = selectScopes(innerToks);
     const fields: string[] = [];
@@ -74,20 +78,21 @@ export function findStructArrays(file: string, source: string): Omit<
         fields.push((last?.value ?? last?.text ?? "").replace(/^"|"$/g, ""));
       }
     }
-    const rels = scope && scope.from !== -1 ? relationsIn(innerToks, scope.fromStart, scope.fromEnd) : [];
-    const source_ = rels[0]?.tokens.map(t => t.text).join("") ?? "";
+    const rels =
+      scope && scope.from !== -1 ? relationsIn(innerToks, scope.fromStart, scope.fromEnd) : [];
+    const source_ = rels[0]?.tokens.map((t) => t.text).join("") ?? "";
 
     // The correlation predicate is the join key: `where d.row_id = p.row_id` says this array is
     // the rows of `d` belonging to each row of `p`. Without it a child table has nothing to key
     // on, so it is worth digging out rather than leaving the reader to find it.
     let correlation: StructArraySite["correlation"];
-    const whereIdx = innerToks.findIndex(t => isWord(t, "where"));
+    const whereIdx = innerToks.findIndex((t) => isWord(t, "where"));
     if (whereIdx !== -1) {
       const eq = innerToks.findIndex((t, k) => k > whereIdx && t.text === "=");
       const left = innerToks.slice(Math.max(whereIdx + 1, eq - 3), eq);
       const right = innerToks.slice(eq + 1, eq + 4);
       const tail = (parts: Token[]) => {
-        const words = parts.filter(t => t.kind === "word" || t.kind === "quoted-ident");
+        const words = parts.filter((t) => t.kind === "word" || t.kind === "quoted-ident");
         return words.length ? (words[words.length - 1].value ?? words[words.length - 1].text) : "";
       };
       if (eq !== -1) correlation = { sourceColumn: tail(left), parentColumn: tail(right) };
@@ -151,7 +156,7 @@ export function suggestedSql(site: StructArraySite): string {
   }
 
   if (site.strategy === "child-table") {
-    const cols = fields.map(f => `  ${f}`).join(",\n");
+    const cols = fields.map((f) => `  ${f}`).join(",\n");
     return [
       `-- A new action holding the rows, keyed by the parent — this IS what the array was:`,
       ``,
@@ -168,7 +173,7 @@ export function suggestedSql(site: StructArraySite): string {
   }
 
   // jsonb — always available, and the reason it is the fallback: every reader changes too.
-  const pairs = fields.map(f => `'${f}', ${f}`).join(", ");
+  const pairs = fields.map((f) => `'${f}', ${f}`).join(", ");
   return [
     `-- Fallback. Keeps the shape but pushes a document model into a relational warehouse:`,
     ``,
@@ -192,7 +197,7 @@ export function chooseStrategies(
   sites: Array<Omit<StructArraySite, "strategy" | "rationale" | "consumers">>,
   files: Array<{ file: string; source: string }>,
 ): StructArraySite[] {
-  return sites.map(site => {
+  return sites.map((site) => {
     const consumers: StructArraySite["consumers"] = [];
     for (const f of files) {
       if (f.file === site.file || !site.column) continue;
@@ -209,7 +214,7 @@ export function chooseStrategies(
     }
 
     const readers = consumers.length;
-    if (readers && consumers.every(c => c.unnestOnly)) {
+    if (readers && consumers.every((c) => c.unnestOnly)) {
       return {
         ...site,
         consumers,

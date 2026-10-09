@@ -18,7 +18,8 @@ export class MysqlExecutionSql implements IExecutionSql {
   constructor(
     private readonly project: sqlanvil.IProjectConfig,
     private readonly sqlanvilCoreVersion: string,
-    private readonly uniqueIdGenerator: () => string = () => Math.random().toString(36).substring(2)
+    private readonly uniqueIdGenerator: () => string = () =>
+      Math.random().toString(36).substring(2),
   ) {
     this.CompilationSql = new CompilationSql(project, sqlanvilCoreVersion);
   }
@@ -35,11 +36,11 @@ export class MysqlExecutionSql implements IExecutionSql {
   }
 
   public createExportTasks(exp: sqlanvil.IExport): sqlanvil.IExecutionTask[] {
-    throw new Error("type: \"export\" is not supported on MySQL/MariaDB yet.");
+    throw new Error('type: "export" is not supported on MySQL/MariaDB yet.');
   }
 
   public createImportTasks(imp: sqlanvil.IImport): sqlanvil.IExecutionTask[] {
-    throw new Error("type: \"import\" is not supported on MySQL/MariaDB yet.");
+    throw new Error('type: "import" is not supported on MySQL/MariaDB yet.');
   }
 
   // --- `sqlanvil validate`: empty, isolated shadow-database stubs. ---
@@ -65,14 +66,14 @@ export class MysqlExecutionSql implements IExecutionSql {
   public publishTasks(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ): Tasks {
     const tasks = new Tasks();
     const target = this.resolveTarget(table.target);
 
     // Pre-operations (an incremental append swaps in incrementalPreOps, semver-gated
     // > 1.4.8, so one-time DDL stays on the create path). Mirrors Postgres/BigQuery.
-    this.preOps(table, runConfig, tableMetadata).forEach(task => tasks.add(task));
+    this.preOps(table, runConfig, tableMetadata).forEach((task) => tasks.add(task));
 
     if (table.enumType === sqlanvil.TableType.VIEW) {
       if (table.materialized) {
@@ -80,12 +81,18 @@ export class MysqlExecutionSql implements IExecutionSql {
         // table snapshot, refreshed by drop + CTAS each run (mirrors the Postgres
         // matview default). Drop both the view and table forms so the path is
         // idempotent whether the prior object was a view or a table.
-        tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.VIEW)));
-        tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
         tasks.add(
-          Task.statement(`create table ${target}${this.tableOptions(table)}${this.partitionClause(table)} as ${table.query}`)
+          Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.VIEW)),
         );
-        this.createIndexes(table).forEach(stmt => tasks.add(Task.statement(stmt)));
+        tasks.add(
+          Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)),
+        );
+        tasks.add(
+          Task.statement(
+            `create table ${target}${this.tableOptions(table)}${this.partitionClause(table)} as ${table.query}`,
+          ),
+        );
+        this.createIndexes(table).forEach((stmt) => tasks.add(Task.statement(stmt)));
       } else {
         // CREATE OR REPLACE VIEW is atomic in MySQL/MariaDB — no drop needed.
         tasks.add(Task.statement(`create or replace view ${target} as ${table.query}`));
@@ -95,26 +102,36 @@ export class MysqlExecutionSql implements IExecutionSql {
       if (fresh) {
         // Full refresh or first build: drop + CTAS, then add the unique index that
         // ON DUPLICATE KEY UPDATE relies on for subsequent incremental appends.
-        tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
-        tasks.add(Task.statement(`create table ${target}${this.tableOptions(table)}${this.partitionClause(table)} as ${table.query}`));
+        tasks.add(
+          Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)),
+        );
+        tasks.add(
+          Task.statement(
+            `create table ${target}${this.tableOptions(table)}${this.partitionClause(table)} as ${table.query}`,
+          ),
+        );
         if (table.uniqueKey && table.uniqueKey.length > 0) {
           const idx = `uq_${table.target.schema}_${table.target.name}`.slice(0, 63);
-          const cols = table.uniqueKey.map(k => `\`${k}\``).join(", ");
+          const cols = table.uniqueKey.map((k) => `\`${k}\``).join(", ");
           tasks.add(Task.statement(`alter table ${target} add unique index \`${idx}\` (${cols})`));
         }
-        this.createIndexes(table).forEach(stmt => tasks.add(Task.statement(stmt)));
+        this.createIndexes(table).forEach((stmt) => tasks.add(Task.statement(stmt)));
       } else {
         tasks.add(Task.statement(this.upsertInto(table, tableMetadata)));
       }
     } else {
       // Plain table: drop + CTAS (with table options) + secondary indexes.
       tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
-      tasks.add(Task.statement(`create table ${target}${this.tableOptions(table)}${this.partitionClause(table)} as ${table.query}`));
-      this.createIndexes(table).forEach(stmt => tasks.add(Task.statement(stmt)));
+      tasks.add(
+        Task.statement(
+          `create table ${target}${this.tableOptions(table)}${this.partitionClause(table)} as ${table.query}`,
+        ),
+      );
+      this.createIndexes(table).forEach((stmt) => tasks.add(Task.statement(stmt)));
     }
 
     // Post-operations (incremental append swaps in incrementalPostOps, as above).
-    this.postOps(table, runConfig, tableMetadata).forEach(task => tasks.add(task));
+    this.postOps(table, runConfig, tableMetadata).forEach((task) => tasks.add(task));
 
     return tasks;
   }
@@ -126,7 +143,7 @@ export class MysqlExecutionSql implements IExecutionSql {
   public preOps(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ): Task[] {
     let preOps = table.preOps;
     if (
@@ -136,13 +153,13 @@ export class MysqlExecutionSql implements IExecutionSql {
     ) {
       preOps = table.incrementalPreOps;
     }
-    return (preOps || []).map(pre => Task.statement(pre));
+    return (preOps || []).map((pre) => Task.statement(pre));
   }
 
   public postOps(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ): Task[] {
     let postOps = table.postOps;
     if (
@@ -152,19 +169,21 @@ export class MysqlExecutionSql implements IExecutionSql {
     ) {
       postOps = table.incrementalPostOps;
     }
-    return (postOps || []).map(post => Task.statement(post));
+    return (postOps || []).map((post) => Task.statement(post));
   }
 
   public assertTasks(
     assertion: sqlanvil.IAssertion,
-    projectConfig: sqlanvil.IProjectConfig
+    projectConfig: sqlanvil.IProjectConfig,
   ): Tasks {
     // The assertion query is warehouse-agnostic SQL produced by the compiler.
     // Mirror the Postgres path: materialize it as a view (catches syntax errors),
     // then count rows — any returned row is a failing record.
     const tasks = new Tasks();
     const target = this.resolveTarget(assertion.target);
-    tasks.add(Task.statement(this.dropIfExists(assertion.target, sqlanvil.TableMetadata.Type.VIEW)));
+    tasks.add(
+      Task.statement(this.dropIfExists(assertion.target, sqlanvil.TableMetadata.Type.VIEW)),
+    );
     tasks.add(Task.statement(`create or replace view ${target} as ${assertion.query}`));
     tasks.add(Task.assertion(`select sum(1) as row_count from ${target}`));
     return tasks;
@@ -173,7 +192,7 @@ export class MysqlExecutionSql implements IExecutionSql {
   private shouldWriteIncrementally(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ): boolean {
     return (
       !runConfig.fullRefresh &&
@@ -191,7 +210,7 @@ export class MysqlExecutionSql implements IExecutionSql {
     // ON DUPLICATE KEY UPDATE col = values(col), ... — relies on the unique index
     // created on first build.
     const target = this.resolveTarget(table.target);
-    const columns = (tableMetadata?.fields || []).map(f => f.name);
+    const columns = (tableMetadata?.fields || []).map((f) => f.name);
     const query = this.getIncrementalQuery(table);
     if (columns.length === 0) {
       // No known columns means no tableMetadata — but this path only runs when
@@ -201,7 +220,7 @@ export class MysqlExecutionSql implements IExecutionSql {
       // never the upsert path.
       return `insert into ${target} select * from (${query}) as insertions`;
     }
-    const backticked = columns.map(c => `\`${c}\``);
+    const backticked = columns.map((c) => `\`${c}\``);
     // Only an upsert when a uniqueKey exists — the unique index created on first
     // build is what ON DUPLICATE KEY UPDATE matches against. Without it this is a
     // plain append (the inert clause would never fire anyway).
@@ -209,13 +228,13 @@ export class MysqlExecutionSql implements IExecutionSql {
     const updates =
       uniqueKey.length > 0
         ? columns
-            .filter(c => !uniqueKey.includes(c))
-            .map(c => `\`${c}\` = values(\`${c}\`)`)
+            .filter((c) => !uniqueKey.includes(c))
+            .map((c) => `\`${c}\` = values(\`${c}\`)`)
             .join(", ")
         : "";
     const tail = updates.length > 0 ? ` on duplicate key update ${updates}` : "";
     return `insert into ${target} (${backticked.join(", ")}) select ${backticked.join(
-      ", "
+      ", ",
     )} from (${query}) as insertions${tail}`;
   }
 
@@ -247,7 +266,7 @@ export class MysqlExecutionSql implements IExecutionSql {
       return partition.count ? `${head} partitions ${partition.count}` : head;
     }
     const defs = (partition.partitions || [])
-      .map(bound => `partition ${bound.name} ${bound.values}`)
+      .map((bound) => `partition ${bound.name} ${bound.values}`)
       .join(", ");
     return `${head} (${defs})`;
   }
@@ -286,19 +305,19 @@ export class MysqlExecutionSql implements IExecutionSql {
       return [];
     }
     const target = this.resolveTarget(table.target);
-    return indexes.map(index => {
+    return indexes.map((index) => {
       const kind = (index.type || "").toLowerCase();
       if (kind && kind !== "fulltext" && kind !== "spatial") {
         throw new Error(
-          `mysql index type must be "fulltext" or "spatial" (or omitted); got "${index.type}".`
+          `mysql index type must be "fulltext" or "spatial" (or omitted); got "${index.type}".`,
         );
       }
       if (kind && index.unique) {
         throw new Error(`a mysql ${kind} index cannot also be unique.`);
       }
       const prefix = index.unique ? "unique " : kind ? `${kind} ` : "";
-      const cols = (index.columns || []).map(c => this.indexColumnSql(c)).join(", ");
-      const bareColumns = (index.columns || []).map(c => this.indexColumnName(c));
+      const cols = (index.columns || []).map((c) => this.indexColumnSql(c)).join(", ");
+      const bareColumns = (index.columns || []).map((c) => this.indexColumnName(c));
       const name =
         index.name || this.defaultIndexName(table.target.name, bareColumns, !!index.unique);
       return `alter table ${target} add ${prefix}index \`${name}\` (${cols})`;

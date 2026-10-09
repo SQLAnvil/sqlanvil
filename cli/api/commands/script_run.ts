@@ -42,8 +42,10 @@ export function resolveInterpreter(spec: sqlanvil.IScriptSpec, projectDir: strin
     const candidates =
       process.platform === "win32"
         ? [path.join(projectDir, spec.envRoot, "Scripts", "python.exe")]
-        : [path.join(projectDir, spec.envRoot, "bin", "python3"),
-           path.join(projectDir, spec.envRoot, "bin", "python")];
+        : [
+            path.join(projectDir, spec.envRoot, "bin", "python3"),
+            path.join(projectDir, spec.envRoot, "bin", "python"),
+          ];
     for (const candidate of candidates) {
       if (fs.existsSync(candidate)) {
         return candidate;
@@ -52,8 +54,8 @@ export function resolveInterpreter(spec: sqlanvil.IScriptSpec, projectDir: strin
     throw new Error(
       `Declared venv "${spec.envRoot}" has no python interpreter under ${path.join(
         projectDir,
-        spec.envRoot
-      )}. Create it (python3 -m venv ${spec.envRoot}) or remove the venv setting.`
+        spec.envRoot,
+      )}. Create it (python3 -m venv ${spec.envRoot}) or remove the venv setting.`,
     );
   }
   return "python3";
@@ -94,9 +96,9 @@ export async function runScript(args: ScriptRunArgs): Promise<{ exitCode: number
       env: {
         ...process.env,
         SA_VARS: JSON.stringify(args.vars || {}),
-        SA_ACTION_NAME: target?.name || ""
+        SA_ACTION_NAME: target?.name || "",
       },
-      stdio: ["ignore", "pipe", "pipe"]
+      stdio: ["ignore", "pipe", "pipe"],
     });
 
     let timedOut = false;
@@ -117,7 +119,7 @@ export async function runScript(args: ScriptRunArgs): Promise<{ exitCode: number
     child.stdout.on("data", onChunk);
     child.stderr.on("data", onChunk);
 
-    child.on("error", err => {
+    child.on("error", (err) => {
       clearTimeout(timer);
       reject(new Error(`Failed to spawn ${interpreter}: ${err.message}`));
     });
@@ -125,9 +127,7 @@ export async function runScript(args: ScriptRunArgs): Promise<{ exitCode: number
       clearTimeout(timer);
       if (timedOut) {
         reject(
-          new Error(
-            `Script timed out after ${timeoutMillis}ms and was killed.` + tailSuffix(tail)
-          )
+          new Error(`Script timed out after ${timeoutMillis}ms and was killed.` + tailSuffix(tail)),
         );
       } else if (code === 0) {
         resolve({ exitCode: 0 });
@@ -135,8 +135,8 @@ export async function runScript(args: ScriptRunArgs): Promise<{ exitCode: number
         reject(
           new Error(
             `Script exited with ${code !== null ? `code ${code}` : `signal ${signal}`}.` +
-              tailSuffix(tail)
-          )
+              tailSuffix(tail),
+          ),
         );
       }
     });
@@ -151,14 +151,19 @@ function tailSuffix(tail: TailBuffer): string {
 /** The interpreter's own version, e.g. "3.12.4" (used by validate's env checker). */
 export async function interpreterVersion(interpreter: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(interpreter, ["-c", "import platform; print(platform.python_version())"], {
-      timeout: 30000
-    }, (err, stdout) => {
-      if (err) {
-        reject(new Error(`Could not run ${interpreter}: ${err.message}`));
-      } else {
-        resolve(stdout.trim());
-      }
-    });
+    execFile(
+      interpreter,
+      ["-c", "import platform; print(platform.python_version())"],
+      {
+        timeout: 30000,
+      },
+      (err, stdout) => {
+        if (err) {
+          reject(new Error(`Could not run ${interpreter}: ${err.message}`));
+        } else {
+          resolve(stdout.trim());
+        }
+      },
+    );
   });
 }

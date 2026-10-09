@@ -9,7 +9,7 @@ suite("runner extract hook", () => {
     const graph = sqlanvil.ExecutionGraph.create({
       projectConfig: { warehouse: "postgres" },
       warehouseState: { tables: [] },
-      actions: []
+      actions: [],
     });
     return new Runner({} as any, graph, {
       warehouseConnection: { host: "h", port: 5432, database: "d", user: "u", password: "p" },
@@ -21,7 +21,7 @@ suite("runner extract hook", () => {
       mysqlExtract: async (args: any) => {
         myCalls.push(args);
         return { rowCount: 2 };
-      }
+      },
     });
   }
 
@@ -37,8 +37,8 @@ suite("runner extract hook", () => {
         platform: "mysql",
         database: "shop",
         sourceName: "orders",
-        columnTypes: { id: "bigint" }
-      }
+        columnTypes: { id: "bigint" },
+      },
     });
     const actionResult: any = { tasks: [] };
 
@@ -47,7 +47,7 @@ suite("runner extract hook", () => {
       sqlanvil.ExecutionTask.create({ type: "extract" }),
       actionResult,
       {},
-      action
+      action,
     );
 
     expect(status).equals(sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL);
@@ -72,8 +72,8 @@ suite("runner extract hook", () => {
         project: "p",
         dataset: "ds",
         sourceName: "zip_codes",
-        columnTypes: { zip_code: "text" }
-      }
+        columnTypes: { zip_code: "text" },
+      },
     });
     const actionResult: any = { tasks: [] };
 
@@ -82,7 +82,7 @@ suite("runner extract hook", () => {
       sqlanvil.ExecutionTask.create({ type: "extract" }),
       actionResult,
       {},
-      action
+      action,
     );
 
     expect(status).equals(sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL);
@@ -97,13 +97,13 @@ suite("runner extract hook", () => {
       sqlanvil.ExecutionGraph.create({
         projectConfig: { warehouse: "supabase" },
         warehouseState: { tables: [] },
-        actions: []
+        actions: [],
       }),
       {
         mysqlExtract: async () => {
           throw new Error("boom");
-        }
-      }
+        },
+      },
     );
     const action = sqlanvil.ExecutionAction.create({
       target: { schema: "shop_mysql_ext", name: "orders" },
@@ -112,8 +112,8 @@ suite("runner extract hook", () => {
         connectionName: "shop_mysql",
         platform: "mysql",
         sourceName: "orders",
-        columnTypes: { id: "bigint" }
-      }
+        columnTypes: { id: "bigint" },
+      },
     });
     const actionResult: any = { tasks: [] };
     const status = await (runner as any).executeTask(
@@ -121,7 +121,7 @@ suite("runner extract hook", () => {
       sqlanvil.ExecutionTask.create({ type: "extract" }),
       actionResult,
       {},
-      action
+      action,
     );
     expect(status).equals(sqlanvil.TaskResult.ExecutionStatus.FAILED);
     expect(actionResult.tasks[0].errorMessage).contains("boom");

@@ -15,7 +15,7 @@ import {
   queryCommand,
   runCommand,
   testCommand,
-  validateCommand
+  validateCommand,
 } from "sa/cli/commands";
 import { printError } from "sa/cli/console";
 import { createYargsCli } from "sa/cli/yargswrapper";
@@ -44,8 +44,8 @@ export function runCli() {
       formatCommand,
       introspectCommand,
       migrateDataformCommand,
-      migrateFixCommand
-    ]
+      migrateFixCommand,
+    ],
   })
     .scriptName("sqlanvil")
     .strict()

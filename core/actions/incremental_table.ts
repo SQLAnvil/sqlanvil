@@ -5,7 +5,7 @@ import {
   ILegacyBigQueryOptions,
   ILegacyTableConfig,
   LegacyConfigConverter,
-  TableType
+  TableType,
 } from "sa/core/actions";
 import { Assertion } from "sa/core/actions/assertion";
 import { JitTableResult, Table } from "sa/core/actions/table";
@@ -117,7 +117,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     type: "incremental",
     enumType: sqlanvil.TableType.INCREMENTAL,
     disabled: false,
-    tags: []
+    tags: [],
   });
 
   /** @hidden */
@@ -147,7 +147,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     }
     const target = actionConfigToCompiledGraphTarget(config);
     this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, {
-      validateTarget: true
+      validateTarget: true,
     });
     this.proto.canonicalTarget = this.applySessionToTarget(target, session.canonicalProjectConfig);
 
@@ -164,9 +164,9 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     }
     if (config.dependencyTargets) {
       this.dependencies(
-        config.dependencyTargets.map(dependencyTarget =>
-          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
-        )
+        config.dependencyTargets.map((dependencyTarget) =>
+          configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget)),
+        ),
       );
     }
     if (config.hermetic !== undefined) {
@@ -189,9 +189,9 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     }
     if (config.columns?.length) {
       this.columns(
-        config.columns.map(columnDescriptor =>
-          sqlanvil.ActionConfig.ColumnDescriptor.create(columnDescriptor)
-        )
+        config.columns.map((columnDescriptor) =>
+          sqlanvil.ActionConfig.ColumnDescriptor.create(columnDescriptor),
+        ),
       );
     }
     if (config.project) {
@@ -226,19 +226,32 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
         config.preserveGovernanceControls ??
         session.projectConfig.preserveGovernanceControls ??
         false,
-      ...(config.iceberg ? {
-        connection: getConnectionForIcebergTable(
-          config.iceberg.connection,
-          session.projectConfig.defaultIcebergConfig?.connection
-        ),
-        fileFormat: getFileFormatValueForIcebergTable(config.iceberg.fileFormat?.toString()),
-        tableFormat: sqlanvil.TableFormat.ICEBERG,
-        storageUri: getStorageUriForIcebergTable(
-          getEffectiveBucketName(session.projectConfig.defaultIcebergConfig?.bucketName, config.iceberg.bucketName),
-          getEffectiveTableFolderRoot(session.projectConfig.defaultIcebergConfig?.tableFolderRoot, config.iceberg.tableFolderRoot),
-          getEffectiveTableFolderSubpath(this.proto.target.schema, this.proto.target.name, session.projectConfig.defaultIcebergConfig?.tableFolderSubpath, config.iceberg.tableFolderSubpath),
-        ),
-      } : {}),
+      ...(config.iceberg
+        ? {
+            connection: getConnectionForIcebergTable(
+              config.iceberg.connection,
+              session.projectConfig.defaultIcebergConfig?.connection,
+            ),
+            fileFormat: getFileFormatValueForIcebergTable(config.iceberg.fileFormat?.toString()),
+            tableFormat: sqlanvil.TableFormat.ICEBERG,
+            storageUri: getStorageUriForIcebergTable(
+              getEffectiveBucketName(
+                session.projectConfig.defaultIcebergConfig?.bucketName,
+                config.iceberg.bucketName,
+              ),
+              getEffectiveTableFolderRoot(
+                session.projectConfig.defaultIcebergConfig?.tableFolderRoot,
+                config.iceberg.tableFolderRoot,
+              ),
+              getEffectiveTableFolderSubpath(
+                this.proto.target.schema,
+                this.proto.target.name,
+                session.projectConfig.defaultIcebergConfig?.tableFolderSubpath,
+                config.iceberg.tableFolderSubpath,
+              ),
+            ),
+          }
+        : {}),
     });
 
     if (config.postgres) {
@@ -279,7 +292,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
         newAction = new Table(
           this.session,
           { ...this.unverifiedConfig, type: "table" },
-          this.configPath
+          this.configPath,
         );
         break;
       case "incremental":
@@ -288,7 +301,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
         newAction = new View(
           this.session,
           { ...this.unverifiedConfig, type: "view" },
-          this.configPath
+          this.configPath,
         );
         break;
       default:
@@ -297,7 +310,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     const existingAction = this.session.actions.indexOf(this);
     if (existingAction === -1) {
       throw Error(
-        "Expected pre-existing action, but none found. Please report this to the sqlanvil team."
+        "Expected pre-existing action, but none found. Please report this to the sqlanvil team.",
       );
     }
     this.session.actions[existingAction] = newAction;
@@ -321,7 +334,8 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     if (!this.proto.actionDescriptor) {
       this.proto.actionDescriptor = {};
     }
-    this.proto.actionDescriptor.compilationMode = sqlanvil.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
+    this.proto.actionDescriptor.compilationMode =
+      sqlanvil.ActionCompilationMode.ACTION_COMPILATION_MODE_JIT;
     this.contextableJitCode = jitCode;
     return this;
   }
@@ -373,7 +387,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
    */
   public disabled(disabled = true) {
     this.proto.disabled = disabled;
-    this.uniqueKeyAssertions.forEach(assertion => assertion.disabled(disabled));
+    this.uniqueKeyAssertions.forEach((assertion) => assertion.disabled(disabled));
     this.rowConditionsAssertion?.disabled(disabled);
     return this;
   }
@@ -436,10 +450,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
   }
 
   public supabase(supabase: sqlanvil.ISupabaseOptions) {
-    this.proto.supabase = normalizeSupabaseOptions(
-      supabase,
-      this.session.projectConfig.warehouse
-    );
+    this.proto.supabase = normalizeSupabaseOptions(supabase, this.session.projectConfig.warehouse);
     return this;
   }
 
@@ -451,8 +462,8 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
    */
   public dependencies(value: Resolvable | Resolvable[]) {
     const newDependencies = Array.isArray(value) ? value : [value];
-    newDependencies.forEach(resolvable =>
-      this.proto.dependencyTargets.push(checkAssertionsForDependency(this, resolvable))
+    newDependencies.forEach((resolvable) =>
+      this.proto.dependencyTargets.push(checkAssertionsForDependency(this, resolvable)),
     );
     return this;
   }
@@ -479,10 +490,10 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
    */
   public tags(value: string | string[]) {
     const newTags = typeof value === "string" ? [value] : value;
-    newTags.forEach(t => {
+    newTags.forEach((t) => {
       this.proto.tags.push(t);
     });
-    this.uniqueKeyAssertions.forEach(assertion => assertion.tags(value));
+    this.uniqueKeyAssertions.forEach((assertion) => assertion.tags(value));
     this.rowConditionsAssertion?.tags(value);
     return this;
   }
@@ -511,9 +522,8 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     if (!this.proto.actionDescriptor) {
       this.proto.actionDescriptor = {};
     }
-    this.proto.actionDescriptor.columns = ColumnDescriptors.mapConfigProtoToCompilationProto(
-      columns
-    );
+    this.proto.actionDescriptor.columns =
+      ColumnDescriptors.mapConfigProtoToCompilationProto(columns);
     return this;
   }
 
@@ -531,7 +541,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
       sqlanvil.Target.create({ ...this.proto.target, database }),
       this.session.projectConfig,
       this.proto.fileName,
-      { validateTarget: true }
+      { validateTarget: true },
     );
     return this;
   }
@@ -548,7 +558,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
       sqlanvil.Target.create({ ...this.proto.target, schema }),
       this.session.projectConfig,
       this.proto.fileName,
-      { validateTarget: true }
+      { validateTarget: true },
     );
     return this;
   }
@@ -564,7 +574,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
    * needed -->
    */
   public assertions(
-    tableAssertionsConfig: sqlanvil.ActionConfig.TableAssertionsConfig
+    tableAssertionsConfig: sqlanvil.ActionConfig.TableAssertionsConfig,
   ): IncrementalTable {
     const inlineAssertions = this.generateInlineAssertions(tableAssertionsConfig, this.proto);
     this.uniqueKeyAssertions = inlineAssertions.uniqueKeyAssertions;
@@ -602,7 +612,6 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
       this.compileAot();
     }
 
-
     if (this.proto.bigquery?.connection) {
       validateConnectionFormat(this.proto.bigquery.connection);
     }
@@ -614,7 +623,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     return verifyObjectMatchesProto(
       sqlanvil.Table,
       this.proto,
-      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
     );
   }
 
@@ -626,7 +635,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
       this.contextableQuery,
       this.contextableWhere,
       this.contextablePostOps,
-      this.contextablePreOps
+      this.contextablePreOps,
     );
 
     if (!this.proto.actionDescriptor) {
@@ -651,10 +660,10 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     }
 
     this.proto.preOps = this.contextifyOps(this.contextablePreOps, context).filter(
-      op => !!op.trim()
+      (op) => !!op.trim(),
     );
     this.proto.postOps = this.contextifyOps(this.contextablePostOps, context).filter(
-      op => !!op.trim()
+      (op) => !!op.trim(),
     );
 
     validateQueryString(this.session, this.proto.query, this.proto.fileName);
@@ -664,10 +673,10 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
   /** @hidden */
   private contextifyOps(
     contextableOps: Array<Contextable<ITableContext, string | string[]>>,
-    currentContext: IncrementalTableContext
+    currentContext: IncrementalTableContext,
   ) {
     let protoOps: string[] = [];
-    contextableOps.forEach(contextableOp => {
+    contextableOps.forEach((contextableOp) => {
       const appliedOps = currentContext.apply(contextableOp);
       protoOps = protoOps.concat(typeof appliedOps === "string" ? [appliedOps] : appliedOps);
     });
@@ -682,7 +691,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
   private verifyConfig(
     // `any` is used here to facilitate the type merging of the legacy table config, which is very
     // different to the new structure.
-    unverifiedConfig: sqlanvil.ActionConfig.IncrementalTableConfig | ILegacyTableConfig | any
+    unverifiedConfig: sqlanvil.ActionConfig.IncrementalTableConfig | ILegacyTableConfig | any,
   ): sqlanvil.ActionConfig.IncrementalTableConfig {
     // The "type" field only exists on legacy incremental table configs. Here we convert them to the
     // new format.
@@ -690,7 +699,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
       delete unverifiedConfig.type;
       if (unverifiedConfig.dependencies) {
         unverifiedConfig.dependencyTargets = unverifiedConfig.dependencies.map(
-          (dependency: string | object) => resolvableAsActionConfigTarget(dependency)
+          (dependency: string | object) => resolvableAsActionConfigTarget(dependency),
         );
         delete unverifiedConfig.dependencies;
       }
@@ -708,15 +717,13 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
       }
       if (unverifiedConfig.columns) {
         unverifiedConfig.columns = ColumnDescriptors.mapLegacyObjectToConfigProto(
-          unverifiedConfig.columns as any
+          unverifiedConfig.columns as any,
         );
       }
-      unverifiedConfig = LegacyConfigConverter.insertLegacyInlineAssertionsToConfigProto(
-        unverifiedConfig
-      );
-      unverifiedConfig = LegacyConfigConverter.insertLegacyBigQueryOptionsToConfigProto(
-        unverifiedConfig
-      );
+      unverifiedConfig =
+        LegacyConfigConverter.insertLegacyInlineAssertionsToConfigProto(unverifiedConfig);
+      unverifiedConfig =
+        LegacyConfigConverter.insertLegacyBigQueryOptionsToConfigProto(unverifiedConfig);
       if (unverifiedConfig.bigquery) {
         checkExcessProperties(
           (e: Error) => {
@@ -732,19 +739,19 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
             "requirePartitionFilter",
             "additionalOptions",
             "incrementalPredicates",
-            "iceberg"
+            "iceberg",
           ]),
-          "BigQuery table config"
+          "BigQuery table config",
         );
       }
     }
     if (unverifiedConfig.iceberg) {
       if (
         unverifiedConfig.iceberg.fileFormat &&
-        unverifiedConfig.iceberg.fileFormat.toUpperCase() !== 'PARQUET'
+        unverifiedConfig.iceberg.fileFormat.toUpperCase() !== "PARQUET"
       ) {
         throw new ReferenceError(
-          `Unexpected file format; only "PARQUET" is allowed, got "${unverifiedConfig.iceberg.fileFormat}".`
+          `Unexpected file format; only "PARQUET" is allowed, got "${unverifiedConfig.iceberg.fileFormat}".`,
         );
       }
     }
@@ -752,7 +759,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     const config = verifyObjectMatchesProto(
       sqlanvil.ActionConfig.IncrementalTableConfig,
       unverifiedConfig,
-      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK
+      VerifyProtoErrorBehaviour.SHOW_DOCS_LINK,
     );
 
     if (config.additionalOptions) {
@@ -801,7 +808,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
   }
 
   private mapIncrementalStrategy(
-    incrementalStrategy?: string | number
+    incrementalStrategy?: string | number,
   ): sqlanvil.IncrementalStrategy {
     if (!incrementalStrategy) {
       return sqlanvil.IncrementalStrategy.INCREMENTAL_STRATEGY_UNSPECIFIED;
@@ -832,7 +839,9 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     }
   }
 
-  private checkIncrementalStrategyRequirements(config: sqlanvil.ActionConfig.IIncrementalTableConfig) {
+  private checkIncrementalStrategyRequirements(
+    config: sqlanvil.ActionConfig.IIncrementalTableConfig,
+  ) {
     switch (this.proto.incrementalStrategy) {
       case sqlanvil.IncrementalStrategy.INSERT_OVERWRITE:
         // Upstream's check asks for `bigquery.partitionBy`, which only makes sense on BigQuery.
@@ -844,10 +853,10 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
             new Error(
               `IncrementalStrategy 'insert_overwrite' is currently BigQuery-only. On ` +
                 `${this.session.projectConfig.warehouse} use the default 'merge' strategy with a ` +
-                `uniqueKey, or delete the rows you are replacing in a pre_operations block.`
+                `uniqueKey, or delete the rows you are replacing in a pre_operations block.`,
             ),
             config.filename,
-            this.proto.target
+            this.proto.target,
           );
           break;
         }
@@ -855,7 +864,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
           this.session.compileError(
             new Error(`IncrementalStrategy 'insert_overwrite' requires 'partitionBy' to be set`),
             config.filename,
-            this.proto.target
+            this.proto.target,
           );
         }
         break;
@@ -864,7 +873,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
           this.session.compileError(
             new Error(`IncrementalStrategy 'merge' requires 'uniqueKey' to be set`),
             config.filename,
-            this.proto.target
+            this.proto.target,
           );
         }
         break;
@@ -882,10 +891,10 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     ) {
       this.session.compileError(
         new Error(
-          `incrementalPredicates and updatePartitionFilter cannot be both set. Use only incrementalPredicates.`
+          `incrementalPredicates and updatePartitionFilter cannot be both set. Use only incrementalPredicates.`,
         ),
         config.filename,
-        this.proto.target
+        this.proto.target,
       );
     }
   }
@@ -895,7 +904,10 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
  * @hidden
  */
 export class IncrementalTableContext implements ITableContext {
-  constructor(private incrementalTable: IncrementalTable, private isIncremental = false) { }
+  constructor(
+    private incrementalTable: IncrementalTable,
+    private isIncremental = false,
+  ) {}
 
   public self(): string {
     return this.resolve(this.incrementalTable.getTarget());
@@ -926,13 +938,13 @@ export class IncrementalTableContext implements ITableContext {
   public database(): string {
     if (!this.incrementalTable.getTarget().database) {
       this.incrementalTable.session.compileError(
-        new Error(`Warehouse does not support multiple databases`)
+        new Error(`Warehouse does not support multiple databases`),
       );
       return "";
     }
 
     return this.incrementalTable.session.finalizeDatabase(
-      this.incrementalTable.getTarget().database
+      this.incrementalTable.getTarget().database,
     );
   }
 

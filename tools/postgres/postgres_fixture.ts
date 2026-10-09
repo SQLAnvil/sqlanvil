@@ -17,26 +17,30 @@ function isDockerBypassed() {
 export class PostgresFixture {
   public static get host() {
     return isDockerBypassed()
-      ? (process.env.PG_HOST || "localhost")
-      : (USE_CLOUD_BUILD_NETWORK ? DOCKER_CONTAINER_NAME : "localhost");
+      ? process.env.PG_HOST || "localhost"
+      : USE_CLOUD_BUILD_NETWORK
+        ? DOCKER_CONTAINER_NAME
+        : "localhost";
   }
 
   public static get port() {
     return isDockerBypassed()
-      ? (process.env.PG_PORT ? parseInt(process.env.PG_PORT, 10) : 5432)
+      ? process.env.PG_PORT
+        ? parseInt(process.env.PG_PORT, 10)
+        : 5432
       : 5432;
   }
 
   public static get user() {
-    return isDockerBypassed() ? (process.env.PG_USER || "postgres") : "postgres";
+    return isDockerBypassed() ? process.env.PG_USER || "postgres" : "postgres";
   }
 
   public static get password() {
-    return isDockerBypassed() ? (process.env.PG_PASSWORD || "password") : "password";
+    return isDockerBypassed() ? process.env.PG_PASSWORD || "password" : "password";
   }
 
   public static get database() {
-    return isDockerBypassed() ? (process.env.PG_DATABASE || "postgres") : "postgres";
+    return isDockerBypassed() ? process.env.PG_DATABASE || "postgres" : "postgres";
   }
 
   constructor(port: number, setUp: IHookHandler, tearDown: IHookHandler) {
@@ -54,8 +58,8 @@ export class PostgresFixture {
             "-d",
             `-p ${finalPort}:${POSTGRES_SERVE_PORT}`,
             USE_CLOUD_BUILD_NETWORK ? "--network cloudbuild" : "",
-            POSTGRES_IMAGE
-          ].join(" ")
+            POSTGRES_IMAGE,
+          ].join(" "),
         );
       }
 
@@ -64,7 +68,7 @@ export class PostgresFixture {
         password: PostgresFixture.password,
         database: PostgresFixture.database,
         port: finalPort,
-        host: PostgresFixture.host
+        host: PostgresFixture.host,
       });
 
       // Block until postgres is ready to accept requests.

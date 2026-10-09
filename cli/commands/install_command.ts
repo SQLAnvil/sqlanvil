@@ -17,5 +17,5 @@ export const installCommand: ICommand = {
     await install(argv[projectDirMustExistOption.name]);
     printSuccess("Project dependencies successfully installed.");
     return 0;
-  }
+  },
 };

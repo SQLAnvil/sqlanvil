@@ -17,18 +17,18 @@ export const migrateFixCommand: ICommand = {
     option("dry-run", {
       describe: "Report what would change without writing.",
       type: "boolean",
-      default: false
-    })
+      default: false,
+    }),
   ],
   processFn: async (argv: { "project-dir": string; "dry-run": boolean }) => {
     const result = await migrateFix({
       projectDir: argv["project-dir"],
-      write: !argv["dry-run"]
+      write: !argv["dry-run"],
     });
     const verb = argv["dry-run"] ? "would rewrite" : "rewrote";
     print(
       `${verb} ${result.expanded} star-except site(s) and ${result.groupByAll} ` +
-        `GROUP BY ALL clause(s) across ${result.files.length} file(s).`
+        `GROUP BY ALL clause(s) across ${result.files.length} file(s).`,
     );
     if (result.unresolved.length) {
       printError(`${result.unresolved.length} site(s) need a look:`);
@@ -37,5 +37,5 @@ export const migrateFixCommand: ICommand = {
       }
     }
     return result.unresolved.length ? 1 : 0;
-  }
+  },
 };

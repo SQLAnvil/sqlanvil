@@ -47,7 +47,7 @@ export class Extract extends ActionBuilder<sqlanvil.Extract> {
 
     const target = sqlanvil.Target.create({ name: config.name, schema: config.schema });
     this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, {
-      validateTarget: true
+      validateTarget: true,
     });
     this.proto.canonicalTarget = this.applySessionToTarget(target, session.canonicalProjectConfig);
     this.proto.fileName = config.filename || "";
@@ -73,7 +73,7 @@ export class Extract extends ActionBuilder<sqlanvil.Extract> {
     return verifyObjectMatchesProto(
       sqlanvil.Extract,
       this.proto,
-      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM
+      VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM,
     );
   }
 }

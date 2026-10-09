@@ -22,7 +22,7 @@ const ACTION_COLUMNS = [
   "tags",
   "disabled",
   "file_name",
-  "description"
+  "description",
 ];
 const DEPENDENCY_COLUMNS = ["from_target_key", "to_target_key", "from_readable", "to_readable"];
 const COLUMN_COLUMNS = ["target_key", "readable_name", "column_name", "description"];
@@ -35,7 +35,7 @@ const RUN_COLUMNS = [
   "start_millis",
   "end_millis",
   "duration_millis",
-  "error_message"
+  "error_message",
 ];
 
 export interface WriteArtifactsOptions {
@@ -47,7 +47,7 @@ export interface WriteArtifactsOptions {
 export async function writeArtifacts(
   compiledGraph: sqlanvil.ICompiledGraph,
   projectDir: string,
-  options: WriteArtifactsOptions = {}
+  options: WriteArtifactsOptions = {},
 ): Promise<{ targetDir: string }> {
   const targetDir = path.join(projectDir, TARGET_DIR);
   const catalogDir = path.join(targetDir, "catalog");
@@ -57,7 +57,7 @@ export async function writeArtifacts(
   await writeParquet(
     dependencies,
     path.join(catalogDir, "dependencies.parquet"),
-    DEPENDENCY_COLUMNS
+    DEPENDENCY_COLUMNS,
   );
   await writeParquet(columns, path.join(catalogDir, "columns.parquet"), COLUMN_COLUMNS);
 
@@ -66,7 +66,7 @@ export async function writeArtifacts(
     await writeParquet(
       runRows(options.runResult, runId),
       path.join(targetDir, "runs", `run_${runId}.parquet`),
-      RUN_COLUMNS
+      RUN_COLUMNS,
     );
   }
 
@@ -80,7 +80,7 @@ export async function writeArtifacts(
 export async function safeWriteArtifacts(
   compiledGraph: sqlanvil.ICompiledGraph,
   projectDir: string,
-  options: WriteArtifactsOptions & { warn?: (message: string) => void } = {}
+  options: WriteArtifactsOptions & { warn?: (message: string) => void } = {},
 ): Promise<void> {
   try {
     await writeArtifacts(compiledGraph, projectDir, options);

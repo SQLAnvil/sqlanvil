@@ -14,7 +14,7 @@ function combineAllActions(graph: sqlanvil.ICompiledGraph) {
     graph.operations || ([] as sqlanvil.IOperation[]),
     graph.assertions || ([] as sqlanvil.IAssertion[]),
     graph.declarations || ([] as sqlanvil.IDeclaration[]),
-    graph.dataPreparations || ([] as sqlanvil.IDataPreparation[])
+    graph.dataPreparations || ([] as sqlanvil.IDataPreparation[]),
   );
 }
 
@@ -22,8 +22,8 @@ export function actionsByTarget(compiledGraph: sqlanvil.ICompiledGraph) {
   const actionsMap = new Map<string, CoreProtoActionTypes>();
   combineAllActions(compiledGraph)
     // Required for backwards compatibility with old versions of @sqlanvil/core.
-    .filter(action => !!action.target)
-    .forEach(action => {
+    .filter((action) => !!action.target)
+    .forEach((action) => {
       actionsMap.set(targetStringifier.stringify(action.target), action);
     });
 }
@@ -32,8 +32,8 @@ export function actionsByCanonicalTarget(compiledGraph: sqlanvil.ICompiledGraph)
   const actionsMap = new Map<string, CoreProtoActionTypes>();
   combineAllActions(compiledGraph)
     // Required for backwards compatibility with old versions of @sqlanvil/core.
-    .filter(action => !!action.canonicalTarget)
-    .forEach(action => {
+    .filter((action) => !!action.canonicalTarget)
+    .forEach((action) => {
       actionsMap.set(targetStringifier.stringify(action.canonicalTarget), action);
     });
 }

@@ -11,7 +11,7 @@ import {
   coreExecutionRequestFromPath,
   runMainInVm,
   VALID_WORKFLOW_SETTINGS_YAML,
-  WorkflowSettingsTemplates
+  WorkflowSettingsTemplates,
 } from "sa/testing/run_core";
 
 const EMPTY_NOTEBOOK_CONTENTS = '{ "cells": [] }';
@@ -24,7 +24,7 @@ suite("assertion", ({ afterEach }) => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -48,7 +48,7 @@ actions:
     description: description
     hermetic: true
     dependOnDependencyAssertions: true
-    reservation: reservation`
+    reservation: reservation`,
       );
       fs.writeFileSync(path.join(projectDir, "definitions/action.sql"), "SELECT 1");
       fs.writeFileSync(path.join(projectDir, "definitions/operation.sqlx"), "SELECT 1");
@@ -62,16 +62,16 @@ actions:
             target: {
               database: "project",
               schema: "dataset",
-              name: "name"
+              name: "name",
             },
             canonicalTarget: {
               database: "project",
               schema: "dataset",
-              name: "name"
+              name: "name",
             },
             actionDescriptor: {
               description: "description",
-              reservation: "reservation"
+              reservation: "reservation",
             },
             disabled: true,
             fileName: "definitions/action.sql",
@@ -82,11 +82,11 @@ actions:
               {
                 name: "operation",
                 schema: "defaultDataset",
-                database: "defaultProject"
-              }
-            ]
-          }
-        ])
+                database: "defaultProject",
+              },
+            ],
+          },
+        ]),
       );
     });
   });
@@ -118,24 +118,24 @@ actions:
         filename: "assertion.sqlx",
         fileContents: `
 config ${assertionConfig}
-SELECT 1`
+SELECT 1`,
       },
       {
         filename: "assertion.js",
-        fileContents: `assert("name", ${assertionConfig}).query(ctx => \`\n\nSELECT 1\`)`
-      }
-    ].forEach(testParameters => {
+        fileContents: `assert("name", ${assertionConfig}).query(ctx => \`\n\nSELECT 1\`)`,
+      },
+    ].forEach((testParameters) => {
       test(`for assertions configured in a ${testParameters.filename} file`, () => {
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
+          VALID_WORKFLOW_SETTINGS_YAML,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(path.join(projectDir, "definitions/operation.sqlx"), "SELECT 1");
         fs.writeFileSync(
           path.join(projectDir, `definitions/${testParameters.filename}`),
-          testParameters.fileContents
+          testParameters.fileContents,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -147,12 +147,12 @@ SELECT 1`
               target: {
                 database: "project",
                 schema: "dataset",
-                name: "name"
+                name: "name",
               },
               canonicalTarget: {
                 database: "project",
                 schema: "dataset",
-                name: "name"
+                name: "name",
               },
               actionDescriptor: {
                 description: "description",
@@ -160,25 +160,25 @@ SELECT 1`
                   overview: "assertion overview",
                   extraProperties: {
                     fields: {
-                      priority: { stringValue: "high" }
-                    }
-                  }
-                }
+                      priority: { stringValue: "high" },
+                    },
+                  },
+                },
               },
               dependencyTargets: [
                 {
                   database: "defaultProject",
                   schema: "defaultDataset",
-                  name: "operation"
-                }
+                  name: "operation",
+                },
               ],
               disabled: true,
               fileName: `definitions/${testParameters.filename}`,
               hermeticity: "HERMETIC",
               tags: ["tagA", "tagB"],
-              query: "\n\nSELECT 1"
-            }
-          ])
+              query: "\n\nSELECT 1",
+            },
+          ]),
         );
       });
     });
@@ -187,7 +187,7 @@ SELECT 1`
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
-        VALID_WORKFLOW_SETTINGS_YAML
+        VALID_WORKFLOW_SETTINGS_YAML,
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));
       fs.writeFileSync(
@@ -200,32 +200,32 @@ SELECT 1`
         }
     }
 }
-SELECT 1`
+SELECT 1`,
       );
 
       const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
       expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
       expect(
-        asPlainObject(result.compile.compiledGraph.assertions[0].actionDescriptor.metadata)
+        asPlainObject(result.compile.compiledGraph.assertions[0].actionDescriptor.metadata),
       ).deep.equals({
         extraProperties: {
           fields: {
-            priority: { stringValue: "high" }
-          }
-        }
+            priority: { stringValue: "high" },
+          },
+        },
       });
     });
 
-    ["table", "view", "incremental"].forEach(tableType => {
-      [`"fieldValue"`, `["fieldValue"]`].forEach(uniqueKeyField => {
+    ["table", "view", "incremental"].forEach((tableType) => {
+      [`"fieldValue"`, `["fieldValue"]`].forEach((uniqueKeyField) => {
         test(`for ${tableType} built-in assertions uniqueKey with value ${uniqueKeyField}`, () => {
           // The `uniqueKey` built in assertion field cannot be present at the same time as
           // `uniqueKeys`, so it is tested separately here.
           const projectDir = tmpDirFixture.createNewTmpDir();
           fs.writeFileSync(
             path.join(projectDir, "workflow_settings.yaml"),
-            VALID_WORKFLOW_SETTINGS_YAML
+            VALID_WORKFLOW_SETTINGS_YAML,
           );
           fs.mkdirSync(path.join(projectDir, "definitions"));
           fs.writeFileSync(
@@ -237,7 +237,7 @@ config {
     uniqueKey: ${uniqueKeyField},
     },
 }
-SELECT 2`
+SELECT 2`,
           );
 
           const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -248,29 +248,29 @@ SELECT 2`
               target: {
                 database: "defaultProject",
                 schema: "defaultDataset",
-                name: "defaultDataset_filename_assertions_uniqueKey_0"
+                name: "defaultDataset_filename_assertions_uniqueKey_0",
               },
               canonicalTarget: {
                 database: "defaultProject",
                 schema: "defaultDataset",
-                name: "defaultDataset_filename_assertions_uniqueKey_0"
+                name: "defaultDataset_filename_assertions_uniqueKey_0",
               },
               dependencyTargets: [
                 {
                   database: "defaultProject",
                   schema: "defaultDataset",
-                  name: "filename"
-                }
+                  name: "filename",
+                },
               ],
               fileName: "definitions/filename.sqlx",
               parentAction: {
                 database: "defaultProject",
                 schema: "defaultDataset",
-                name: "filename"
+                name: "filename",
               },
               query:
-                "\nSELECT\n  *\nFROM (\n  SELECT\n    fieldValue,\n    COUNT(1) AS index_row_count\n  FROM `defaultProject.defaultDataset.filename`\n  GROUP BY fieldValue\n  ) AS data\nWHERE index_row_count > 1\n"
-            }
+                "\nSELECT\n  *\nFROM (\n  SELECT\n    fieldValue,\n    COUNT(1) AS index_row_count\n  FROM `defaultProject.defaultDataset.filename`\n  GROUP BY fieldValue\n  ) AS data\nWHERE index_row_count > 1\n",
+            },
           ]);
         });
       });
@@ -301,7 +301,7 @@ actions:
     description: description
     hermetic: true
     dependOnDependencyAssertions: true
-`
+`,
     );
 
     const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -313,30 +313,30 @@ actions:
           target: {
             database: "project",
             schema: "dataset",
-            name: "name"
+            name: "name",
           },
           canonicalTarget: {
             database: "project",
             schema: "dataset",
-            name: "name"
+            name: "name",
           },
           actionDescriptor: {
-            description: "description"
+            description: "description",
           },
           dependencyTargets: [
             {
               database: "defaultProject",
               schema: "defaultDataset",
-              name: "operation"
-            }
+              name: "operation",
+            },
           ],
           disabled: true,
           fileName: "definitions/filename.sql",
           hermeticity: "HERMETIC",
           tags: ["tagA", "tagB"],
-          query: "SELECT 1"
-        }
-      ])
+          query: "SELECT 1",
+        },
+      ]),
     );
   });
 
@@ -344,14 +344,14 @@ actions:
     [
       WorkflowSettingsTemplates.bigquery,
       WorkflowSettingsTemplates.bigqueryWithDatasetSuffix,
-      WorkflowSettingsTemplates.bigqueryWithNamePrefix
-    ].forEach(testConfig => {
+      WorkflowSettingsTemplates.bigqueryWithNamePrefix,
+    ].forEach((testConfig) => {
       let projectDir: any;
       beforeEach("Create temporary dir and files", () => {
         projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          dumpYaml(sqlanvil.WorkflowSettings.create(testConfig))
+          dumpYaml(sqlanvil.WorkflowSettings.create(testConfig)),
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
@@ -360,7 +360,7 @@ actions:
 config {
   type: "table",
   assertions: {rowConditions: ["test > 1"]}}
-  SELECT 1 as test`
+  SELECT 1 as test`,
         );
         fs.writeFileSync(
           path.join(projectDir, "definitions/A_assert.sqlx"),
@@ -368,13 +368,13 @@ config {
 config {
   type: "assertion",
 }
-select test from \${ref("A")} where test > 3`
+select test from \${ref("A")} where test > 3`,
         );
         fs.writeFileSync(path.join(projectDir, "definitions/B.sql"), "SELECT 1");
         fs.writeFileSync(path.join(projectDir, "definitions/C.sql"), "SELECT 1");
         fs.writeFileSync(
           path.join(projectDir, `definitions/notebook.ipynb`),
-          EMPTY_NOTEBOOK_CONTENTS
+          EMPTY_NOTEBOOK_CONTENTS,
         );
       });
 
@@ -388,7 +388,7 @@ config {
   dependencies: ["A"]
 }
 select 1 as btest
-`
+`,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -397,20 +397,20 @@ select 1 as btest
         expect(
           asPlainObject(
             result.compile.compiledGraph.tables.find(
-              table => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B")
-            ).dependencyTargets.length
-          )
+              (table) => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"),
+            ).dependencyTargets.length,
+          ),
         ).equals(3);
         expect(
           asPlainObject(
             result.compile.compiledGraph.tables
-              .find(table => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"))
-              .dependencyTargets.flatMap(dependencyTarget => dependencyTarget.name)
-          )
+              .find((table) => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"))
+              .dependencyTargets.flatMap((dependencyTarget) => dependencyTarget.name),
+          ),
         ).deep.equals([
           prefixAdjustedName(testConfig.namePrefix, "A"),
           prefixAdjustedName(testConfig.namePrefix, "defaultDataset_A_assertions_rowConditions"),
-          prefixAdjustedName(testConfig.namePrefix, "A_assert")
+          prefixAdjustedName(testConfig.namePrefix, "A_assert"),
         ]);
       });
 
@@ -422,7 +422,7 @@ config {
   type: "table",
   dependencies: [{name: "A", includeDependentAssertions: true}, "C"]
 }
-select 1 as btest`
+select 1 as btest`,
         );
         fs.writeFileSync(
           path.join(projectDir, "definitions/C.sqlx"),
@@ -433,7 +433,7 @@ config {
     rowConditions: ["test > 1"]
   }
 }
-SELECT 1 as test`
+SELECT 1 as test`,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -442,21 +442,21 @@ SELECT 1 as test`
         expect(
           asPlainObject(
             result.compile.compiledGraph.tables.find(
-              table => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B")
-            ).dependencyTargets.length
-          )
+              (table) => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"),
+            ).dependencyTargets.length,
+          ),
         ).equals(4);
         expect(
           asPlainObject(
             result.compile.compiledGraph.tables
-              .find(table => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"))
-              .dependencyTargets.flatMap(dependencyTarget => dependencyTarget.name)
-          )
+              .find((table) => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"))
+              .dependencyTargets.flatMap((dependencyTarget) => dependencyTarget.name),
+          ),
         ).deep.equals([
           prefixAdjustedName(testConfig.namePrefix, "A"),
           prefixAdjustedName(testConfig.namePrefix, "defaultDataset_A_assertions_rowConditions"),
           prefixAdjustedName(testConfig.namePrefix, "A_assert"),
-          prefixAdjustedName(testConfig.namePrefix, "C")
+          prefixAdjustedName(testConfig.namePrefix, "C"),
         ]);
       });
 
@@ -469,7 +469,7 @@ config {
   dependencies: ["A"]
 }
 select * from \${ref({name: "C", includeDependentAssertions: true})}
-select 1 as btest`
+select 1 as btest`,
         );
         fs.writeFileSync(
           path.join(projectDir, "definitions/C.sqlx"),
@@ -480,7 +480,7 @@ config {
       rowConditions: ["test > 1"]
   }
 }
-SELECT 1 as test`
+SELECT 1 as test`,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -489,20 +489,20 @@ SELECT 1 as test`
         expect(
           asPlainObject(
             result.compile.compiledGraph.tables.find(
-              table => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B")
-            ).dependencyTargets.length
-          )
+              (table) => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"),
+            ).dependencyTargets.length,
+          ),
         ).equals(3);
         expect(
           asPlainObject(
             result.compile.compiledGraph.tables
-              .find(table => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"))
-              .dependencyTargets.flatMap(dependencyTarget => dependencyTarget.name)
-          )
+              .find((table) => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"))
+              .dependencyTargets.flatMap((dependencyTarget) => dependencyTarget.name),
+          ),
         ).deep.equals([
           prefixAdjustedName(testConfig.namePrefix, "A"),
           prefixAdjustedName(testConfig.namePrefix, "C"),
-          prefixAdjustedName(testConfig.namePrefix, "defaultDataset_C_assertions_rowConditions")
+          prefixAdjustedName(testConfig.namePrefix, "defaultDataset_C_assertions_rowConditions"),
         ]);
       });
 
@@ -516,7 +516,7 @@ config {
   dependencies: ["A"]
 }
 select * from \${ref({name: "C", includeDependentAssertions: false})}
-select 1 as btest`
+select 1 as btest`,
         );
         fs.writeFileSync(
           path.join(projectDir, "definitions/C.sqlx"),
@@ -527,7 +527,7 @@ config {
       rowConditions: ["test > 1"]
   }
 }
-SELECT 1 as test`
+SELECT 1 as test`,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -536,21 +536,21 @@ SELECT 1 as test`
         expect(
           asPlainObject(
             result.compile.compiledGraph.tables.find(
-              table => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B")
-            ).dependencyTargets.length
-          )
+              (table) => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"),
+            ).dependencyTargets.length,
+          ),
         ).equals(4);
         expect(
           asPlainObject(
             result.compile.compiledGraph.tables
-              .find(table => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"))
-              .dependencyTargets.flatMap(dependencyTarget => dependencyTarget.name)
-          )
+              .find((table) => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"))
+              .dependencyTargets.flatMap((dependencyTarget) => dependencyTarget.name),
+          ),
         ).deep.equals([
           prefixAdjustedName(testConfig.namePrefix, "A"),
           prefixAdjustedName(testConfig.namePrefix, "defaultDataset_A_assertions_rowConditions"),
           prefixAdjustedName(testConfig.namePrefix, "A_assert"),
-          prefixAdjustedName(testConfig.namePrefix, "C")
+          prefixAdjustedName(testConfig.namePrefix, "C"),
         ]);
       });
 
@@ -564,7 +564,7 @@ config {
   dependencies: ["A"]
 }
 select * from \${ref({name: "C", includeDependentAssertions: true})}
-select 1 as btest`
+select 1 as btest`,
         );
         fs.writeFileSync(
           path.join(projectDir, "definitions/C.sqlx"),
@@ -575,7 +575,7 @@ config {
       rowConditions: ["test > 1"]
   }
 }
-SELECT 1 as test`
+SELECT 1 as test`,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -584,23 +584,24 @@ SELECT 1 as test`
         expect(
           asPlainObject(
             result.compile.compiledGraph.operations.find(
-              operation => operation.target.name === prefixAdjustedName(testConfig.namePrefix, "B")
-            ).dependencyTargets.length
-          )
+              (operation) =>
+                operation.target.name === prefixAdjustedName(testConfig.namePrefix, "B"),
+            ).dependencyTargets.length,
+          ),
         ).equals(3);
         expect(
           asPlainObject(
             result.compile.compiledGraph.operations
               .find(
-                operation =>
-                  operation.target.name === prefixAdjustedName(testConfig.namePrefix, "B")
+                (operation) =>
+                  operation.target.name === prefixAdjustedName(testConfig.namePrefix, "B"),
               )
-              .dependencyTargets.flatMap(dependencyTarget => dependencyTarget.name)
-          )
+              .dependencyTargets.flatMap((dependencyTarget) => dependencyTarget.name),
+          ),
         ).deep.equals([
           prefixAdjustedName(testConfig.namePrefix, "A"),
           prefixAdjustedName(testConfig.namePrefix, "C"),
-          prefixAdjustedName(testConfig.namePrefix, "defaultDataset_C_assertions_rowConditions")
+          prefixAdjustedName(testConfig.namePrefix, "defaultDataset_C_assertions_rowConditions"),
         ]);
       });
 
@@ -613,7 +614,7 @@ config {
   dependencies: ["A_assert"]
 }
 select * from \${ref({name: "A", includeDependentAssertions: true})}
-select 1 as btest`
+select 1 as btest`,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -622,20 +623,20 @@ select 1 as btest`
         expect(
           asPlainObject(
             result.compile.compiledGraph.tables.find(
-              table => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B")
-            ).dependencyTargets.length
-          )
+              (table) => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"),
+            ).dependencyTargets.length,
+          ),
         ).equals(3);
         expect(
           asPlainObject(
             result.compile.compiledGraph.tables
-              .find(table => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"))
-              .dependencyTargets.flatMap(dependencyTarget => dependencyTarget.name)
-          )
+              .find((table) => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"))
+              .dependencyTargets.flatMap((dependencyTarget) => dependencyTarget.name),
+          ),
         ).deep.equals([
           prefixAdjustedName(testConfig.namePrefix, "A_assert"),
           prefixAdjustedName(testConfig.namePrefix, "A"),
-          prefixAdjustedName(testConfig.namePrefix, "defaultDataset_A_assertions_rowConditions")
+          prefixAdjustedName(testConfig.namePrefix, "defaultDataset_A_assertions_rowConditions"),
         ]);
       });
 
@@ -649,7 +650,7 @@ config {
 }
 select * from \${ref({name: "A", includeDependentAssertions: true})}
 select * from \${ref({name: "C", includeDependentAssertions: false})}
-select 1 as btest`
+select 1 as btest`,
         );
         fs.writeFileSync(
           path.join(projectDir, "definitions/C.sqlx"),
@@ -661,14 +662,14 @@ config {
   }
 }
 SELECT 1 as test
-}`
+}`,
         );
 
         const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
 
         expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).deep.equals(2);
         expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).deep.equals(
-          `Conflicting "includeDependentAssertions" properties are not allowed. Dependency A has different values set for this property.`
+          `Conflicting "includeDependentAssertions" properties are not allowed. Dependency A has different values set for this property.`,
         );
       });
 
@@ -693,32 +694,32 @@ actions:
     dependOnDependencyAssertions: true
     dependencyTargets:
       - name: A
-`
+`,
           );
 
           const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
           expect(
             asPlainObject(
               result.compile.compiledGraph.operations.find(
-                operation =>
-                  operation.target.name === prefixAdjustedName(testConfig.namePrefix, "C")
-              ).dependencyTargets.length
-            )
+                (operation) =>
+                  operation.target.name === prefixAdjustedName(testConfig.namePrefix, "C"),
+              ).dependencyTargets.length,
+            ),
           ).deep.equals(3);
           expect(
             asPlainObject(
               result.compile.compiledGraph.tables.find(
-                table => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B")
-              ).dependencyTargets.length
-            )
+                (table) => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"),
+              ).dependencyTargets.length,
+            ),
           ).deep.equals(3);
           expect(
             asPlainObject(
               result.compile.compiledGraph.notebooks.find(
-                notebook =>
-                  notebook.target.name === prefixAdjustedName(testConfig.namePrefix, "notebook")
-              ).dependencyTargets.length
-            )
+                (notebook) =>
+                  notebook.target.name === prefixAdjustedName(testConfig.namePrefix, "notebook"),
+              ).dependencyTargets.length,
+            ),
           ).deep.equals(3);
           expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
         });
@@ -743,7 +744,7 @@ actions:
     dependencyTargets:
       - name: A
         includeDependentAssertions: true
-`
+`,
           );
 
           const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
@@ -752,25 +753,25 @@ actions:
           expect(
             asPlainObject(
               result.compile.compiledGraph.operations.find(
-                operation =>
-                  operation.target.name === prefixAdjustedName(testConfig.namePrefix, "C")
-              ).dependencyTargets.length
-            )
+                (operation) =>
+                  operation.target.name === prefixAdjustedName(testConfig.namePrefix, "C"),
+              ).dependencyTargets.length,
+            ),
           ).deep.equals(3);
           expect(
             asPlainObject(
               result.compile.compiledGraph.tables.find(
-                table => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B")
-              ).dependencyTargets.length
-            )
+                (table) => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"),
+              ).dependencyTargets.length,
+            ),
           ).deep.equals(3);
           expect(
             asPlainObject(
               result.compile.compiledGraph.notebooks.find(
-                notebook =>
-                  notebook.target.name === prefixAdjustedName(testConfig.namePrefix, "notebook")
-              ).dependencyTargets.length
-            )
+                (notebook) =>
+                  notebook.target.name === prefixAdjustedName(testConfig.namePrefix, "notebook"),
+              ).dependencyTargets.length,
+            ),
           ).deep.equals(3);
         });
 
@@ -802,7 +803,7 @@ actions:
       - name: A
         includeDependentAssertions: false
       - name: B
-`
+`,
           );
           fs.writeFileSync(path.join(projectDir, "definitions/B_assert.sql"), "SELECT test from B");
 
@@ -812,25 +813,25 @@ actions:
           expect(
             asPlainObject(
               result.compile.compiledGraph.operations.find(
-                operation =>
-                  operation.target.name === prefixAdjustedName(testConfig.namePrefix, "C")
-              ).dependencyTargets.length
-            )
+                (operation) =>
+                  operation.target.name === prefixAdjustedName(testConfig.namePrefix, "C"),
+              ).dependencyTargets.length,
+            ),
           ).deep.equals(1);
           expect(
             asPlainObject(
               result.compile.compiledGraph.tables.find(
-                table => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B")
-              ).dependencyTargets.length
-            )
+                (table) => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"),
+              ).dependencyTargets.length,
+            ),
           ).deep.equals(1);
           expect(
             asPlainObject(
               result.compile.compiledGraph.notebooks.find(
-                notebook =>
-                  notebook.target.name === prefixAdjustedName(testConfig.namePrefix, "notebook")
-              ).dependencyTargets.length
-            )
+                (notebook) =>
+                  notebook.target.name === prefixAdjustedName(testConfig.namePrefix, "notebook"),
+              ).dependencyTargets.length,
+            ),
           ).deep.equals(3);
         });
 
@@ -863,7 +864,7 @@ actions:
       - name: A
         includeDependentAssertions: true
       - name: B
-`
+`,
           );
           fs.writeFileSync(path.join(projectDir, "definitions/B_assert.sql"), "SELECT test from B");
 
@@ -873,25 +874,25 @@ actions:
           expect(
             asPlainObject(
               result.compile.compiledGraph.operations.find(
-                operation =>
-                  operation.target.name === prefixAdjustedName(testConfig.namePrefix, "C")
-              ).dependencyTargets.length
-            )
+                (operation) =>
+                  operation.target.name === prefixAdjustedName(testConfig.namePrefix, "C"),
+              ).dependencyTargets.length,
+            ),
           ).deep.equals(4);
           expect(
             asPlainObject(
               result.compile.compiledGraph.tables.find(
-                table => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B")
-              ).dependencyTargets.length
-            )
+                (table) => table.target.name === prefixAdjustedName(testConfig.namePrefix, "B"),
+              ).dependencyTargets.length,
+            ),
           ).deep.equals(3);
           expect(
             asPlainObject(
               result.compile.compiledGraph.notebooks.find(
-                notebook =>
-                  notebook.target.name === prefixAdjustedName(testConfig.namePrefix, "notebook")
-              ).dependencyTargets.length
-            )
+                (notebook) =>
+                  notebook.target.name === prefixAdjustedName(testConfig.namePrefix, "notebook"),
+              ).dependencyTargets.length,
+            ),
           ).deep.equals(4);
         });
 
@@ -913,7 +914,7 @@ actions:
       - name: B
       - name: A
         includeDependentAssertions: false
-`
+`,
           );
           fs.writeFileSync(path.join(projectDir, "definitions/B_assert.sql"), "SELECT test from B");
 
@@ -921,7 +922,7 @@ actions:
 
           expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).deep.equals(1);
           expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).deep.equals(
-            `Conflicting "includeDependentAssertions" properties are not allowed. Dependency A has different values set for this property.`
+            `Conflicting "includeDependentAssertions" properties are not allowed. Dependency A has different values set for this property.`,
           );
         });
       });
@@ -935,18 +936,18 @@ actions:
         setupFiles: (projectDir: string) => {
           fs.writeFileSync(
             path.join(projectDir, "definitions/assertion.sqlx"),
-            `config { type: "assertion" }SELECT 1 WHERE FALSE`
+            `config { type: "assertion" }SELECT 1 WHERE FALSE`,
           );
-        }
+        },
       },
       {
         extension: "js",
         setupFiles: (projectDir: string) => {
           fs.writeFileSync(
             path.join(projectDir, "definitions/assertion.js"),
-            `assert("assertion").query("SELECT 1 WHERE FALSE");`
+            `assert("assertion").query("SELECT 1 WHERE FALSE");`,
           );
-        }
+        },
       },
       {
         extension: "sql",
@@ -957,20 +958,20 @@ actions:
 actions:
 - assertion:
     name: assertion
-    filename: assertion.sql`
+    filename: assertion.sql`,
           );
           fs.writeFileSync(
             path.join(projectDir, "definitions/assertion.sql"),
-            "SELECT 1 WHERE FALSE"
+            "SELECT 1 WHERE FALSE",
           );
-        }
-      }
-    ].forEach(testCase => {
+        },
+      },
+    ].forEach((testCase) => {
       test(`disables ${testCase.extension} file assertions when disableAssertions is true`, () => {
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
+          VALID_WORKFLOW_SETTINGS_YAML,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
 
@@ -979,8 +980,8 @@ actions:
         const coreRequest = coreExecutionRequestFromPath(
           projectDir,
           sqlanvil.ProjectConfig.create({
-            disableAssertions: true
-          })
+            disableAssertions: true,
+          }),
         );
         const result = runMainInVm(coreRequest);
 
@@ -991,7 +992,7 @@ actions:
               canonicalTarget: {
                 database: "defaultProject",
                 name: "assertion",
-                schema: "defaultDataset"
+                schema: "defaultDataset",
               },
               disabled: true,
               fileName: `definitions/assertion.${testCase.extension}`,
@@ -999,20 +1000,20 @@ actions:
               target: {
                 database: "defaultProject",
                 name: "assertion",
-                schema: "defaultDataset"
-              }
-            }
-          ])
+                schema: "defaultDataset",
+              },
+            },
+          ]),
         );
       });
     });
 
-    ["table", "view", "incremental"].forEach(tableType => {
+    ["table", "view", "incremental"].forEach((tableType) => {
       test(`disables inline ${tableType} assertions when disableAssertions is true`, () => {
         const projectDir = tmpDirFixture.createNewTmpDir();
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
-          VALID_WORKFLOW_SETTINGS_YAML
+          VALID_WORKFLOW_SETTINGS_YAML,
         );
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
@@ -1025,14 +1026,14 @@ actions:
               rowConditions: ["id > 0"]
             }
           }
-          SELECT 1 as id, 'test' as name`
+          SELECT 1 as id, 'test' as name`,
         );
 
         const coreRequest = coreExecutionRequestFromPath(
           projectDir,
           sqlanvil.ProjectConfig.create({
-            disableAssertions: true
-          })
+            disableAssertions: true,
+          }),
         );
         const result = runMainInVm(coreRequest);
 
@@ -1043,59 +1044,59 @@ actions:
               canonicalTarget: {
                 database: "defaultProject",
                 name: "defaultDataset_test_assertions_uniqueKey_0",
-                schema: "defaultDataset"
+                schema: "defaultDataset",
               },
               dependencyTargets: [
                 {
                   database: "defaultProject",
                   name: "test",
-                  schema: "defaultDataset"
-                }
+                  schema: "defaultDataset",
+                },
               ],
               disabled: true,
               fileName: "definitions/test.sqlx",
               parentAction: {
                 database: "defaultProject",
                 name: "test",
-                schema: "defaultDataset"
+                schema: "defaultDataset",
               },
               query:
                 "\nSELECT\n  *\nFROM (\n  SELECT\n    id,\n    COUNT(1) AS index_row_count\n  FROM `defaultProject.defaultDataset.test`\n  GROUP BY id\n  ) AS data\nWHERE index_row_count > 1\n",
               target: {
                 database: "defaultProject",
                 name: "defaultDataset_test_assertions_uniqueKey_0",
-                schema: "defaultDataset"
-              }
+                schema: "defaultDataset",
+              },
             },
             {
               canonicalTarget: {
                 database: "defaultProject",
                 name: "defaultDataset_test_assertions_rowConditions",
-                schema: "defaultDataset"
+                schema: "defaultDataset",
               },
               dependencyTargets: [
                 {
                   database: "defaultProject",
                   name: "test",
-                  schema: "defaultDataset"
-                }
+                  schema: "defaultDataset",
+                },
               ],
               disabled: true,
               fileName: "definitions/test.sqlx",
               parentAction: {
                 database: "defaultProject",
                 name: "test",
-                schema: "defaultDataset"
+                schema: "defaultDataset",
               },
               query:
                 "\nSELECT\n  'id > 0' AS failing_row_condition,\n  *\nFROM `defaultProject.defaultDataset.test`\nWHERE NOT (id > 0)\nUNION ALL\nSELECT\n  'name IS NOT NULL' AS failing_row_condition,\n  *\nFROM `defaultProject.defaultDataset.test`\nWHERE NOT (name IS NOT NULL)\n",
               target: {
                 database: "defaultProject",
                 name: "defaultDataset_test_assertions_rowConditions",
-                schema: "defaultDataset"
-              }
-            }
-          ])
+                schema: "defaultDataset",
+              },
+            },
+          ]),
         );
         expect(result.compile.compiledGraph.tables.length).equals(1);
       });

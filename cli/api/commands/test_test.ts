@@ -9,14 +9,11 @@ import { suite, test } from "sa/testing";
 // production truncation behaviour rather than a hand-rolled approximation of it.
 function fakeAdapter(resultsByQuery: { [query: string]: any[] }): any {
   return {
-    execute: async (
-      statement: string,
-      options?: { rowLimit?: number; byteLimit?: number }
-    ) => {
+    execute: async (statement: string, options?: { rowLimit?: number; byteLimit?: number }) => {
       const all = resultsByQuery[statement] || [];
       const set = new LimitedResultSet({
         rowLimit: options?.rowLimit,
-        byteLimit: options?.byteLimit
+        byteLimit: options?.byteLimit,
       });
       for (const row of all) {
         if (!set.push(row)) {
@@ -24,7 +21,7 @@ function fakeAdapter(resultsByQuery: { [query: string]: any[] }): any {
         }
       }
       return { rows: set.rows, metadata: {} };
-    }
+    },
   };
 }
 
@@ -43,7 +40,7 @@ suite("test command result comparison", () => {
     }
 
     const [result] = await runTests(fakeAdapter({ ACTUAL: actual, EXPECTED: expected }), [
-      { name: "big", testQuery: "ACTUAL", expectedOutputQuery: "EXPECTED" }
+      { name: "big", testQuery: "ACTUAL", expectedOutputQuery: "EXPECTED" },
     ]);
 
     expect(result.successful).equals(false);

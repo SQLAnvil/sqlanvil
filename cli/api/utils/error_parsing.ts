@@ -14,7 +14,7 @@ interface IPostgresEvaluationError {
 // original query — so we just preserve the message.
 export function parsePostgresEvalError(_query: string, error: IPostgresEvaluationError) {
   return sqlanvil.QueryEvaluationError.create({
-    message: error?.message ? String(error.message) : String(error)
+    message: error?.message ? String(error.message) : String(error),
   });
 }
 
@@ -22,7 +22,7 @@ export function parseBigqueryEvalError(error: IBigqueryEvaluationError) {
   // expected error format:
   // e.message = Syntax error: Unexpected identifier "asda" at [2:1]
   const evalError = sqlanvil.QueryEvaluationError.create({
-    message: String(error)
+    message: String(error),
   });
   try {
     if (!error.message) {

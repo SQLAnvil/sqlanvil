@@ -14,7 +14,7 @@ export function loadDuckdb(): any {
   } catch (e) {
     throw new Error(
       `This feature requires the optional "@duckdb/node-api" dependency, which failed to load: ` +
-        `${e.message}`
+        `${e.message}`,
     );
   }
 }
@@ -37,7 +37,7 @@ export async function allAsync(conn: any, sql: string): Promise<any[]> {
  */
 export async function withDuckdb<T>(
   fn: (conn: any) => Promise<T>,
-  dbPath: string = ":memory:"
+  dbPath: string = ":memory:",
 ): Promise<T> {
   const { DuckDBInstance } = loadDuckdb();
   const instance = await DuckDBInstance.create(dbPath);

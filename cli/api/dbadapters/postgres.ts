@@ -6,7 +6,7 @@ import {
   IDbClient,
   IExecutionResult,
   IExecutionResultRaw,
-  OnCancel
+  OnCancel,
 } from "sa/cli/api/dbadapters/index";
 import { parsePostgresEvalError } from "sa/cli/api/utils/error_parsing";
 import { convertFieldType, PgPoolExecutor } from "sa/cli/api/utils/postgres";
@@ -18,7 +18,7 @@ const INTERNAL_SCHEMAS = new Set(["information_schema", "pg_catalog", "pg_intern
 export class PostgresDbAdapter implements IDbAdapter {
   public static async create(
     credentials: sqlanvil.IPostgresConnection,
-    options?: { concurrencyLimit?: number; disableSslForTestsOnly?: boolean }
+    options?: { concurrencyLimit?: number; disableSslForTestsOnly?: boolean },
   ): Promise<PostgresDbAdapter> {
     const sslMode = (credentials.sslMode || "").toLowerCase();
     const sslEnabled = !options?.disableSslForTestsOnly && sslMode !== "disable";
@@ -34,9 +34,9 @@ export class PostgresDbAdapter implements IDbAdapter {
             // by their own CA. Skipping verification is the documented path
             // for `sslmode=require`. Stricter `verify-ca` / `verify-full`
             // requires a CA bundle that we don't ship today.
-            rejectUnauthorized: sslMode === "verify-ca" || sslMode === "verify-full"
+            rejectUnauthorized: sslMode === "verify-ca" || sslMode === "verify-full",
           }
-        : false
+        : false,
     };
     const queryExecutor = new PgPoolExecutor(clientConfig, options);
     // Fail fast on a single connection before any command fans out, so a bad
@@ -49,7 +49,7 @@ export class PostgresDbAdapter implements IDbAdapter {
       throw new ErrorWithCause(
         `Could not connect to Postgres at ${credentials.host}:${credentials.port} ` +
           `as "${credentials.user}": ${e.message}`,
-        e
+        e,
       );
     }
     return new PostgresDbAdapter(queryExecutor);
@@ -65,9 +65,9 @@ export class PostgresDbAdapter implements IDbAdapter {
       rowLimit?: number;
       byteLimit?: number;
       includeQueryInError?: boolean;
-    } = { rowLimit: 1000, byteLimit: 1024 * 1024 }
+    } = { rowLimit: 1000, byteLimit: 1024 * 1024 },
   ): Promise<IExecutionResult> {
-    return await this.withClientLock(client => client.execute(statement, options));
+    return await this.withClientLock((client) => client.execute(statement, options));
   }
 
   public async executeRaw(
@@ -75,14 +75,14 @@ export class PostgresDbAdapter implements IDbAdapter {
     options: {
       params?: any[];
       rowLimit?: number;
-    } = { rowLimit: 1000 }
+    } = { rowLimit: 1000 },
   ): Promise<IExecutionResultRaw> {
     const result = await this.execute(statement, options);
     return { ...result, schema: [] };
   }
 
   public async withClientLock<T>(callback: (client: IDbClient) => Promise<T>): Promise<T> {
-    return await this.queryExecutor.withClientLock(client =>
+    return await this.queryExecutor.withClientLock((client) =>
       callback({
         execute: async (
           stmt: string,
@@ -92,7 +92,7 @@ export class PostgresDbAdapter implements IDbAdapter {
             rowLimit?: number;
             byteLimit?: number;
             includeQueryInError?: boolean;
-          } = { rowLimit: 1000, byteLimit: 1024 * 1024 }
+          } = { rowLimit: 1000, byteLimit: 1024 * 1024 },
         ): Promise<IExecutionResult> => {
           try {
             const rows = await client.execute(stmt, opts);
@@ -106,51 +106,48 @@ export class PostgresDbAdapter implements IDbAdapter {
         },
         executeRaw: async (
           stmt: string,
-          opts: { params?: { [name: string]: any }; rowLimit?: number } = { rowLimit: 1000 }
+          opts: { params?: { [name: string]: any }; rowLimit?: number } = { rowLimit: 1000 },
         ): Promise<IExecutionResultRaw> => {
           // Convert named param object to positional array — pg uses $1, $2 etc.
           const positional = opts.params ? Object.values(opts.params) : undefined;
           const rows = await client.execute(stmt, { params: positional, rowLimit: opts.rowLimit });
           return { rows, schema: [], metadata: {} };
-        }
-      })
+        },
+      }),
     );
   }
 
   public async evaluate(queryOrAction: QueryOrAction): Promise<sqlanvil.IQueryEvaluation[]> {
     const validationQueries = collectEvaluationQueries(queryOrAction, false, (query: string) =>
-      !!query ? `explain ${query}` : ""
+      !!query ? `explain ${query}` : "",
     ).map((validationQuery, index) => ({ index, validationQuery }));
     const validationQueriesWithoutWrappers = collectEvaluationQueries(queryOrAction, false);
 
     const queryEvaluations = new Array<sqlanvil.IQueryEvaluation>();
     for (const { index, validationQuery } of validationQueries) {
       let evaluationResponse: sqlanvil.IQueryEvaluation = {
-        status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       };
       try {
         await this.execute(validationQuery.query);
       } catch (e) {
         evaluationResponse = {
           status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE,
-          error: parsePostgresEvalError(validationQuery.query, e)
+          error: parsePostgresEvalError(validationQuery.query, e),
         };
       }
       queryEvaluations.push(
         sqlanvil.QueryEvaluation.create({
           ...evaluationResponse,
           incremental: validationQuery.incremental,
-          query: validationQueriesWithoutWrappers[index].query
-        })
+          query: validationQueriesWithoutWrappers[index].query,
+        }),
       );
     }
     return queryEvaluations;
   }
 
-  public async tables(
-    _database: string,
-    schema?: string
-  ): Promise<sqlanvil.ITableMetadata[]> {
+  public async tables(_database: string, schema?: string): Promise<sqlanvil.ITableMetadata[]> {
     const params: any[] = [];
     let schemaClause = "";
     let matviewSchemaClause = "";
@@ -172,20 +169,20 @@ export class PostgresDbAdapter implements IDbAdapter {
        from pg_matviews
        where schemaname not in ('information_schema', 'pg_catalog', 'pg_internal', 'pg_toast')
        ${matviewSchemaClause}`,
-      { params, rowLimit: 10000, includeQueryInError: true }
+      { params, rowLimit: 10000, includeQueryInError: true },
     );
-    const targets = queryResult.rows.map(row => ({
+    const targets = queryResult.rows.map((row) => ({
       schema: row.table_schema as string,
-      name: row.table_name as string
+      name: row.table_name as string,
     }));
     // Hydrate full metadata for each target — IDbAdapter.tables returns
     // ITableMetadata[], not ITarget[].
-    return await Promise.all(targets.map(target => this.table(target)));
+    return await Promise.all(targets.map((target) => this.table(target)));
   }
 
   public async search(
     searchText: string,
-    options: { limit: number } = { limit: 1000 }
+    options: { limit: number } = { limit: 1000 },
   ): Promise<sqlanvil.ITableMetadata[]> {
     const results = await this.execute(
       `select tables.table_schema as table_schema, tables.table_name as table_name
@@ -199,16 +196,16 @@ export class PostgresDbAdapter implements IDbAdapter {
        group by 1, 2`,
       {
         params: [`%${searchText}%`],
-        rowLimit: options.limit
-      }
+        rowLimit: options.limit,
+      },
     );
     return await Promise.all(
-      results.rows.map(row =>
+      results.rows.map((row) =>
         this.table({
           schema: row.table_schema,
-          name: row.table_name
-        })
-      )
+          name: row.table_name,
+        }),
+      ),
     );
   }
 
@@ -220,13 +217,13 @@ export class PostgresDbAdapter implements IDbAdapter {
       await Promise.all([
         this.execute(
           `select table_type from information_schema.tables where table_schema = $1 and table_name = $2`,
-          { params, includeQueryInError: true }
+          { params, includeQueryInError: true },
         ),
         this.execute(
           `select column_name, data_type, is_nullable, ordinal_position
            from information_schema.columns
            where table_schema = $1 and table_name = $2`,
-          { params, includeQueryInError: true }
+          { params, includeQueryInError: true },
         ),
         this.execute(
           `select objsubid as column_number, description
@@ -236,12 +233,12 @@ export class PostgresDbAdapter implements IDbAdapter {
                select oid from pg_namespace where nspname = $1
              )
            )`,
-          { params, includeQueryInError: true }
+          { params, includeQueryInError: true },
         ),
-        this.execute(
-          `select 1 from pg_matviews where schemaname = $1 and matviewname = $2`,
-          { params, includeQueryInError: true }
-        ),
+        this.execute(`select 1 from pg_matviews where schemaname = $1 and matviewname = $2`, {
+          params,
+          includeQueryInError: true,
+        }),
         this.execute(
           `select a.attname as column_name, format_type(a.atttypid, a.atttypmod) as data_type,
                   a.attnum as ordinal_position
@@ -250,12 +247,12 @@ export class PostgresDbAdapter implements IDbAdapter {
            join pg_namespace n on n.oid = c.relnamespace
            where n.nspname = $1 and c.relname = $2 and a.attnum > 0 and not a.attisdropped
            order by a.attnum`,
-          { params, includeQueryInError: true }
-        )
+          { params, includeQueryInError: true },
+        ),
       ]);
 
     const findDescription = (columnNumber: number) =>
-      descriptionResults.rows.find(row => row.column_number === columnNumber)?.description;
+      descriptionResults.rows.find((row) => row.column_number === columnNumber)?.description;
 
     if (tableResults.rows.length > 0) {
       return sqlanvil.TableMetadata.create({
@@ -264,14 +261,14 @@ export class PostgresDbAdapter implements IDbAdapter {
           tableResults.rows[0].table_type === "VIEW"
             ? sqlanvil.TableMetadata.Type.VIEW
             : sqlanvil.TableMetadata.Type.TABLE,
-        fields: columnResults.rows.map(row =>
+        fields: columnResults.rows.map((row) =>
           sqlanvil.Field.create({
             name: row.column_name,
             primitive: convertFieldType(row.data_type),
-            description: findDescription(row.ordinal_position)
-          })
+            description: findDescription(row.ordinal_position),
+          }),
         ),
-        description: findDescription(0)
+        description: findDescription(0),
       });
     }
 
@@ -279,16 +276,16 @@ export class PostgresDbAdapter implements IDbAdapter {
       return sqlanvil.TableMetadata.create({
         target,
         type: sqlanvil.TableMetadata.Type.MATERIALIZED_VIEW,
-        fields: matviewColumns.rows.map(row =>
+        fields: matviewColumns.rows.map((row) =>
           sqlanvil.Field.create({
             name: row.column_name,
             // format_type includes length/precision modifiers (e.g.
             // "character varying(255)"); strip them for convertFieldType.
             primitive: convertFieldType(String(row.data_type).replace(/\(.*\)/, "")),
-            description: findDescription(row.ordinal_position)
-          })
+            description: findDescription(row.ordinal_position),
+          }),
         ),
-        description: findDescription(0)
+        description: findDescription(0),
       });
     }
 
@@ -301,24 +298,23 @@ export class PostgresDbAdapter implements IDbAdapter {
       return;
     }
     const kind = metadata.type === sqlanvil.TableMetadata.Type.VIEW ? "view" : "table";
-    await this.execute(
-      `drop ${kind} if exists "${target.schema}"."${target.name}" cascade`,
-      { includeQueryInError: true }
-    );
+    await this.execute(`drop ${kind} if exists "${target.schema}"."${target.name}" cascade`, {
+      includeQueryInError: true,
+    });
   }
 
   public async schemas(_database: string): Promise<string[]> {
     const result = await this.execute(`select nspname from pg_namespace`, {
-      includeQueryInError: true
+      includeQueryInError: true,
     });
     return result.rows
-      .map(row => row.nspname as string)
-      .filter(name => !INTERNAL_SCHEMAS.has(name) && !name.startsWith("pg_"));
+      .map((row) => row.nspname as string)
+      .filter((name) => !INTERNAL_SCHEMAS.has(name) && !name.startsWith("pg_"));
   }
 
   public async createSchema(_database: string, schema: string): Promise<void> {
     await this.execute(`create schema if not exists "${schema}"`, {
-      includeQueryInError: true
+      includeQueryInError: true,
     });
   }
 
@@ -335,8 +331,8 @@ export class PostgresDbAdapter implements IDbAdapter {
       actualMetadata.type === sqlanvil.TableMetadata.Type.MATERIALIZED_VIEW
         ? "materialized view"
         : tableType === "view"
-        ? "view"
-        : "table";
+          ? "view"
+          : "table";
 
     const queries: Array<Promise<unknown>> = [];
     if (actionDescriptor?.description) {
@@ -344,24 +340,24 @@ export class PostgresDbAdapter implements IDbAdapter {
         this.execute(
           `comment on ${relationKind} "${target.schema}"."${
             target.name
-          }" is '${actionDescriptor.description.replace(/'/g, "''")}'`
-        )
+          }" is '${actionDescriptor.description.replace(/'/g, "''")}'`,
+        ),
       );
     }
     if (actionDescriptor?.columns?.length > 0) {
       actionDescriptor.columns
         .filter(
-          column =>
+          (column) =>
             column.path.length === 1 &&
-            actualMetadata.fields.some(field => field.name === column.path[0])
+            actualMetadata.fields.some((field) => field.name === column.path[0]),
         )
-        .forEach(column => {
+        .forEach((column) => {
           queries.push(
             this.execute(
               `comment on column "${target.schema}"."${target.name}"."${
                 column.path[0]
-              }" is '${column.description.replace(/'/g, "''")}'`
-            )
+              }" is '${column.description.replace(/'/g, "''")}'`,
+            ),
           );
         });
     }

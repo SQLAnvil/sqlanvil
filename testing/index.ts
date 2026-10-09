@@ -30,11 +30,11 @@ export const corePackageTarPath = "packages/@sqlanvil/core/package.tar.gz";
 export async function getProcessResult(childProcess: ChildProcess) {
   let stderr = "";
   childProcess.stderr.pipe(process.stderr);
-  childProcess.stderr.on("data", chunk => (stderr += String(chunk)));
+  childProcess.stderr.on("data", (chunk) => (stderr += String(chunk)));
   let stdout = "";
   childProcess.stdout.pipe(process.stdout);
-  childProcess.stdout.on("data", chunk => (stdout += String(chunk)));
-  const exitCode: number = await new Promise(resolve => {
+  childProcess.stdout.on("data", (chunk) => (stdout += String(chunk)));
+  const exitCode: number = await new Promise((resolve) => {
     childProcess.on("close", resolve);
   });
   return { exitCode, stdout, stderr };

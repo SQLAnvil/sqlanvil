@@ -29,21 +29,21 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
 
       // Drop schemas to make sure schema creation works.
       await dbadapter.execute(
-        `drop schema if exists \`${PROJECT_ID}.sa_integration_test_project_e2e\` cascade`
+        `drop schema if exists \`${PROJECT_ID}.sa_integration_test_project_e2e\` cascade`,
       );
 
       // Run the project.
       const executionGraph = await dfapi.build(compiledGraph, {}, dbadapter);
       const executedGraph = await dfapi.run(dbadapter, executionGraph).result();
 
-      const actionMap = keyBy(executedGraph.actions, v => targetAsReadableString(v.target));
+      const actionMap = keyBy(executedGraph.actions, (v) => targetAsReadableString(v.target));
       // 21 since example_incremental_insert_overwrite joined the shared project fixture.
       expect(Object.keys(actionMap).length).eql(21);
 
       // Check the status of action execution.
       const expectedFailedActions = [
         `${PROJECT_ID}.sa_integration_test_assertions_project_e2e.example_assertion_fail`,
-        `${PROJECT_ID}.sa_integration_test_project_e2e.example_operation_partial_fail`
+        `${PROJECT_ID}.sa_integration_test_project_e2e.example_operation_partial_fail`,
       ];
       for (const actionName of Object.keys(actionMap)) {
         const expectedResult = expectedFailedActions.includes(actionName)
@@ -51,27 +51,25 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
           : sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL;
         expect(actionMap[actionName].status).equals(
           expectedResult,
-          JSON.stringify(actionMap[actionName], null, 4)
+          JSON.stringify(actionMap[actionName], null, 4),
         );
       }
 
       expect(
-        actionMap[
-          `${PROJECT_ID}.sa_integration_test_assertions_project_e2e.example_assertion_fail`
-        ].tasks[1].errorMessage
+        actionMap[`${PROJECT_ID}.sa_integration_test_assertions_project_e2e.example_assertion_fail`]
+          .tasks[1].errorMessage,
       ).to.eql("bigquery error: Assertion failed: query returned 1 row(s).");
 
       expect(
-        actionMap[
-          `${PROJECT_ID}.sa_integration_test_project_e2e.example_operation_partial_fail`
-        ].tasks[0].errorMessage
+        actionMap[`${PROJECT_ID}.sa_integration_test_project_e2e.example_operation_partial_fail`]
+          .tasks[0].errorMessage,
       ).to.eql("bigquery error: Query error: Unrecognized name: invalid_column at [3:8]");
     });
 
     test("incremental tables", { timeout: 60000 }, async () => {
       const compiledGraph = await compile(
         "tests/integration/bigquery_project",
-        "incremental_tables"
+        "incremental_tables",
       );
 
       // Drop all the tables before we do anything.
@@ -80,50 +78,58 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       // Run two iterations of the project.
       const adapter = new ExecutionSql(
         compiledGraph.projectConfig,
-        compiledGraph.sqlanvilCoreVersion
+        compiledGraph.sqlanvilCoreVersion,
       );
       for (const runIteration of [
         {
           runConfig: {
             actions: ["example_incremental", "example_incremental_merge"],
-            includeDependencies: true
+            includeDependencies: true,
           },
           expectedIncrementalRows: 3,
-          expectedIncrementalMergeRows: 2
+          expectedIncrementalMergeRows: 2,
         },
         {
           runConfig: {
-            actions: ["example_incremental", "example_incremental_merge"]
+            actions: ["example_incremental", "example_incremental_merge"],
           },
           expectedIncrementalRows: 5,
-          expectedIncrementalMergeRows: 2
-        }
+          expectedIncrementalMergeRows: 2,
+        },
       ]) {
         const executionGraph = await dfapi.build(compiledGraph, runIteration.runConfig, dbadapter);
         const runResult = await dfapi.run(dbadapter, executionGraph).result();
         expect(sqlanvil.RunResult.ExecutionStatus[runResult.status]).eql(
           sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL],
-          runResult.actions.map(action => action.tasks.map(task => task.errorMessage).filter(Boolean).join("\n")).filter(Boolean).join("\n")
+          runResult.actions
+            .map((action) =>
+              action.tasks
+                .map((task) => task.errorMessage)
+                .filter(Boolean)
+                .join("\n"),
+            )
+            .filter(Boolean)
+            .join("\n"),
         );
         const [incrementalRows, incrementalMergeRows] = await Promise.all([
           getTableRows(
             {
               database: PROJECT_ID,
               schema: "sa_integration_test_incremental_tables",
-              name: "example_incremental"
+              name: "example_incremental",
             },
             adapter,
-            dbadapter
+            dbadapter,
           ),
           getTableRows(
             {
               database: PROJECT_ID,
               schema: "sa_integration_test_incremental_tables",
-              name: "example_incremental_merge"
+              name: "example_incremental_merge",
             },
             adapter,
-            dbadapter
-          )
+            dbadapter,
+          ),
         ]);
         expect(incrementalRows.length).equals(runIteration.expectedIncrementalRows);
         expect(incrementalMergeRows.length).equals(runIteration.expectedIncrementalMergeRows);
@@ -134,15 +140,12 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
     // script with a scripting block and a temp table — the kind of thing goldens can assert the
     // TEXT of while the semantics are wrong. This runs it and counts rows.
     test("incremental insert_overwrite replaces partitions", { timeout: 60000 }, async () => {
-      const compiledGraph = await compile(
-        "tests/integration/bigquery_project",
-        "insert_overwrite"
-      );
+      const compiledGraph = await compile("tests/integration/bigquery_project", "insert_overwrite");
       await cleanWarehouse(compiledGraph, dbadapter);
 
       const adapter = new ExecutionSql(
         compiledGraph.projectConfig,
-        compiledGraph.sqlanvilCoreVersion
+        compiledGraph.sqlanvilCoreVersion,
       );
       // Full build writes all four rows; the incremental run recomputes only the 2026-01-01
       // partition and produces a single row for it, so a correct overwrite lands on 3.
@@ -150,26 +153,29 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
         const executionGraph = await dfapi.build(
           compiledGraph,
           { actions: ["example_incremental_insert_overwrite"] },
-          dbadapter
+          dbadapter,
         );
         const runResult = await dfapi.run(dbadapter, executionGraph).result();
         expect(sqlanvil.RunResult.ExecutionStatus[runResult.status]).eql(
           sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL],
           runResult.actions
-            .map(action =>
-              action.tasks.map(task => task.errorMessage).filter(Boolean).join("\n")
+            .map((action) =>
+              action.tasks
+                .map((task) => task.errorMessage)
+                .filter(Boolean)
+                .join("\n"),
             )
             .filter(Boolean)
-            .join("\n")
+            .join("\n"),
         );
         const rows = await getTableRows(
           {
             database: PROJECT_ID,
             schema: "sa_integration_test_insert_overwrite",
-            name: "example_incremental_insert_overwrite"
+            name: "example_incremental_insert_overwrite",
           },
           adapter,
-          dbadapter
+          dbadapter,
         );
         expect(rows.length).equals(expectedRows);
       }
@@ -186,13 +192,13 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
         compiledGraph,
         {
           actions: ["example_incremental", "example_view"],
-          includeDependencies: true
+          includeDependencies: true,
         },
-        dbadapter
+        dbadapter,
       );
       const runResult = await dfapi.run(dbadapter, executionGraph).result();
       expect(sqlanvil.RunResult.ExecutionStatus[runResult.status]).eql(
-        sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL]
+        sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL],
       );
 
       // Check expected metadata.
@@ -201,19 +207,19 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
           target: {
             database: PROJECT_ID,
             schema: "sa_integration_test_dataset_metadata",
-            name: "example_incremental"
+            name: "example_incremental",
           },
           expectedDescription: "An incremental table",
           expectedFields: [
             sqlanvil.Field.create({
               description: "the timestamp",
               name: "user_timestamp",
-              primitive: sqlanvil.Field.Primitive.INTEGER
+              primitive: sqlanvil.Field.Primitive.INTEGER,
             }),
             sqlanvil.Field.create({
               description: "the id",
               name: "user_id",
-              primitive: sqlanvil.Field.Primitive.INTEGER
+              primitive: sqlanvil.Field.Primitive.INTEGER,
             }),
             sqlanvil.Field.create({
               name: "nested_data",
@@ -223,38 +229,38 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
                   sqlanvil.Field.create({
                     description: "nested timestamp",
                     name: "user_timestamp",
-                    primitive: sqlanvil.Field.Primitive.INTEGER
+                    primitive: sqlanvil.Field.Primitive.INTEGER,
                   }),
                   sqlanvil.Field.create({
                     description: "nested id",
                     name: "user_id",
-                    primitive: sqlanvil.Field.Primitive.INTEGER
-                  })
-                ]
-              })
-            })
+                    primitive: sqlanvil.Field.Primitive.INTEGER,
+                  }),
+                ],
+              }),
+            }),
           ],
-          expectedLabels: {}
+          expectedLabels: {},
         },
         {
           target: {
             database: PROJECT_ID,
             schema: "sa_integration_test_dataset_metadata",
-            name: "example_view"
+            name: "example_view",
           },
           expectedDescription: "An example view",
           expectedFields: [
             sqlanvil.Field.create({
               description: "val doc",
               name: "val",
-              primitive: sqlanvil.Field.Primitive.INTEGER
-            })
+              primitive: sqlanvil.Field.Primitive.INTEGER,
+            }),
           ],
           expectedLabels: {
             label1: "val1",
-            label2: "val2"
-          }
-        }
+            label2: "val2",
+          },
+        },
       ]) {
         const metadata = await dbadapter.table(expectedMetadata.target);
         expect(metadata.description).to.equal(expectedMetadata.expectedDescription);
@@ -274,17 +280,17 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       {
         name: "expected more rows than got",
         successful: false,
-        messages: ["Expected 3 rows, but saw 2 rows."]
+        messages: ["Expected 3 rows, but saw 2 rows."],
       },
       {
         name: "expected fewer columns than got",
         successful: false,
-        messages: ['Expected columns "col1,col2,col3", but saw "col1,col2,col3,col4".']
+        messages: ['Expected columns "col1,col2,col3", but saw "col1,col2,col3,col4".'],
       },
       {
         name: "wrong columns",
         successful: false,
-        messages: ['Expected columns "col1,col2,col3,col4", but saw "col1,col2,col3,col5".']
+        messages: ['Expected columns "col1,col2,col3,col4", but saw "col1,col2,col3,col5".'],
       },
       {
         name: "wrong row contents",
@@ -292,10 +298,10 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
         messages: [
           'For row 0 and column "col2": expected "1", but saw "5".',
           'For row 1 and column "col3": expected "6.5", but saw "12".',
-          'For row 2 and column "col1": expected "sup?", but saw "WRONG".'
-        ]
+          'For row 2 and column "col1": expected "sup?", but saw "WRONG".',
+        ],
       },
-      { name: "test a view", successful: true }
+      { name: "test a view", successful: true },
     ]);
   });
 
@@ -306,61 +312,61 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       const executionGraph = await dfapi.build(compiledGraph, {}, dbadapter);
       await dfapi.run(dbadapter, executionGraph).result();
 
-      const view = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
+      const view = keyBy(compiledGraph.tables, (t) => targetAsReadableString(t.target))[
         `${PROJECT_ID}.sa_integration_test_evaluate.example_view`
       ];
       let evaluations = await dbadapter.evaluate(sqlanvil.Table.create(view));
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       );
 
-      const materializedView = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
+      const materializedView = keyBy(compiledGraph.tables, (t) => targetAsReadableString(t.target))[
         `${PROJECT_ID}.sa_integration_test_evaluate.example_materialized_view`
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Table.create(materializedView));
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       );
 
-      const table = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
+      const table = keyBy(compiledGraph.tables, (t) => targetAsReadableString(t.target))[
         `${PROJECT_ID}.sa_integration_test_evaluate.example_table`
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Table.create(table));
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       );
 
-      const operation = keyBy(compiledGraph.operations, t => targetAsReadableString(t.target))[
+      const operation = keyBy(compiledGraph.operations, (t) => targetAsReadableString(t.target))[
         `${PROJECT_ID}.sa_integration_test_evaluate.example_operation`
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Operation.create(operation));
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       );
 
-      const assertion = keyBy(compiledGraph.assertions, t => targetAsReadableString(t.target))[
+      const assertion = keyBy(compiledGraph.assertions, (t) => targetAsReadableString(t.target))[
         `${PROJECT_ID}.sa_integration_test_assertions_evaluate.example_assertion_pass`
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Assertion.create(assertion));
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       );
 
-      const incremental = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
+      const incremental = keyBy(compiledGraph.tables, (t) => targetAsReadableString(t.target))[
         `${PROJECT_ID}.sa_integration_test_evaluate.example_incremental`
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Table.create(incremental));
       expect(evaluations.length).to.equal(2);
       expect(evaluations[0].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       );
       expect(evaluations[1].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       );
     });
 
@@ -368,7 +374,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       const target = (name: string) => ({
         schema: "sa_integration_test",
         name,
-        database: PROJECT_ID
+        database: PROJECT_ID,
       });
 
       let evaluations = await dbadapter.evaluate(
@@ -376,24 +382,24 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
           enumType: sqlanvil.TableType.TABLE,
           preOps: ["declare var string; set var = 'val';"],
           query: "select var as col;",
-          target: target("example_valid_variable")
-        })
+          target: target("example_valid_variable"),
+        }),
       );
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       );
 
       evaluations = await dbadapter.evaluate(
         sqlanvil.Table.create({
           enumType: sqlanvil.TableType.TABLE,
           query: "select var as col;",
-          target: target("example_invalid_variable")
-        })
+          target: target("example_invalid_variable"),
+        }),
       );
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE,
       );
     });
 
@@ -404,16 +410,16 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
           query: "selects\n1 as x",
           target: {
             name: "EXAMPLE_ILLEGAL_TABLE",
-            database: "sa_integration_test"
-          }
-        })
+            database: "sa_integration_test",
+          },
+        }),
       );
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE,
       );
       expect(
-        sqlanvil.QueryEvaluationError.ErrorLocation.create(evaluations[0].error.errorLocation)
+        sqlanvil.QueryEvaluationError.ErrorLocation.create(evaluations[0].error.errorLocation),
       ).eql(sqlanvil.QueryEvaluationError.ErrorLocation.create({ line: 1, column: 1 }));
     });
   });
@@ -427,7 +433,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
         preOps: ["preop task1", "preop task2"],
         incrementalQuery: "",
         postOps: ["postop task1", "postop task2"],
-        target: { schema: "", name: "", database: "" }
+        target: { schema: "", name: "", database: "" },
       };
 
       const bqadapter = new ExecutionSql({ warehouse: "bigquery" }, "1.4.8");
@@ -438,7 +444,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
         "preop task1;",
         "preop task2;",
         "postop task1;",
-        "postop task2"
+        "postop task2",
       ]);
 
       const increment = bqadapter
@@ -450,7 +456,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
         "preop task1;",
         "preop task2;",
         "postop task1;",
-        "postop task2"
+        "postop task2",
       ]);
     });
   });
@@ -462,7 +468,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       const { bigquery: bqMetadata } = metadata;
       expect(bqMetadata).to.have.property("jobId");
       expect(bqMetadata.jobId).to.match(
-        /^sqlanvil-[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}$/
+        /^sqlanvil-[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}$/,
       );
       expect(bqMetadata).to.have.property("totalBytesBilled");
       expect(bqMetadata.totalBytesBilled).to.eql(Long.fromNumber(0));
@@ -476,7 +482,7 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       const { bigquery: bqMetadata } = metadata;
       expect(bqMetadata).to.have.property("jobId");
       expect(bqMetadata.jobId).to.match(
-        /^sqlanvil-jobPrefix-[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}$/
+        /^sqlanvil-jobPrefix-[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}$/,
       );
     });
 
@@ -492,17 +498,17 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
         { interactive: true, rowLimit: 2 },
         { interactive: false, rowLimit: 2 },
         { interactive: true, byteLimit: 30 },
-        { interactive: false, byteLimit: 30 }
+        { interactive: false, byteLimit: 30 },
       ]) {
         test(`with options=${JSON.stringify(options)}`, async () => {
           const { rows } = await dbadapter.execute(query, options);
           expect(rows).to.eql([
             {
-              f0_: 1
+              f0_: 1,
             },
             {
-              f0_: 2
-            }
+              f0_: 2,
+            },
           ]);
         });
       }
@@ -520,19 +526,19 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       compiledGraph,
       {
         actions: ["example_view"],
-        includeDependencies: true
+        includeDependencies: true,
       },
-      dbadapter
+      dbadapter,
     );
     const runResult = await dfapi.run(dbadapter, executionGraph).result();
     expect(sqlanvil.RunResult.ExecutionStatus[runResult.status]).eql(
-      sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL]
+      sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL],
     );
 
     const [fullSearch, partialSearch, columnSearch] = await Promise.all([
       dbadapter.search("sa_integration_test_search"),
       dbadapter.search("test_sear"),
-      dbadapter.search("val")
+      dbadapter.search("val"),
     ]);
 
     expect(fullSearch.length).equals(2);
@@ -550,37 +556,37 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
           sqlanvil.Table.create({
             enumType: sqlanvil.TableType.TABLE,
             target: { database: PROJECT_ID, schema: SHADOW, name: "src" },
-            query: "select 1 as id"
+            query: "select 1 as id",
           }),
           sqlanvil.Table.create({
             enumType: sqlanvil.TableType.TABLE,
             target: { database: PROJECT_ID, schema: SHADOW, name: "mid" },
             query: midQuery,
-            dependencyTargets: [{ database: PROJECT_ID, schema: SHADOW, name: "src" }]
+            dependencyTargets: [{ database: PROJECT_ID, schema: SHADOW, name: "src" }],
           }),
           sqlanvil.Table.create({
             enumType: sqlanvil.TableType.TABLE,
             target: { database: PROJECT_ID, schema: SHADOW, name: "leaf" },
             query: `select id from ${ref("mid")}`,
-            dependencyTargets: [{ database: PROJECT_ID, schema: SHADOW, name: "mid" }]
-          })
+            dependencyTargets: [{ database: PROJECT_ID, schema: SHADOW, name: "mid" }],
+          }),
         ],
         assertions: [],
-        operations: []
-      } as sqlanvil.ICompiledGraph);
+        operations: [],
+      }) as sqlanvil.ICompiledGraph;
 
     const makeDeps = (): ValidateDeps => {
       const executionSql = new ExecutionSql(
         { warehouse: "bigquery", defaultDatabase: PROJECT_ID },
-        "2.0.0"
+        "2.0.0",
       );
       return {
-        evaluate: action => dbadapter.evaluate(action as any),
-        execute: sql => dbadapter.execute(sql).then(() => undefined),
-        validationStubSql: t => executionSql.validationStubSql(t),
-        createSchemaSql: s => executionSql.createSchemaSql(s),
-        dropSchemaCascadeSql: s => executionSql.dropSchemaCascadeSql(s),
-        listSchemas: async () => [] // not exercised by validate(); BQ sweep is CLI-only
+        evaluate: (action) => dbadapter.evaluate(action as any),
+        execute: (sql) => dbadapter.execute(sql).then(() => undefined),
+        validationStubSql: (t) => executionSql.validationStubSql(t),
+        createSchemaSql: (s) => executionSql.createSchemaSql(s),
+        dropSchemaCascadeSql: (s) => executionSql.dropSchemaCascadeSql(s),
+        listSchemas: async () => [], // not exercised by validate(); BQ sweep is CLI-only
       };
     };
 
@@ -588,43 +594,51 @@ suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) 
       (
         await dbadapter.execute(
           `select schema_name from \`${PROJECT_ID}\`.INFORMATION_SCHEMA.SCHEMATA ` +
-            `where schema_name = '${SHADOW}'`
+            `where schema_name = '${SHADOW}'`,
         )
       ).rows.length > 0;
 
-    test("clean DAG → all PASS; shadow dataset created + dropped", { timeout: 120000 }, async () => {
-      await dbadapter.execute(`drop schema if exists \`${PROJECT_ID}.${SHADOW}\` cascade`);
-      const byName = keyBy(
-        await validate(makeGraph(`select id from ${ref("src")}`), makeDeps()),
-        r => r.target.name
-      );
-      expect(byName["src"].status).to.equal("PASS");
-      expect(byName["mid"].status).to.equal("PASS");
-      expect(byName["leaf"].status).to.equal("PASS");
-      expect(await shadowExists()).to.equal(false);
-    });
+    test(
+      "clean DAG → all PASS; shadow dataset created + dropped",
+      { timeout: 120000 },
+      async () => {
+        await dbadapter.execute(`drop schema if exists \`${PROJECT_ID}.${SHADOW}\` cascade`);
+        const byName = keyBy(
+          await validate(makeGraph(`select id from ${ref("src")}`), makeDeps()),
+          (r) => r.target.name,
+        );
+        expect(byName["src"].status).to.equal("PASS");
+        expect(byName["mid"].status).to.equal("PASS");
+        expect(byName["leaf"].status).to.equal("PASS");
+        expect(await shadowExists()).to.equal(false);
+      },
+    );
 
-    test("broken model → FAILURE + dependents BLOCKED; shadow dropped", { timeout: 120000 }, async () => {
-      await dbadapter.execute(`drop schema if exists \`${PROJECT_ID}.${SHADOW}\` cascade`);
-      const byName = keyBy(
-        await validate(makeGraph(`select nonexistent_col from ${ref("src")}`), makeDeps()),
-        r => r.target.name
-      );
-      expect(byName["src"].status).to.equal("PASS");
-      expect(byName["mid"].status).to.equal("FAILURE");
-      expect(byName["leaf"].status).to.equal("BLOCKED");
-      expect(await shadowExists()).to.equal(false);
-    });
+    test(
+      "broken model → FAILURE + dependents BLOCKED; shadow dropped",
+      { timeout: 120000 },
+      async () => {
+        await dbadapter.execute(`drop schema if exists \`${PROJECT_ID}.${SHADOW}\` cascade`);
+        const byName = keyBy(
+          await validate(makeGraph(`select nonexistent_col from ${ref("src")}`), makeDeps()),
+          (r) => r.target.name,
+        );
+        expect(byName["src"].status).to.equal("PASS");
+        expect(byName["mid"].status).to.equal("FAILURE");
+        expect(byName["leaf"].status).to.equal("BLOCKED");
+        expect(await shadowExists()).to.equal(false);
+      },
+    );
   });
 });
 
 async function cleanWarehouse(
   compiledGraph: sqlanvil.CompiledGraph,
-  dbadapter: dbadapters.IDbAdapter
+  dbadapter: dbadapters.IDbAdapter,
 ) {
   await dropAllTables(
     (await dfapi.build(compiledGraph, {}, dbadapter)).warehouseState.tables,
     new ExecutionSql(compiledGraph.projectConfig, compiledGraph.sqlanvilCoreVersion),
-    dbadapter
+    dbadapter,
   );
 }

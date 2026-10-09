@@ -77,12 +77,12 @@ it gitignored.`);
 
 - \`.df-credentials.json\` is a FLAT object with exactly \`host port database user password
   sslMode defaultSchema\` — not nested under a key, not \`username\`/\`databaseName\`/\`ssl\`.${
-      isSupabase
-        ? `
+    isSupabase
+      ? `
   Use the Session pooler host (\`aws-…pooler.supabase.com\`, user \`postgres.<project-ref>\`,
   port 5432): the direct \`db.<ref>.supabase.co\` host is IPv6-only and fails on most networks.`
-        : ""
-    }
+      : ""
+  }
 - Storage, indexes, and partitioning are first-class in the \`postgres: {}\` config block —
   never hand-roll \`CREATE INDEX\` or \`SET (fillfactor …)\` in \`post_operations\`.
 - Index \`method\` is a NUMERIC enum (\`BTREE=0, HASH=1, GIN=2, GIST=3, BRIN=4\`) — omit it
@@ -101,13 +101,13 @@ it gitignored.`);
   plus a \`connection:\`-tagged declaration with \`columnTypes\` in POSTGRES types — scaffold
   it with \`sqlanvil introspect <connection> <schema.table>\`. Never hand-write FDW/foreign
   tables.${
-      isSupabase
-        ? `
+    isSupabase
+      ? `
 - Supabase extras: the \`supabase: {}\` block (\`enableRls\`, \`vectors\`) and dedicated
   action types \`rlsPolicy\`, \`realtimePublication\`, \`vectorIndex\`. \`enableRls\` only
   flips RLS on — declare policies via \`rlsPolicy\` actions.`
-        : ""
-    }`);
+      : ""
+  }`);
   }
 
   if (isMysql) {
@@ -131,8 +131,8 @@ it gitignored.`);
   const commentMechanics = isPostgresLike
     ? "`COMMENT ON TABLE|VIEW|MATERIALIZED VIEW|COLUMN`"
     : isMysql
-    ? "table/column comments (tables + incrementals only — MySQL views can't carry comments)"
-    : "table + column descriptions (nested fields included)";
+      ? "table/column comments (tables + incrementals only — MySQL views can't carry comments)"
+      : "table + column descriptions (nested fields included)";
   const constraintNote =
     warehouse === "bigquery"
       ? "append `NOT ENFORCED` (BigQuery stores them as catalog metadata for query engines)"

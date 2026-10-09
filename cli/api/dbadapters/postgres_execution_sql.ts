@@ -13,7 +13,8 @@ export class PostgresExecutionSql implements IExecutionSql {
   constructor(
     private readonly project: sqlanvil.IProjectConfig,
     private readonly sqlanvilCoreVersion: string,
-    private readonly uniqueIdGenerator: () => string = () => Math.random().toString(36).substring(2)
+    private readonly uniqueIdGenerator: () => string = () =>
+      Math.random().toString(36).substring(2),
   ) {
     this.CompilationSql = new CompilationSql(project, sqlanvilCoreVersion);
   }
@@ -86,7 +87,7 @@ export class PostgresExecutionSql implements IExecutionSql {
   public shouldWriteIncrementally(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ) {
     return (
       (!runConfig.fullRefresh || table.protected) &&
@@ -98,7 +99,7 @@ export class PostgresExecutionSql implements IExecutionSql {
   public preOps(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ): Task[] {
     let preOps = table.preOps;
     if (
@@ -108,13 +109,13 @@ export class PostgresExecutionSql implements IExecutionSql {
     ) {
       preOps = table.incrementalPreOps;
     }
-    return (preOps || []).map(pre => Task.statement(pre));
+    return (preOps || []).map((pre) => Task.statement(pre));
   }
 
   public postOps(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ): Task[] {
     let postOps = table.postOps;
     if (
@@ -124,7 +125,7 @@ export class PostgresExecutionSql implements IExecutionSql {
     ) {
       postOps = table.incrementalPostOps;
     }
-    return (postOps || []).map(post => Task.statement(post));
+    return (postOps || []).map((post) => Task.statement(post));
   }
 
   public getIncrementalQuery(table: sqlanvil.ITable): string {
@@ -134,12 +135,12 @@ export class PostgresExecutionSql implements IExecutionSql {
   public publishTasks(
     table: sqlanvil.ITable,
     runConfig: sqlanvil.IRunConfig,
-    tableMetadata?: sqlanvil.ITableMetadata
+    tableMetadata?: sqlanvil.ITableMetadata,
   ): Tasks {
     const tasks = new Tasks();
 
     // Run Pre-operations
-    this.preOps(table, runConfig, tableMetadata).forEach(statement => tasks.add(statement));
+    this.preOps(table, runConfig, tableMetadata).forEach((statement) => tasks.add(statement));
 
     const baseTableType = this.baseTableType(table.enumType);
 
@@ -147,26 +148,28 @@ export class PostgresExecutionSql implements IExecutionSql {
     // Materialized views manage their own drop/refresh below, so skip the generic cross-type drop.
     if (tableMetadata && tableMetadata.type !== baseTableType && !table.materialized) {
       tasks.add(
-        Task.statement(this.dropIfExists(table.target, this.oppositeTableType(baseTableType)))
+        Task.statement(this.dropIfExists(table.target, this.oppositeTableType(baseTableType))),
       );
     }
 
     if (table.enumType === sqlanvil.TableType.INCREMENTAL) {
       if (!this.shouldWriteIncrementally(table, runConfig, tableMetadata)) {
         // Full Refresh / Table doesn't exist yet: Create table fresh
-        tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
+        tasks.add(
+          Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)),
+        );
         tasks.add(Task.statement(this.createTable(table)));
         if (table.uniqueKey && table.uniqueKey.length > 0) {
           const indexName = `pk_${table.target.schema}_${table.target.name}`;
-          const columns = table.uniqueKey.map(k => `"${k}"`).join(", ");
+          const columns = table.uniqueKey.map((k) => `"${k}"`).join(", ");
           tasks.add(
             Task.statement(
-              `create unique index if not exists "${indexName}" on ${this.resolveTarget(table.target)} (${columns})`
-            )
+              `create unique index if not exists "${indexName}" on ${this.resolveTarget(table.target)} (${columns})`,
+            ),
           );
         }
-        this.createIndexes(table).forEach(statement => tasks.add(Task.statement(statement)));
-        this.afterTableCreated(table).forEach(statement => tasks.add(Task.statement(statement)));
+        this.createIndexes(table).forEach((statement) => tasks.add(Task.statement(statement)));
+        this.afterTableCreated(table).forEach((statement) => tasks.add(Task.statement(statement)));
       } else {
         // Incremental Load: execute UPSERT or INSERT
         if (table.uniqueKey && table.uniqueKey.length > 0) {
@@ -188,19 +191,23 @@ export class PostgresExecutionSql implements IExecutionSql {
           table.postgres?.refreshPolicy === "on_dependency_change" &&
           tableMetadata?.type === sqlanvil.TableMetadata.Type.MATERIALIZED_VIEW;
         if (refreshInPlace) {
-          tasks.add(Task.statement(`refresh materialized view ${this.resolveTarget(table.target)}`));
+          tasks.add(
+            Task.statement(`refresh materialized view ${this.resolveTarget(table.target)}`),
+          );
         } else {
           tasks.add(
             Task.statement(
-              `drop materialized view if exists ${this.resolveTarget(table.target)} cascade`
-            )
+              `drop materialized view if exists ${this.resolveTarget(table.target)} cascade`,
+            ),
           );
           tasks.add(Task.statement(this.createMaterializedView(table)));
-          this.createIndexes(table).forEach(statement => tasks.add(Task.statement(statement)));
+          this.createIndexes(table).forEach((statement) => tasks.add(Task.statement(statement)));
         }
       } else {
         // Views in Postgres are dropped and re-created to allow safe column modifications
-        tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.VIEW)));
+        tasks.add(
+          Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.VIEW)),
+        );
         tasks.add(Task.statement(this.createView(table)));
       }
     } else {
@@ -208,20 +215,22 @@ export class PostgresExecutionSql implements IExecutionSql {
       if (partition && (partition.columns || []).length > 0) {
         // Partitioned table: CREATE TABLE AS can't PARTITION BY, so bridge via a
         // staging table to learn column types, then build the partitioned parent.
-        this.createPartitionedTableTasks(table).forEach(statement =>
-          tasks.add(Task.statement(statement))
+        this.createPartitionedTableTasks(table).forEach((statement) =>
+          tasks.add(Task.statement(statement)),
         );
       } else {
         // Standard Table: Drop if exists and create table fresh
-        tasks.add(Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)));
+        tasks.add(
+          Task.statement(this.dropIfExists(table.target, sqlanvil.TableMetadata.Type.TABLE)),
+        );
         tasks.add(Task.statement(this.createTable(table)));
       }
-      this.createIndexes(table).forEach(statement => tasks.add(Task.statement(statement)));
-      this.afterTableCreated(table).forEach(statement => tasks.add(Task.statement(statement)));
+      this.createIndexes(table).forEach((statement) => tasks.add(Task.statement(statement)));
+      this.afterTableCreated(table).forEach((statement) => tasks.add(Task.statement(statement)));
     }
 
     // Run Post-operations
-    this.postOps(table, runConfig, tableMetadata).forEach(statement => tasks.add(statement));
+    this.postOps(table, runConfig, tableMetadata).forEach((statement) => tasks.add(statement));
 
     return tasks;
   }
@@ -271,14 +280,14 @@ export class PostgresExecutionSql implements IExecutionSql {
       return [];
     }
     const target = this.resolveTarget(table.target);
-    return indexes.map(index => {
+    return indexes.map((index) => {
       const unique = index.unique ? "unique " : "";
       const method = this.indexMethodAsSql(index.method);
       const opclass = index.opclass ? ` ${index.opclass}` : "";
-      const columns = (index.columns || []).map(c => `"${c}"${opclass}`).join(", ");
+      const columns = (index.columns || []).map((c) => `"${c}"${opclass}`).join(", ");
       const include =
         index.include && index.include.length > 0
-          ? ` include (${index.include.map(c => `"${c}"`).join(", ")})`
+          ? ` include (${index.include.map((c) => `"${c}"`).join(", ")})`
           : "";
       const where = index.where ? ` where (${index.where})` : "";
       const indexName =
@@ -323,20 +332,24 @@ export class PostgresExecutionSql implements IExecutionSql {
     const target = this.resolveTarget(table.target);
     const stage = this.resolveTarget({ ...table.target, name: `${table.target.name}__sa_stage` });
     const kind = this.partitionKindAsSql(partition.kind);
-    const columns = (partition.columns || []).map(c => `"${c}"`).join(", ");
+    const columns = (partition.columns || []).map((c) => `"${c}"`).join(", ");
     // Tablespace on a partitioned parent sets the default placement inherited by
     // its child partitions (the parent itself stores no rows).
-    const tablespace = table.postgres?.tablespace ? ` tablespace "${table.postgres.tablespace}"` : "";
+    const tablespace = table.postgres?.tablespace
+      ? ` tablespace "${table.postgres.tablespace}"`
+      : "";
 
     const statements = [
       `drop table if exists ${stage} cascade`,
       `create unlogged table ${stage} as ${table.query} with no data`,
       `drop table if exists ${target} cascade`,
-      `create table ${target} (like ${stage} including defaults) partition by ${kind} (${columns})${tablespace}`
+      `create table ${target} (like ${stage} including defaults) partition by ${kind} (${columns})${tablespace}`,
     ];
     // The single INSERT into the parent cascades through every level of the
     // partition hierarchy, so only leaf partitions need to exist beforehand.
-    statements.push(...this.createChildPartitions(table.target, table.target.name, target, partition));
+    statements.push(
+      ...this.createChildPartitions(table.target, table.target.name, target, partition),
+    );
     statements.push(`insert into ${target} select * from (${table.query}) as q`);
     statements.push(`drop table if exists ${stage} cascade`);
     return statements;
@@ -349,7 +362,7 @@ export class PostgresExecutionSql implements IExecutionSql {
     baseTarget: sqlanvil.ITarget,
     parentName: string,
     parentSql: string,
-    partition: sqlanvil.PostgresOptions.IPartition
+    partition: sqlanvil.PostgresOptions.IPartition,
   ): string[] {
     const statements: string[] = [];
     for (const bound of partition.partitions || []) {
@@ -358,13 +371,15 @@ export class PostgresExecutionSql implements IExecutionSql {
       const sub = bound.subPartition;
       if (sub && (sub.columns || []).length > 0) {
         const subKind = this.partitionKindAsSql(sub.kind);
-        const subColumns = (sub.columns || []).map(c => `"${c}"`).join(", ");
+        const subColumns = (sub.columns || []).map((c) => `"${c}"`).join(", ");
         statements.push(
-          `create table ${childSql} partition of ${parentSql} for values ${bound.values} partition by ${subKind} (${subColumns})`
+          `create table ${childSql} partition of ${parentSql} for values ${bound.values} partition by ${subKind} (${subColumns})`,
         );
         statements.push(...this.createChildPartitions(baseTarget, childName, childSql, sub));
       } else {
-        statements.push(`create table ${childSql} partition of ${parentSql} for values ${bound.values}`);
+        statements.push(
+          `create table ${childSql} partition of ${parentSql} for values ${bound.values}`,
+        );
       }
     }
     if (partition.includeDefault) {
@@ -402,7 +417,7 @@ export class PostgresExecutionSql implements IExecutionSql {
   private insertInto(table: sqlanvil.ITable, tableMetadata?: sqlanvil.ITableMetadata) {
     // Postgres dialect: INSERT INTO target (col1, col2) SELECT col1, col2 FROM (query) AS insertions
     const target = this.resolveTarget(table.target);
-    const columns = tableMetadata?.fields.map(f => `"${f.name}"`) || [];
+    const columns = tableMetadata?.fields.map((f) => `"${f.name}"`) || [];
     const query = this.getIncrementalQuery(table);
     if (columns.length === 0) {
       return `insert into ${target} select * from (${query}) as insertions`;
@@ -414,24 +429,25 @@ export class PostgresExecutionSql implements IExecutionSql {
     // Postgres dialect: INSERT INTO target (col1, col2) SELECT col1, col2 FROM (query) AS insertions
     // ON CONFLICT (unique_keys) DO UPDATE SET col1 = EXCLUDED.col1, ...
     const target = this.resolveTarget(table.target);
-    const columns = tableMetadata?.fields.map(f => f.name) || [];
+    const columns = tableMetadata?.fields.map((f) => f.name) || [];
     const query = this.getIncrementalQuery(table);
-    const uniqueKeys = table.uniqueKey.map(k => `"${k}"`).join(", ");
+    const uniqueKeys = table.uniqueKey.map((k) => `"${k}"`).join(", ");
 
     if (columns.length === 0) {
       // If columns are unknown, we default to standard inserts
       return `insert into ${target} select * from (${query}) as insertions`;
     }
 
-    const doubleQuotedCols = columns.map(c => `"${c}"`);
+    const doubleQuotedCols = columns.map((c) => `"${c}"`);
     const updateClauses = columns
-      .filter(c => !table.uniqueKey.includes(c))
-      .map(c => `"${c}" = EXCLUDED."${c}"`)
+      .filter((c) => !table.uniqueKey.includes(c))
+      .map((c) => `"${c}" = EXCLUDED."${c}"`)
       .join(", ");
 
-    const onConflict = updateClauses.length > 0
-      ? `on conflict (${uniqueKeys}) do update set ${updateClauses}`
-      : `on conflict (${uniqueKeys}) do nothing`;
+    const onConflict =
+      updateClauses.length > 0
+        ? `on conflict (${uniqueKeys}) do update set ${updateClauses}`
+        : `on conflict (${uniqueKeys}) do nothing`;
 
     return `insert into ${target} (${doubleQuotedCols.join(", ")}) select ${doubleQuotedCols.join(", ")} from (${query}) as insertions ${onConflict}`;
   }

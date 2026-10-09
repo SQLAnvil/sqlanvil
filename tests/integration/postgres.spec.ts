@@ -32,9 +32,9 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
         port: PostgresFixture.port,
         database: PostgresFixture.database,
         user: PostgresFixture.user,
-        password: PostgresFixture.password
+        password: PostgresFixture.password,
       },
-      { disableSslForTestsOnly: true }
+      { disableSslForTestsOnly: true },
     );
     // Clear any stale test schemas from previous runs
     for (const schema of [
@@ -43,7 +43,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       "sa_integration_test_evaluate",
       "sa_integration_test_assertions_project_e2e",
       "sa_integration_test_assertions_evaluate",
-      "sa_integration_test_search"
+      "sa_integration_test_search",
     ]) {
       try {
         await dbadapter.execute(`drop schema if exists "${schema}" cascade`);
@@ -53,27 +53,31 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     }
   });
 
-  test("create() fails fast with a clear error on bad credentials", { timeout: 30000 }, async () => {
-    let err: Error | undefined;
-    try {
-      await PostgresDbAdapter.create(
-        {
-          host: PostgresFixture.host,
-          port: PostgresFixture.port,
-          database: PostgresFixture.database,
-          user: PostgresFixture.user,
-          password: "definitely-the-wrong-password"
-        },
-        { disableSslForTestsOnly: true }
+  test(
+    "create() fails fast with a clear error on bad credentials",
+    { timeout: 30000 },
+    async () => {
+      let err: Error | undefined;
+      try {
+        await PostgresDbAdapter.create(
+          {
+            host: PostgresFixture.host,
+            port: PostgresFixture.port,
+            database: PostgresFixture.database,
+            user: PostgresFixture.user,
+            password: "definitely-the-wrong-password",
+          },
+          { disableSslForTestsOnly: true },
+        );
+      } catch (e) {
+        err = e;
+      }
+      expect(err, "create() should reject when credentials are bad").to.be.an("error");
+      expect(err.message.toLowerCase()).to.match(
+        /password authentication failed|could not connect|authentication/,
       );
-    } catch (e) {
-      err = e;
-    }
-    expect(err, "create() should reject when credentials are bad").to.be.an("error");
-    expect(err.message.toLowerCase()).to.match(
-      /password authentication failed|could not connect|authentication/
-    );
-  });
+    },
+  );
 
   test("a failing statement rejects with the real error and no double-release noise", async () => {
     // Capture console.error so we can assert the pg client isn't released twice
@@ -94,10 +98,9 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     }
     expect(err, "a bad statement should reject").to.be.an("error");
     expect(err.message.toLowerCase()).to.contain("syntax error");
-    expect(
-      logged.join("\n"),
-      "the pg client must be released exactly once"
-    ).to.not.match(/already been released/i);
+    expect(logged.join("\n"), "the pg client must be released exactly once").to.not.match(
+      /already been released/i,
+    );
   });
 
   test("a table with an unnamed postgres index creates (derived index name)", async () => {
@@ -112,14 +115,14 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       enumType: sqlanvil.TableType.TABLE,
       target: { schema, name: "with_idx" },
       query: "select 1 as id",
-      postgres: { indexes: [{ columns: ["id"], unique: true }] }
+      postgres: { indexes: [{ columns: ["id"], unique: true }] },
     };
     const adapter = new ExecutionSql({ warehouse: "postgres" }, "1.4.8");
     for (const task of adapter.publishTasks(table, { fullRefresh: true }).build()) {
       await dbadapter.execute(task.statement);
     }
     const { rows } = await dbadapter.execute(
-      `select indexname from pg_indexes where schemaname = '${schema}' and tablename = 'with_idx'`
+      `select indexname from pg_indexes where schemaname = '${schema}' and tablename = 'with_idx'`,
     );
     expect(rows.map((r: any) => r.indexname)).to.include("with_idx_id_key");
     await dbadapter.execute(`drop schema if exists "${schema}" cascade`);
@@ -132,12 +135,12 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     let executionGraph = await dfapi.build(compiledGraph, {}, dbadapter);
     let executedGraph = await dfapi.run(dbadapter, executionGraph).result();
 
-    const actionMap = keyBy(executedGraph.actions, v => targetAsReadableString(v.target));
+    const actionMap = keyBy(executedGraph.actions, (v) => targetAsReadableString(v.target));
     expect(Object.keys(actionMap).length).eql(11);
 
     // Check the status of action execution.
     const expectedFailedActions = [
-      "sa_integration_test_assertions_project_e2e.example_assertion_fail"
+      "sa_integration_test_assertions_project_e2e.example_assertion_fail",
     ];
     for (const actionName of Object.keys(actionMap)) {
       const expectedResult = expectedFailedActions.includes(actionName)
@@ -145,25 +148,28 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
         : sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL;
       expect(actionMap[actionName].status).equals(
         expectedResult,
-        actionMap[actionName].tasks.map(task => task.errorMessage).join("\n")
+        actionMap[actionName].tasks.map((task) => task.errorMessage).join("\n"),
       );
     }
 
     expect(
       actionMap["sa_integration_test_assertions_project_e2e.example_assertion_fail"].tasks[2]
-        .errorMessage
+        .errorMessage,
     ).to.eql("postgres error: Assertion failed: query returned 1 row(s).");
 
     // Check the data in the incremental table.
-    const adapter = new ExecutionSql(compiledGraph.projectConfig, compiledGraph.sqlanvilCoreVersion);
-    let incrementalTable = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
+    const adapter = new ExecutionSql(
+      compiledGraph.projectConfig,
+      compiledGraph.sqlanvilCoreVersion,
+    );
+    let incrementalTable = keyBy(compiledGraph.tables, (t) => targetAsReadableString(t.target))[
       "sa_integration_test_project_e2e.example_incremental"
     ];
     let incrementalRows = await getTableRows(incrementalTable.target, adapter, dbadapter);
     expect(incrementalRows.length).equals(3);
 
     // Check the data in the incremental merge table.
-    incrementalTable = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
+    incrementalTable = keyBy(compiledGraph.tables, (t) => targetAsReadableString(t.target))[
       "sa_integration_test_project_e2e.example_incremental_merge"
     ];
     incrementalRows = await getTableRows(incrementalTable.target, adapter, dbadapter);
@@ -177,28 +183,28 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
           "example_incremental",
           "example_incremental_merge",
           "example_table",
-          "example_view"
-        ]
+          "example_view",
+        ],
       },
-      dbadapter
+      dbadapter,
     );
     executedGraph = await dfapi.run(dbadapter, executionGraph).result();
     expect(executedGraph.status).equals(
       sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL,
       executedGraph.actions
-        .map(action => action.tasks.map(task => task.errorMessage).join("\n"))
-        .join("\n")
+        .map((action) => action.tasks.map((task) => task.errorMessage).join("\n"))
+        .join("\n"),
     );
 
     // Check there are the expected number of extra rows in the incremental table.
-    incrementalTable = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
+    incrementalTable = keyBy(compiledGraph.tables, (t) => targetAsReadableString(t.target))[
       "sa_integration_test_project_e2e.example_incremental"
     ];
     incrementalRows = await getTableRows(incrementalTable.target, adapter, dbadapter);
     expect(incrementalRows.length).equals(5);
 
     // Check there are the expected number of extra rows in the incremental merge table.
-    incrementalTable = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
+    incrementalTable = keyBy(compiledGraph.tables, (t) => targetAsReadableString(t.target))[
       "sa_integration_test_project_e2e.example_incremental_merge"
     ];
     incrementalRows = await getTableRows(incrementalTable.target, adapter, dbadapter);
@@ -213,13 +219,13 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       compiledGraph,
       {
         actions: ["example_incremental", "example_view"],
-        includeDependencies: true
+        includeDependencies: true,
       },
-      dbadapter
+      dbadapter,
     );
     const runResult = await dfapi.run(dbadapter, executionGraph).result();
     expect(sqlanvil.RunResult.ExecutionStatus[runResult.status]).eql(
-      sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL]
+      sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL],
     );
 
     // Check expected metadata.
@@ -227,36 +233,36 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       {
         target: {
           schema: "sa_integration_test_dataset_metadata",
-          name: "example_incremental"
+          name: "example_incremental",
         },
         expectedDescription: "An incremental 'table'",
         expectedFields: [
           sqlanvil.Field.create({
             description: "the 'timestamp'",
             name: "user_timestamp",
-            primitive: sqlanvil.Field.Primitive.INTEGER
+            primitive: sqlanvil.Field.Primitive.INTEGER,
           }),
           sqlanvil.Field.create({
             description: "the id",
             name: "user_id",
-            primitive: sqlanvil.Field.Primitive.INTEGER
-          })
-        ]
+            primitive: sqlanvil.Field.Primitive.INTEGER,
+          }),
+        ],
       },
       {
         target: {
           schema: "sa_integration_test_dataset_metadata",
-          name: "example_view"
+          name: "example_view",
         },
         expectedDescription: "An example view",
         expectedFields: [
           sqlanvil.Field.create({
             name: "val",
             description: "val doc",
-            primitive: sqlanvil.Field.Primitive.INTEGER
-          })
-        ]
-      }
+            primitive: sqlanvil.Field.Primitive.INTEGER,
+          }),
+        ],
+      },
     ]) {
       const metadata = await dbadapter.table(expectedMetadata.target);
       expect(metadata.description).to.equal(expectedMetadata.expectedDescription);
@@ -274,17 +280,17 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       {
         name: "expected more rows than got",
         successful: false,
-        messages: ["Expected 3 rows, but saw 2 rows."]
+        messages: ["Expected 3 rows, but saw 2 rows."],
       },
       {
         name: "expected fewer columns than got",
         successful: false,
-        messages: ['Expected columns "col1,col2,col3", but saw "col1,col2,col3,col4".']
+        messages: ['Expected columns "col1,col2,col3", but saw "col1,col2,col3,col4".'],
       },
       {
         name: "wrong columns",
         successful: false,
-        messages: ['Expected columns "col1,col2,col3,col4", but saw "col1,col2,col3,col5".']
+        messages: ['Expected columns "col1,col2,col3,col4", but saw "col1,col2,col3,col5".'],
       },
       {
         name: "wrong row contents",
@@ -292,9 +298,9 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
         messages: [
           'For row 0 and column "col2": expected "1", but saw "5".',
           'For row 1 and column "col3": expected "6.5", but saw "12".',
-          'For row 2 and column "col1": expected "sup?", but saw "WRONG".'
-        ]
-      }
+          'For row 2 and column "col1": expected "sup?", but saw "WRONG".',
+        ],
+      },
     ]);
   });
 
@@ -310,17 +316,17 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       { interactive: true, rowLimit: 2 },
       { interactive: false, rowLimit: 2 },
       { interactive: true, byteLimit: 50 },
-      { interactive: false, byteLimit: 50 }
+      { interactive: false, byteLimit: 50 },
     ]) {
       test(`with options=${JSON.stringify(options)}`, async () => {
         const { rows } = await dbadapter.execute(query, options);
         expect(rows).to.eql([
           {
-            "?column?": 1
+            "?column?": 1,
           },
           {
-            "?column?": 2
-          }
+            "?column?": 2,
+          },
         ]);
       });
     }
@@ -332,43 +338,43 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       const executionGraph = await dfapi.build(compiledGraph, {}, dbadapter);
       await dfapi.run(dbadapter, executionGraph).result();
 
-      const view = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
+      const view = keyBy(compiledGraph.tables, (t) => targetAsReadableString(t.target))[
         "sa_integration_test_evaluate.example_view"
       ];
       let evaluations = await dbadapter.evaluate(sqlanvil.Table.create(view));
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       );
 
-      const table = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
+      const table = keyBy(compiledGraph.tables, (t) => targetAsReadableString(t.target))[
         "sa_integration_test_evaluate.example_table"
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Table.create(table));
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       );
 
-      const assertion = keyBy(compiledGraph.assertions, t => targetAsReadableString(t.target))[
+      const assertion = keyBy(compiledGraph.assertions, (t) => targetAsReadableString(t.target))[
         "sa_integration_test_assertions_evaluate.example_assertion_pass"
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Assertion.create(assertion));
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       );
 
-      const incremental = keyBy(compiledGraph.tables, t => targetAsReadableString(t.target))[
+      const incremental = keyBy(compiledGraph.tables, (t) => targetAsReadableString(t.target))[
         "sa_integration_test_evaluate.example_incremental"
       ];
       evaluations = await dbadapter.evaluate(sqlanvil.Table.create(incremental));
       expect(evaluations.length).to.equal(2);
       expect(evaluations[0].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       );
       expect(evaluations[1].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS,
       );
     });
 
@@ -380,13 +386,13 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
           target: {
             schema: "sa_integration_test",
             name: "example_illegal_table",
-            database: "sqlanvil-integration-tests"
-          }
-        })
+            database: "sqlanvil-integration-tests",
+          },
+        }),
       );
       expect(evaluations.length).to.equal(1);
       expect(evaluations[0].status).to.equal(
-        sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE
+        sqlanvil.QueryEvaluation.QueryEvaluationStatus.FAILURE,
       );
     });
   });
@@ -401,126 +407,141 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
           sqlanvil.Table.create({
             enumType: sqlanvil.TableType.TABLE,
             target: { schema: SHADOW, name: "src" },
-            query: "select 1 as id"
+            query: "select 1 as id",
           }),
           sqlanvil.Table.create({
             enumType: sqlanvil.TableType.TABLE,
             target: { schema: SHADOW, name: "mid" },
             query: midQuery,
-            dependencyTargets: [{ schema: SHADOW, name: "src" }]
+            dependencyTargets: [{ schema: SHADOW, name: "src" }],
           }),
           sqlanvil.Table.create({
             enumType: sqlanvil.TableType.TABLE,
             target: { schema: SHADOW, name: "leaf" },
             query: `select id from ${ref("mid")}`,
-            dependencyTargets: [{ schema: SHADOW, name: "mid" }]
-          })
+            dependencyTargets: [{ schema: SHADOW, name: "mid" }],
+          }),
         ],
         assertions: [
           sqlanvil.Assertion.create({
             target: { schema: SHADOW, name: "assert_leaf" },
             query: `select id from ${ref("leaf")} where false`,
-            dependencyTargets: [{ schema: SHADOW, name: "leaf" }]
-          })
+            dependencyTargets: [{ schema: SHADOW, name: "leaf" }],
+          }),
         ],
-        operations: []
-      } as sqlanvil.ICompiledGraph);
+        operations: [],
+      }) as sqlanvil.ICompiledGraph;
 
     const makeDeps = (): ValidateDeps => {
       const executionSql = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
       return {
-        evaluate: action => dbadapter.evaluate(action as any),
-        execute: sql => dbadapter.execute(sql).then(() => undefined),
-        validationStubSql: t => executionSql.validationStubSql(t),
-        createSchemaSql: s => executionSql.createSchemaSql(s),
-        dropSchemaCascadeSql: s => executionSql.dropSchemaCascadeSql(s),
+        evaluate: (action) => dbadapter.evaluate(action as any),
+        execute: (sql) => dbadapter.execute(sql).then(() => undefined),
+        validationStubSql: (t) => executionSql.validationStubSql(t),
+        createSchemaSql: (s) => executionSql.createSchemaSql(s),
+        dropSchemaCascadeSql: (s) => executionSql.dropSchemaCascadeSql(s),
         listSchemas: async () =>
           (
             (await dbadapter.execute("select schema_name as name from information_schema.schemata"))
               .rows || []
-          ).map((r: any) => r.name)
+          ).map((r: any) => r.name),
       };
     };
 
     const shadowExists = async () =>
       (
         await dbadapter.execute(
-          `select 1 from information_schema.schemata where schema_name = '${SHADOW}'`
+          `select 1 from information_schema.schemata where schema_name = '${SHADOW}'`,
         )
       ).rows.length > 0;
 
-    test("clean DAG → all PASS; shadow schema created + dropped (no residue)", { timeout: 30000 }, async () => {
-      await dbadapter.execute(`drop schema if exists "${SHADOW}" cascade`);
-      const results = await validate(makeGraph(`select id from ${ref("src")}`), makeDeps());
-      const byName = keyBy(results, r => r.target.name);
-      expect(byName["src"].status).to.equal("PASS");
-      expect(byName["mid"].status).to.equal("PASS");
-      expect(byName["leaf"].status).to.equal("PASS");
-      expect(byName["assert_leaf"].status).to.equal("PASS");
-      // The whole validation is torn down — nothing left behind.
-      expect(await shadowExists()).to.equal(false);
-    });
+    test(
+      "clean DAG → all PASS; shadow schema created + dropped (no residue)",
+      { timeout: 30000 },
+      async () => {
+        await dbadapter.execute(`drop schema if exists "${SHADOW}" cascade`);
+        const results = await validate(makeGraph(`select id from ${ref("src")}`), makeDeps());
+        const byName = keyBy(results, (r) => r.target.name);
+        expect(byName["src"].status).to.equal("PASS");
+        expect(byName["mid"].status).to.equal("PASS");
+        expect(byName["leaf"].status).to.equal("PASS");
+        expect(byName["assert_leaf"].status).to.equal("PASS");
+        // The whole validation is torn down — nothing left behind.
+        expect(await shadowExists()).to.equal(false);
+      },
+    );
 
-    test("broken model → FAILURE + dependents BLOCKED; shadow still dropped", { timeout: 30000 }, async () => {
-      await dbadapter.execute(`drop schema if exists "${SHADOW}" cascade`);
-      const results = await validate(
-        makeGraph(`select nonexistent_col from ${ref("src")}`),
-        makeDeps()
-      );
-      const byName = keyBy(results, r => r.target.name);
-      expect(byName["src"].status).to.equal("PASS");
-      expect(byName["mid"].status).to.equal("FAILURE");
-      expect(byName["leaf"].status).to.equal("BLOCKED");
-      expect(byName["assert_leaf"].status).to.equal("BLOCKED");
-      expect(await shadowExists()).to.equal(false);
-    });
+    test(
+      "broken model → FAILURE + dependents BLOCKED; shadow still dropped",
+      { timeout: 30000 },
+      async () => {
+        await dbadapter.execute(`drop schema if exists "${SHADOW}" cascade`);
+        const results = await validate(
+          makeGraph(`select nonexistent_col from ${ref("src")}`),
+          makeDeps(),
+        );
+        const byName = keyBy(results, (r) => r.target.name);
+        expect(byName["src"].status).to.equal("PASS");
+        expect(byName["mid"].status).to.equal("FAILURE");
+        expect(byName["leaf"].status).to.equal("BLOCKED");
+        expect(byName["assert_leaf"].status).to.equal("BLOCKED");
+        expect(await shadowExists()).to.equal(false);
+      },
+    );
 
-    test("self-reference reads the production relation after rewrite (issue #49)", { timeout: 30000 }, async () => {
-      // Prod relation exists; the graph is shadow-compiled (schema suffixed), and the model's
-      // query references its own target — the append/UNION-history pattern. Without the
-      // rewrite this FAILs (its own shadow stub cannot exist before it validates).
-      const SUFFIX = "sqlanvil_validate_9999999";
-      const prodSchema = "sa_integration_selfref";
-      const shadowSchema = `${prodSchema}_${SUFFIX}`;
-      await dbadapter.execute(`drop schema if exists "${prodSchema}" cascade`);
-      await dbadapter.execute(`drop schema if exists "${shadowSchema}" cascade`);
-      await dbadapter.execute(`create schema "${prodSchema}"`);
-      await dbadapter.execute(`create table "${prodSchema}"."hist" (id int, ts date)`);
-      try {
-        const graph: sqlanvil.ICompiledGraph = {
-          tables: [
-            sqlanvil.Table.create({
-              enumType: sqlanvil.TableType.TABLE,
-              target: { schema: shadowSchema, name: "hist" },
-              query:
-                `select id, ts from "${shadowSchema}"."hist" where ts < current_date`
-            })
-          ]
-        };
-        const executionSql = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
-        rewriteSelfReferences(graph, SUFFIX, t => executionSql.resolveTarget(t));
-        expect(graph.tables[0].query).to.contain(`"${prodSchema}"."hist"`);
-        const results = await validate(graph, makeDeps());
-        expect(results[0].status).to.equal("PASS");
-      } finally {
+    test(
+      "self-reference reads the production relation after rewrite (issue #49)",
+      { timeout: 30000 },
+      async () => {
+        // Prod relation exists; the graph is shadow-compiled (schema suffixed), and the model's
+        // query references its own target — the append/UNION-history pattern. Without the
+        // rewrite this FAILs (its own shadow stub cannot exist before it validates).
+        const SUFFIX = "sqlanvil_validate_9999999";
+        const prodSchema = "sa_integration_selfref";
+        const shadowSchema = `${prodSchema}_${SUFFIX}`;
         await dbadapter.execute(`drop schema if exists "${prodSchema}" cascade`);
         await dbadapter.execute(`drop schema if exists "${shadowSchema}" cascade`);
-      }
-    });
+        await dbadapter.execute(`create schema "${prodSchema}"`);
+        await dbadapter.execute(`create table "${prodSchema}"."hist" (id int, ts date)`);
+        try {
+          const graph: sqlanvil.ICompiledGraph = {
+            tables: [
+              sqlanvil.Table.create({
+                enumType: sqlanvil.TableType.TABLE,
+                target: { schema: shadowSchema, name: "hist" },
+                query: `select id, ts from "${shadowSchema}"."hist" where ts < current_date`,
+              }),
+            ],
+          };
+          const executionSql = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+          rewriteSelfReferences(graph, SUFFIX, (t) => executionSql.resolveTarget(t));
+          expect(graph.tables[0].query).to.contain(`"${prodSchema}"."hist"`);
+          const results = await validate(graph, makeDeps());
+          expect(results[0].status).to.equal("PASS");
+        } finally {
+          await dbadapter.execute(`drop schema if exists "${prodSchema}" cascade`);
+          await dbadapter.execute(`drop schema if exists "${shadowSchema}" cascade`);
+        }
+      },
+    );
 
-    test("sweep drops an orphaned shadow schema from a prior killed run", { timeout: 30000 }, async () => {
-      const orphan = "public_sqlanvil_validate_1"; // timestamp 1 → ancient
-      await dbadapter.execute(`drop schema if exists "${orphan}" cascade`);
-      await dbadapter.execute(`create schema "${orphan}"`);
-      await sweepOrphanShadows(makeDeps(), Date.now());
-      const stillThere =
-        (
-          await dbadapter.execute(
-            `select 1 from information_schema.schemata where schema_name = '${orphan}'`
-          )
-        ).rows.length > 0;
-      expect(stillThere).to.equal(false);
-    });
+    test(
+      "sweep drops an orphaned shadow schema from a prior killed run",
+      { timeout: 30000 },
+      async () => {
+        const orphan = "public_sqlanvil_validate_1"; // timestamp 1 → ancient
+        await dbadapter.execute(`drop schema if exists "${orphan}" cascade`);
+        await dbadapter.execute(`create schema "${orphan}"`);
+        await sweepOrphanShadows(makeDeps(), Date.now());
+        const stillThere =
+          (
+            await dbadapter.execute(
+              `select 1 from information_schema.schemata where schema_name = '${orphan}'`,
+            )
+          ).rows.length > 0;
+        expect(stillThere).to.equal(false);
+      },
+    );
   });
 
   suite("publish tasks", async () => {
@@ -532,7 +553,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
         preOps: ["preop task1", "preop task2"],
         incrementalQuery: "",
         postOps: ["postop task1", "postop task2"],
-        target: { schema: "", name: "", database: "" }
+        target: { schema: "", name: "", database: "" },
       };
 
       const adapter = new ExecutionSql({ warehouse: "postgres" }, "1.4.8");
@@ -561,19 +582,19 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       compiledGraph,
       {
         actions: ["example_view"],
-        includeDependencies: true
+        includeDependencies: true,
       },
-      dbadapter
+      dbadapter,
     );
     const runResult = await dfapi.run(dbadapter, executionGraph).result();
     expect(sqlanvil.RunResult.ExecutionStatus[runResult.status]).eql(
-      sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL]
+      sqlanvil.RunResult.ExecutionStatus[sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL],
     );
 
     const [fullSearch, partialSearch, columnSearch] = await Promise.all([
       dbadapter.search("sa_integration_test_search"),
       dbadapter.search("test_sear"),
-      dbadapter.search("val")
+      dbadapter.search("val"),
     ]);
 
     expect(fullSearch.length).equals(2);
@@ -581,93 +602,107 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     expect(columnSearch.length).greaterThan(0);
   });
 
-  test("postgres storage options + indexes apply on real Postgres", { timeout: 60000 }, async () => {
-    const schema = "sa_integration_test_options";
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-    await dbadapter.execute(`create schema "${schema}"`);
+  test(
+    "postgres storage options + indexes apply on real Postgres",
+    { timeout: 60000 },
+    async () => {
+      const schema = "sa_integration_test_options";
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+      await dbadapter.execute(`create schema "${schema}"`);
 
-    const table: sqlanvil.ITable = {
-      type: "table",
-      enumType: sqlanvil.TableType.TABLE,
-      target: { schema, name: "indexed_table" },
-      query: "select 1 as id, 'a'::text as label",
-      postgres: {
-        unlogged: true,
-        fillfactor: 70,
-        indexes: [
-          {
-            name: "ix_indexed_table_id",
-            columns: ["id"],
-            method: sqlanvil.PostgresOptions.Index.Method.BTREE
-          },
-          {
-            name: "ix_indexed_table_label",
-            columns: ["label"],
-            method: sqlanvil.PostgresOptions.Index.Method.BTREE,
-            unique: true,
-            where: "label is not null"
-          }
-        ]
+      const table: sqlanvil.ITable = {
+        type: "table",
+        enumType: sqlanvil.TableType.TABLE,
+        target: { schema, name: "indexed_table" },
+        query: "select 1 as id, 'a'::text as label",
+        postgres: {
+          unlogged: true,
+          fillfactor: 70,
+          indexes: [
+            {
+              name: "ix_indexed_table_id",
+              columns: ["id"],
+              method: sqlanvil.PostgresOptions.Index.Method.BTREE,
+            },
+            {
+              name: "ix_indexed_table_label",
+              columns: ["label"],
+              method: sqlanvil.PostgresOptions.Index.Method.BTREE,
+              unique: true,
+              where: "label is not null",
+            },
+          ],
+        },
+      };
+
+      // Generate the DDL exactly as a real run does, then execute it.
+      const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+      for (const task of adapter
+        .publishTasks(table, { fullRefresh: true }, { fields: [] })
+        .build()) {
+        await dbadapter.execute(task.statement);
       }
-    };
 
-    // Generate the DDL exactly as a real run does, then execute it.
-    const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
-    for (const task of adapter.publishTasks(table, { fullRefresh: true }, { fields: [] }).build()) {
-      await dbadapter.execute(task.statement);
-    }
+      // Storage options actually applied: UNLOGGED (relpersistence 'u') + fillfactor=70.
+      const meta = await dbadapter.execute(
+        `select c.relpersistence, c.reloptions from pg_class c ` +
+          `join pg_namespace n on n.oid = c.relnamespace ` +
+          `where n.nspname = '${schema}' and c.relname = 'indexed_table'`,
+      );
+      expect(meta.rows[0].relpersistence).to.equal("u");
+      expect(meta.rows[0].reloptions).to.deep.equal(["fillfactor=70"]);
 
-    // Storage options actually applied: UNLOGGED (relpersistence 'u') + fillfactor=70.
-    const meta = await dbadapter.execute(
-      `select c.relpersistence, c.reloptions from pg_class c ` +
-        `join pg_namespace n on n.oid = c.relnamespace ` +
-        `where n.nspname = '${schema}' and c.relname = 'indexed_table'`
-    );
-    expect(meta.rows[0].relpersistence).to.equal("u");
-    expect(meta.rows[0].reloptions).to.deep.equal(["fillfactor=70"]);
+      // Both indexes created, with unique + partial predicate honored by Postgres.
+      const idx = await dbadapter.execute(
+        `select indexname, indexdef from pg_indexes where schemaname = '${schema}'`,
+      );
+      const byName = keyBy(idx.rows, (r: { indexname: string }) => r.indexname);
+      expect(byName["ix_indexed_table_id"], "btree index should exist").to.exist;
+      expect(byName["ix_indexed_table_label"].indexdef).to.contain("UNIQUE");
+      expect(byName["ix_indexed_table_label"].indexdef).to.contain("WHERE (label IS NOT NULL)");
 
-    // Both indexes created, with unique + partial predicate honored by Postgres.
-    const idx = await dbadapter.execute(
-      `select indexname, indexdef from pg_indexes where schemaname = '${schema}'`
-    );
-    const byName = keyBy(idx.rows, (r: { indexname: string }) => r.indexname);
-    expect(byName["ix_indexed_table_id"], "btree index should exist").to.exist;
-    expect(byName["ix_indexed_table_label"].indexdef).to.contain("UNIQUE");
-    expect(byName["ix_indexed_table_label"].indexdef).to.contain("WHERE (label IS NOT NULL)");
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    },
+  );
 
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-  });
+  test(
+    "materialized view is created as a populated matview on real Postgres",
+    { timeout: 60000 },
+    async () => {
+      const schema = "sa_integration_test_mv";
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+      await dbadapter.execute(`create schema "${schema}"`);
 
-  test("materialized view is created as a populated matview on real Postgres", { timeout: 60000 }, async () => {
-    const schema = "sa_integration_test_mv";
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-    await dbadapter.execute(`create schema "${schema}"`);
+      const mv: sqlanvil.ITable = {
+        type: "view",
+        enumType: sqlanvil.TableType.VIEW,
+        materialized: true,
+        target: { schema, name: "mv_orders" },
+        query: "select 1 as id, 100 as amount union all select 2 as id, 200 as amount",
+      };
 
-    const mv: sqlanvil.ITable = {
-      type: "view",
-      enumType: sqlanvil.TableType.VIEW,
-      materialized: true,
-      target: { schema, name: "mv_orders" },
-      query: "select 1 as id, 100 as amount union all select 2 as id, 200 as amount"
-    };
+      const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+      for (const task of adapter.publishTasks(mv, { fullRefresh: true }, { fields: [] }).build()) {
+        await dbadapter.execute(task.statement);
+      }
 
-    const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
-    for (const task of adapter.publishTasks(mv, { fullRefresh: true }, { fields: [] }).build()) {
-      await dbadapter.execute(task.statement);
-    }
+      // It's a real materialized view (in pg_matviews, not pg_views).
+      const matviews = await dbadapter.execute(
+        `select matviewname from pg_matviews where schemaname = '${schema}'`,
+      );
+      expect(matviews.rows.map((r: { matviewname: string }) => r.matviewname)).to.include(
+        "mv_orders",
+      );
 
-    // It's a real materialized view (in pg_matviews, not pg_views).
-    const matviews = await dbadapter.execute(
-      `select matviewname from pg_matviews where schemaname = '${schema}'`
-    );
-    expect(matviews.rows.map((r: { matviewname: string }) => r.matviewname)).to.include("mv_orders");
+      // WITH DATA by default -> populated and queryable.
+      const counted = await dbadapter.execute(
+        `select count(*)::int as n from "${schema}"."mv_orders"`,
+      );
+      expect(counted.rows[0].n).to.equal(2);
 
-    // WITH DATA by default -> populated and queryable.
-    const counted = await dbadapter.execute(`select count(*)::int as n from "${schema}"."mv_orders"`);
-    expect(counted.rows[0].n).to.equal(2);
-
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-  });
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    },
+  );
 
   test("index operator class applies on real Postgres", { timeout: 60000 }, async () => {
     const schema = "sa_integration_test_opclass";
@@ -686,10 +721,10 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
             columns: ["payload"],
             // gin on jsonb requires an opclass; jsonb_path_ops is built-in (no extension).
             method: sqlanvil.PostgresOptions.Index.Method.GIN,
-            opclass: "jsonb_path_ops"
-          }
-        ]
-      }
+            opclass: "jsonb_path_ops",
+          },
+        ],
+      },
     };
 
     const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
@@ -698,7 +733,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     }
 
     const idx = await dbadapter.execute(
-      `select indexdef from pg_indexes where schemaname = '${schema}' and indexname = 'ix_docs_payload'`
+      `select indexdef from pg_indexes where schemaname = '${schema}' and indexname = 'ix_docs_payload'`,
     );
     expect(idx.rows.length).to.equal(1);
     expect(idx.rows[0].indexdef).to.contain("jsonb_path_ops");
@@ -706,113 +741,130 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
     await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
   });
 
-  test("native range-partitioned table builds and routes rows on real Postgres", { timeout: 60000 }, async () => {
-    const schema = "sa_integration_test_part";
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-    await dbadapter.execute(`create schema "${schema}"`);
+  test(
+    "native range-partitioned table builds and routes rows on real Postgres",
+    { timeout: 60000 },
+    async () => {
+      const schema = "sa_integration_test_part";
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+      await dbadapter.execute(`create schema "${schema}"`);
 
-    const table: sqlanvil.ITable = {
-      type: "table",
-      enumType: sqlanvil.TableType.TABLE,
-      target: { schema, name: "events" },
-      query: "select 5 as id, 'low' as label union all select 150 as id, 'high' as label",
-      postgres: {
-        partition: {
-          kind: sqlanvil.PostgresOptions.Partition.Kind.RANGE,
-          columns: ["id"],
-          partitions: [
-            { name: "p_lo", values: "FROM (0) TO (100)" },
-            { name: "p_hi", values: "FROM (100) TO (1000)" }
-          ],
-          includeDefault: true
-        }
+      const table: sqlanvil.ITable = {
+        type: "table",
+        enumType: sqlanvil.TableType.TABLE,
+        target: { schema, name: "events" },
+        query: "select 5 as id, 'low' as label union all select 150 as id, 'high' as label",
+        postgres: {
+          partition: {
+            kind: sqlanvil.PostgresOptions.Partition.Kind.RANGE,
+            columns: ["id"],
+            partitions: [
+              { name: "p_lo", values: "FROM (0) TO (100)" },
+              { name: "p_hi", values: "FROM (100) TO (1000)" },
+            ],
+            includeDefault: true,
+          },
+        },
+      };
+
+      const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+      for (const task of adapter
+        .publishTasks(table, { fullRefresh: true }, { fields: [] })
+        .build()) {
+        await dbadapter.execute(task.statement);
       }
-    };
 
-    const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
-    for (const task of adapter.publishTasks(table, { fullRefresh: true }, { fields: [] }).build()) {
-      await dbadapter.execute(task.statement);
-    }
+      // Parent is a partitioned table (relkind 'p').
+      const parent = await dbadapter.execute(
+        `select c.relkind from pg_class c join pg_namespace n on n.oid = c.relnamespace ` +
+          `where n.nspname = '${schema}' and c.relname = 'events'`,
+      );
+      expect(parent.rows[0].relkind).to.equal("p");
 
-    // Parent is a partitioned table (relkind 'p').
-    const parent = await dbadapter.execute(
-      `select c.relkind from pg_class c join pg_namespace n on n.oid = c.relnamespace ` +
-        `where n.nspname = '${schema}' and c.relname = 'events'`
-    );
-    expect(parent.rows[0].relkind).to.equal("p");
+      // Rows inserted and routed to the right child: id=5 -> p_lo [0,100), id=150 -> p_hi [100,1000).
+      const total = await dbadapter.execute(`select count(*)::int as n from "${schema}"."events"`);
+      expect(total.rows[0].n).to.equal(2);
+      const lo = await dbadapter.execute(
+        `select count(*)::int as n from "${schema}"."events__p_lo"`,
+      );
+      expect(lo.rows[0].n).to.equal(1);
+      const hi = await dbadapter.execute(
+        `select count(*)::int as n from "${schema}"."events__p_hi"`,
+      );
+      expect(hi.rows[0].n).to.equal(1);
 
-    // Rows inserted and routed to the right child: id=5 -> p_lo [0,100), id=150 -> p_hi [100,1000).
-    const total = await dbadapter.execute(`select count(*)::int as n from "${schema}"."events"`);
-    expect(total.rows[0].n).to.equal(2);
-    const lo = await dbadapter.execute(`select count(*)::int as n from "${schema}"."events__p_lo"`);
-    expect(lo.rows[0].n).to.equal(1);
-    const hi = await dbadapter.execute(`select count(*)::int as n from "${schema}"."events__p_hi"`);
-    expect(hi.rows[0].n).to.equal(1);
+      // Staging table was cleaned up.
+      const stage = await dbadapter.execute(
+        `select count(*)::int as n from information_schema.tables ` +
+          `where table_schema = '${schema}' and table_name = 'events__sa_stage'`,
+      );
+      expect(stage.rows[0].n).to.equal(0);
 
-    // Staging table was cleaned up.
-    const stage = await dbadapter.execute(
-      `select count(*)::int as n from information_schema.tables ` +
-        `where table_schema = '${schema}' and table_name = 'events__sa_stage'`
-    );
-    expect(stage.rows[0].n).to.equal(0);
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    },
+  );
 
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-  });
+  test(
+    "matview: adapter detects it and refreshes in place on rerun",
+    { timeout: 60000 },
+    async () => {
+      const schema = "sa_integration_test_mvref";
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+      await dbadapter.execute(`create schema "${schema}"`);
+      await dbadapter.execute(`create table "${schema}"."src" (id int)`);
+      await dbadapter.execute(`insert into "${schema}"."src" values (1), (2)`);
 
-  test("matview: adapter detects it and refreshes in place on rerun", { timeout: 60000 }, async () => {
-    const schema = "sa_integration_test_mvref";
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-    await dbadapter.execute(`create schema "${schema}"`);
-    await dbadapter.execute(`create table "${schema}"."src" (id int)`);
-    await dbadapter.execute(`insert into "${schema}"."src" values (1), (2)`);
+      const mv: sqlanvil.ITable = {
+        type: "view",
+        enumType: sqlanvil.TableType.VIEW,
+        materialized: true,
+        target: { schema, name: "mv" },
+        query: `select count(*)::int as n from "${schema}"."src"`,
+        postgres: { refreshPolicy: "on_dependency_change" },
+      };
+      const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
 
-    const mv: sqlanvil.ITable = {
-      type: "view",
-      enumType: sqlanvil.TableType.VIEW,
-      materialized: true,
-      target: { schema, name: "mv" },
-      query: `select count(*)::int as n from "${schema}"."src"`,
-      postgres: { refreshPolicy: "on_dependency_change" }
-    };
-    const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+      // First run: matview doesn't exist -> created.
+      for (const t of adapter.publishTasks(mv, { fullRefresh: false }).build()) {
+        await dbadapter.execute(t.statement);
+      }
 
-    // First run: matview doesn't exist -> created.
-    for (const t of adapter.publishTasks(mv, { fullRefresh: false }).build()) {
-      await dbadapter.execute(t.statement);
-    }
+      // The adapter now DETECTS the matview (information_schema would miss it).
+      const meta = await dbadapter.table({ schema, name: "mv" });
+      expect(meta, "adapter should find the matview").to.not.equal(null);
+      expect(meta.type).to.equal(sqlanvil.TableMetadata.Type.MATERIALIZED_VIEW);
+      expect(meta.fields.map((f) => f.name)).to.include("n");
+      const listed = await dbadapter.tables("", schema);
+      expect(listed.some((t) => t.target.name === "mv")).to.equal(true);
 
-    // The adapter now DETECTS the matview (information_schema would miss it).
-    const meta = await dbadapter.table({ schema, name: "mv" });
-    expect(meta, "adapter should find the matview").to.not.equal(null);
-    expect(meta.type).to.equal(sqlanvil.TableMetadata.Type.MATERIALIZED_VIEW);
-    expect(meta.fields.map(f => f.name)).to.include("n");
-    const listed = await dbadapter.tables("", schema);
-    expect(listed.some(t => t.target.name === "mv")).to.equal(true);
+      const oidOf = async () =>
+        (
+          await dbadapter.execute(
+            `select c.oid from pg_class c join pg_namespace n on n.oid = c.relnamespace ` +
+              `where n.nspname = '${schema}' and c.relname = 'mv'`,
+          )
+        ).rows[0].oid;
+      const oidBefore = await oidOf();
 
-    const oidOf = async () =>
-      (
-        await dbadapter.execute(
-          `select c.oid from pg_class c join pg_namespace n on n.oid = c.relnamespace ` +
-            `where n.nspname = '${schema}' and c.relname = 'mv'`
-        )
-      ).rows[0].oid;
-    const oidBefore = await oidOf();
+      // Add a row, then RE-RUN with the detected metadata: it should REFRESH in place.
+      await dbadapter.execute(`insert into "${schema}"."src" values (3)`);
+      const rerun = adapter
+        .publishTasks(mv, { fullRefresh: false }, meta)
+        .build()
+        .map((t) => t.statement);
+      expect(rerun).to.eql([`refresh materialized view "${schema}"."mv"`]);
+      for (const stmt of rerun) {
+        await dbadapter.execute(stmt);
+      }
 
-    // Add a row, then RE-RUN with the detected metadata: it should REFRESH in place.
-    await dbadapter.execute(`insert into "${schema}"."src" values (3)`);
-    const rerun = adapter.publishTasks(mv, { fullRefresh: false }, meta).build().map(t => t.statement);
-    expect(rerun).to.eql([`refresh materialized view "${schema}"."mv"`]);
-    for (const stmt of rerun) {
-      await dbadapter.execute(stmt);
-    }
+      // Same object (not dropped+recreated), and the data reflects the new row.
+      expect(await oidOf(), "matview should be refreshed, not recreated").to.equal(oidBefore);
+      const val = await dbadapter.execute(`select n from "${schema}"."mv"`);
+      expect(val.rows[0].n).to.equal(3);
 
-    // Same object (not dropped+recreated), and the data reflects the new row.
-    expect(await oidOf(), "matview should be refreshed, not recreated").to.equal(oidBefore);
-    const val = await dbadapter.execute(`select n from "${schema}"."mv"`);
-    expect(val.rows[0].n).to.equal(3);
-
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-  });
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    },
+  );
 
   test("matview WITH NO DATA is created unpopulated", { timeout: 60000 }, async () => {
     const schema = "sa_integration_test_mvnodata";
@@ -825,7 +877,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       materialized: true,
       target: { schema, name: "mv" },
       query: "select 1 as id",
-      postgres: { noData: true }
+      postgres: { noData: true },
     };
     const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
     for (const t of adapter.publishTasks(mv, { fullRefresh: false }).build()) {
@@ -834,159 +886,189 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
 
     const pop = await dbadapter.execute(
       `select c.relispopulated from pg_class c join pg_namespace n on n.oid = c.relnamespace ` +
-        `where n.nspname = '${schema}' and c.relname = 'mv'`
+        `where n.nspname = '${schema}' and c.relname = 'mv'`,
     );
     expect(pop.rows[0].relispopulated).to.equal(false);
 
     await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
   });
 
-  test("operations run a stored PROCEDURE with a $$ body on Postgres", { timeout: 60000 }, async () => {
-    const schema = "sa_integration_test_ops";
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-    await dbadapter.execute(`create schema "${schema}"`);
-    await dbadapter.execute(`create table "${schema}"."log" (n int)`);
+  test(
+    "operations run a stored PROCEDURE with a $$ body on Postgres",
+    { timeout: 60000 },
+    async () => {
+      const schema = "sa_integration_test_ops";
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+      await dbadapter.execute(`create schema "${schema}"`);
+      await dbadapter.execute(`create table "${schema}"."log" (n int)`);
 
-    const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
+      const adapter = new ExecutionSql({ warehouse: "postgres" }, "2.0.0");
 
-    // A PROCEDURE whose $$-quoted body contains internal semicolons (a loop) —
-    // the case that would break naive ;-based statement splitting. sqlx splits
-    // operations on `---`, so the whole body stays one statement.
-    const createProc: sqlanvil.IOperation = {
-      target: { schema, name: "create_proc" },
-      queries: [
-        `create procedure "${schema}"."seed"(cnt int) language plpgsql as $$
+      // A PROCEDURE whose $$-quoted body contains internal semicolons (a loop) —
+      // the case that would break naive ;-based statement splitting. sqlx splits
+      // operations on `---`, so the whole body stays one statement.
+      const createProc: sqlanvil.IOperation = {
+        target: { schema, name: "create_proc" },
+        queries: [
+          `create procedure "${schema}"."seed"(cnt int) language plpgsql as $$
 begin
   for i in 1..cnt loop
     insert into "${schema}"."log" values (i);
   end loop;
 end;
-$$`
-      ]
-    };
-    const callProc: sqlanvil.IOperation = {
-      target: { schema, name: "call_proc" },
-      queries: [`call "${schema}"."seed"(3)`]
-    };
+$$`,
+        ],
+      };
+      const callProc: sqlanvil.IOperation = {
+        target: { schema, name: "call_proc" },
+        queries: [`call "${schema}"."seed"(3)`],
+      };
 
-    for (const op of [createProc, callProc]) {
-      for (const task of adapter.createOperationTasks(op)) {
-        await dbadapter.execute(task.statement);
+      for (const op of [createProc, callProc]) {
+        for (const task of adapter.createOperationTasks(op)) {
+          await dbadapter.execute(task.statement);
+        }
       }
-    }
 
-    // The procedure was created, CALLed, and its side effect happened.
-    const res = await dbadapter.execute(`select count(*)::int as n from "${schema}"."log"`);
-    expect(res.rows[0].n).to.equal(3);
+      // The procedure was created, CALLed, and its side effect happened.
+      const res = await dbadapter.execute(`select count(*)::int as n from "${schema}"."log"`);
+      expect(res.rows[0].n).to.equal(3);
 
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-  });
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    },
+  );
 
-  test("metadata: table description + column comments applied and read back", { timeout: 60000 }, async () => {
-    const schema = "sa_integration_test_meta";
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-    await dbadapter.execute(`create schema "${schema}"`);
-    await dbadapter.execute(`create table "${schema}"."t" (id int, label text)`);
+  test(
+    "metadata: table description + column comments applied and read back",
+    { timeout: 60000 },
+    async () => {
+      const schema = "sa_integration_test_meta";
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+      await dbadapter.execute(`create schema "${schema}"`);
+      await dbadapter.execute(`create table "${schema}"."t" (id int, label text)`);
 
-    await dbadapter.setMetadata({
-      target: { schema, name: "t" },
-      tableType: "table",
-      actionDescriptor: {
-        description: "a table's \"desc\" with 'quotes'",
-        columns: [
-          { path: ["id"], description: "the id" },
-          { path: ["label"], description: "the label" }
-        ]
+      await dbadapter.setMetadata({
+        target: { schema, name: "t" },
+        tableType: "table",
+        actionDescriptor: {
+          description: "a table's \"desc\" with 'quotes'",
+          columns: [
+            { path: ["id"], description: "the id" },
+            { path: ["label"], description: "the label" },
+          ],
+        },
+      });
+
+      const meta = await dbadapter.table({ schema, name: "t" });
+      expect(meta.description).to.equal("a table's \"desc\" with 'quotes'");
+      const byName = keyBy(meta.fields, (f) => f.name);
+      expect(byName["id"].description).to.equal("the id");
+      expect(byName["label"].description).to.equal("the label");
+
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    },
+  );
+
+  test(
+    "metadata: materialized view description + column comments applied and read back",
+    { timeout: 60000 },
+    async () => {
+      const schema = "sa_integration_test_metamv";
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+      await dbadapter.execute(`create schema "${schema}"`);
+      await dbadapter.execute(
+        `create materialized view "${schema}"."mv" as select 1 as id, 'a'::text as label`,
+      );
+
+      // A matview action carries tableType "view"; setMetadata must use
+      // COMMENT ON MATERIALIZED VIEW (not COMMENT ON VIEW, which errors).
+      await dbadapter.setMetadata({
+        target: { schema, name: "mv" },
+        tableType: "view",
+        actionDescriptor: {
+          description: "an example matview",
+          columns: [{ path: ["id"], description: "the id" }],
+        },
+      });
+
+      const meta = await dbadapter.table({ schema, name: "mv" });
+      expect(meta.type).to.equal(sqlanvil.TableMetadata.Type.MATERIALIZED_VIEW);
+      expect(meta.description).to.equal("an example matview");
+      expect(keyBy(meta.fields, (f) => f.name)["id"].description).to.equal("the id");
+
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    },
+  );
+
+  test(
+    "auto-generated uniqueKey assertions detect duplicates on Postgres (single/multi/multiple keys)",
+    { timeout: 60000 },
+    async () => {
+      for (const s of ["sa_integration_test_assert", "sa_integration_test_assertions_assert"]) {
+        await dbadapter.execute(`drop schema if exists "${s}" cascade`).catch(() => undefined);
       }
-    });
 
-    const meta = await dbadapter.table({ schema, name: "t" });
-    expect(meta.description).to.equal("a table's \"desc\" with 'quotes'");
-    const byName = keyBy(meta.fields, f => f.name);
-    expect(byName["id"].description).to.equal("the id");
-    expect(byName["label"].description).to.equal("the label");
+      const compiledGraph = await compile("tests/integration/postgres_assertion_project", "assert");
 
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-  });
+      // The compiler auto-creates one assertion per uniqueKey — single column
+      // (dup_table), and multiple keys incl. a multi-column one (unique_table).
+      const names = compiledGraph.assertions.map((a) => targetAsReadableString(a.target));
+      expect(names.some((n) => n.includes("dup_table") && n.includes("uniqueKey"))).to.equal(true);
+      expect(
+        names.filter((n) => n.includes("unique_table") && n.includes("uniqueKey")).length,
+      ).to.equal(2);
 
-  test("metadata: materialized view description + column comments applied and read back", { timeout: 60000 }, async () => {
-    const schema = "sa_integration_test_metamv";
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-    await dbadapter.execute(`create schema "${schema}"`);
-    await dbadapter.execute(`create materialized view "${schema}"."mv" as select 1 as id, 'a'::text as label`);
+      const executionGraph = await dfapi.build(compiledGraph, {}, dbadapter);
+      const executed = await dfapi.run(dbadapter, executionGraph).result();
+      const assertionsMatching = (pred: (name: string) => boolean) =>
+        executed.actions.filter((a) => pred(targetAsReadableString(a.target)));
 
-    // A matview action carries tableType "view"; setMetadata must use
-    // COMMENT ON MATERIALIZED VIEW (not COMMENT ON VIEW, which errors).
-    await dbadapter.setMetadata({
-      target: { schema, name: "mv" },
-      tableType: "view",
-      actionDescriptor: {
-        description: "an example matview",
-        columns: [{ path: ["id"], description: "the id" }]
+      // Single-column uniqueKey over duplicate data -> assertion FAILS (catches it).
+      const dup = assertionsMatching((n) => n.includes("dup_table") && n.includes("uniqueKey"));
+      expect(dup.length).to.equal(1);
+      expect(dup[0].status).to.equal(sqlanvil.ActionResult.ExecutionStatus.FAILED);
+
+      // Multi-column (a,b) + single-column (c) uniqueKeys over unique data -> both PASS.
+      const unique = assertionsMatching(
+        (n) => n.includes("unique_table") && n.includes("uniqueKey"),
+      );
+      expect(unique.length).to.equal(2);
+      unique.forEach((a) =>
+        expect(a.status).to.equal(sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL),
+      );
+
+      for (const s of ["sa_integration_test_assert", "sa_integration_test_assertions_assert"]) {
+        await dbadapter.execute(`drop schema if exists "${s}" cascade`).catch(() => undefined);
       }
-    });
+    },
+  );
 
-    const meta = await dbadapter.table({ schema, name: "mv" });
-    expect(meta.type).to.equal(sqlanvil.TableMetadata.Type.MATERIALIZED_VIEW);
-    expect(meta.description).to.equal("an example matview");
-    expect(keyBy(meta.fields, f => f.name)["id"].description).to.equal("the id");
+  test(
+    'metadata: columns string-shorthand (col: "desc") compiles and applies on Postgres',
+    { timeout: 60000 },
+    async () => {
+      const schema = "sa_integration_test_meta2";
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
 
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-  });
+      // described_table uses the string shorthand: description + columns { col: "desc" }
+      // on a plain `type: "table"` — the acuantia authoring style.
+      const compiledGraph = await compile("tests/integration/postgres_assertion_project", "meta2");
+      const executionGraph = await dfapi.build(
+        compiledGraph,
+        { actions: ["described_table"] },
+        dbadapter,
+      );
+      await dfapi.run(dbadapter, executionGraph).result();
 
-  test("auto-generated uniqueKey assertions detect duplicates on Postgres (single/multi/multiple keys)", { timeout: 60000 }, async () => {
-    for (const s of ["sa_integration_test_assert", "sa_integration_test_assertions_assert"]) {
-      await dbadapter.execute(`drop schema if exists "${s}" cascade`).catch(() => undefined);
-    }
+      const meta = await dbadapter.table({ schema, name: "described_table" });
+      expect(meta.description).to.equal("a 'described' table");
+      const byName = keyBy(meta.fields, (f) => f.name);
+      expect(byName["id"].description).to.equal("the identifier");
+      expect(byName["label"].description).to.equal("the label's text");
 
-    const compiledGraph = await compile("tests/integration/postgres_assertion_project", "assert");
-
-    // The compiler auto-creates one assertion per uniqueKey — single column
-    // (dup_table), and multiple keys incl. a multi-column one (unique_table).
-    const names = compiledGraph.assertions.map(a => targetAsReadableString(a.target));
-    expect(names.some(n => n.includes("dup_table") && n.includes("uniqueKey"))).to.equal(true);
-    expect(names.filter(n => n.includes("unique_table") && n.includes("uniqueKey")).length).to.equal(2);
-
-    const executionGraph = await dfapi.build(compiledGraph, {}, dbadapter);
-    const executed = await dfapi.run(dbadapter, executionGraph).result();
-    const assertionsMatching = (pred: (name: string) => boolean) =>
-      executed.actions.filter(a => pred(targetAsReadableString(a.target)));
-
-    // Single-column uniqueKey over duplicate data -> assertion FAILS (catches it).
-    const dup = assertionsMatching(n => n.includes("dup_table") && n.includes("uniqueKey"));
-    expect(dup.length).to.equal(1);
-    expect(dup[0].status).to.equal(sqlanvil.ActionResult.ExecutionStatus.FAILED);
-
-    // Multi-column (a,b) + single-column (c) uniqueKeys over unique data -> both PASS.
-    const unique = assertionsMatching(n => n.includes("unique_table") && n.includes("uniqueKey"));
-    expect(unique.length).to.equal(2);
-    unique.forEach(a =>
-      expect(a.status).to.equal(sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL)
-    );
-
-    for (const s of ["sa_integration_test_assert", "sa_integration_test_assertions_assert"]) {
-      await dbadapter.execute(`drop schema if exists "${s}" cascade`).catch(() => undefined);
-    }
-  });
-
-  test("metadata: columns string-shorthand (col: \"desc\") compiles and applies on Postgres", { timeout: 60000 }, async () => {
-    const schema = "sa_integration_test_meta2";
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-
-    // described_table uses the string shorthand: description + columns { col: "desc" }
-    // on a plain `type: "table"` — the acuantia authoring style.
-    const compiledGraph = await compile("tests/integration/postgres_assertion_project", "meta2");
-    const executionGraph = await dfapi.build(compiledGraph, { actions: ["described_table"] }, dbadapter);
-    await dfapi.run(dbadapter, executionGraph).result();
-
-    const meta = await dbadapter.table({ schema, name: "described_table" });
-    expect(meta.description).to.equal("a 'described' table");
-    const byName = keyBy(meta.fields, f => f.name);
-    expect(byName["id"].description).to.equal("the identifier");
-    expect(byName["label"].description).to.equal("the label's text");
-
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-  });
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    },
+  );
 
   test(
     "postgres_fdw source: user mapping authenticates with run-time-injected credentials",
@@ -997,8 +1079,12 @@ $$`
       const extSchema = `${conn}_ext`;
       const remoteSchema = "fdw_remote_src";
 
-      await dbadapter.execute(`drop schema if exists "${extSchema}" cascade`).catch(() => undefined);
-      await dbadapter.execute(`drop schema if exists "${remoteSchema}" cascade`).catch(() => undefined);
+      await dbadapter
+        .execute(`drop schema if exists "${extSchema}" cascade`)
+        .catch(() => undefined);
+      await dbadapter
+        .execute(`drop schema if exists "${remoteSchema}" cascade`)
+        .catch(() => undefined);
 
       // Seed a "remote" source table. Loopback FDW (same instance, separate schema):
       // enough to exercise postgres_fdw + the user mapping's authentication.
@@ -1019,12 +1105,12 @@ $$`
           `options (user '${userToken}', password '${passwordToken}')`,
         `create schema "${extSchema}"`,
         `create foreign table "${extSchema}"."orders" ("id" int, "amount" numeric) ` +
-          `server "${server}" options (schema_name '${remoteSchema}', table_name 'orders')`
+          `server "${server}" options (schema_name '${remoteSchema}', table_name 'orders')`,
       ];
 
       // Inject the source credentials exactly as the run path does, then execute.
       const connections = {
-        [conn]: { user: PostgresFixture.user, password: PostgresFixture.password }
+        [conn]: { user: PostgresFixture.user, password: PostgresFixture.password },
       };
       for (const stmt of bridge) {
         await dbadapter.execute(substituteConnectionCredentials(stmt, connections));
@@ -1033,199 +1119,222 @@ $$`
       // Reading through the foreign table proves the user mapping authenticated with
       // the injected credentials.
       const { rows } = await dbadapter.execute(
-        `select id, amount from "${extSchema}"."orders" order by id`
+        `select id, amount from "${extSchema}"."orders" order by id`,
       );
       expect(rows.map((r: any) => Number(r.id))).deep.equals([1, 2]);
 
-      await dbadapter.execute(`drop schema if exists "${extSchema}" cascade`).catch(() => undefined);
-      await dbadapter.execute(`drop schema if exists "${remoteSchema}" cascade`).catch(() => undefined);
-    }
+      await dbadapter
+        .execute(`drop schema if exists "${extSchema}" cascade`)
+        .catch(() => undefined);
+      await dbadapter
+        .execute(`drop schema if exists "${remoteSchema}" cascade`)
+        .catch(() => undefined);
+    },
   );
 
   for (const format of ["parquet", "csv", "json"]) {
-    test(`exports a Postgres query to a local ${format} file via DuckDB`, { timeout: 120000 }, async () => {
-      const schema = `sa_integration_test_export_${format}`;
-      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-      await dbadapter.execute(`create schema "${schema}"`);
-      await dbadapter.execute(
-        `create table "${schema}"."orders" as select 1 as id, 'a' as name union all select 2, 'b'`
-      );
+    test(
+      `exports a Postgres query to a local ${format} file via DuckDB`,
+      { timeout: 120000 },
+      async () => {
+        const schema = `sa_integration_test_export_${format}`;
+        await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+        await dbadapter.execute(`create schema "${schema}"`);
+        await dbadapter.execute(
+          `create table "${schema}"."orders" as select 1 as id, 'a' as name union all select 2, 'b'`,
+        );
 
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sa-export-"));
-      await runDuckdbExport({
-        spec: sqlanvil.ExportSpec.create({
-          location: `local://${dir}/`,
-          format,
-          filename: "orders"
-        }),
-        selectSql: `select * from "${schema}"."orders" order by id`,
-        pg: {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sa-export-"));
+        await runDuckdbExport({
+          spec: sqlanvil.ExportSpec.create({
+            location: `local://${dir}/`,
+            format,
+            filename: "orders",
+          }),
+          selectSql: `select * from "${schema}"."orders" order by id`,
+          pg: {
+            host: PostgresFixture.host,
+            port: PostgresFixture.port,
+            database: PostgresFixture.database,
+            user: PostgresFixture.user,
+            password: PostgresFixture.password,
+          },
+          actionName: "orders",
+        });
+
+        const ext = format === "json" ? "jsonl" : format;
+        const rows = (await readViaDuckdb(path.join(dir, `orders.${ext}`), format))
+          .map((r: any) => ({ id: Number(r.id), name: r.name }))
+          .sort((a, b) => a.id - b.id);
+        expect(rows).deep.equals([
+          { id: 1, name: "a" },
+          { id: 2, name: "b" },
+        ]);
+
+        await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+      },
+    );
+  }
+
+  for (const format of ["parquet", "csv"]) {
+    test(
+      `imports a local ${format} file into Postgres via DuckDB (round-trip)`,
+      { timeout: 120000 },
+      async () => {
+        const schema = `sa_integration_test_import_${format}`;
+        await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+        await dbadapter.execute(`create schema "${schema}"`);
+        await dbadapter.execute(
+          `create table "${schema}"."src" as select 1 as id, 'a' as name union all select 2, 'b'`,
+        );
+
+        const pg = {
           host: PostgresFixture.host,
           port: PostgresFixture.port,
           database: PostgresFixture.database,
           user: PostgresFixture.user,
-          password: PostgresFixture.password
-        },
-        actionName: "orders"
-      });
+          password: PostgresFixture.password,
+        };
 
-      const ext = format === "json" ? "jsonl" : format;
-      const rows = (await readViaDuckdb(path.join(dir, `orders.${ext}`), format))
-        .map((r: any) => ({ id: Number(r.id), name: r.name }))
-        .sort((a, b) => a.id - b.id);
-      expect(rows).deep.equals([
-        { id: 1, name: "a" },
-        { id: 2, name: "b" }
-      ]);
+        // Write a file to import from (reuse the export bridge).
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sa-import-"));
+        await runDuckdbExport({
+          spec: sqlanvil.ExportSpec.create({
+            location: `local://${dir}/`,
+            format,
+            filename: "src",
+          }),
+          selectSql: `select * from "${schema}"."src" order by id`,
+          pg,
+          actionName: "src",
+        });
+        const ext = format === "json" ? "jsonl" : format;
+        const file = `local://${path.join(dir, `src.${ext}`)}`;
 
-      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-    });
-  }
+        // Overwrite import: the file lands in a new, ref()-able warehouse table.
+        await runDuckdbImport({
+          spec: sqlanvil.ImportSpec.create({ location: file, format, overwrite: true }),
+          target: sqlanvil.Target.create({ schema, name: "loaded" }),
+          pg,
+        });
+        const loaded = (
+          await dbadapter.execute(`select id, name from "${schema}"."loaded" order by id`)
+        ).rows.map((r: any) => ({ id: Number(r.id), name: r.name }));
+        expect(loaded).deep.equals([
+          { id: 1, name: "a" },
+          { id: 2, name: "b" },
+        ]);
 
-  for (const format of ["parquet", "csv"]) {
-    test(`imports a local ${format} file into Postgres via DuckDB (round-trip)`, { timeout: 120000 }, async () => {
-      const schema = `sa_integration_test_import_${format}`;
-      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-      await dbadapter.execute(`create schema "${schema}"`);
-      await dbadapter.execute(
-        `create table "${schema}"."src" as select 1 as id, 'a' as name union all select 2, 'b'`
-      );
+        // Append import (overwrite:false): rows are added to the existing table.
+        await runDuckdbImport({
+          spec: sqlanvil.ImportSpec.create({ location: file, format, overwrite: false }),
+          target: sqlanvil.Target.create({ schema, name: "loaded" }),
+          pg,
+        });
+        const count = Number(
+          (await dbadapter.execute(`select count(*)::int as n from "${schema}"."loaded"`)).rows[0]
+            .n,
+        );
+        expect(count).equals(4);
 
-      const pg = {
-        host: PostgresFixture.host,
-        port: PostgresFixture.port,
-        database: PostgresFixture.database,
-        user: PostgresFixture.user,
-        password: PostgresFixture.password
-      };
-
-      // Write a file to import from (reuse the export bridge).
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sa-import-"));
-      await runDuckdbExport({
-        spec: sqlanvil.ExportSpec.create({ location: `local://${dir}/`, format, filename: "src" }),
-        selectSql: `select * from "${schema}"."src" order by id`,
-        pg,
-        actionName: "src"
-      });
-      const ext = format === "json" ? "jsonl" : format;
-      const file = `local://${path.join(dir, `src.${ext}`)}`;
-
-      // Overwrite import: the file lands in a new, ref()-able warehouse table.
-      await runDuckdbImport({
-        spec: sqlanvil.ImportSpec.create({ location: file, format, overwrite: true }),
-        target: sqlanvil.Target.create({ schema, name: "loaded" }),
-        pg
-      });
-      const loaded = (
-        await dbadapter.execute(`select id, name from "${schema}"."loaded" order by id`)
-      ).rows.map((r: any) => ({ id: Number(r.id), name: r.name }));
-      expect(loaded).deep.equals([
-        { id: 1, name: "a" },
-        { id: 2, name: "b" }
-      ]);
-
-      // Append import (overwrite:false): rows are added to the existing table.
-      await runDuckdbImport({
-        spec: sqlanvil.ImportSpec.create({ location: file, format, overwrite: false }),
-        target: sqlanvil.Target.create({ schema, name: "loaded" }),
-        pg
-      });
-      const count = Number(
-        (await dbadapter.execute(`select count(*)::int as n from "${schema}"."loaded"`)).rows[0].n
-      );
-      expect(count).equals(4);
-
-      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-    });
+        await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+      },
+    );
   }
 
   // The python script-action chain (issue #48): a script stages a CSV → import loads it into a
   // ref()-able table → the data checks out. runScript is the exact code path `sqlanvil run`
   // dispatches a "script" task to; checkScriptAction is validate's env check for the same action.
-  test("a python script stages a CSV that import loads (script → import chain)", { timeout: 120000 }, async () => {
-    const schema = "sa_integration_test_script_chain";
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-    await dbadapter.execute(`create schema "${schema}"`);
+  test(
+    "a python script stages a CSV that import loads (script → import chain)",
+    { timeout: 120000 },
+    async () => {
+      const schema = "sa_integration_test_script_chain";
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+      await dbadapter.execute(`create schema "${schema}"`);
 
-    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "sa-script-"));
-    fs.mkdirSync(path.join(projectDir, "loader"));
-    fs.writeFileSync(
-      path.join(projectDir, "loader", "stage_addresses.py"),
-      [
-        "import csv, json, os, sys",
-        "rows = [",
-        '    {"id": 1, "city": "Boston", "lat": 42.36},',
-        '    {"id": 2, "city": "Portland", "lat": 43.66},',
-        '    {"id": 3, "city": "Nowhere", "lat": 999.0},  # broken row',
-        "]",
-        "# The staging contract: filter obviously-broken rows before the warehouse sees them.",
-        "rows = [r for r in rows if -90 <= r['lat'] <= 90]",
-        'os.makedirs("staged", exist_ok=True)',
-        'with open("staged/addresses.csv", "w", newline="") as f:',
-        '    w = csv.DictWriter(f, fieldnames=["id", "city", "lat"])',
-        "    w.writeheader()",
-        "    w.writerows(rows)",
-        'print("staged %d rows for %s" % (len(rows), os.environ.get("SA_ACTION_NAME")))'
-      ].join("\n")
-    );
+      const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "sa-script-"));
+      fs.mkdirSync(path.join(projectDir, "loader"));
+      fs.writeFileSync(
+        path.join(projectDir, "loader", "stage_addresses.py"),
+        [
+          "import csv, json, os, sys",
+          "rows = [",
+          '    {"id": 1, "city": "Boston", "lat": 42.36},',
+          '    {"id": 2, "city": "Portland", "lat": 43.66},',
+          '    {"id": 3, "city": "Nowhere", "lat": 999.0},  # broken row',
+          "]",
+          "# The staging contract: filter obviously-broken rows before the warehouse sees them.",
+          "rows = [r for r in rows if -90 <= r['lat'] <= 90]",
+          'os.makedirs("staged", exist_ok=True)',
+          'with open("staged/addresses.csv", "w", newline="") as f:',
+          '    w = csv.DictWriter(f, fieldnames=["id", "city", "lat"])',
+          "    w.writeheader()",
+          "    w.writerows(rows)",
+          'print("staged %d rows for %s" % (len(rows), os.environ.get("SA_ACTION_NAME")))',
+        ].join("\n"),
+      );
 
-    // validate's env check passes for the real script + interpreter.
-    const evaluations = await checkScriptAction(
-      sqlanvil.Script.create({
-        target: { schema, name: "stage_addresses" },
-        language: "python",
-        scriptFilename: "loader/stage_addresses.py",
-        runtimeVersion: ">=3.8"
-      }),
-      projectDir
-    );
-    expect(evaluations).deep.equals([
-      { status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS }
-    ]);
+      // validate's env check passes for the real script + interpreter.
+      const evaluations = await checkScriptAction(
+        sqlanvil.Script.create({
+          target: { schema, name: "stage_addresses" },
+          language: "python",
+          scriptFilename: "loader/stage_addresses.py",
+          runtimeVersion: ">=3.8",
+        }),
+        projectDir,
+      );
+      expect(evaluations).deep.equals([
+        { status: sqlanvil.QueryEvaluation.QueryEvaluationStatus.SUCCESS },
+      ]);
 
-    // Run the script (what a "script" ExecutionTask does), then import its output file.
-    await runScript({
-      spec: sqlanvil.ScriptSpec.create({
-        language: "python",
-        filename: "loader/stage_addresses.py"
-      }),
-      target: sqlanvil.Target.create({ schema, name: "stage_addresses" }),
-      projectDir,
-      vars: {},
-      onOutput: () => undefined
-    });
+      // Run the script (what a "script" ExecutionTask does), then import its output file.
+      await runScript({
+        spec: sqlanvil.ScriptSpec.create({
+          language: "python",
+          filename: "loader/stage_addresses.py",
+        }),
+        target: sqlanvil.Target.create({ schema, name: "stage_addresses" }),
+        projectDir,
+        vars: {},
+        onOutput: () => undefined,
+      });
 
-    await runDuckdbImport({
-      spec: sqlanvil.ImportSpec.create({
-        location: `local://${path.join(projectDir, "staged", "addresses.csv")}`,
-        format: "csv",
-        overwrite: true
-      }),
-      target: sqlanvil.Target.create({ schema, name: "addresses" }),
-      pg: {
-        host: PostgresFixture.host,
-        port: PostgresFixture.port,
-        database: PostgresFixture.database,
-        user: PostgresFixture.user,
-        password: PostgresFixture.password
-      }
-    });
+      await runDuckdbImport({
+        spec: sqlanvil.ImportSpec.create({
+          location: `local://${path.join(projectDir, "staged", "addresses.csv")}`,
+          format: "csv",
+          overwrite: true,
+        }),
+        target: sqlanvil.Target.create({ schema, name: "addresses" }),
+        pg: {
+          host: PostgresFixture.host,
+          port: PostgresFixture.port,
+          database: PostgresFixture.database,
+          user: PostgresFixture.user,
+          password: PostgresFixture.password,
+        },
+      });
 
-    const loaded = (
-      await dbadapter.execute(`select id, city from "${schema}"."addresses" order by id`)
-    ).rows.map((r: any) => ({ id: Number(r.id), city: r.city }));
-    expect(loaded).deep.equals([
-      { id: 1, city: "Boston" },
-      { id: 2, city: "Portland" }
-    ]);
-    // The assertion-style check: no out-of-range coordinates made it through.
-    const bad = Number(
-      (await dbadapter.execute(
-        `select count(*)::int as n from "${schema}"."addresses" where lat not between -90 and 90`
-      )).rows[0].n
-    );
-    expect(bad).equals(0);
+      const loaded = (
+        await dbadapter.execute(`select id, city from "${schema}"."addresses" order by id`)
+      ).rows.map((r: any) => ({ id: Number(r.id), city: r.city }));
+      expect(loaded).deep.equals([
+        { id: 1, city: "Boston" },
+        { id: 2, city: "Portland" },
+      ]);
+      // The assertion-style check: no out-of-range coordinates made it through.
+      const bad = Number(
+        (
+          await dbadapter.execute(
+            `select count(*)::int as n from "${schema}"."addresses" where lat not between -90 and 90`,
+          )
+        ).rows[0].n,
+      );
+      expect(bad).equals(0);
 
-    await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
-  });
+      await dbadapter.execute(`drop schema if exists "${schema}" cascade`).catch(() => undefined);
+    },
+  );
 });

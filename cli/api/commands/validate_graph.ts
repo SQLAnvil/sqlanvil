@@ -34,13 +34,13 @@ export interface OrderedNode {
  * caller still gets every node (the compiler rejects real cycles upstream anyway).
  */
 export function topoOrder<T extends OrderedNode>(nodes: T[]): T[] {
-  const byKey = new Map<string, T>(nodes.map(n => [n.key, n]));
+  const byKey = new Map<string, T>(nodes.map((n) => [n.key, n]));
   const indegree = new Map<string, number>();
   const dependents = new Map<string, string[]>(); // dep key -> nodes that depend on it
 
   for (const n of nodes) {
     const inGraphDeps = Array.from(
-      new Set(n.dependencyKeys.filter(d => byKey.has(d) && d !== n.key))
+      new Set(n.dependencyKeys.filter((d) => byKey.has(d) && d !== n.key)),
     );
     indegree.set(n.key, inGraphDeps.length);
     for (const dep of inGraphDeps) {
@@ -49,8 +49,8 @@ export function topoOrder<T extends OrderedNode>(nodes: T[]): T[] {
   }
 
   const ready = nodes
-    .filter(n => (indegree.get(n.key) || 0) === 0)
-    .map(n => n.key)
+    .filter((n) => (indegree.get(n.key) || 0) === 0)
+    .map((n) => n.key)
     .sort();
   const ordered: T[] = [];
   const emitted = new Set<string>();
@@ -90,9 +90,9 @@ export function topoOrder<T extends OrderedNode>(nodes: T[]): T[] {
  */
 export function dependencyBlocked(
   dependencyKeys: string[],
-  statusByKey: Map<string, ValidationStatus>
+  statusByKey: Map<string, ValidationStatus>,
 ): boolean {
-  return dependencyKeys.some(dep => {
+  return dependencyKeys.some((dep) => {
     const status = statusByKey.get(dep);
     return status !== undefined && status !== "PASS";
   });
@@ -111,7 +111,7 @@ export function dependencyBlocked(
 export function rewriteSelfReferences(
   graph: sqlanvil.ICompiledGraph,
   shadowSuffix: string,
-  resolveTarget: (target: sqlanvil.ITarget) => string
+  resolveTarget: (target: sqlanvil.ITarget) => string,
 ): sqlanvil.ICompiledGraph {
   const suffix = `_${shadowSuffix}`;
   for (const action of [...(graph.tables || []), ...(graph.assertions || [])]) {
@@ -121,7 +121,7 @@ export function rewriteSelfReferences(
     }
     const prodTarget = sqlanvil.Target.create({
       ...target,
-      schema: target.schema.slice(0, -suffix.length)
+      schema: target.schema.slice(0, -suffix.length),
     });
     const shadowName = resolveTarget(target);
     const prodName = resolveTarget(prodTarget);
@@ -165,9 +165,9 @@ export function parseShadowTimestamp(schemaName: string): number | null {
 export function shadowSchemasToSweep(
   schemaNames: string[],
   nowMs: number,
-  maxAgeMs: number
+  maxAgeMs: number,
 ): string[] {
-  return schemaNames.filter(name => {
+  return schemaNames.filter((name) => {
     const ts = parseShadowTimestamp(name);
     return ts !== null && nowMs - ts > maxAgeMs;
   });
