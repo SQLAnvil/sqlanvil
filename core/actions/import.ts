@@ -30,6 +30,21 @@ const VALID_FORMATS = ["parquet", "csv", "json"];
  * On BigQuery this compiles to a native `LOAD DATA` statement (gs:// only). On Postgres/Supabase
  * the runner performs the load via DuckDB (read the file, write into the warehouse). Data is loaded
  * as-is (no transform) — shape it in a downstream model.
+ *
+ * **Naming the import:**
+ *
+ * By default an import is named after its file: `definitions/orders_in.sqlx` loads into a table
+ * called `orders_in`. Set `name` in the config to override that. The file is loaded into a table
+ * with the new name, and other actions `ref()` it by that name, not by the filename:
+ *
+ * ```sql
+ * -- definitions/imports/orders.sqlx
+ * config {
+ *   type: "import",
+ *   name: "orders_raw",
+ *   import: { location: "s3://bucket/orders/*.parquet", format: "parquet" }
+ * }
+ * ```
  */
 export class Import extends ActionBuilder<sqlanvil.Import> {
   /** @hidden */

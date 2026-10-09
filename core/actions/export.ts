@@ -28,6 +28,25 @@ const VALID_FORMATS = ["parquet", "csv", "json"];
  *
  * On BigQuery this compiles to a native `EXPORT DATA` statement (gs:// only). On
  * Postgres/Supabase the runner performs the export via DuckDB.
+ *
+ * **Naming the export:**
+ *
+ * By default an export is named after its file: `definitions/dump.sqlx` creates an export called
+ * `dump`. Set `name` in the config to override that. The name also sets the file the export writes:
+ * unless `export.filename` is set, the output is `<location>/<name>.<format>` (on BigQuery,
+ * `<name>_*.<format>`, since it can write several files):
+ *
+ * ```sql
+ * -- definitions/exports/orders.sqlx
+ * config {
+ *   type: "export",
+ *   name: "orders_extract",
+ *   export: { location: "s3://bucket/orders/", format: "parquet" }
+ * }
+ * SELECT * FROM ${ref("orders")}
+ * ```
+ *
+ * This writes `s3://bucket/orders/orders_extract.parquet`.
  */
 export class Export extends ActionBuilder<sqlanvil.Export> {
   /** @hidden */
