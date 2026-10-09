@@ -74,6 +74,23 @@ import { sqlanvil } from "sa/protos/ts";
  *
  * Note: When using the Javascript API, methods in this class can be accessed by the returned value.
  * This is where `query` comes from.
+ *
+ * **Naming the incremental table:**
+ *
+ * By default an incremental table is named after its file: `definitions/name.sqlx` creates a table
+ * called `name`. Set `name` in the config to override that. The table is created under the new name,
+ * and other actions `ref()` it by that name, not by the filename:
+ *
+ * ```sql
+ * -- definitions/events/inc.sqlx
+ * config {
+ *   type: "incremental",
+ *   name: "events_incremental"
+ * }
+ * SELECT ${when(incremental(), 1, 2) }
+ * ```
+ *
+ * In the Javascript API the name is the first argument.
  */
 export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
   /** @hidden Hold a reference to the Session instance. */

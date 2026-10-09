@@ -81,6 +81,24 @@ export type JitAssertionResult = string | { query: string };
  *
  * Note: When using the Javascript API, methods in this class can be accessed by the returned value.
  * This is where `query` comes from.
+ *
+ * **Naming the assertion:**
+ *
+ * By default an assertion is named after its file: `definitions/name.sqlx` creates an assertion
+ * called `name` in your assertion schema. Set `name` in the config to override that. Other actions
+ * then refer to it by the new name, for example in `dependencies`:
+ *
+ * ```sql
+ * -- definitions/checks/nulls.sqlx
+ * config {
+ *   type: "assertion",
+ *   name: "orders_no_null_ids"
+ * }
+ * SELECT * FROM table WHERE a IS NULL
+ * ```
+ *
+ * `name` works the same way next to `filename` in an action configs file. In the Javascript API
+ * the name is the first argument.
  */
 export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
   /** @hidden Hold a reference to the Session instance. */

@@ -74,6 +74,25 @@ export type JitOperationResult = string | string[] | sqlanvil.IJitOperationResul
  *
  * Note: When using the Javascript API, methods in this class can be accessed by the returned value.
  * This is where `query` comes from.
+ *
+ * **Naming the operation:**
+ *
+ * By default an operation is named after its file: `definitions/name.sqlx` creates an operation
+ * called `name`. Set `name` in the config to override that. Other actions refer to it by the new
+ * name in `dependencies`, or with `ref()` if the operation sets `hasOutput: true`, since `self()`
+ * inside it then resolves to that name:
+ *
+ * ```sql
+ * -- definitions/maintenance/gb.sqlx
+ * config {
+ *   type: "operations",
+ *   name: "delete_gb_rows"
+ * }
+ * DELETE FROM dataset.table WHERE country = 'GB'
+ * ```
+ *
+ * `name` works the same way next to `filename` in an action configs file. In the Javascript API
+ * the name is the first argument.
  */
 export class Operation extends ActionBuilder<sqlanvil.Operation> {
   /** @hidden Hold a reference to the Session instance. */
