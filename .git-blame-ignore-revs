@@ -1,0 +1,5 @@
+# Commits `git blame` should skip: mechanical, no-behavior-change rewrites.
+# Locally: git config blame.ignoreRevsFile .git-blame-ignore-revs (GitHub reads this file itself).
+
+# style: format every .ts file with prettier 3.9.4 (upstream #2342)
+818ac2f73cce47d7e7639f106b9892d93430b1ba

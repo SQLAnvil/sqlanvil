@@ -433,4 +433,20 @@ SQLANVIL_VERSION = "1.32.10"
 # --database-suffix and validate help text, and @sqlanvil/cli now ships cli/README.md (the CLI
 # reference) as its README, as upstream did in #2364.
 #
+# Taken after 1.32.10 from earlier deferrals (DF_VERSION stays 3.0.71):
+#
+#   * #2315 prettier 1.19.1 -> 3.9.4. TAKEN on its own (9f02c811). It is only a package.json and
+#     yarn.lock change, so it never needed #2297: nothing shipped imports prettier, and tslint
+#     extends tslint-config-prettier, so tslint does not fight prettier 3's output. #2297
+#     (tslint -> eslint) stays deferred. Also added a .prettierignore: upstream's (from the
+#     declined #2312) plus our fixture projects.
+#
+#   * #2342 reformat every .ts file. TAKEN by reproducing it (818ac2f7): `prettier --write
+#     '**/*.ts'` with 3.9.4 on our own tree, 220 files. A cherry-pick conflicted in 90 files (434
+#     hunks) plus 44 upstream-only files. Syntax trees are identical before and after, lint
+#     findings are unchanged, and the shared files' distance from upstream 3.0.71 drops from
+#     23,900 to 17,373 lines, so later upstream changes stop conflicting on formatting alone.
+#     The commit is listed in .git-blame-ignore-revs. Run prettier 3.9.4 on anything ported by
+#     hand from upstream so it stays in step.
+#
 DF_VERSION = "3.0.71"
