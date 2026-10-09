@@ -254,7 +254,8 @@ message ActionConfig {
   }
 
   message TableConfig {
-    // The name of the table.
+    // The name of the table. Defaults to the file's name, without the extension; set it to
+    // override. Other actions `ref()` the table by this name.
     string name = 1;
 
     // The dataset (schema) of the table.
@@ -363,7 +364,8 @@ message ActionConfig {
   }
 
   message ViewConfig {
-    // The name of the view.
+    // The name of the view. Defaults to the file's name, without the extension; set it to
+    // override. Other actions `ref()` the view by this name.
     string name = 1;
 
     // The dataset (schema) of the view.
@@ -479,7 +481,8 @@ message ActionConfig {
   }
 
   message IncrementalTableConfig {
-    // The name of the incremental table.
+    // The name of the incremental table. Defaults to the file's name, without the extension; set
+    // it to override. Other actions `ref()` the table by this name.
     string name = 1;
 
     // The dataset (schema) of the incremental table.
@@ -603,7 +606,8 @@ message ActionConfig {
   }
 
   message AssertionConfig {
-    // The name of the assertion.
+    // The name of the assertion. Defaults to the file's name, without the extension; set it to
+    // override. Other actions refer to the assertion by this name, for example in `dependencies`.
     string name = 1;
 
     // The dataset (schema) of the assertion.
@@ -649,7 +653,9 @@ message ActionConfig {
   }
 
   message OperationConfig {
-    // The name of the operation.
+    // The name of the operation. Defaults to the file's name, without the extension; set it to
+    // override. Other actions refer to it by this name in `dependencies`, or with `ref()` if
+    // `hasOutput` is true.
     string name = 1;
 
     // The dataset (schema) of the operation.
@@ -717,7 +723,9 @@ message ActionConfig {
   // Configuration for a `type: "export"` action: writes a SELECT result to a
   // Parquet/CSV/JSON file at a cloud or local location.
   message ExportConfig {
-    // The name of the export.
+    // The name of the export. Defaults to the file's name, without the extension; set it to
+    // override. Unless `export.filename` is set, this is also the base name of the file the export
+    // writes.
     string name = 1;
 
     // The dataset (schema) used to qualify the export's target name.
@@ -766,7 +774,8 @@ message ActionConfig {
   // Configuration for a `type: "import"` action: loads a Parquet/CSV/JSON file into a table in
   // the warehouse (the inverse of `type: "export"`). The resulting table is ref()-able.
   message ImportConfig {
-    // The name of the import (the destination table name).
+    // The name of the import (the destination table name). Defaults to the file's name, without
+    // the extension; set it to override. Other actions `ref()` the loaded table by this name.
     string name = 1;
 
     // The dataset (schema) used to qualify the import's target name.
@@ -798,7 +807,9 @@ message ActionConfig {
   }
 
   message DeclarationConfig {
-    // The name of the declaration.
+    // The name of the declaration, which must match the existing table it points at. In a SQLX
+    // file it defaults to the file's name, without the extension; in an action configs file or the
+    // JavaScript API it is required.
     string name = 1;
 
     // The dataset (schema) of the declaration.
@@ -829,7 +840,8 @@ message ActionConfig {
   }
 
   message NotebookConfig {
-    // The name of the notebook.
+    // The name of the notebook. Defaults to the notebook file's name, without the extension; set
+    // it to override, for example to run one notebook file as several actions.
     string name = 1;
 
     // The Google Cloud location of the notebook.
