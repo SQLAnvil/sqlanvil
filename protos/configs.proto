@@ -994,6 +994,9 @@ message ActionConfig {
   }
 
   message RlsPolicyConfig {
+    // The name of the Postgres policy that `CREATE POLICY` creates. Set it explicitly; unlike most
+    // actions, it is not taken from the file name. The action itself is named
+    // `{table}_policy_{name}`.
     string name = 1;
     string table = 2;
     string command = 3;
@@ -1005,6 +1008,8 @@ message ActionConfig {
   }
 
   message RealtimePublicationConfig {
+    // The Postgres publication to add the table to. Optional; defaults to `supabase_realtime`, not
+    // to the file name. The action itself is named `{table}_realtime_{name}`.
     string name = 1;
     string table = 2;
     repeated string events = 3;
@@ -1013,6 +1018,8 @@ message ActionConfig {
   }
 
   message ForeignWrapperConfig {
+    // The name of the wrapper action. Set it explicitly; unlike most actions, it is not taken from
+    // the file name. The Postgres foreign server's name is set separately by `server`.
     string name = 1;
     string wrapper = 2;
     string server = 3;
@@ -1022,6 +1029,8 @@ message ActionConfig {
   }
 
   message VectorIndexConfig {
+    // The name of the Postgres index. Set it explicitly; unlike most actions, it is not taken from
+    // the file name. The action itself is named `{table}_idx_{name}`.
     string name = 1;
     string table = 2;
     string column = 3;
