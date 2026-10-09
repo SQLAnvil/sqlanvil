@@ -73,6 +73,26 @@ const ITestConfigProperties = strictKeysOf<ITestConfig>()(["type", "dataset", "n
  *
  * Note: When using the Javascript API, methods in this class can be accessed by the returned value.
  * This is where `input` and `expect` come from.
+ *
+ * **Naming the test:**
+ *
+ * By default a test in a SQLX file is named after its file: `definitions/name.sqlx` creates a test
+ * called `name`. Set `name` in the config to override that. A test creates nothing in the warehouse,
+ * so the name is only its label: `sqlanvil test` reports each result as `<name>: passed` or
+ * `<name>: failed`. The action under test is set by `dataset`, not by the name:
+ *
+ * ```sql
+ * -- definitions/tests/sample_data.sqlx
+ * config {
+ *   type: "test",
+ *   dataset: "sample_data",
+ *   name: "sample_data_returns_one"
+ * }
+ *
+ * SELECT 1 AS bar
+ * ```
+ *
+ * In the Javascript API the name is the first argument to `test()`.
  */
 export class Test extends ActionBuilder<sqlanvil.Test> {
   /** @hidden Hold a reference to the Session instance. */

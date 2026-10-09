@@ -45,6 +45,23 @@ import { sqlanvil } from "sa/protos/ts";
  * # definitions/name.ipynb
  * { "cells": [] }
  * ```
+ *
+ * **Naming the notebook:**
+ *
+ * By default a notebook action is named after its notebook file, without the extension:
+ * `filename: name.ipynb` creates a notebook called `name`. Set `name` in the config to override
+ * that. Other actions then refer to it by the new name, for example in `dependencies`. Because the
+ * name no longer comes from the file, one notebook file can back several notebook actions:
+ *
+ * ```yaml
+ * # definitions/actions.yaml
+ * actions:
+ * - notebook:
+ *     filename: report.ipynb
+ *     name: daily_report
+ * ```
+ *
+ * In the Javascript API the name is the first argument.
  */
 export class Notebook extends ActionBuilder<sqlanvil.Notebook> {
   /** @hidden Hold a reference to the Session instance. */
