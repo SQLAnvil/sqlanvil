@@ -876,7 +876,9 @@ message ActionConfig {
   }
 
   message DataPreparationConfig {
-    // The name of the data preparation.
+    // The name of the data preparation, which is also the name of the table it writes. Defaults to
+    // the file's name without its `.dp.yaml`, `.dp.sqlx`, `.yaml` or `.sqlx` extension; set it to
+    // override.
     string name = 1;
 
     // The dataset (schema) of the destination table.
@@ -926,7 +928,9 @@ message ActionConfig {
   // sugar that normalizes to `script: { language: "python", ... }`. Scripts never receive
   // warehouse credentials; they produce files, and `type: "import"` is the loading boundary.
   message ScriptConfig {
-    // The name of the script action (how downstream actions depend on it).
+    // The name of the script action (how downstream actions depend on it). Defaults to the script
+    // file's name, without the extension; set it to override, for example to run one script file
+    // as several actions.
     string name = 1;
 
     // The dataset (schema) used to qualify the script's target name.
