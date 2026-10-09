@@ -614,7 +614,7 @@ config { type: "table", supabase: { vectors: [{ column: "embedding", indexType: 
 SELECT 1 AS id`,
       });
       expect(graph.graphErrors.compilationErrors.map((e) => e.message).join("\n")).to.match(
-        /Unknown vector indexType "flat"; use "hnsw" or "ivfflat"/,
+        /Unknown vector indexType "flat"; use one of: ivfflat, hnsw\./,
       );
     });
 

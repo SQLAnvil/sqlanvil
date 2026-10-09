@@ -18,6 +18,8 @@ import {
   checkExcessProperties,
   configTargetToCompiledGraphTarget,
   nativeRequire,
+  normalizeMysqlOptions,
+  normalizePostgresOptions,
   resolvableAsActionConfigTarget,
   resolvableAsTarget,
   resolveActionsConfigFilename,
@@ -372,7 +374,7 @@ export class View extends ActionBuilder<sqlanvil.Table> {
    * [ViewConfig.postgres](configs#sqlanvil-ActionConfig-ViewConfig).
    */
   public postgres(postgres: sqlanvil.IPostgresOptions) {
-    this.proto.postgres = sqlanvil.PostgresOptions.create(postgres);
+    this.proto.postgres = normalizePostgresOptions(postgres);
   }
 
   /**
@@ -382,7 +384,7 @@ export class View extends ActionBuilder<sqlanvil.Table> {
    * [ViewConfig.mysql](configs#sqlanvil-ActionConfig-ViewConfig).
    */
   public mysql(mysql: sqlanvil.IMysqlOptions) {
-    this.proto.mysql = sqlanvil.MysqlOptions.create(mysql);
+    this.proto.mysql = normalizeMysqlOptions(mysql);
   }
 
   /**

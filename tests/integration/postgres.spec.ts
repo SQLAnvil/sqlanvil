@@ -44,6 +44,7 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       "sa_integration_test_assertions_project_e2e",
       "sa_integration_test_assertions_evaluate",
       "sa_integration_test_search",
+      "sa_integration_test_enum_options",
     ]) {
       try {
         await dbadapter.execute(`drop schema if exists "${schema}" cascade`);
@@ -572,6 +573,40 @@ suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) 
       expect(increment[increment.length - 2].statement).to.equal(table.postOps[0]);
       expect(increment[increment.length - 1].statement).to.equal(table.postOps[1]);
     });
+  });
+
+  test("enum options written as names build the requested index and partitions", async () => {
+    const compiledGraph = await compile(
+      "tests/integration/postgres_options_project",
+      "enum_options",
+    );
+    const executedGraph = await dfapi
+      .run(dbadapter, await dfapi.build(compiledGraph, {}, dbadapter))
+      .result();
+    expect(executedGraph.status).equals(
+      sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL,
+      executedGraph.actions
+        .map((action) => action.tasks.map((task) => task.errorMessage).join("\n"))
+        .join("\n"),
+    );
+
+    const index = await dbadapter.execute(
+      `select indexdef from pg_indexes
+       where schemaname = 'sa_integration_test_enum_options' and indexname = 'docs_tags_gin'`,
+    );
+    expect(index.rows[0].indexdef).to.contain("USING gin (tags)");
+
+    // pg_partitioned_table.partstrat: l = list, h = hash, r = range.
+    const strategies = await dbadapter.execute(
+      `select c.relname, p.partstrat from pg_partitioned_table p
+       join pg_class c on c.oid = p.partrelid
+       join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = 'sa_integration_test_enum_options' order by c.relname`,
+    );
+    expect(strategies.rows.map((row: any) => [row.relname, row.partstrat])).deep.equals([
+      ["docs", "l"],
+      ["docs__eu", "h"],
+    ]);
   });
 
   test("search", async () => {

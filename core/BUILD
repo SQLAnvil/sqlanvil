@@ -90,6 +90,7 @@ ts_test_suite(
         "actions/table_test.ts",
         "actions/test_test.ts",
         "actions/view_test.ts",
+        "actions/warehouse_options_test.ts",
         "actions/supabase_actions_test.ts",
         "compilers_test.ts",
         "jit_compiler_test.ts",

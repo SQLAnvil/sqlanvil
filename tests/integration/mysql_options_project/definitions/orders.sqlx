@@ -1,0 +1,6 @@
+config {
+  type: "table",
+  // Enum options written as names, as users write them.
+  mysql: { partition: { kind: "hash", expression: "id", count: 4 } }
+}
+SELECT 1 AS id

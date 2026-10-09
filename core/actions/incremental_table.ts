@@ -26,6 +26,8 @@ import {
   getFileFormatValueForIcebergTable,
   getStorageUriForIcebergTable,
   nativeRequire,
+  normalizeMysqlOptions,
+  normalizePostgresOptions,
   normalizeSupabaseOptions,
   resolvableAsActionConfigTarget,
   resolvableAsTarget,
@@ -440,12 +442,12 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
   }
 
   public postgres(postgres: sqlanvil.IPostgresOptions) {
-    this.proto.postgres = sqlanvil.PostgresOptions.create(postgres);
+    this.proto.postgres = normalizePostgresOptions(postgres);
     return this;
   }
 
   public mysql(mysql: sqlanvil.IMysqlOptions) {
-    this.proto.mysql = sqlanvil.MysqlOptions.create(mysql);
+    this.proto.mysql = normalizeMysqlOptions(mysql);
     return this;
   }
 

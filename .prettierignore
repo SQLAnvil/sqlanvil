@@ -13,3 +13,5 @@ tests/integration/postgres_assertion_project/
 tests/integration/postgres_project/
 tests/integration/supabase_project/
 tests/integration/supabase_rls_project/
+tests/integration/mysql_options_project/
+tests/integration/postgres_options_project/

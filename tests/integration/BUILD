@@ -53,6 +53,8 @@ ts_test_suite(
         "//tests/integration/postgres_assertion_project:node_modules",
         "//tests/integration/postgres_project:files",
         "//tests/integration/postgres_project:node_modules",
+        "//tests/integration/postgres_options_project:files",
+        "//tests/integration/postgres_options_project:node_modules",
     ],
     tags = ["integration"],
     deps = [
@@ -80,6 +82,8 @@ ts_test_suite(
     data = [
         "//tests/integration/mysql_project:files",
         "//tests/integration/mysql_project:node_modules",
+        "//tests/integration/mysql_options_project:files",
+        "//tests/integration/mysql_options_project:node_modules",
     ],
     tags = ["integration"],
     deps = [

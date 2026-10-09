@@ -25,6 +25,7 @@ suite("@sqlanvil/integration/mysql", { parallel: false }, ({ before, after }) =>
     "sa_integration_test_project_e2e",
     "sa_integration_test_assertions_project_e2e",
     "sa_integration_test_direct",
+    "sa_integration_test_enum_options",
   ];
 
   before("create adapter", async () => {
@@ -356,6 +357,31 @@ suite("@sqlanvil/integration/mysql", { parallel: false }, ({ before, after }) =>
       await dbadapter.execute(`drop database if exists \`${database}\``);
     },
   );
+
+  test("enum options written as names build the requested partitioning", async () => {
+    const compiledGraph = await compile("tests/integration/mysql_options_project", "enum_options");
+    const executedGraph = await dfapi
+      .run(dbadapter, await dfapi.build(compiledGraph, {}, dbadapter))
+      .result();
+    expect(executedGraph.status).equals(
+      sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL,
+      executedGraph.actions
+        .map((action) => action.tasks.map((task) => task.errorMessage).join("\n"))
+        .join("\n"),
+    );
+
+    const partitions = await dbadapter.execute(
+      `select partition_method, count(*) as n from information_schema.partitions
+       where table_schema = 'sa_integration_test_enum_options' and table_name = 'orders'
+       group by partition_method`,
+    );
+    expect(
+      partitions.rows.map((row: any) => [
+        String(row.partition_method ?? row.PARTITION_METHOD),
+        Number(row.n ?? row.N),
+      ]),
+    ).deep.equals([["HASH", 4]]);
+  });
 
   test(
     "run: full project build, incremental append, assertion pass/fail",

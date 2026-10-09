@@ -568,10 +568,88 @@ export function extractActionDetailsFromFileName(path: string): {
   return { fileExtension, fileNameAsTargetName: basename };
 }
 
-// Validates a table's `supabase: {}` block and converts vector `indexType` names to the enum.
-// SupabaseOptions.create() keeps an enum name like "hnsw" as a plain string, and the binary
-// encode the runner receives turns any string into 0 (IVFFLAT), so convert it here. An
-// omitted indexType means HNSW, matching vectorIndex().
+// protobufjs create() keeps an enum given by name (`method: "gin"`) as a plain string, and the
+// binary encode the runner receives turns any string into 0, silently picking the first value.
+// Resolve names (any case) and valid numbers here; an unset value stays unset.
+function resolveEnum(
+  enumType: { [name: string]: string | number },
+  given: unknown,
+  description: string,
+): number | undefined {
+  if (given === undefined || given === null || given === "") {
+    return undefined;
+  }
+  if (typeof given === "number" && typeof enumType[given] === "string") {
+    return given;
+  }
+  if (typeof given === "string") {
+    const value = enumType[given.toUpperCase()];
+    if (typeof value === "number") {
+      return value;
+    }
+  }
+  const names = Object.keys(enumType)
+    .filter((name) => isNaN(Number(name)))
+    .map((name) => name.toLowerCase());
+  throw new Error(`Unknown ${description} "${given}"; use one of: ${names.join(", ")}.`);
+}
+
+function normalizePostgresPartition(
+  partition: sqlanvil.PostgresOptions.IPartition,
+): sqlanvil.PostgresOptions.IPartition {
+  return {
+    ...partition,
+    kind: resolveEnum(
+      sqlanvil.PostgresOptions.Partition.Kind,
+      partition.kind,
+      "postgres partition kind",
+    ),
+    partitions: (partition.partitions || []).map((bound) =>
+      bound.subPartition
+        ? { ...bound, subPartition: normalizePostgresPartition(bound.subPartition) }
+        : bound,
+    ),
+  };
+}
+
+// Converts the enum names in a `postgres: {}` block (index method, partition kind).
+export function normalizePostgresOptions(
+  postgres: sqlanvil.IPostgresOptions,
+): sqlanvil.PostgresOptions {
+  return sqlanvil.PostgresOptions.create({
+    ...postgres,
+    indexes: (postgres.indexes || []).map((index) => ({
+      ...index,
+      method: resolveEnum(
+        sqlanvil.PostgresOptions.Index.Method,
+        index.method,
+        "postgres index method",
+      ),
+    })),
+    ...(postgres.partition ? { partition: normalizePostgresPartition(postgres.partition) } : {}),
+  });
+}
+
+// Converts the enum names in a `mysql: {}` block (partition kind).
+export function normalizeMysqlOptions(mysql: sqlanvil.IMysqlOptions): sqlanvil.MysqlOptions {
+  if (!mysql.partition) {
+    return sqlanvil.MysqlOptions.create(mysql);
+  }
+  return sqlanvil.MysqlOptions.create({
+    ...mysql,
+    partition: {
+      ...mysql.partition,
+      kind: resolveEnum(
+        sqlanvil.MysqlOptions.Partition.Kind,
+        mysql.partition.kind,
+        "mysql partition kind",
+      ),
+    },
+  });
+}
+
+// Validates a table's `supabase: {}` block and converts its enum names (vector indexType, and
+// those of a nested `postgres:` block). An omitted indexType means HNSW, matching vectorIndex().
 export function normalizeSupabaseOptions(
   supabase: sqlanvil.ISupabaseOptions,
   warehouse: string | null | undefined,
@@ -588,20 +666,14 @@ export function normalizeSupabaseOptions(
     if (!vector.column) {
       throw new Error(`Each supabase.vectors entry needs a 'column'.`);
     }
-    const given: unknown = vector.indexType;
-    let indexType: sqlanvil.SupabaseOptions.VectorConfig.IndexType;
-    if (given === undefined || given === null || given === "") {
-      indexType = IndexType.HNSW;
-    } else if (typeof given === "number" && IndexType[given] !== undefined) {
-      indexType = given;
-    } else if (typeof given === "string" && given.toUpperCase() in IndexType) {
-      indexType = IndexType[given.toUpperCase() as keyof typeof IndexType];
-    } else {
-      throw new Error(`Unknown vector indexType "${given}"; use "hnsw" or "ivfflat".`);
-    }
-    return { ...vector, indexType };
+    const indexType = resolveEnum(IndexType, vector.indexType, "vector indexType");
+    return { ...vector, indexType: indexType === undefined ? IndexType.HNSW : indexType };
   });
-  return sqlanvil.SupabaseOptions.create({ ...supabase, vectors });
+  return sqlanvil.SupabaseOptions.create({
+    ...supabase,
+    vectors,
+    ...(supabase.postgres ? { postgres: normalizePostgresOptions(supabase.postgres) } : {}),
+  });
 }
 
 // Converts the config proto's target proto to the compiled graph proto's representation.

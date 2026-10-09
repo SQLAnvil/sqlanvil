@@ -1,0 +1,26 @@
+config {
+  type: "table",
+  postgres: {
+    // Enum options written as names, as users write them.
+    indexes: [{ name: "docs_tags_gin", columns: ["tags"], method: "gin" }],
+    partition: {
+      kind: "list",
+      columns: ["region"],
+      partitions: [
+        {
+          name: "eu",
+          values: "in ('eu')",
+          subPartition: {
+            kind: "hash",
+            columns: ["id"],
+            partitions: [
+              { name: "h0", values: "with (modulus 2, remainder 0)" },
+              { name: "h1", values: "with (modulus 2, remainder 1)" }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+SELECT 1 AS id, 'eu' AS region, ARRAY['a', 'b'] AS tags
