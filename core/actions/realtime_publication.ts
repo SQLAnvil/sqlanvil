@@ -1,6 +1,7 @@
 import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
 import { ActionBuilder } from "sa/core/actions/base";
 import { Session } from "sa/core/session";
+import { configTargetToCompiledGraphTarget } from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
 export interface IRealtimePublicationConfig {
@@ -8,6 +9,7 @@ export interface IRealtimePublicationConfig {
   name?: string; // defaults to "supabase_realtime"
   events?: string[];
   filename?: string;
+  dependencyTargets?: sqlanvil.ActionConfig.ITarget[];
 }
 
 export class RealtimePublication extends ActionBuilder<sqlanvil.Operation> {
@@ -19,6 +21,9 @@ export class RealtimePublication extends ActionBuilder<sqlanvil.Operation> {
     this.session = session;
     this.config = config;
 
+    if (!config.table) {
+      throw new Error(`Realtime publications must have a populated 'table' field.`);
+    }
     const tableTarget = this.applySessionToTarget(sqlanvil.Target.create({ name: config.table }), session.projectConfig);
     const pubName = config.name || "supabase_realtime";
     const target = sqlanvil.Target.create({ name: `${config.table}_realtime_${pubName}` });
@@ -28,6 +33,11 @@ export class RealtimePublication extends ActionBuilder<sqlanvil.Operation> {
 
     // Automatically establish a compiler dependency on the parent table!
     this.proto.dependencyTargets.push(tableTarget);
+    (config.dependencyTargets || []).forEach(dependencyTarget =>
+      this.proto.dependencyTargets.push(
+        configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
+      )
+    );
   }
 
   public getFileName() {

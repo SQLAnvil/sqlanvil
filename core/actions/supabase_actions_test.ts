@@ -418,4 +418,151 @@ warehouse: supabase`
     const server = ops.find((op) => op.target.name === "bq_srv");
     expect(server).to.exist;
   });
+
+  function supabaseProject(files: { [path: string]: string }) {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(projectDir, "workflow_settings.yaml"),
+      `defaultProject: defaultProject\ndefaultDataset: defaultDataset\nwarehouse: supabase`
+    );
+    fs.mkdirSync(path.join(projectDir, "definitions"));
+    fs.writeFileSync(
+      path.join(projectDir, "definitions/users.js"),
+      `publish("users", { type: "table" }).query(ctx => "SELECT 1")`
+    );
+    Object.entries(files).forEach(([file, contents]) =>
+      fs.writeFileSync(path.join(projectDir, file), contents)
+    );
+    return runMainInVm(coreExecutionRequestFromPath(projectDir)).compile.compiledGraph;
+  }
+
+  [
+    {
+      call: `rlsPolicy({ table: "users", using: "true" })`,
+      error: /RLS policies must have a populated 'name' field/
+    },
+    {
+      call: `rlsPolicy({ name: "p", using: "true" })`,
+      error: /RLS policy "p" must have a populated 'table' field/
+    },
+    {
+      call: `vectorIndex({ table: "users", column: "embedding" })`,
+      error: /Vector indexes must have a populated 'name' field/
+    },
+    {
+      call: `vectorIndex({ name: "i", column: "embedding" })`,
+      error: /Vector index "i" must have a populated 'table' field/
+    },
+    {
+      call: `vectorIndex({ name: "i", table: "users" })`,
+      error: /Vector index "i" must have a populated 'column' field/
+    },
+    {
+      call: `realtimePublication({ name: "pub" })`,
+      error: /Realtime publications must have a populated 'table' field/
+    }
+  ].forEach(({ call, error }) => {
+    test(`${call} is a compile error`, () => {
+      const graph = supabaseProject({ "definitions/supabase.js": call });
+      const errors = graph.graphErrors.compilationErrors.map(e => e.message);
+      expect(errors.join("\n")).to.match(error);
+      expect(graph.operations.map(op => op.target.name)).not.to.include.members([
+        "users_policy_undefined",
+        "users_idx_undefined",
+        "undefined_policy_p",
+        "undefined_idx_i",
+        "undefined_realtime_pub"
+      ]);
+    });
+  });
+
+  test("actions.yaml defines rlsPolicy, realtimePublication and vectorIndex actions", () => {
+    const graph = supabaseProject({
+      "definitions/setup.js": `operate("seed").queries("SELECT 1")`,
+      "definitions/actions.yaml": `
+actions:
+- rlsPolicy:
+    name: select_policy
+    table: users
+    command: SELECT
+    roles: [authenticated]
+    using: "true"
+    dependencyTargets:
+    - name: seed
+- realtimePublication:
+    table: users
+- vectorIndex:
+    name: user_embeddings_idx
+    table: users
+    column: embedding
+    indexType: hnsw
+    params:
+      opclass: vector_cosine_ops
+`
+    });
+
+    expect(graph.graphErrors.compilationErrors).deep.equals([]);
+    const operations = asPlainObject(graph.operations);
+
+    const rlsOp = operations.find((op: any) => op.target.name === "users_policy_select_policy");
+    expect(rlsOp.fileName).equals("definitions/actions.yaml");
+    expect(rlsOp.queries).deep.equals([
+      'alter table "defaultProject"."defaultDataset"."users" enable row level security',
+      'drop policy if exists "select_policy" on "defaultProject"."defaultDataset"."users"',
+      'create policy "select_policy" on "defaultProject"."defaultDataset"."users" for SELECT to authenticated USING (true)'
+    ]);
+    expect(rlsOp.dependencyTargets.map((t: any) => t.name)).deep.equals(["users", "seed"]);
+
+    const realtimeOp = operations.find(
+      (op: any) => op.target.name === "users_realtime_supabase_realtime"
+    );
+    expect(realtimeOp.queries).deep.equals([
+      'alter table "defaultProject"."defaultDataset"."users" replica identity full',
+      'alter publication supabase_realtime add table "defaultProject"."defaultDataset"."users"'
+    ]);
+
+    const vectorOp = operations.find((op: any) => op.target.name === "users_idx_user_embeddings_idx");
+    expect(vectorOp.queries).deep.equals([
+      "create extension if not exists vector cascade",
+      'drop index if exists "user_embeddings_idx"',
+      'create index "user_embeddings_idx" on "defaultProject"."defaultDataset"."users" using hnsw ("embedding" vector_cosine_ops)'
+    ]);
+  });
+
+  test("actions.yaml foreignWrapper points at wrapper() instead of failing as empty", () => {
+    const graph = supabaseProject({
+      "definitions/actions.yaml": `
+actions:
+- foreignWrapper:
+    name: bq_wrapper
+    server: bq_server
+`
+    });
+    const errors = graph.graphErrors.compilationErrors;
+    expect(errors.map(e => e.message).join("\n"))
+      .to.match(/foreignWrapper actions can't be defined in actions\.yaml/)
+      .and.to.match(/wrapper\(\{/)
+      .and.not.to.match(/Empty action configs/);
+    expect(errors[0].fileName).equals("definitions/actions.yaml");
+  });
+
+  test("an invalid actions.yaml Supabase entry is reported without stopping other actions", () => {
+    const graph = supabaseProject({
+      "definitions/actions.yaml": `
+actions:
+- rlsPolicy:
+    table: users
+- vectorIndex:
+    name: ok_idx
+    table: users
+    column: embedding
+`
+    });
+    const errors = graph.graphErrors.compilationErrors;
+    expect(errors.map(e => e.message).join("\n")).to.match(
+      /RLS policies must have a populated 'name' field/
+    );
+    expect(errors[0].fileName).equals("definitions/actions.yaml");
+    expect(graph.operations.map(op => op.target.name)).to.include("users_idx_ok_idx");
+  });
 });

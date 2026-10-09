@@ -1,6 +1,7 @@
 import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
 import { ActionBuilder } from "sa/core/actions/base";
 import { Session } from "sa/core/session";
+import { configTargetToCompiledGraphTarget } from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
 export interface IVectorIndexConfig {
@@ -11,6 +12,7 @@ export interface IVectorIndexConfig {
   indexType?: string; // hnsw or ivfflat
   params?: { [key: string]: string };
   filename?: string;
+  dependencyTargets?: sqlanvil.ActionConfig.ITarget[];
 }
 
 export class VectorIndex extends ActionBuilder<sqlanvil.Operation> {
@@ -22,6 +24,15 @@ export class VectorIndex extends ActionBuilder<sqlanvil.Operation> {
     this.session = session;
     this.config = config;
 
+    if (!config.name) {
+      throw new Error(`Vector indexes must have a populated 'name' field (the Postgres index name).`);
+    }
+    if (!config.table) {
+      throw new Error(`Vector index "${config.name}" must have a populated 'table' field.`);
+    }
+    if (!config.column) {
+      throw new Error(`Vector index "${config.name}" must have a populated 'column' field.`);
+    }
     const tableTarget = this.applySessionToTarget(sqlanvil.Target.create({ name: config.table }), session.projectConfig);
     const target = sqlanvil.Target.create({ name: `${config.table}_idx_${config.name}` });
     this.proto.target = this.applySessionToTarget(target, session.projectConfig, config.filename, { validateTarget: true });
@@ -30,6 +41,11 @@ export class VectorIndex extends ActionBuilder<sqlanvil.Operation> {
 
     // Automatically establish a compiler dependency on the parent table!
     this.proto.dependencyTargets.push(tableTarget);
+    (config.dependencyTargets || []).forEach(dependencyTarget =>
+      this.proto.dependencyTargets.push(
+        configTargetToCompiledGraphTarget(sqlanvil.ActionConfig.Target.create(dependencyTarget))
+      )
+    );
   }
 
   public getFileName() {

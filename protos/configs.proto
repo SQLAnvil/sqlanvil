@@ -1017,6 +1017,8 @@ message ActionConfig {
     repeated Target dependency_targets = 5;
   }
 
+  // Not usable in actions.yaml: a wrapper needs provider, credential and foreignTables, which
+  // this config lacks. Define wrappers with `wrapper({ ... })` in a definitions/*.js file.
   message ForeignWrapperConfig {
     // The name of the wrapper action. Set it explicitly; unlike most actions, it is not taken from
     // the file name. The Postgres foreign server's name is set separately by `server`.

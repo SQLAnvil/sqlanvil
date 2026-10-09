@@ -10,8 +10,14 @@ import { Declaration } from "sa/core/actions/declaration";
 import { IncrementalTable } from "sa/core/actions/incremental_table";
 import { Notebook } from "sa/core/actions/notebook";
 import { Operation } from "sa/core/actions/operation";
+import {
+  IRealtimePublicationConfig,
+  RealtimePublication
+} from "sa/core/actions/realtime_publication";
+import { IRlsPolicyConfig, RlsPolicy } from "sa/core/actions/rls_policy";
 import { Script } from "sa/core/actions/script";
 import { Table } from "sa/core/actions/table";
+import { IVectorIndexConfig, VectorIndex } from "sa/core/actions/vector_index";
 import { View } from "sa/core/actions/view";
 import { ISqlanvilExtension } from "sa/core/extension";
 import * as Path from "sa/core/path";
@@ -214,6 +220,39 @@ function loadActionConfigs(session: Session, filePaths: string[]) {
               filePaths
             )
           );
+        } else if (actionConfig.rlsPolicy) {
+          // Required fields are validated by the constructor, not the proto.
+          pushSupabaseAction(session, actionConfigsPath, () =>
+            new RlsPolicy(session, {
+              ...actionConfig.rlsPolicy,
+              filename: actionConfigsPath
+            } as IRlsPolicyConfig)
+          );
+        } else if (actionConfig.realtimePublication) {
+          pushSupabaseAction(session, actionConfigsPath, () =>
+            new RealtimePublication(session, {
+              ...actionConfig.realtimePublication,
+              filename: actionConfigsPath
+            } as IRealtimePublicationConfig)
+          );
+        } else if (actionConfig.vectorIndex) {
+          pushSupabaseAction(session, actionConfigsPath, () =>
+            new VectorIndex(session, {
+              ...actionConfig.vectorIndex,
+              filename: actionConfigsPath
+            } as IVectorIndexConfig)
+          );
+        } else if (actionConfig.foreignWrapper) {
+          // The ForeignWrapperConfig proto predates provider presets, credentials and foreign
+          // tables, so an actions.yaml wrapper could never produce a working server.
+          session.compileError(
+            new Error(
+              `foreignWrapper actions can't be defined in actions.yaml: a wrapper needs fields ` +
+                `(provider, credential, foreignTables) that action configs don't support. Define ` +
+                `it in a definitions/*.js file with wrapper({ name, provider, server, ... }) instead.`
+            ),
+            actionConfigsPath
+          );
         } else {
           throw Error("Empty action configs are not permitted.");
         }
@@ -271,6 +310,20 @@ function normalizeScriptSugar(actionConfigsAsJson: any): any {
     }
   }
   return actionConfigsAsJson;
+}
+
+// The Supabase action constructors throw on invalid configs; report that against the
+// actions.yaml file instead of aborting the whole compile.
+function pushSupabaseAction(
+  session: Session,
+  actionConfigsPath: string,
+  build: () => RlsPolicy | RealtimePublication | VectorIndex
+) {
+  try {
+    session.actions.push(build());
+  } catch (e) {
+    session.compileError(e, actionConfigsPath);
+  }
 }
 
 function loadActionConfigsFile(
