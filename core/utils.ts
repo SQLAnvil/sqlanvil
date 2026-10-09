@@ -568,6 +568,42 @@ export function extractActionDetailsFromFileName(
   return { fileExtension, fileNameAsTargetName: basename };
 }
 
+// Validates a table's `supabase: {}` block and converts vector `indexType` names to the enum.
+// SupabaseOptions.create() keeps an enum name like "hnsw" as a plain string, and the binary
+// encode the runner receives turns any string into 0 (IVFFLAT), so convert it here. An
+// omitted indexType means HNSW, matching vectorIndex().
+export function normalizeSupabaseOptions(
+  supabase: sqlanvil.ISupabaseOptions,
+  warehouse: string | null | undefined
+): sqlanvil.SupabaseOptions {
+  const resolvedWarehouse = (warehouse || "bigquery").toLowerCase();
+  if (resolvedWarehouse !== "supabase") {
+    throw new Error(
+      `The supabase: {} block requires warehouse: supabase (this project uses ` +
+        `"${resolvedWarehouse}"); on other warehouses it would be ignored.`
+    );
+  }
+  const IndexType = sqlanvil.SupabaseOptions.VectorConfig.IndexType;
+  const vectors = (supabase.vectors || []).map(vector => {
+    if (!vector.column) {
+      throw new Error(`Each supabase.vectors entry needs a 'column'.`);
+    }
+    const given: unknown = vector.indexType;
+    let indexType: sqlanvil.SupabaseOptions.VectorConfig.IndexType;
+    if (given === undefined || given === null || given === "") {
+      indexType = IndexType.HNSW;
+    } else if (typeof given === "number" && IndexType[given] !== undefined) {
+      indexType = given;
+    } else if (typeof given === "string" && given.toUpperCase() in IndexType) {
+      indexType = IndexType[given.toUpperCase() as keyof typeof IndexType];
+    } else {
+      throw new Error(`Unknown vector indexType "${given}"; use "hnsw" or "ivfflat".`);
+    }
+    return { ...vector, indexType };
+  });
+  return sqlanvil.SupabaseOptions.create({ ...supabase, vectors });
+}
+
 // Converts the config proto's target proto to the compiled graph proto's representation.
 export function configTargetToCompiledGraphTarget(configTarget: sqlanvil.ActionConfig.Target) {
   const compiledGraphTarget: sqlanvil.ITarget = { name: configTarget.name };

@@ -9,6 +9,7 @@ import {
   runMainInVm,
   VALID_WORKFLOW_SETTINGS_YAML
 } from "sa/testing/run_core";
+import { sqlanvil } from "sa/protos/ts";
 
 suite("supabase actions", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);
@@ -564,5 +565,75 @@ actions:
     );
     expect(errors[0].fileName).equals("definitions/actions.yaml");
     expect(graph.operations.map(op => op.target.name)).to.include("users_idx_ok_idx");
+  });
+  suite("table-level supabase block", () => {
+    const IndexType = sqlanvil.SupabaseOptions.VectorConfig.IndexType;
+
+    [
+      { given: `indexType: "hnsw",`, expected: IndexType.HNSW },
+      { given: `indexType: "HNSW",`, expected: IndexType.HNSW },
+      { given: `indexType: "ivfflat",`, expected: IndexType.IVFFLAT },
+      { given: ``, expected: IndexType.HNSW }
+    ].forEach(({ given, expected }) => {
+      test(`vectors indexType ${given || "(omitted)"} compiles to ${IndexType[expected]}`, () => {
+        ["table", "incremental"].forEach(type => {
+          const graph = supabaseProject({
+            "definitions/documents.sqlx": `
+config {
+  type: "${type}",
+  supabase: { vectors: [{ column: "embedding", ${given} params: { m: "16" } }] }
+}
+SELECT 1 AS id`
+          });
+          expect(graph.graphErrors.compilationErrors).deep.equals([]);
+          const documents = graph.tables.find(t => t.target.name === "documents");
+          expect(documents.supabase.vectors[0].indexType).equals(expected);
+          // The enum must survive the binary encode the runner receives.
+          const decoded = sqlanvil.CompiledGraph.decode(sqlanvil.CompiledGraph.encode(graph).finish());
+          expect(
+            decoded.tables.find(t => t.target.name === "documents").supabase.vectors[0].indexType
+          ).equals(expected);
+        });
+      });
+    });
+
+    test("an unknown vectors indexType is a compile error", () => {
+      const graph = supabaseProject({
+        "definitions/documents.sqlx": `
+config { type: "table", supabase: { vectors: [{ column: "embedding", indexType: "flat" }] } }
+SELECT 1 AS id`
+      });
+      expect(graph.graphErrors.compilationErrors.map(e => e.message).join("\n")).to.match(
+        /Unknown vector indexType "flat"; use "hnsw" or "ivfflat"/
+      );
+    });
+
+    test("a vector without a column is a compile error", () => {
+      const graph = supabaseProject({
+        "definitions/documents.sqlx": `
+config { type: "table", supabase: { vectors: [{ indexType: "hnsw" }] } }
+SELECT 1 AS id`
+      });
+      expect(graph.graphErrors.compilationErrors.map(e => e.message).join("\n")).to.match(
+        /Each supabase\.vectors entry needs a 'column'/
+      );
+    });
+
+    test("the supabase block on a non-supabase warehouse is a compile error", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `defaultProject: defaultProject\ndefaultDataset: defaultDataset\nwarehouse: postgres`
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/documents.sqlx"),
+        `config { type: "table", supabase: { enableRls: true } }\nSELECT 1 AS id`
+      );
+      const graph = runMainInVm(coreExecutionRequestFromPath(projectDir)).compile.compiledGraph;
+      expect(graph.graphErrors.compilationErrors.map(e => e.message).join("\n")).to.match(
+        /The supabase: \{\} block requires warehouse: supabase \(this project uses "postgres"\)/
+      );
+    });
   });
 });

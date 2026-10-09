@@ -1259,39 +1259,43 @@ message MysqlOptions {
 }
 
 // SupabaseOptions — Supabase-specific platform features layered on top of
-// standard Postgres. Used as a peer of `postgres: {...}` for projects
-// targeting `warehouse: { kind: supabase }`.
+// standard Postgres. Used as a peer of `postgres: {...}` on table and incremental table configs,
+// and only valid with `warehouse: supabase`. The settings are applied each time the table is
+// created (every run for a table; the first run or a full refresh for an incremental table),
+// after its indexes and before its post_operations.
 message SupabaseOptions {
   // Standard Postgres options apply. Set these via `postgres:` directly or
-  // nest under `supabase.postgres:` — either is accepted.
+  // nest under `supabase.postgres:` — either is accepted; `postgres:` wins if both are set.
   PostgresOptions postgres = 1;
 
+  // ALTER TABLE <this> REPLICA IDENTITY FULL, then
   // ALTER PUBLICATION supabase_realtime ADD TABLE <this>.
-  // Implicitly sets REPLICA IDENTITY appropriately.
   bool publish_to_realtime = 2;
 
   // ALTER TABLE <this> ENABLE ROW LEVEL SECURITY.
-  // Note: only enables RLS — policies are declared via the `rlsPolicy`
-  // action type (see Phase 5).
+  // Note: only enables RLS — declare policies with `rlsPolicy()`.
   bool enable_rls = 3;
 
-  // OWNER TO <role>. Typically "postgres" or "service_role".
+  // ALTER TABLE <this> OWNER TO <role>. Typically "postgres" or "service_role".
   string owner_role = 4;
 
-  // pgvector convenience config. Equivalent to declaring a
-  // PostgresOptions.Index with method=HNSW or method=GIST + ivfflat ops,
-  // but more ergonomic for RAG pipelines.
+  // pgvector index on a vector column, named <table>_<column>_idx. Creates the `vector`
+  // extension if needed (the column's type must already exist when the table is created).
   message VectorConfig {
+    // The vector column to index. Required.
     string column = 1;
+    // Informational; the column's declared type sets the dimensions.
     uint32 dimensions = 2;
 
     enum IndexType {
       IVFFLAT = 0;
       HNSW = 1;
     }
+    // "hnsw" (the default when omitted) or "ivfflat", in any case.
     IndexType index_type = 3;
 
-    // ivfflat: { lists }, hnsw: { m, ef_construction }.
+    // `opclass` sets the operator class (default vector_cosine_ops); every other key becomes
+    // an index storage parameter. ivfflat: { lists }, hnsw: { m, ef_construction }.
     map<string, string> params = 4;
   }
   repeated VectorConfig vectors = 5;

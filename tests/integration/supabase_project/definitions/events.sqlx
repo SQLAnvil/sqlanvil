@@ -1,0 +1,5 @@
+config {
+  type: "incremental",
+  supabase: { enableRls: true, publishToRealtime: true }
+}
+SELECT 1 AS id

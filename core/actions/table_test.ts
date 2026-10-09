@@ -1135,6 +1135,7 @@ SELECT 1`
 defaultProject: defaultProject
 defaultDataset: defaultDataset
 defaultLocation: US
+warehouse: supabase
 `
       );
       fs.mkdirSync(path.join(projectDir, "definitions"));

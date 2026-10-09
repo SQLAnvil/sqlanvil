@@ -166,6 +166,7 @@ export class PostgresExecutionSql implements IExecutionSql {
           );
         }
         this.createIndexes(table).forEach(statement => tasks.add(Task.statement(statement)));
+        this.afterTableCreated(table).forEach(statement => tasks.add(Task.statement(statement)));
       } else {
         // Incremental Load: execute UPSERT or INSERT
         if (table.uniqueKey && table.uniqueKey.length > 0) {
@@ -216,6 +217,7 @@ export class PostgresExecutionSql implements IExecutionSql {
         tasks.add(Task.statement(this.createTable(table)));
       }
       this.createIndexes(table).forEach(statement => tasks.add(Task.statement(statement)));
+      this.afterTableCreated(table).forEach(statement => tasks.add(Task.statement(statement)));
     }
 
     // Run Post-operations
@@ -237,6 +239,12 @@ export class PostgresExecutionSql implements IExecutionSql {
     // Add assertion validation task
     tasks.add(Task.assertion(`select sum(1) as row_count from ${this.resolveTarget(target)}`));
     return tasks;
+  }
+
+  // Statements to run once a table has just been (re)created, after its indexes and before
+  // post-ops. Not run on incremental appends: the table, and anything set on it, persists.
+  protected afterTableCreated(table: sqlanvil.ITable): string[] {
+    return [];
   }
 
   private oppositeTableType(type: sqlanvil.TableMetadata.Type) {
@@ -283,7 +291,7 @@ export class PostgresExecutionSql implements IExecutionSql {
   // (mirroring Postgres's own `<table>_<col>_idx` default), truncated to the
   // 63-char identifier limit. Without this, an unnamed index emits
   // `create index "" ...` -> "zero-length delimited identifier".
-  private defaultIndexName(tableName: string, columns: string[], unique: boolean): string {
+  protected defaultIndexName(tableName: string, columns: string[], unique: boolean): string {
     const parts = [tableName, ...(columns || [])].filter(Boolean);
     const base = parts.join("_");
     const suffix = unique ? "_key" : "_idx";

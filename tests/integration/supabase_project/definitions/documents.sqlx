@@ -1,0 +1,11 @@
+config {
+  type: "table",
+  supabase: {
+    ownerRole: "service_role",
+    enableRls: true,
+    publishToRealtime: true,
+    postgres: { indexes: [{ name: "documents_id_idx", columns: ["id"] }] },
+    vectors: [{ column: "embedding", indexType: "hnsw", params: { m: "16" } }]
+  }
+}
+SELECT 1 AS id, '[1,2,3]'::vector(3) AS embedding

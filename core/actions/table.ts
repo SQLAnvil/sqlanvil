@@ -30,6 +30,7 @@ import {
   getFileFormatValueForIcebergTable,
   getStorageUriForIcebergTable,
   nativeRequire,
+  normalizeSupabaseOptions,
   resolvableAsActionConfigTarget,
   resolvableAsTarget,
   resolveActionsConfigFilename,
@@ -398,7 +399,10 @@ export class Table extends ActionBuilder<sqlanvil.Table> {
   }
 
   public supabase(supabase: sqlanvil.ISupabaseOptions) {
-    this.proto.supabase = sqlanvil.SupabaseOptions.create(supabase);
+    this.proto.supabase = normalizeSupabaseOptions(
+      supabase,
+      this.session.projectConfig.warehouse
+    );
     return this;
   }
 

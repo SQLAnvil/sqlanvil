@@ -601,6 +601,135 @@ suite("ExecutionSql with Postgres/Supabase", () => {
   });
 });
 
+suite("ExecutionSql with the Supabase table block", () => {
+  const executionSql = new ExecutionSql(
+    { warehouse: "supabase", defaultDatabase: "my_db", defaultSchema: "public" },
+    "2.0.0"
+  );
+  const target = '"my_db"."public"."documents"';
+  const IndexType = sqlanvil.SupabaseOptions.VectorConfig.IndexType;
+
+  const baseTable: sqlanvil.ITable = {
+    type: "table",
+    enumType: sqlanvil.TableType.TABLE,
+    target: { schema: "public", name: "documents" },
+    query: "select 1 as id",
+    postOps: ["user post op"],
+    supabase: {
+      ownerRole: "service_role",
+      enableRls: true,
+      publishToRealtime: true,
+      vectors: [{ column: "embedding", indexType: IndexType.HNSW, params: { m: "16" } }]
+    }
+  };
+  const supabaseStatements = [
+    `alter table ${target} owner to "service_role"`,
+    `alter table ${target} enable row level security`,
+    "create extension if not exists vector cascade",
+    `create index "documents_embedding_idx" on ${target} using hnsw ("embedding" vector_cosine_ops) with (m = 16)`,
+    `alter table ${target} replica identity full`,
+    `alter publication supabase_realtime add table ${target}`
+  ];
+
+  test("table: applies the block after create, before post-ops", () => {
+    const statements = executionSql
+      .publishTasks(baseTable, { fullRefresh: false })
+      .build()
+      .map(t => t.statement);
+    expect(statements).deep.equals([
+      `drop table if exists ${target} cascade`,
+      `create table ${target} as select 1 as id`,
+      ...supabaseStatements,
+      "user post op"
+    ]);
+  });
+
+  test("ivfflat vectors honor opclass and other params", () => {
+    const statements = executionSql
+      .publishTasks(
+        {
+          ...baseTable,
+          postOps: [],
+          supabase: {
+            vectors: [
+              {
+                column: "embedding",
+                indexType: IndexType.IVFFLAT,
+                params: { opclass: "vector_l2_ops", lists: "100" }
+              }
+            ]
+          }
+        },
+        { fullRefresh: false }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(statements.slice(2)).deep.equals([
+      "create extension if not exists vector cascade",
+      `create index "documents_embedding_idx" on ${target} using ivfflat ("embedding" vector_l2_ops) with (lists = 100)`
+    ]);
+  });
+
+  test("incremental: applies the block on create, not on append", () => {
+    const incTable: sqlanvil.ITable = {
+      ...baseTable,
+      type: "incremental",
+      enumType: sqlanvil.TableType.INCREMENTAL,
+      incrementalQuery: "select 1 as id",
+      postOps: [],
+      incrementalPostOps: []
+    };
+    const created = executionSql
+      .publishTasks(incTable, { fullRefresh: false })
+      .build()
+      .map(t => t.statement);
+    expect(created.slice(-supabaseStatements.length)).deep.equals(supabaseStatements);
+
+    const appended = executionSql
+      .publishTasks(
+        incTable,
+        { fullRefresh: false },
+        {
+          type: sqlanvil.TableMetadata.Type.TABLE,
+          fields: [{ name: "id", primitive: sqlanvil.Field.Primitive.INTEGER }]
+        }
+      )
+      .build()
+      .map(t => t.statement);
+    supabaseStatements.forEach(statement => expect(appended).not.to.include(statement));
+  });
+
+  test("nested supabase.postgres options apply when postgres is not set", () => {
+    const statements = executionSql
+      .publishTasks(
+        {
+          ...baseTable,
+          postOps: [],
+          supabase: { postgres: { unlogged: true, indexes: [{ name: "ix_id", columns: ["id"] }] } }
+        },
+        { fullRefresh: false }
+      )
+      .build()
+      .map(t => t.statement);
+    expect(statements).deep.equals([
+      `drop table if exists ${target} cascade`,
+      `create unlogged table ${target} as select 1 as id`,
+      `create index "ix_id" on ${target} using btree ("id")`
+    ]);
+  });
+
+  test("a table without the block is unchanged", () => {
+    const statements = executionSql
+      .publishTasks({ ...baseTable, postOps: [], supabase: undefined }, { fullRefresh: false })
+      .build()
+      .map(t => t.statement);
+    expect(statements).deep.equals([
+      `drop table if exists ${target} cascade`,
+      `create table ${target} as select 1 as id`
+    ]);
+  });
+});
+
 suite("mysql execution sql", () => {
   const project: sqlanvil.IProjectConfig = { warehouse: "mysql" };
   const sql = new ExecutionSql(project, "1.5.0");
