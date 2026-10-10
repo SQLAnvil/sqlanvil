@@ -2,7 +2,7 @@
 # SemVer line). DF_VERSION is the upstream dataform-co/dataform release this fork
 # is synced to — surfaced as metadata (e.g. `sqlanvil --version`), not the package
 # version. Bump SQLANVIL_VERSION for sqlanvil releases; bump DF_VERSION on upstream syncs.
-SQLANVIL_VERSION = "1.32.10"
+SQLANVIL_VERSION = "1.33.0"
 # 3.0.64 reviewed; taken selectively. Four upstream commits:
 #
 #   * #2228 protobufjs 7.6.3 -> 7.6.5. TAKEN (we were on 7.6.4 for the direct dep and 7.5.8 for
@@ -448,5 +448,13 @@ SQLANVIL_VERSION = "1.32.10"
 #     23,900 to 17,373 lines, so later upstream changes stop conflicting on formatting alone.
 #     The commit is listed in .git-blame-ignore-revs. Run prettier 3.9.4 on anything ported by
 #     hand from upstream so it stays in step.
+#
+# Shipped in 1.33.0 (DF_VERSION stays 3.0.71; no new upstream code beyond #2315/#2342 above,
+# which change no behavior): the table-level supabase: {} block now does what it says (it was
+# validated and stored but never turned into SQL); rlsPolicy / realtimePublication /
+# vectorIndex load from actions.yaml, and missing required fields are compile errors; enum
+# names (postgres index method and partition kind, mysql partition kind, vector indexType) are
+# converted instead of silently becoming the first value; a supabase: {} block on another
+# warehouse is a compile error.
 #
 DF_VERSION = "3.0.71"

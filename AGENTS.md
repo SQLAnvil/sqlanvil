@@ -32,7 +32,7 @@ below before authoring a `warehouse: mysql` project.
 warehouse: postgres            # flat string ("postgres" or "supabase") — NOT nested
 defaultDataset: public         # the Postgres SCHEMA
 defaultAssertionDataset: sqlanvil_assertions
-sqlanvilCoreVersion: 1.32.10   # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
+sqlanvilCoreVersion: 1.33.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
 vars:
   someVar: value
 ```
@@ -70,14 +70,15 @@ config {
     tablespace: "fast_ssd",
     indexes: [
       { name: "idx_email", columns: ["email"], unique: true },
-      { name: "idx_props", columns: ["props"], method: 2, opclass: "jsonb_path_ops" }
+      { name: "idx_props", columns: ["props"], method: "gin", opclass: "jsonb_path_ops" }
     ]
   }
 }
 ```
-**Index `method` is a NUMERIC ENUM, not a string:** `BTREE=0, HASH=1, GIN=2, GIST=3, BRIN=4`.
-`method: "btree"` fails the config type check (parser uses protobufjs `create()`). Omit for btree.
-Index fields: `name`, `columns[]`(array), `method`(int), `where`(partial predicate),
+**Index `method`** is `"btree"` (the default — omit it), `"hash"`, `"gin"`, `"gist"` or `"brin"`,
+in any case (>=1.33; an unknown name is a compile error). **Below 1.33 a name silently built a
+btree** — on an older pin use the number: `BTREE=0, HASH=1, GIN=2, GIST=3, BRIN=4`.
+Index fields: `name`, `columns[]`(array), `method`, `where`(partial predicate),
 `unique`(bool), `include[]`(array, covering), `opclass`(**single string** applied to every indexed
 column — `opclass: "gin_trgm_ops"`, **not** an array).
 
@@ -85,7 +86,7 @@ column — `opclass: "gin_trgm_ops"`, **not** an array).
 ```sqlx
 postgres: {
   partition: {
-    kind: 0,                                   // RANGE=0, LIST=1, HASH=2 (numeric enum)
+    kind: "range",                             // "range" | "list" | "hash" (>=1.33; else 0/1/2)
     columns: ["order_date"],
     partitions: [
       { name: "y2024", values: "FROM ('2024-01-01') TO ('2025-01-01')" }
@@ -95,6 +96,7 @@ postgres: {
 }
 ```
 `values` is the raw `FOR VALUES` body matching `kind`. No `clusterBy` — use `indexes`.
+Below 1.33 a `kind` name silently became RANGE; on an older pin use the number.
 
 ### 5. Materialized views: `type: "view", materialized: true`
 Emits `CREATE MATERIALIZED VIEW`. Default = **drop + recreate every run** (also picks up
@@ -232,10 +234,21 @@ compile/run/test). Precedence: **explicit CLI flag > environment > workflow_sett
 file — secrets never go in `workflow_settings.yaml`. `--schema-suffix` stays the low-level primitive.
 
 ### 13. Supabase extras (`warehouse: supabase`)
-`supabase: {}` adds `enableRls`, `publishToRealtime`, `ownerRole`,
-`vectors: [{ column, dimensions, indexType }]`. Action types: `rlsPolicy`,
-`realtimePublication`, `wrapper`, `vectorIndex`. `enableRls` only flips RLS on — declare policies
-via the `rlsPolicy` action.
+**Actions are JavaScript calls, NOT `.sqlx` types** (`config { type: "rlsPolicy" }` is a compile
+error). Put them in a `definitions/*.js` file — `rlsPolicy({ table, name, command, roles, using,
+withCheck })`, `realtimePublication({ table, name? })`, `vectorIndex({ table, name, column,
+indexType, params })`, `wrapper({...})` — or, for the first three, in `actions.yaml`
+(`- rlsPolicy: {...}`, >=1.33; `wrapper` is JS-only). Required (>=1.33 errors when missing):
+rlsPolicy `name` + `table` (`name` is the Postgres policy name), vectorIndex `name` + `table` +
+`column`, realtimePublication `table`. `WITH CHECK` is rejected by Postgres on `select`/`delete`
+policies.
+
+The table-level **`supabase: {}` block** (on `table`/`incremental`; >=1.33 — **earlier versions
+silently ignored it**): `enableRls`, `publishToRealtime`, `ownerRole`, `vectors: [{ column,
+indexType: "hnsw"|"ivfflat", params }]` (index named `<table>_<column>_idx`; hnsw is the default),
+and nested `postgres: {}`. Applied when the table is created, after its indexes and before
+post_operations; on any other warehouse it is a compile error. `enableRls` only flips RLS on —
+declare policies with `rlsPolicy`.
 
 ### 14. Declaring external sources: `type: "declaration"`
 Reference a pre-existing, externally-managed table so `${ref()}` resolves and the DAG tracks it.
@@ -351,7 +364,8 @@ deltas above **invert**.
   SRID geometry column, which CTAS doesn't produce — usually needs a `post_operations` MODIFY
   first). Columns may carry a prefix length in MySQL's own syntax — `"body(50)"` → `` `body`(50) ``
   (required to index TEXT/BLOB). No `WHERE`/`INCLUDE`/`opclass` (Postgres-only). Partitioning via
-  `mysql: { partition: {...} }` (1.11+). On matviews the block flows through `type: "view",
+  `mysql: { partition: {...} }` (1.11+); `kind` is `"range"`, `"list"`, `"hash"` or `"key"` (names
+  need >=1.33 — below that they silently became RANGE; use `0`-`3`). On matviews the block flows through `type: "view",
   materialized: true` (1.19+). Use `mysql: {}`, never `postgres: {}`, on a mysql model.
 - **Incremental `uniqueKey` is enough** — compiles to `INSERT ... ON DUPLICATE KEY UPDATE` and the
   adapter auto-creates the unique index (`uq_<db>_<table>`) on first/`--full-refresh`. Don't add
@@ -381,7 +395,6 @@ deltas above **invert**.
 | `bigquery: { partitionBy, clusterBy }` | `postgres: { partition: {...}, indexes: [...] }` |
 | `OPTIONS(...)` / table options | `postgres: { fillfactor, unlogged, tablespace }` |
 | `CREATE INDEX` in `post_operations` | `postgres: { indexes: [...] }` |
-| `method: "btree"` (string) | `method: 0` (numeric enum) |
 | `;` between statements | `---` |
 | `CREATE PROCEDURE` + run separately | `type: "operations"` |
 | creds `{postgres:{username,databaseName,ssl}}` | flat `{host,port,database,user,password,sslMode,defaultSchema}` |
@@ -396,7 +409,7 @@ deltas above **invert**.
 ## Red flags — you're reverting to BigQuery priors
 
 `dataform.json` · `defaultProject` · `bigquery: {` · `partitionBy` · `clusterBy` · `OPTIONS(` ·
-`method: "` (string) · `CREATE INDEX`/`SET (fillfactor` in `post_operations` · `;` between
+`CREATE INDEX`/`SET (fillfactor` in `post_operations` · `;` between
 statements · `ADD PRIMARY KEY`/`ADD CONSTRAINT` in an incremental `post_operations` without
 `when(!incremental())` · a bare `dataform`/`npm run` command.
 

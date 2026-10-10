@@ -85,12 +85,11 @@ it gitignored.`);
   }
 - Storage, indexes, and partitioning are first-class in the \`postgres: {}\` config block —
   never hand-roll \`CREATE INDEX\` or \`SET (fillfactor …)\` in \`post_operations\`.
-- Index \`method\` is a NUMERIC enum (\`BTREE=0, HASH=1, GIN=2, GIST=3, BRIN=4\`) — omit it
-  for btree; the string \`method: "btree"\` fails the config check. \`opclass\` is a single
-  string, not an array.
+- Index \`method\` is \`"btree"\` (the default — omit it), \`"hash"\`, \`"gin"\`, \`"gist"\` or
+  \`"brin"\`; an unknown name is a compile error. \`opclass\` is a single string, not an array.
 - No BigQuery-isms: \`bigquery: {}\`, \`partitionBy\`, \`clusterBy\`, \`OPTIONS(...)\` — use
-  \`postgres: { partition: {...}, indexes: [...] }\` (partition \`kind\`: RANGE=0, LIST=1,
-  HASH=2).
+  \`postgres: { partition: {...}, indexes: [...] }\` (partition \`kind\`: \`"range"\`,
+  \`"list"\` or \`"hash"\`).
 - Materialized views: \`type: "view", materialized: true\` (+ optional \`postgres: {
   refreshPolicy: "on_dependency_change", noData, indexes }\`). Default is drop+recreate each
   run; in-place refresh does not pick up definition changes.
@@ -103,9 +102,11 @@ it gitignored.`);
   tables.${
     isSupabase
       ? `
-- Supabase extras: the \`supabase: {}\` block (\`enableRls\`, \`vectors\`) and dedicated
-  action types \`rlsPolicy\`, \`realtimePublication\`, \`vectorIndex\`. \`enableRls\` only
-  flips RLS on — declare policies via \`rlsPolicy\` actions.`
+- Supabase extras: the \`supabase: {}\` table block (\`enableRls\`, \`publishToRealtime\`,
+  \`ownerRole\`, \`vectors\`) and the \`rlsPolicy()\`, \`realtimePublication()\`, \`vectorIndex()\`
+  and \`wrapper()\` actions — JavaScript calls in a \`definitions/*.js\` file (or \`actions.yaml\`
+  entries, except \`wrapper\`), never \`.sqlx\` types. \`enableRls\` only flips RLS on — declare
+  policies with \`rlsPolicy()\`.`
       : ""
   }`);
   }
