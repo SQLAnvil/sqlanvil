@@ -5,6 +5,7 @@ import * as path from "path";
 
 import { init } from "sa/cli/api";
 import { CREDENTIALS_FILENAME } from "sa/cli/api/commands/credentials";
+import { defaultSchemaFor } from "sa/cli/api/commands/init";
 import { migrateDataform, MigrationReport } from "sa/cli/api/commands/migrate_dataform";
 import {
   interactivePasswordQuestion,
@@ -409,10 +410,7 @@ async function runFreshFlow(defaultProjectDir: string): Promise<number> {
     projectConfig.defaultDatabase = askRequired(INIT_BQ_PROJECT_QUESTION);
     projectConfig.defaultLocation = askRequired(INIT_BQ_LOCATION_QUESTION);
   }
-  projectConfig.defaultSchema = ask(
-    INIT_DEFAULT_SCHEMA_QUESTION,
-    isPostgresLike ? "public" : "sqlanvil",
-  );
+  projectConfig.defaultSchema = ask(INIT_DEFAULT_SCHEMA_QUESTION, defaultSchemaFor(warehouse));
 
   const includeSample = askYesNo(INIT_INCLUDE_SAMPLE_QUESTION, true);
   const includeBigQuerySource =

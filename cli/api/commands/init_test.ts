@@ -80,9 +80,15 @@ suite("init", ({ afterEach }) => {
     expect(fs.existsSync(credentialsPath(projectDir))).equals(true);
   });
 
-  test("postgres-like projects default the dataset to public; others to sqlanvil", async () => {
+  test("supabase defaults to analytics, postgres to public, others to sqlanvil", async () => {
+    // Not public on Supabase: its default privileges give anon full DML on tables in public,
+    // which the Data API exposes.
+    const sbDir = tmpDirFixture.createNewTmpDir();
+    await init(sbDir, { warehouse: "supabase" });
+    expect(readSettings(sbDir).defaultDataset).equals("analytics");
+
     const pgDir = tmpDirFixture.createNewTmpDir();
-    await init(pgDir, { warehouse: "supabase" });
+    await init(pgDir, { warehouse: "postgres" });
     expect(readSettings(pgDir).defaultDataset).equals("public");
 
     const bqDir = tmpDirFixture.createNewTmpDir();

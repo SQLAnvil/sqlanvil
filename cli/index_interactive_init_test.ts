@@ -51,7 +51,7 @@ suite("init --interactive", ({ afterEach }) => {
       [withDefault(INIT_MODE_QUESTION, "fresh")]: "fresh",
       [withDefault(INIT_WAREHOUSE_QUESTION, "supabase")]: "supabase",
       [withDefault(INIT_PROJECT_DIR_QUESTION, projectDir)]: "",
-      [withDefault(INIT_DEFAULT_SCHEMA_QUESTION, "public")]: "",
+      [withDefault(INIT_DEFAULT_SCHEMA_QUESTION, "analytics")]: "",
       [withDefault(INIT_INCLUDE_SAMPLE_QUESTION, "y")]: "y",
       [withDefault(INIT_INCLUDE_BQ_SOURCE_QUESTION, "y")]: "n",
       [withDefault(INIT_CONFIGURE_CREDS_QUESTION, "y")]: "y",
@@ -69,7 +69,7 @@ suite("init --interactive", ({ afterEach }) => {
 
     const settings = readSettings(projectDir);
     expect(settings.warehouse).equals("supabase");
-    expect(settings.defaultDataset).equals("public");
+    expect(settings.defaultDataset).equals("analytics");
     // The BigQuery sample source was declined — no connections block, no BQ sample files.
     expect(settings).to.not.have.property("connections");
     assert.isFalse(

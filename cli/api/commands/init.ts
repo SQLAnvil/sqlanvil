@@ -66,6 +66,24 @@ function mysqlCredentialsTemplate(): string {
   return `${JSON.stringify(template, null, 2)}\n`;
 }
 
+/**
+ * The schema new models build into when the user doesn't pick one.
+ *
+ * Supabase gets `analytics`, not `public`: Supabase's default privileges grant `anon` and
+ * `authenticated` full DML on every table `postgres` creates in `public`, and the Data API
+ * exposes `public`. A model built there with RLS off is readable and writable by anyone with
+ * the project's publishable key. A non-public schema isn't exposed until the user opts in.
+ * Plain Postgres has no Data API, so it keeps `public`, which every instance already has.
+ * BigQuery/MySQL keep a namespaced default (their "schema" is a dataset/database the run
+ * creates).
+ */
+export function defaultSchemaFor(warehouse: string): string {
+  if (warehouse === "supabase") {
+    return "analytics";
+  }
+  return warehouse === "postgres" ? "public" : "sqlanvil";
+}
+
 export async function init(
   projectDir: string,
   projectConfig: sqlanvil.IProjectConfig,
@@ -106,11 +124,8 @@ export async function init(
     workflowSettings.defaultProject = projectConfig.defaultDatabase;
     workflowSettings.defaultLocation = projectConfig.defaultLocation;
   }
-  // Postgres/Supabase default to the schema every instance already has; BigQuery/MySQL keep a
-  // namespaced default (their "schema" is a dataset/database the run creates).
   const isPostgresLike = warehouse === "postgres" || warehouse === "supabase";
-  workflowSettings.defaultDataset =
-    projectConfig.defaultSchema || (isPostgresLike ? "public" : "sqlanvil");
+  workflowSettings.defaultDataset = projectConfig.defaultSchema || defaultSchemaFor(warehouse);
   workflowSettings.defaultAssertionDataset = projectConfig.assertionSchema || "sqlanvil_assertions";
   // Iceberg is a BigQuery concept.
   if (isBigQuery && projectConfig.defaultIcebergConfig) {
