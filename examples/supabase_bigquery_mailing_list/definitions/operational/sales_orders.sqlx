@@ -1,6 +1,6 @@
 config {
   type: "table",
-  schema: "public",
+  schema: "analytics",
   description: "Sample sales orders; order_date drives the recency filter."
 }
 

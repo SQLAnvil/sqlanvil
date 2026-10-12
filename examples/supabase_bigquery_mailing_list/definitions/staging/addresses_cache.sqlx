@@ -1,6 +1,6 @@
 config {
   type: "table",
-  schema: "public",
+  schema: "analytics",
   description: "Optimized address-coordinates table for geocoding joins. The composite indexes play the role BigQuery clustering does in a warehouse pipeline: sub-second lookups by state/ZIP and by ZIP+street.",
   postgres: {
     indexes: [

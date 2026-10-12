@@ -1,6 +1,6 @@
 config {
   type: "view",
-  schema: "public",
+  schema: "analytics",
   description: "Customers who purchased recently AND live within radius of the target ZIP. Distance uses the customer's exact address point (OpenAddresses) when it geocodes, falling back to their ZIP centroid (BigQuery) — the precision column says which."
 }
 

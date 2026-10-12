@@ -1,6 +1,6 @@
 config {
   type: "table",
-  schema: "public",
+  schema: "analytics",
   description: "Final mailing list, ordered by proximity to the target ZIP."
 }
 

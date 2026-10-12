@@ -20,15 +20,15 @@ bigquery_public_ext.zip_codes (foreign table)           oa_ext.openaddresses_us 
 bq_ext.stg_zip_codes (view)                             oa_ext.stg_addresses (view: normalize + filter)
         │                                                       │
         ▼                                                       ▼
-public.zip_codes_cache (table)                          public.addresses_cache (table, composite indexes)
+analytics.zip_codes_cache (table)                       analytics.addresses_cache (table, composite indexes)
         │                                                       │
-public.customers ─┐                                             │
-public.sales_orders ┼───────────────────►  public.mailing_list_candidates
-                  │                        (view: geocode to address point, fall back
-                  │                         to ZIP centroid, distance + filters)
-                  ▼                                      │
+analytics.customers ────┐                                       │
+analytics.sales_orders ─┴───────────────►  analytics.mailing_list_candidates
+                                           (view: geocode to address point, fall back
+                                            to ZIP centroid, distance + filters)
+                                                         │
                                                          ▼
-                                           public.mailing_list (table)
+                                           analytics.mailing_list (table)
 ```
 
 The BigQuery source is declared as a **named connection** (`bigquery_public` in
@@ -52,8 +52,11 @@ downstream is plain Supabase/Postgres SQL.
 
 The foreign table lands in an auto-named `bigquery_public_ext` schema
 (`<connection>_ext`), keeping the external/foreign surface separate from your
-operational `public` tables. The shaped staging view (`stg_zip_codes`) sits in
-`bq_ext`; the materialized cache and marts land in `public`.
+operational tables. The shaped staging view (`stg_zip_codes`) sits in `bq_ext`;
+the operational tables, the materialized cache and the marts land in `analytics`.
+They stay out of `public` because Supabase's Data API serves that schema, and tables
+the `postgres` role creates there are granted to `anon` with full read and write
+access.
 
 ## Address-level accuracy with OpenAddresses (file import)
 
@@ -104,7 +107,7 @@ Downstream, the pattern mirrors a production warehouse ingestion:
 - `oa_ext.stg_addresses` — normalizes OpenAddresses' standard columns
   (`lon`/`lat`/`number`/`street`/…) to documented names and drops rows without
   coordinates (the sample data includes one broken row to prove the filter).
-- `public.addresses_cache` — the optimized geocoding table. Where a BigQuery
+- `analytics.addresses_cache` — the optimized geocoding table. Where a BigQuery
   pipeline would use *clustering* on `(state, postcode)`, Postgres uses
   **composite indexes** — declared right in the config's `postgres: { indexes: [...] }`.
 - `assert_address_coordinates_valid` — coordinates in US bounds, 5-digit ZIPs;
@@ -211,7 +214,7 @@ sqlanvil run .
 `sqlanvil run examples/supabase_bigquery_mailing_list`.)
 
 This creates the FDW bridge, materializes the zip centroids, seeds the sample
-operational tables, and lands `public.mailing_list`.
+operational tables, and lands `analytics.mailing_list`.
 
 ## Tune the audience
 

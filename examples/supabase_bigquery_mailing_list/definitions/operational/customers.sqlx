@@ -1,6 +1,6 @@
 config {
   type: "table",
-  schema: "public",
+  schema: "analytics",
   description: "Sample customers with mailing addresses. Erin's street doesn't geocode (not in OpenAddresses) — she demonstrates the ZIP-centroid fallback."
 }
 
