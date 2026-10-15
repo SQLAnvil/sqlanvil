@@ -575,4 +575,31 @@ SQLANVIL_VERSION = "1.34.0"
 # its own TypeScript 3.8.3 (see the #2313 note). Verified: bazel build //... and every
 # non-integration test, eslint clean over the tree, and the rules_js-built tarballs install and
 # run (--version, compile, format --check, --watch) identically to the published 1.34.0.
+# Taken after the toolchain change (2026-10-15; DF_VERSION stays 3.1.0): #2310 vm2 -> node:vm.
+# The user chose to port it after the standing deferral; recorded here with what it changes.
+# common/vm/{vm_runner,module_resolver,path_utils}.ts and their tests are upstream's verbatim
+# (sa/ imports, @sqlanvil/* in the test fixtures); cli/vm/compile.ts, cli/vm/jit_worker.ts and
+# testing/run_core.ts construct a VmRunner instead of a NodeVM; vm2 is gone from package.json and
+# from the CLI's published dependencies. Deviations from upstream: (1) the host-side
+# __df_enter/__df_exit file stack behind `global.__sqlanvil_current_file` is KEPT unconditionally
+# (upstream only keeps it for cores < 3.0.57) — every @sqlanvil/core reads that getter as a
+# fallback and the wrap costs one try/finally per module, so there is no reason to give the
+# fallback up; (2) `sourceExtensions` gained "ipynb" and "md" like upstream's — VmRunner only
+# runs the compiler for listed extensions, where vm2 ran it for every non-JSON file, and without
+# them a notebook in definitions/ was parsed as JavaScript (caught by examples_test); (3) the
+# JiT worker no longer passes `env: process.env` into the VM (VmRunner defaults to an empty
+# process.env; the JiT runtime is declined anyway).
+#
+# What it does and does not protect, measured with an includes/ probe compiled by the built
+# CLI: process.env inside the VM is EMPTY (0 keys); require("fs") -> "Access to built-in module
+# 'fs' is not allowed"; require("../../package.json") -> "Cannot require ... outside of project
+# directory"; BUT `Buffer.constructor("return process")()` returns the HOST process (its env has
+# HOME) — node:vm is not a boundary, as upstream's own header says, where vm2 returned its
+# sandboxed process object for the same probe. The Cloud runner prerequisites from 2026-10-12
+# (per-tenant containers, metadata-server token exposure) therefore still matter and are
+# tracked on the Cloud side, not here. README carries the same note for CLI users.
+#
+# Verified: bazel build //...; 81/81 non-integration tests (incl. the new //common/vm suites);
+# Postgres/Supabase/Supabase-RLS integration specs; eslint clean; the rebuilt tarballs compile
+# the postgres_shop example (13 actions) with artifacts on.
 DF_VERSION = "3.1.0"

@@ -53,7 +53,6 @@ externals = [
     "tmp",
     "typeid-js",
     "untildify",
-    "vm2",
     "yargs",
 ]
 

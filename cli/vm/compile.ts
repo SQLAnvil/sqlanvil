@@ -2,9 +2,9 @@ import * as fs from "fs";
 import * as glob from "glob";
 import * as path from "path";
 import * as semver from "semver";
-import { CompilerFunction, NodeVM } from "vm2";
 
 import { encode64 } from "sa/common/protos";
+import { CompilerFunction, VmRunner } from "sa/common/vm/vm_runner";
 import { sqlanvil } from "sa/protos/ts";
 
 export function compile(compileConfig: sqlanvil.ICompileConfig) {
@@ -31,14 +31,9 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
   // through Node's resolver inside the vm covers every install layout
   // (package.json, workflow_settings.yaml, JiT) and matches what the user's
   // code will see. require() caches the bundle so the second call is free.
-  const indexGeneratorVm = new NodeVM({
-    wrapper: "none",
-    require: {
-      context: "sandbox",
-      root: compileConfig.projectDir,
-      external: true,
-      builtin: ["path"],
-    },
+  const indexGeneratorVm = new VmRunner({
+    projectDir: compileConfig.projectDir,
+    builtinModules: ["path"],
   });
   const compiler: CompilerFunction = indexGeneratorVm.run(
     'return require("@sqlanvil/core").compiler',
@@ -50,17 +45,19 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
   );
   checkCoreCompatibility(sqlanvilCoreVersion, readCliVersion());
 
-  // vm2 strips file paths from V8 CallSite objects inside the sandbox, so
-  // getCallerFile() in @sqlanvil/core falls back to `global.__sqlanvil_current_file`
-  // (every published @sqlanvil/core reads it; the text patch that backported the
-  // fallback into pre-3.0.57 Dataform bundles was removed with the 1.0.0 floor).
-  // Track the currently executing file via a host-side stack exposed through
-  // sandbox helpers, and expose it as a getter on that global.
+  // getCallerFile() in @sqlanvil/core walks V8 CallSites first and falls back to
+  // `global.__sqlanvil_current_file`. Under node:vm the CallSites carry real file paths
+  // again (vm2 stripped them), so the fallback is rarely consulted — but every published
+  // @sqlanvil/core reads it, and keeping the host-side file stack behind it costs one
+  // try/finally per module, so it stays as a belt-and-braces for anything that runs an
+  // action callback from outside the module's own stack.
   const fileStack: string[] = [];
 
-  // Then use vm2's native compiler integration to apply the compiler to files.
-  const userCodeVm = new NodeVM({
-    wrapper: "none",
+  // Then use VmRunner to apply the compiler to files. Module resolution is confined to the
+  // project directory; `process.env` inside the VM is empty, so project code never sees the
+  // host's credentials. NOTE: node:vm is NOT a security boundary — see common/vm/vm_runner.ts.
+  const userCodeVm = new VmRunner({
+    projectDir: compileConfig.projectDir,
     sandbox: {
       __df_enter: (p: string) => {
         fileStack.push(p);
@@ -70,19 +67,8 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
       },
       __df_current: () => (fileStack.length > 0 ? fileStack[fileStack.length - 1] : null),
     },
-    require: {
-      builtin: ["path"],
-      context: "sandbox",
-      external: true,
-      root: compileConfig.projectDir,
-      resolve: (moduleName, parentDirName) =>
-        path.join(
-          parentDirName,
-          path.relative(parentDirName, compileConfig.projectDir),
-          moduleName,
-        ),
-    },
-    sourceExtensions: ["js", "sql", "sqlx", "yaml", "yml"],
+    builtinModules: ["path"],
+    sourceExtensions: ["js", "sql", "sqlx", "yaml", "yml", "ipynb", "md"],
     compiler: (code, filePath) => {
       const compiledCode = compiler(code, filePath);
       return `

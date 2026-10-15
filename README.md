@@ -40,6 +40,11 @@ sqlanvil compile
 sqlanvil run
 ```
 
+> **Project code runs with the CLI's privileges.** `sqlanvil compile` evaluates a project's `.sqlx`
+> and JavaScript through Node's `node:vm`. Module resolution is confined to the project directory
+> and `process.env` is empty inside it, but `node:vm` is not a security sandbox: only compile and
+> run projects from sources you trust.
+
 **`workflow_settings.yaml` (Postgres/Supabase):** the warehouse is a flat string; connection
 secrets never live here.
 

@@ -1,9 +1,9 @@
 // tslint:disable tsr-detect-non-literal-fs-filename
 import * as fs from "fs-extra";
 import * as path from "path";
-import { CompilerFunction, NodeVM } from "vm2";
 
 import { decode64, encode64 } from "sa/common/protos";
+import { VmRunner } from "sa/common/vm/vm_runner";
 import { compile } from "sa/core/compilers";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -67,21 +67,14 @@ export function runMainInVm(
   // Copy over the build sqlanvil Core that is set up as a node_modules directory.
   fs.copySync(`${process.cwd()}/core/node_modules`, `${projectDir}/node_modules`);
 
-  const compiler = compile as CompilerFunction;
-  // Then use vm2's native compiler integration to apply the compiler to files.
-  const nodeVm = new NodeVM({
+  const compiler = compile;
+  // Then use VmRunner to apply the compiler to files.
+  const nodeVm = new VmRunner({
+    projectDir,
     // Inheriting the console makes console.logs show when tests are running, which is useful for
     // debugging.
     console: "inherit",
-    wrapper: "none",
-    require: {
-      builtin: ["path"],
-      context: "sandbox",
-      external: true,
-      root: projectDir,
-      resolve: (moduleName, parentDirName) =>
-        path.join(parentDirName, path.relative(parentDirName, projectDir), moduleName),
-    },
+    builtinModules: ["path"],
     sourceExtensions: SOURCE_EXTENSIONS,
     compiler: (code, filePath) => {
       const compiledCode = compiler(code, filePath);
@@ -97,11 +90,20 @@ export function runMainInVm(
     },
   });
 
+  const hasWorkflowSettingsYaml = fs.existsSync(path.join(projectDir, "workflow_settings.yaml"));
+
   const encodedCoreExecutionRequest = encode64(sqlanvil.CoreExecutionRequest, coreExecutionRequest);
   const vmIndexFileName = path.resolve(path.join(projectDir, "index.js"));
   const encodedCoreExecutionResponse = nodeVm.run(
     `
-      global.workflowSettingsYaml = (function() { try { return require("./workflow_settings.yaml"); } catch(e) { console.error("YAML require failed run_core:", e); } })();
+      ${
+        hasWorkflowSettingsYaml
+          ? `global.workflowSettingsYaml = (function() {
+               try { return require("./workflow_settings.yaml"); }
+               catch(e) { console.error("YAML require failed run_core:", e); }
+             })();`
+          : ""
+      }
       return require("@sqlanvil/core").main("${encodedCoreExecutionRequest}")
     `,
     vmIndexFileName,

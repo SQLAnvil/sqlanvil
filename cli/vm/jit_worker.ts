@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
-import { NodeVM } from "vm2";
 
+import { VmRunner } from "sa/common/vm/vm_runner";
 import { sqlanvil } from "sa/protos/ts";
 
 const pendingRpcCallbacks = new Map<
@@ -58,17 +58,13 @@ export async function handleJitRequest(message: { request: any; projectDir: stri
 
     const vmFileName = path.resolve(projectDir, "index.js");
 
-    const vm = new NodeVM({
-      env: process.env,
-      require: {
-        builtin: [],
-        context: "sandbox",
-        external: {
-          modules: ["@sqlanvil/*"],
-        },
-        root: projectDir,
-      },
-      sourceExtensions: ["js", "json"],
+    // No builtins, only @sqlanvil/* packages, and (unlike the vm2 version) no host
+    // environment: VmRunner's process.env defaults to empty.
+    const vm = new VmRunner({
+      projectDir,
+      builtinModules: [],
+      allowedModules: ["@sqlanvil/*"],
+      sourceExtensions: ["js", "json", "yaml", "yml"],
     });
 
     const jitCompileInVm = vm.run(

@@ -241,12 +241,11 @@ SELECT 1`,
     });
 
     test("failed ref attributes the compilation error to the source sqlx file", () => {
-      // Regression test (upstream #2271 / #2266): under vm2 >= 3.11.3, V8 CallSite
-      // objects inside the sandbox lose their file paths, so utils.getCallerFile
-      // cannot recover the caller during a callback invocation. Errors from
-      // Session.resolve were therefore attributed to the sandbox entry
-      // ("index.js") instead of the action's source file. This test locks
-      // the fileName on the emitted CompilationError to the sqlx file.
+      // Regression test (upstream #2271 / #2266): errors from Session.resolve must be
+      // attributed to the action's source file, not to the entry point ("index.js"),
+      // without relying on getCallerFile (which vm2 used to defeat by stripping file
+      // paths from V8 CallSites). This test locks the fileName on the emitted
+      // CompilationError to the sqlx file.
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),

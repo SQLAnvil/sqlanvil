@@ -29,16 +29,12 @@ export function isForeignBuffer(candidate: any): boolean {
  * not belong to this realm.
  *
  * protobufjs decides once, at load time, whether to encode into a Node `Buffer` or a plain
- * `Uint8Array`, by looking at `global.Buffer`. Since protobufjs 7.6.0 that lookup reads the global
- * directly rather than going through `require("buffer")`, which changes the answer inside the vm2
- * sandbox the CLI compiles projects in: `require("buffer")` is blocked there, but `global.Buffer`
- * resolves to the *host* class, reachable through vm2's membrane.
- *
- * Encoding through that membrane is pathologically slow: every `Buffer` call crosses the sandbox
- * boundary, and the buffer that comes back is a proxy read one bridged access at a time. A
- * `Uint8Array` allocated inside the sandbox never crosses the boundary. The encoded bytes are
- * identical either way; only the container type differs. Outside a sandbox this is a no-op, so the
- * host keeps protobufjs's native `Buffer` fast paths.
+ * `Uint8Array`, by looking at `global.Buffer`. Inside the vm context the CLI compiles projects in,
+ * that is the host realm's `Buffer` (VmRunner passes it into the sandbox). Encoding through a
+ * `Buffer` from another realm is very slow (under vm2 it crossed a proxy membrane on every call;
+ * under node:vm it still means cross-realm objects), and the encoded bytes are the same either
+ * way; only the container type differs. When `Buffer` belongs to this realm this is a no-op, so
+ * the host keeps protobufjs's native `Buffer` fast paths.
  *
  * Upstream #2300 (issue #2298).
  *

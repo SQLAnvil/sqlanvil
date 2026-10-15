@@ -119,9 +119,6 @@ importers:
       url:
         specifier: ^0.11.0
         version: 0.11.4
-      vm2:
-        specifier: 3.12.2
-        version: 3.12.2
       vscode-jsonrpc:
         specifier: ^5.0.1
         version: 5.0.1
@@ -754,10 +751,6 @@ packages:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
     peerDependencies:
       acorn: ^6.0.0 || ^7.0.0 || ^8.0.0
-
-  acorn-walk@8.3.5:
-    resolution: {integrity: sha512-HEHNfbars9v4pgpW6SO1KSPkfoS0xVOM/9UzkJltjlsHZmJasxg8aXkuZa7SMf8vKGIBhpUsPluQSqhJFCqebw==}
-    engines: {node: '>=0.4.0'}
 
   acorn@8.19.0:
     resolution: {integrity: sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw==}
@@ -2204,11 +2197,6 @@ packages:
     resolution: {integrity: sha512-jjRGChg03uGp9f6wQYSO8qXkweJwRbA5WRuEQE8xLIiehIzIIi23qZSzsyvZPCPoFqkeLtZuz7Plt1LGukAInA==}
     hasBin: true
 
-  vm2@3.12.2:
-    resolution: {integrity: sha512-LRHt4xU6eXshlZEcSZVrTehLGxRDjHvjmFPGwEp4xGpZX61QzH6Xm9wK2nU7XAp36V1w2xILAL1LwxVkgD1Ipw==}
-    engines: {node: '>=6.0'}
-    hasBin: true
-
   vscode-jsonrpc@5.0.1:
     resolution: {integrity: sha512-JvONPptw3GAQGXlVV2utDcHx0BiY34FupW/kI6mZ5x06ER5DdPG/tXWMVHjTNULF5uKPOUUD0SaXg5QaubJL0A==}
     engines: {node: '>=8.0.0 || >=10.0.0'}
@@ -2888,10 +2876,6 @@ snapshots:
       acorn: 8.19.0
 
   acorn-jsx@5.3.2(acorn@8.19.0):
-    dependencies:
-      acorn: 8.19.0
-
-  acorn-walk@8.3.5:
     dependencies:
       acorn: 8.19.0
 
@@ -4332,11 +4316,6 @@ snapshots:
   uuid@14.0.2: {}
 
   uuidv7@0.4.4: {}
-
-  vm2@3.12.2:
-    dependencies:
-      acorn: 8.19.0
-      acorn-walk: 8.3.5
 
   vscode-jsonrpc@5.0.1: {}
 
