@@ -67,3 +67,17 @@ nodejs_binary(
         "--bazel_patch_module_resolver",
     ],
 )
+
+load("//testing:index.bzl", "ts_test_suite")
+
+ts_test_suite(
+    name = "tests",
+    srcs = ["compile_test.ts"],
+    deps = [
+        ":vm",
+        "//testing",
+        "@npm//@types/chai",
+        "@npm//@types/node",
+        "@npm//chai",
+    ],
+)

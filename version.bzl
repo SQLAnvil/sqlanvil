@@ -2,7 +2,7 @@
 # SemVer line). DF_VERSION is the upstream dataform-co/dataform release this fork
 # is synced to — surfaced as metadata (e.g. `sqlanvil --version`), not the package
 # version. Bump SQLANVIL_VERSION for sqlanvil releases; bump DF_VERSION on upstream syncs.
-SQLANVIL_VERSION = "1.33.0"
+SQLANVIL_VERSION = "1.33.1"
 # 3.0.64 reviewed; taken selectively. Four upstream commits:
 #
 #   * #2228 protobufjs 7.6.3 -> 7.6.5. TAKEN (we were on 7.6.4 for the direct dep and 7.5.8 for
@@ -456,5 +456,19 @@ SQLANVIL_VERSION = "1.33.0"
 # names (postgres index method and partition kind, mysql partition kind, vector indexType) are
 # converted instead of silently becoming the first value; a supabase: {} block on another
 # warehouse is a compile error.
+#
+# Carried ahead of the next upstream tag (2026-10-14), shipped in 1.33.1:
+#
+#   * #2376 fixed CLI/core compatibility floor. TAKEN, adapted. The CLI accepted only cores at or
+#     above its own major.minor, so every sqlanvil minor bump (1.32 -> 1.33 and so on) made the
+#     new CLI reject every project pinned to an older core; the Cloud runner was reinstalling the
+#     CLI per run to dodge it. Now checkCoreCompatibility() in cli/vm/compile.ts accepts any core
+#     with the CLI's major at or above MIN_SUPPORTED_CORE_VERSION = "1.0.0" (upstream: "3.0.0"),
+#     with table-driven unit tests in cli/vm/compile_test.ts that need no npm. Also DELETED the
+#     pre-3.0.57 caller-file bundle patch (upstream keeps it until their floor passes 3.0.57):
+#     every @sqlanvil/core from 1.0.0 is built on Dataform >= 3.0.59 and reads
+#     global.__sqlanvil_current_file itself, so the patch could never fire here. The gated
+#     published-core e2e tests in cli/index_compile_test.ts referenced versions that will never
+#     exist on our line (2.9.0, 3.0.50); the survivor now installs 1.0.0, the floor.
 #
 DF_VERSION = "3.0.71"

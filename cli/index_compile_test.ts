@@ -13,12 +13,11 @@ import { TmpDirFixture } from "sa/testing/fixtures";
 suite("compile command", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);
 
-  // The two tests below exercise the stateless-install path against SPECIFIC
-  // published @sqlanvil/core versions (2.9.0, 3.0.50) fetched from the public npm
-  // registry. Those versions aren't published yet (only 0.0.1 placeholders exist),
-  // so the tests are gated off by default — keeping //cli:tests green. Set
-  // SA_TEST_PUBLISHED_CORE=1 (and pass via --test_env) to run them once real
-  // @sqlanvil/core versions exist on npm. See docs npm_publishing.md.
+  // The test below exercises the stateless-install path against a SPECIFIC published
+  // @sqlanvil/core version fetched from the public npm registry, so it needs network
+  // and a real `npm install`. It is gated off by default to keep //cli:tests hermetic;
+  // set SA_TEST_PUBLISHED_CORE=1 (via --test_env) to run it. The version-compatibility
+  // rules themselves are unit-tested without npm in cli/vm/compile_test.ts.
   const runPublishedCoreTests = !!process.env.SA_TEST_PUBLISHED_CORE;
 
   test(
@@ -72,50 +71,21 @@ defaultLocation: "${DEFAULT_LOCATION}"
   });
 
   if (runPublishedCoreTests) {
-    test("compile rejects @sqlanvil/core with incompatible version", async () => {
+    // MIN_SUPPORTED_CORE_VERSION (cli/vm/compile.ts) is the oldest core the CLI accepts, so
+    // it must keep compiling a real project as the CLI version moves on. There is no
+    // published @sqlanvil/core outside major 1 to exercise rejection end to end (0.0.1 is an
+    // empty placeholder with no bundle); the unit tests cover that path.
+    test("compile succeeds with @sqlanvil/core 1.0.0 (MIN_SUPPORTED_CORE_VERSION)", async () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
-      // sqlanvilCoreVersion in workflow_settings.yaml triggers the stateless
-      // install path (compile.ts copies to a tmp dir and runs `npm i`), so the
-      // test exercises the same flow real users hit. 2.9.0 is the latest 2.x on
-      // the registry; its major (2) is incompatible with the current CLI (3.x).
-      fs.writeFileSync(
-        path.join(projectDir, "workflow_settings.yaml"),
-        dumpYaml(
-          sqlanvil.WorkflowSettings.create({
-            defaultProject: "dataform",
-            sqlanvilCoreVersion: "2.9.0",
-          }),
-        ),
-      );
-
-      // npm needs a writable cache; ~/.npm is read-only in the bazel sandbox.
-      const npmCacheDir = tmpDirFixture.createNewTmpDir();
-      const stderr = (
-        await getProcessResult(
-          execFile(nodePath, [cliEntryPointPath, "compile", projectDir], {
-            env: { ...process.env, NPM_CONFIG_CACHE: npmCacheDir },
-          }),
-        )
-      ).stderr;
-      expect(stderr).contains("@sqlanvil/core 2.9.0 is not compatible with @sqlanvil/cli");
-      expect(stderr).contains("matching major.minor");
-      expect(stderr).contains("Set `sqlanvilCoreVersion:");
-    });
-
-    test("compile succeeds with @sqlanvil/core <= 3.0.56 via caller-file shim", async () => {
-      const projectDir = tmpDirFixture.createNewTmpDir();
-      // 3.0.50 predates 3.0.57, which is when @sqlanvil/core started reading
-      // global.__sqlanvil_current_file as a fallback in getCallerFile(). The
-      // compile path text-patches the bundle to add that fallback; this test
-      // proves the patch + host-side file stack drive a real action's
-      // fileName from inside vm2 3.11.3's path-stripped sandbox.
+      // sqlanvilCoreVersion in workflow_settings.yaml triggers the stateless install path
+      // (compile.ts copies to a tmp dir and runs `npm i`), so this is the flow real users hit.
       fs.writeFileSync(
         path.join(projectDir, "workflow_settings.yaml"),
         dumpYaml({
           defaultProject: DEFAULT_DATABASE,
           defaultLocation: DEFAULT_LOCATION,
           defaultDataset: "dataform",
-          sqlanvilCoreVersion: "3.0.50",
+          sqlanvilCoreVersion: "1.0.0",
         }),
       );
       fs.ensureFileSync(path.join(projectDir, "definitions", "example.sqlx"));
@@ -124,6 +94,7 @@ defaultLocation: "${DEFAULT_LOCATION}"
         `config { type: "table" }\nSELECT 1 AS id`,
       );
 
+      // npm needs a writable cache; ~/.npm is read-only in the bazel sandbox.
       const npmCacheDir = tmpDirFixture.createNewTmpDir();
       const result = await getProcessResult(
         execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--json"], {

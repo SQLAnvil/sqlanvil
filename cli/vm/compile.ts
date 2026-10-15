@@ -48,41 +48,14 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
     'return require("@sqlanvil/core").version || "0.0.0"',
     vmIndexFileName,
   );
-  // The upstream Dataform release the core is based on. Decoupled sqlanvil cores
-  // export `dataformVersion`; legacy cores (whose `version` tracked the Dataform
-  // release) fall back to `version`. Used only for the old-bundle caller-file shim
-  // below — keyed on the Dataform layout, not sqlanvil's own SemVer.
-  const coreDataformVersion: string = indexGeneratorVm.run(
-    'return require("@sqlanvil/core").dataformVersion || require("@sqlanvil/core").version || "0.0.0"',
-    vmIndexFileName,
-  );
-
-  const cliVersion = readCliVersion();
-  const cliParsed = semver.parse(cliVersion);
-  // cliParsed is null for unparseable strings, and "0.0.0" is the sentinel
-  // returned when package.json can't be read (unbundled local dev). In both
-  // cases skip the check rather than reject every real Core install.
-  if (cliParsed && cliVersion !== "0.0.0") {
-    const minCoreVersion = `${cliParsed.major}.${cliParsed.minor}.0`;
-    if (
-      semver.major(sqlanvilCoreVersion) !== cliParsed.major ||
-      semver.lt(sqlanvilCoreVersion, minCoreVersion)
-    ) {
-      throw new Error(
-        `@sqlanvil/core ${sqlanvilCoreVersion} is not compatible with @sqlanvil/cli ` +
-          `${cliVersion}. The CLI requires @sqlanvil/core >= ${minCoreVersion} ` +
-          `(matching major.minor). Set \`sqlanvilCoreVersion: ${cliVersion}\` in ` +
-          `workflow_settings.yaml (or pin @sqlanvil/core in package.json), then run ` +
-          `\`sqlanvil install\`.`,
-      );
-    }
-  }
-  const needsCallerFileShim = semver.lt(coreDataformVersion, "3.0.57");
+  checkCoreCompatibility(sqlanvilCoreVersion, readCliVersion());
 
   // vm2 strips file paths from V8 CallSite objects inside the sandbox, so
-  // getCallerFile() in @sqlanvil/core needs a fallback. Track the currently
-  // executing file via a host-side stack exposed through sandbox helpers, and
-  // expose it as a getter on `global.__sqlanvil_current_file`.
+  // getCallerFile() in @sqlanvil/core falls back to `global.__sqlanvil_current_file`
+  // (every published @sqlanvil/core reads it; the text patch that backported the
+  // fallback into pre-3.0.57 Dataform bundles was removed with the 1.0.0 floor).
+  // Track the currently executing file via a host-side stack exposed through
+  // sandbox helpers, and expose it as a getter on that global.
   const fileStack: string[] = [];
 
   // Then use vm2's native compiler integration to apply the compiler to files.
@@ -111,11 +84,7 @@ export function compile(compileConfig: sqlanvil.ICompileConfig) {
     },
     sourceExtensions: ["js", "sql", "sqlx", "yaml", "yml"],
     compiler: (code, filePath) => {
-      let source = code;
-      if (needsCallerFileShim && filePath === coreBundlePath) {
-        source = patchOldCoreCallerFile(source);
-      }
-      const compiledCode = compiler(source, filePath);
+      const compiledCode = compiler(code, filePath);
       return `
         __df_enter(${JSON.stringify(filePath)});
         try {
@@ -185,19 +154,37 @@ function readCliVersion(): string {
   }
 }
 
-// @sqlanvil/core <= 3.0.56 has no `global.__sqlanvil_current_file` fallback in
-// getCallerFile(), so paired with CLI >= 3.0.57 (which uses vm2 with path
-// stripping) every action fails with "Unable to find valid caller file".
-// Backport the fallback by rewriting the bundle text at load time. Gated on
-// version so we never touch newer core bundles whose layout differs.
-const OLD_CORE_THROW =
-  'if(!t)throw new Error("Unable to find valid caller file; please report this issue.")';
-const OLD_CORE_WITH_FALLBACK =
-  "if(!t){if(global.__sqlanvil_current_file){t=global.__sqlanvil_current_file}" +
-  'else{throw new Error("Unable to find valid caller file; please report this issue.")}}';
+// The oldest @sqlanvil/core this CLI works with. It is deliberately NOT derived from the
+// CLI's own version (which used to make every minor bump reject every older core, so a
+// 1.33.0 CLI refused a project pinned to 1.32.10). Raise it on purpose only, and update
+// cli/vm/compile_test.ts when you do. Everything from 1.0.0 up is built on Dataform
+// >= 3.0.59, so no published core needs the old caller-file bundle patch.
+export const MIN_SUPPORTED_CORE_VERSION = "1.0.0";
 
-function patchOldCoreCallerFile(source: string): string {
-  return source.replace(OLD_CORE_THROW, OLD_CORE_WITH_FALLBACK);
+/**
+ * Throws if this CLI can't work with the installed @sqlanvil/core. Core must share the
+ * CLI's major version and be at least MIN_SUPPORTED_CORE_VERSION; a core newer than the
+ * CLI is fine as long as the major matches. (Adapted from upstream dataform #2376.)
+ */
+export function checkCoreCompatibility(coreVersion: string, cliVersion: string) {
+  const cliParsed = semver.parse(cliVersion);
+  // Skip the check when the CLI version is unknown or invalid: readCliVersion() returns
+  // "0.0.0" when it can't read package.json, e.g. running from source instead of a bundle.
+  if (!cliParsed || cliVersion === "0.0.0") {
+    return;
+  }
+  const majorFloor = `${cliParsed.major}.0.0`;
+  const minCoreVersion = semver.gt(MIN_SUPPORTED_CORE_VERSION, majorFloor)
+    ? MIN_SUPPORTED_CORE_VERSION
+    : majorFloor;
+  if (semver.major(coreVersion) !== cliParsed.major || semver.lt(coreVersion, minCoreVersion)) {
+    throw new Error(
+      `@sqlanvil/core ${coreVersion} is not compatible with @sqlanvil/cli ${cliVersion}. ` +
+        `The CLI requires @sqlanvil/core >=${minCoreVersion} <${cliParsed.major + 1}.0.0. ` +
+        `Set \`sqlanvilCoreVersion: ${cliVersion}\` in workflow_settings.yaml, or pin ` +
+        `@sqlanvil/core in package.json and run \`sqlanvil install\`.`,
+    );
+  }
 }
 
 /**
