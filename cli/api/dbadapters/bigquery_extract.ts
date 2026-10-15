@@ -121,7 +121,7 @@ export async function runBigQueryExtract(args: BigQueryExtractArgs): Promise<{ r
     await loader.close();
   }
   if (truncated) {
-    // eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console -- runtime diagnostics on the CLI's own stderr
     console.warn(
       `runner-extract: ${target.schema}.${target.name} truncated at ${rowCount} rows / ${bytes} bytes (source is larger).`,
     );

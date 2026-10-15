@@ -1,12 +1,11 @@
 import { expect } from "chai";
+import * as fs from "fs";
+import * as path from "path";
 
 import * as dfapi from "sa/cli/api";
 import * as dbadapters from "sa/cli/api/dbadapters";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { sqlanvil } from "sa/protos/ts";
-
-import * as fs from "fs";
-import * as path from "path";
 
 export function keyBy<V>(values: V[], keyFn: (value: V) => string): { [key: string]: V } {
   return values.reduce(

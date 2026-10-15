@@ -104,10 +104,7 @@ export async function handleJitRequest(message: { request: any; projectDir: stri
   }
 }
 
-if (require.main === module) {
-  if (process.send) {
-    process.send({ type: "worker_booted" });
-  }
+export function registerJitCompileHandler() {
   process.on("message", async (message: any) => {
     if (message.request) {
       if (hasStartedProcessing) {

@@ -22,28 +22,28 @@ ts_test_suite(
     data = [
         ":all_projects",
         ":node_modules",
-        "//packages/@sqlanvil/core:package_tar",
-        "@nodejs//:node",
+        "//packages/@sqlanvil/cli:bundle",
+        "//packages/@sqlanvil/cli:json",
+        "//packages/@sqlanvil/cli:worker_bundle",
     ],
     deps = [
+        "//cli:index_test_base",
         "//cli/api",
         "//common/protos",
         "//protos:ts",
         "//testing",
-        "@npm//@types/chai",
-        "@npm//@types/fs-extra",
-        "@npm//@types/node",
-        "@npm//chai",
-        "@npm//fs-extra",
+        "//:node_modules/@types/chai",
+        "//:node_modules/@types/fs-extra",
+        "//:node_modules/@types/node",
+        "//:node_modules/chai",
+        "//:node_modules/fs-extra",
     ],
 )
 
 node_modules(
     name = "node_modules",
     deps = [
-        # The CLI bundle remains at this directory level's node_modules, whereas the core package
-        # is copied into each example project's node_modules during testing.
-        "//packages/@sqlanvil/cli:package_tar",
+        # The core package is copied into each example project's node_modules during testing.
         "//packages/@sqlanvil/core:package_tar",
     ],
 )

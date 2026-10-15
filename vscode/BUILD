@@ -9,21 +9,20 @@ ts_library(
         "//cli/api",
         "//core",
         "//protos:ts",
-        "@npm//@types/node",
-        "@npm//@types/vscode",
-        "@npm//vscode-languageclient",
-        "@npm//vscode-languageserver",
-        "@npm//vscode-languageserver-protocol",
-        "@npm//vscode-jsonrpc",
-        "@npm//vscode-languageserver-types",
-        "@npm//vscode-languageserver-textdocument",
+        "//:node_modules/@types/node",
+        "//:node_modules/@types/vscode",
+        "//:node_modules/vscode-languageclient",
+        "//:node_modules/vscode-languageserver",
+        "//:node_modules/vscode-languageserver-protocol",
+        "//:node_modules/vscode-jsonrpc",
+        "//:node_modules/vscode-languageserver-types",
+        "//:node_modules/vscode-languageserver-textdocument",
     ],
 )
 
 filegroup(
     name = "vscode-sources",
-    srcs = [":vscode"],
-    output_group = "es5_sources",
+    srcs = [":vscode_ts_project"],
 )
 
 sh_binary(

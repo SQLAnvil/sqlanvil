@@ -9,7 +9,6 @@ ts_library(
         ["*.ts"],
     ),
     deps = [
-        "//:modules-fix",
         "//common/flags",
         "//testing",
     ],

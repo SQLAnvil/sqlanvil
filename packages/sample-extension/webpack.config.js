@@ -1,38 +1,34 @@
-const path = require("path");
 const webpack = require("webpack");
 
-const fs = require("fs");
-
 module.exports = (env, argv) => {
-  const runfilesDir = process.env.RUNFILES;
-  let workspaceName = "sa";
-  if (!fs.existsSync(path.resolve(runfilesDir, "sa"))) {
-    workspaceName = "_main";
+  if (!process.env.BAZEL_BINDIR) {
+    throw new Error("BAZEL_BINDIR must be set");
   }
 
   const config = {
     mode: argv.mode || "development",
-    target: 'node',
-    entry: [path.resolve(runfilesDir, workspaceName, "packages/sample-extension/index")],
+    target: "node",
+    devtool: false,
     output: {
       libraryTarget: "commonjs-module",
     },
     optimization: {
-      minimize: true
+      minimize: true,
+      moduleIds: "deterministic",
     },
     stats: {
-      warnings: true
+      warnings: true,
     },
     resolve: {
-      extensions: [".ts", ".js", ".json"],
+      extensions: [".js", ".json"],
       alias: {
-        sa: path.resolve(runfilesDir, workspaceName)
-      }
+        sa: process.cwd(),
+      },
     },
     plugins: [
       new webpack.optimize.LimitChunkCountPlugin({
-        maxChunks: 1
-      })
+        maxChunks: 1,
+      }),
     ],
   };
   return config;

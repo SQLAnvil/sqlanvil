@@ -1,6 +1,6 @@
+import { execSync } from "child_process";
 import * as pg from "pg";
 
-import { execSync } from "child_process";
 import { sleepUntil } from "sa/common/promises";
 import { IHookHandler } from "sa/testing";
 

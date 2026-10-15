@@ -52,9 +52,13 @@ export function findStructArrays(
   const found: Omit<StructArraySite, "strategy" | "rationale" | "consumers">[] = [];
 
   for (let i = 0; i < toks.length; i++) {
-    if (!isWord(toks[i], "array") || toks[i + 1]?.text !== "(") continue;
+    if (!isWord(toks[i], "array") || toks[i + 1]?.text !== "(") {
+      continue;
+    }
     const close = matchBracket(toks, i + 1);
-    if (close < 0) continue;
+    if (close < 0) {
+      continue;
+    }
     // `ARRAY(SELECT AS STRUCT …)` — the AS STRUCT is what makes it a struct array rather than an
     // array of scalars, which unnests to a plain column and needs none of this.
     if (
@@ -95,7 +99,9 @@ export function findStructArrays(
         const words = parts.filter((t) => t.kind === "word" || t.kind === "quoted-ident");
         return words.length ? (words[words.length - 1].value ?? words[words.length - 1].text) : "";
       };
-      if (eq !== -1) correlation = { sourceColumn: tail(left), parentColumn: tail(right) };
+      if (eq !== -1) {
+        correlation = { sourceColumn: tail(left), parentColumn: tail(right) };
+      }
     }
 
     // The column name follows the closing paren: `) as decimals`.
@@ -200,12 +206,16 @@ export function chooseStrategies(
   return sites.map((site) => {
     const consumers: StructArraySite["consumers"] = [];
     for (const f of files) {
-      if (f.file === site.file || !site.column) continue;
+      if (f.file === site.file || !site.column) {
+        continue;
+      }
       const toks = significant(tokenize(f.source));
       const uses = toks
         .map((t, i) => ({ t, i }))
         .filter(({ t }) => t.kind === "word" && t.text.toLowerCase() === site.column.toLowerCase());
-      if (!uses.length) continue;
+      if (!uses.length) {
+        continue;
+      }
       // Every read is an UNNEST when each occurrence sits directly inside `unnest( … )`.
       const unnestOnly = uses.every(
         ({ i }) => isWord(toks[i - 2], "unnest") && toks[i - 1]?.text === "(",

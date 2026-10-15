@@ -10,6 +10,6 @@ ts_library(
     deps = [
         "//testing",
         "//tools/postgres",
-        "@npm//@types/node",
+        "//:node_modules/@types/node",
     ],
 )

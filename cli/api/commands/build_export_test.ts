@@ -1,8 +1,8 @@
 import { expect } from "chai";
 
 import { Builder } from "sa/cli/api/commands/build";
-import { suite, test } from "sa/testing";
 import { sqlanvil } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
 
 suite("build exports", () => {
   test("an export compiles to an ExecutionAction with type export + ExportSpec", () => {

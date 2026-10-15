@@ -10,9 +10,9 @@ ts_library(
     deps = [
         "//common/promises",
         "//testing",
-        "@npm//@types/node",
-        "@npm//@types/pg",
-        "@npm//pg",
-        "@npm//promise-pool-executor",
+        "//:node_modules/@types/node",
+        "//:node_modules/@types/pg",
+        "//:node_modules/pg",
+        "//:node_modules/promise-pool-executor",
     ],
 )

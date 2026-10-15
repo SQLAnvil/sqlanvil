@@ -25,9 +25,9 @@ ts_test_suite(
         ":compilation_sql",
         "//protos:ts",
         "//testing",
-        "@npm//@types/chai",
-        "@npm//chai",
-        "@npm//protobufjs",
+        "//:node_modules/@types/chai",
+        "//:node_modules/chai",
+        "//:node_modules/protobufjs",
     ]
 )
 

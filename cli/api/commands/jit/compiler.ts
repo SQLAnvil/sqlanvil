@@ -1,5 +1,4 @@
 import { ChildProcess } from "child_process";
-import * as path from "path";
 
 import { BaseWorker } from "sa/cli/api/commands/base_worker";
 import { handleDbRequest } from "sa/cli/api/commands/jit/rpc";
@@ -37,10 +36,6 @@ export class JitCompileChildProcess extends BaseWorker<
       timeoutMillis,
       options,
     );
-  }
-
-  constructor() {
-    super(path.resolve(__dirname, "../../../vm/jit_loader"));
   }
 
   private async run(

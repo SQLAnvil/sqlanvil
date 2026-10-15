@@ -1,13 +1,8 @@
 #!/bin/bash
 set -e
 
-# Run tslint.
-bazel run @nodejs//:yarn
-bazel build @npm//tslint/bin:tslint && bazel-bin/external/npm/tslint/bin/tslint.sh --project .
-
-# Run eslint (currently used only to guard core/ against Node built-in
-# imports; see eslint.config.js and eslint-rules/).
-bazel build @npm//eslint/bin:eslint && bazel-bin/external/npm/eslint/bin/eslint.sh 'core/**/*.ts'
+# Lint.
+./scripts/lint
 
 # Run unit tests
 bazel test ... \

@@ -23,14 +23,7 @@
     ],
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "plugins": [
-      {
-        "name": "@bazel/tsetse",
-        "disabledRules": [
-          "must-type-assert-json-parse"
-        ]
-      }
-    ]
+    "declaration": true
   },
   "exclude": [
     "bazel-*",

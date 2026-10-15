@@ -1,5 +1,4 @@
 #!/bin/bash
 set -e
 
-bazel build //packages/@sqlanvil/cli:bin
-./bazel-bin/packages/@sqlanvil/cli/bin.sh --nobazel_run_linker "$@"
+bazel run //packages/@sqlanvil/cli:bin -- "$@"

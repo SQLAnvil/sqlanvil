@@ -25,12 +25,32 @@ There is no self-serve access request — that is by design. The fork-and-PR flo
 ## Build and test
 
 SQLAnvil uses [Bazel](https://bazel.build) for all build and test targets. There are no `npm run` scripts — everything goes through Bazel.
+The JavaScript side of the build is [rules_js](https://github.com/aspect-build/rules_js) + rules_ts
+over a **pnpm** lockfile (`pnpm-lock.yaml`); Bazel downloads its own Node and pnpm, so neither needs
+to be installed globally to build.
 
 ## Prerequisites
 
 - [Bazelisk](https://github.com/bazelbuild/bazelisk) — `npm install -g @bazel/bazelisk`
 - Docker (for the database integration-test containers; optionally for the hermetic build container)
 - Node.js 20+ LTS (used by some tooling outside Bazel)
+
+### Add new npm dependencies
+
+Do not edit `pnpm-lock.yaml` by hand and do not use a global pnpm (its version must match
+`MODULE.bazel`). Add through Bazel's pnpm, with `--dir` so it does not install into Bazel's
+output tree:
+
+```bash
+bazel run -- @pnpm//:pnpm --dir "$PWD" add <package>
+bazel run -- @pnpm//:pnpm --dir "$PWD" add -D <package>     # dev dependency
+```
+
+Then reference it from the `deps` of the `ts_library` that imports it as
+`//:node_modules/<package>` (and `//:node_modules/@types/<package>` for its types). A package the
+published CLI must install at runtime also goes in `externals` in `packages/@sqlanvil/cli/BUILD`.
+Security pins live in `pnpm.overrides` in `package.json`; `scripts/check_upstream_resolutions`
+compares them against upstream Dataform's.
 
 ## macOS build note
 
@@ -87,7 +107,9 @@ bazel test //tests/integration:postgres
 ## Code style
 
 - TypeScript throughout (no JavaScript in `core/` or `cli/`)
-- `tslint.json` and `.prettierrc` at the repo root
+- `eslint.config.js` and `.prettierrc` at the repo root: `./scripts/lint` runs eslint over every
+  `.ts` file (including the `core/` no-Node-built-ins guard and import ordering) and prettier
+  over the files your branch changed; `./scripts/format` rewrites those files with prettier.
 - Run `bazel build //...` and `bazel test //...` before submitting a PR
 
 ## Package names

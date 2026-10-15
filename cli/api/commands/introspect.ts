@@ -1,9 +1,8 @@
-import * as fs from "fs-extra";
-import * as path from "path";
-
-import * as mysql from "mysql2/promise";
-import * as pg from "pg";
 import { BigQuery } from "@google-cloud/bigquery";
+import * as fs from "fs-extra";
+import * as mysql from "mysql2/promise";
+import * as path from "path";
+import * as pg from "pg";
 
 import { readConfigFromWorkflowSettings } from "sa/cli/api/utils";
 

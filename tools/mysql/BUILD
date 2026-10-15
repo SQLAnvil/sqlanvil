@@ -8,7 +8,7 @@ ts_library(
     deps = [
         "//common/promises",
         "//testing",
-        "@npm//@types/node",
-        "@npm//mysql2",
+        "//:node_modules/@types/node",
+        "//:node_modules/mysql2",
     ],
 )

@@ -1,8 +1,8 @@
 import { expect } from "chai";
 
 import { prune } from "sa/cli/api/commands/prune";
-import { suite, test } from "sa/testing";
 import { sqlanvil } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
 
 suite("prune", () => {
   // stg_zip_codes (view) reads the zip_codes extract; daily_sales reads stg_app_orders (view),

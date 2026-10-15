@@ -143,7 +143,10 @@ export async function runValidate(argv: any): Promise<number> {
       shadowSchemas.map((schema) =>
         dbadapter.execute(executionSql.dropSchemaCascadeSql(schema)).catch(() => undefined),
       ),
-    ).then(() => process.exit(1));
+    ).then(
+      () => process.exit(1),
+      () => process.exit(1),
+    );
   });
 
   const deps: ValidateDeps = {

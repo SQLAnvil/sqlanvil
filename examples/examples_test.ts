@@ -2,13 +2,12 @@ import { expect } from "chai";
 import { execFile } from "child_process";
 import * as fs from "fs-extra";
 
+import { cliEntryPointPath } from "sa/cli/index_test_base";
 import { verifyObjectMatchesProto } from "sa/common/protos";
 import { sqlanvil } from "sa/protos/ts";
 import { getProcessResult, nodePath, suite, test } from "sa/testing";
 
 suite("examples", { parallel: true }, () => {
-  const cliEntryPointPath = "examples/node_modules/@sqlanvil/cli/bundle.js";
-
   ["stackoverflow_reporter", "extreme_weather_programming", "postgres_shop"].forEach(
     (exampleProject) => {
       test(`${exampleProject} runs`, async () => {

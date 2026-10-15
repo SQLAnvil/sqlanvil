@@ -30,6 +30,7 @@ export class PgPoolExecutor {
     // but we still need to handle the error to prevent crashing the process.
     this.pool.on("error", (err) => {
       // tslint:disable-next-line: no-console
+      // eslint-disable-next-line no-console -- runtime diagnostics on the CLI's own stderr
       console.error("pg.Pool idle client error", err.message, err.stack);
     });
   }
@@ -81,11 +82,13 @@ export class PgPoolExecutor {
         client.release(err);
       } catch (e) {
         // tslint:disable-next-line: no-console
+        // eslint-disable-next-line no-console -- runtime diagnostics on the CLI's own stderr
         console.error("Error thrown when releasing pg.Client", e.message, e.stack);
       }
     };
     const onClientError = (err: Error) => {
       // tslint:disable-next-line: no-console
+      // eslint-disable-next-line no-console -- runtime diagnostics on the CLI's own stderr
       console.error("pg.Client client error", err.message, err.stack);
       // Errored connections cause issues when released back to the pool. Instead, close the connection
       // by passing the error to release(). https://github.com/dataform-co/dataform/issues/914

@@ -4,10 +4,10 @@ set -euo pipefail
 ####################################################################################################
 # Compare our package.json "resolutions" block against upstream dataform-co/dataform.
 #
-# Upstream moved from yarn to pnpm in 3.1.0 (#2352), so their pins now live in
-# `pnpm.overrides` rather than `resolutions`. Both blocks are read on both sides and keys are
-# normalized to a bare package name (`**/foo` -> `foo`, `pkg@1.2.3>foo` -> `foo`), so a
-# pnpm-style parent-scoped override still lines up with our `pkg/**/foo` yarn resolution.
+# Upstream moved from yarn to pnpm in 3.1.0 (#2352) and we followed right after 1.34.0, so pins
+# live in `pnpm.overrides` on both sides now. Both `resolutions` and `pnpm.overrides` are still
+# read and keys are normalized to a bare package name (`**/foo` -> `foo`, `pkg@1.2.3>foo` ->
+# `foo`), so older refs on either side keep comparing.
 #
 # WHY THIS EXISTS
 # Upstream adds security pins to their overrides via Dependabot PRs that land on their `main`
@@ -124,7 +124,7 @@ if extra:
 
 if missing or differing:
     print("ACTION: add the missing/differing pins to package.json, then:")
-    print("    yarn install                      # regenerate yarn.lock")
+    print("    bazel run -- @pnpm//:pnpm --dir \"$PWD\" install   # regenerate pnpm-lock.yaml")
     print("    bazel test //core/... //cli/... --config=macos-cpp")
     print("Check the advisory for each before assuming it is only a version bump.")
     sys.exit(1)

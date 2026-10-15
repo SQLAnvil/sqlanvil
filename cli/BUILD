@@ -1,6 +1,5 @@
-load("//tools:ts_library.bzl", "ts_library")
 load("//testing:index.bzl", "ts_test_suite")
-load("//tools:node_modules.bzl", "node_modules")
+load("//tools:ts_library.bzl", "ts_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -43,26 +42,19 @@ ts_library(
         "//core",
         "//protos:ts",
         "//sqlx:format",
-        "@npm//@types/glob",
-        "@npm//@types/js-yaml",
-        "@npm//@types/long",
-        "@npm//@types/node",
-        "@npm//@types/readline-sync",
-        "@npm//@types/yargs",
-        "@npm//chokidar",
-        "@npm//glob",
-        "@npm//js-yaml",
-        "@npm//parse-duration",
-        "@npm//readline-sync",
-        "@npm//untildify",
-        "@npm//yargs",
-    ],
-)
-
-node_modules(
-    name = "node_modules",
-    deps = [
-        "//packages/@sqlanvil/cli:package_tar",
+        "//:node_modules/@types/glob",
+        "//:node_modules/@types/js-yaml",
+        "//:node_modules/@types/long",
+        "//:node_modules/@types/node",
+        "//:node_modules/@types/readline-sync",
+        "//:node_modules/@types/yargs",
+        "//:node_modules/chokidar",
+        "//:node_modules/glob",
+        "//:node_modules/js-yaml",
+        "//:node_modules/parse-duration",
+        "//:node_modules/readline-sync",
+        "//:node_modules/untildify",
+        "//:node_modules/yargs",
     ],
 )
 
@@ -70,14 +62,15 @@ ts_library(
     name = "index_test_base",
     srcs = ["index_test_base.ts"],
     deps = [
+        "//cli",
         "//core",
         "//protos:ts",
         "//testing",
-        "@npm//@types/fs-extra",
-        "@npm//@types/js-yaml",
-        "@npm//@types/node",
-        "@npm//fs-extra",
-        "@npm//js-yaml",
+        "//:node_modules/@types/fs-extra",
+        "//:node_modules/@types/js-yaml",
+        "//:node_modules/@types/node",
+        "//:node_modules/fs-extra",
+        "//:node_modules/js-yaml",
     ],
 )
 
@@ -95,12 +88,14 @@ ts_test_suite(
         "util_test.ts"
     ],
     data = [
-        ":node_modules",
+        "//packages/@sqlanvil/cli:bundle",
+        "//packages/@sqlanvil/cli:json",
+        "//packages/@sqlanvil/cli:worker_bundle",
         "//packages/@sqlanvil/core:package_tar",
-        "@nodejs//:node",
-        "@nodejs//:npm",
         "//test_credentials:bigquery.json",
     ],
+    # index_test_base runs `npm` directly, and the CLI runs `npm i` when sqlanvilCoreVersion is set.
+    include_npm = True,
     deps = [
         ":index_test_base",
         "//cli",
@@ -108,14 +103,14 @@ ts_test_suite(
         "//core",
         "//protos:ts",
         "//testing",
-        "@npm//@types/chai",
-        "@npm//@types/fs-extra",
-        "@npm//@types/js-yaml",
-        "@npm//@types/long",
-        "@npm//@types/node",
-        "@npm//chai",
-        "@npm//fs-extra",
-        "@npm//js-yaml",
-        "@npm//ts-mockito",
+        "//:node_modules/@types/chai",
+        "//:node_modules/@types/fs-extra",
+        "//:node_modules/@types/js-yaml",
+        "//:node_modules/@types/long",
+        "//:node_modules/@types/node",
+        "//:node_modules/chai",
+        "//:node_modules/fs-extra",
+        "//:node_modules/js-yaml",
+        "//:node_modules/ts-mockito",
     ],
 )

@@ -1,7 +1,15 @@
 #!/bin/bash
+set -e
 
-bazel build @npm//tslint/bin:tslint && bazel-bin/external/npm/tslint/bin/tslint.sh --project .
+# Type-aware lint rules need the npm types in node_modules and the generated sources in bazel-bin.
+bazel run -- @pnpm//:pnpm --dir "$PWD" install --frozen-lockfile
+bazel build //protos:ts //core:version
 
-# Run eslint (currently used only to guard core/ against Node built-in
-# imports; see eslint.config.js and eslint-rules/).
-bazel build @npm//eslint/bin:eslint && bazel-bin/external/npm/eslint/bin/eslint.sh 'core/**/*.ts'
+# Run eslint (tslint was retired with the rules_js toolchain; eslint.config.js carries the
+# rules that mattered, including ordered-imports and the core/ sandbox guard).
+bazel run //:eslint -- '**/*.ts'
+
+# Run prettier on .ts files changed since the branching point
+BASE_REF=$(git rev-parse --verify --quiet origin/main || echo main)
+git diff -z --name-only --diff-filter=ACMR "$(git merge-base $BASE_REF HEAD)" -- '*.ts' \
+  | xargs -0 -r bazel run //:prettier -- --ignore-path .prettierignore --check

@@ -1,5 +1,5 @@
-import { Tasks } from "sa/cli/api/dbadapters/tasks";
 import { PostgresExecutionSql } from "sa/cli/api/dbadapters/postgres_execution_sql";
+import { Tasks } from "sa/cli/api/dbadapters/tasks";
 import { sqlanvil } from "sa/protos/ts";
 
 export class SupabaseExecutionSql extends PostgresExecutionSql {

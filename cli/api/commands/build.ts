@@ -3,8 +3,8 @@ import { state } from "sa/cli/api/commands/state";
 import * as dbadapters from "sa/cli/api/dbadapters";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { targetStringifier } from "sa/core/targets";
-import { dataformVersion } from "sa/core/version";
 import * as utils from "sa/core/utils";
+import { dataformVersion } from "sa/core/version";
 import { sqlanvil } from "sa/protos/ts";
 
 export async function build(

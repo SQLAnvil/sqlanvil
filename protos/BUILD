@@ -25,8 +25,6 @@ proto_library(
 
 ts_proto_library(
     name = "ts",
-    module_name = "sa/protos/ts",
-    module_root = "ts",
     deps = [
         ":sqlanvil_proto",
     ],

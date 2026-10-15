@@ -4,20 +4,20 @@ import * as os from "os";
 import * as path from "path";
 
 import * as dfapi from "sa/cli/api";
-import * as dbadapters from "sa/cli/api/dbadapters";
+import { substituteConnectionCredentials } from "sa/cli/api/commands/connection_credentials";
+import { checkScriptAction } from "sa/cli/api/commands/script_env";
+import { runScript } from "sa/cli/api/commands/script_run";
 import { sweepOrphanShadows, validate, ValidateDeps } from "sa/cli/api/commands/validate";
 import { rewriteSelfReferences } from "sa/cli/api/commands/validate_graph";
+import * as dbadapters from "sa/cli/api/dbadapters";
 import { readViaDuckdb, runDuckdbExport } from "sa/cli/api/dbadapters/duckdb_export";
 import { runDuckdbImport } from "sa/cli/api/dbadapters/duckdb_import";
-import { runScript } from "sa/cli/api/commands/script_run";
-import { checkScriptAction } from "sa/cli/api/commands/script_env";
-import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
+import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
 import { targetAsReadableString } from "sa/core/targets";
 import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";
 import { compile, getTableRows, keyBy } from "sa/tests/integration/utils";
-import { substituteConnectionCredentials } from "sa/cli/api/commands/connection_credentials";
 import { PostgresFixture } from "sa/tools/postgres/postgres_fixture";
 
 suite("@sqlanvil/integration/postgres", { parallel: true }, ({ before, after }) => {

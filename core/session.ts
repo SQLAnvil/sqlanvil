@@ -26,12 +26,12 @@ import { AContextable, Assertion, AssertionContext } from "sa/core/actions/asser
 import { DataPreparation, DataPreparationContext } from "sa/core/actions/data_preparation";
 import { Declaration } from "sa/core/actions/declaration";
 import { Export } from "sa/core/actions/export";
-import { Import } from "sa/core/actions/import";
 import { Extract } from "sa/core/actions/extract";
-import { Script } from "sa/core/actions/script";
+import { Import } from "sa/core/actions/import";
 import { IncrementalTable } from "sa/core/actions/incremental_table";
 import { Notebook } from "sa/core/actions/notebook";
 import { Operation, OperationContext } from "sa/core/actions/operation";
+import { Script } from "sa/core/actions/script";
 import { Table, TableContext } from "sa/core/actions/table";
 import { Test } from "sa/core/actions/test";
 import { View } from "sa/core/actions/view";

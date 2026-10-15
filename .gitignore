@@ -18,8 +18,6 @@ go.sum
 secret.json
 bigquery.json
 
-yarn-error.log
-
 tmp/
 
 # Credentials & Keys

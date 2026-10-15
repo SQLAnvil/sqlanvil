@@ -1,7 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load("//tools:ts_library.bzl", "ts_library")
-load("@sa//testing:index.bzl", "ts_test_suite")
+load("//testing:index.bzl", "ts_test_suite")
 
 ts_library(
     name = "protos",
@@ -10,31 +10,23 @@ ts_library(
         exclude = ["*_test.ts", "*.spec.ts"],
     ),
     deps = [
-        "//:modules-fix",
         "//common/strings",
         "//protos:ts",
-        "@npm//@types/node",
-        "@npm//protobufjs",
+        "//:node_modules/@types/node",
+        "//:node_modules/protobufjs",
     ],
 )
 
 ts_test_suite(
     name = "tests",
     srcs = glob(["*_test.ts"]),
-    data = [
-        "@npm//source-map-support",
-    ],
-    templated_args = [
-        "--node_options=--require=source-map-support/register",
-        "--bazel_patch_module_resolver",
-    ],
     deps = [
         ":protos",
         "//protos:ts",
-        "@sa//testing",
-        "@npm//@types/chai",
-        "@npm//@types/node",
-        "@npm//chai",
+        "//testing",
+        "//:node_modules/@types/chai",
+        "//:node_modules/@types/node",
+        "//:node_modules/chai",
     ],
 )
 

@@ -74,12 +74,15 @@ interface Action {
 /** Columns of a declaration's `columnTypes { … }`, in the order written. */
 function parseColumnTypes(config: string): string[] {
   const m = /\bcolumnTypes\s*:\s*\{/.exec(config);
-  if (!m) return [];
+  if (!m) {
+    return [];
+  }
   let depth = 0;
   let end = config.length;
   for (let i = m.index + m[0].length - 1; i < config.length; i++) {
-    if (config[i] === "{") depth++;
-    else if (config[i] === "}" && --depth === 0) {
+    if (config[i] === "{") {
+      depth++;
+    } else if (config[i] === "}" && --depth === 0) {
       end = i;
       break;
     }
@@ -93,11 +96,14 @@ function parseColumnTypes(config: string): string[] {
 function loadActions(projectDir: string): Action[] {
   const actions: Action[] = [];
   const walk = (dir: string) => {
-    if (!fs.existsSync(dir)) return;
+    if (!fs.existsSync(dir)) {
+      return;
+    }
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith(".sqlx")) {
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (entry.name.endsWith(".sqlx")) {
         const source = fs.readFileSync(full, "utf8");
         const span = findConfigBlock(source);
         const config = span ? source.slice(span.start, span.end) : "";
@@ -122,8 +128,12 @@ function loadActions(projectDir: string): Action[] {
 /** Output name of one select-list item, or null when it cannot be determined. */
 function outputName(toks: Token[], start: number, end: number): string | null {
   const items = toks.slice(start, end);
-  if (!items.length) return null;
-  if (items.some((t) => t.text === "*")) return null;
+  if (!items.length) {
+    return null;
+  }
+  if (items.some((t) => t.text === "*")) {
+    return null;
+  }
   const last = items[items.length - 1];
   if (isWord(items[items.length - 2], "as")) {
     return (last.value ?? last.text).replace(/^"|"$/g, "");
@@ -144,22 +154,30 @@ class Resolver {
   constructor(private readonly actions: Action[]) {
     for (const a of actions) {
       this.byName.set(a.name, [...(this.byName.get(a.name) ?? []), a]);
-      if (a.schema) this.byPair.set(`${a.schema}.${a.name}`, a);
+      if (a.schema) {
+        this.byPair.set(`${a.schema}.${a.name}`, a);
+      }
     }
   }
 
   /** Resolve a `${ref(...)}` token to an action, or a reason it cannot be resolved. */
   resolveRef(tok: Token): { action?: Action; reason?: string } {
     const args = [...tok.text.matchAll(/["']([^"']+)["']/g)].map((m) => m[1]);
-    if (!args.length) return { reason: "ref with no literal arguments" };
+    if (!args.length) {
+      return { reason: "ref with no literal arguments" };
+    }
     const name = args[args.length - 1];
     if (args.length >= 2) {
       const hit = this.byPair.get(`${args[args.length - 2]}.${name}`);
       return hit ? { action: hit } : { reason: `no action ${args[args.length - 2]}.${name}` };
     }
     const candidates = this.byName.get(name) ?? [];
-    if (!candidates.length) return { reason: `unknown action ${name}` };
-    if (candidates.length > 1) return { reason: `ambiguous action ${name}` };
+    if (!candidates.length) {
+      return { reason: `unknown action ${name}` };
+    }
+    if (candidates.length > 1) {
+      return { reason: `ambiguous action ${name}` };
+    }
     return { action: candidates[0] };
   }
 
@@ -170,14 +188,24 @@ class Resolver {
    * columns.
    */
   columnsOf(action: Action, seen = new Set<string>()): string[] | null {
-    if (action.columns.length) return action.columns;
-    if (action.type === "declaration") return null; // introspect has not run for this one
-    if (seen.has(action.file)) return null;
+    if (action.columns.length) {
+      return action.columns;
+    }
+    if (action.type === "declaration") {
+      return null;
+    } // introspect has not run for this one
+    if (seen.has(action.file)) {
+      return null;
+    }
     const memo = this.memo.get(action.file);
-    if (memo !== undefined && !seen.size) return memo;
+    if (memo !== undefined && !seen.size) {
+      return memo;
+    }
     seen.add(action.file);
     const result = this.selectColumns(action.body, new Set(seen));
-    if (!seen.size) this.memo.set(action.file, result);
+    if (!seen.size) {
+      this.memo.set(action.file, result);
+    }
     return result;
   }
 
@@ -185,7 +213,9 @@ class Resolver {
   selectColumns(sql: string, seen: Set<string>): string[] | null {
     const toks = significant(tokenize(sql));
     const scopes = selectScopes(toks);
-    if (!scopes.length) return null;
+    if (!scopes.length) {
+      return null;
+    }
     // The final top-level select is the one that shapes the action's output.
     const scope = scopes.reduce((best, s) => (s.select > best.select ? s : best), scopes[0]);
     const rels = scope.from === -1 ? [] : relationsIn(toks, scope.fromStart, scope.fromEnd);
@@ -195,7 +225,9 @@ class Resolver {
       const star = item.findIndex((t) => t.text === "*");
       if (star === -1) {
         const n = outputName(toks, s, e);
-        if (n === null) return null;
+        if (n === null) {
+          return null;
+        }
         names.push(n);
         continue;
       }
@@ -203,9 +235,13 @@ class Resolver {
       const qualifier =
         star >= 2 && item[star - 1]?.text === "." ? item[star - 2].text.toLowerCase() : null;
       const rel = qualifier ? rels.find((r) => r.alias === qualifier) : rels[0];
-      if (!rel) return null;
+      if (!rel) {
+        return null;
+      }
       const cols = this.relationColumns(rel.tokens, rel.subquery, seen);
-      if (!cols) return null;
+      if (!cols) {
+        return null;
+      }
       const excluded = starExclusions(item, star);
       names.push(...cols.filter((c) => !excluded.has(c.toLowerCase())));
     }
@@ -232,14 +268,22 @@ class Resolver {
 /** Column names excluded by an `* EXCEPT (...)` modifier, lowercased. */
 function starExclusions(item: Token[], star: number): Set<string> {
   const out = new Set<string>();
-  if (!isWord(item[star + 1], "except")) return out;
+  if (!isWord(item[star + 1], "except")) {
+    return out;
+  }
   const open = star + 2;
-  if (item[open]?.text !== "(") return out;
+  if (item[open]?.text !== "(") {
+    return out;
+  }
   const close = matchBracket(item, open);
-  if (close < 0) return out;
+  if (close < 0) {
+    return out;
+  }
   for (const [s, e] of splitOnCommas(item, open + 1, close)) {
     const t = item[s];
-    if (t) out.add((t.value ?? t.text).replace(/^"|"$/g, "").toLowerCase());
+    if (t) {
+      out.add((t.value ?? t.text).replace(/^"|"$/g, "").toLowerCase());
+    }
   }
   return out;
 }
@@ -274,7 +318,9 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
         for (const [s, e] of splitOnCommas(toks, scope.listStart, scope.listEnd)) {
           const item = toks.slice(s, e);
           const star = item.findIndex((t) => t.text === "*");
-          if (star === -1 || !isWord(item[star + 1], "except")) continue;
+          if (star === -1 || !isWord(item[star + 1], "except")) {
+            continue;
+          }
           const line = source.slice(0, item[star].start).split("\n").length;
 
           const qualifier =
@@ -346,7 +392,9 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
         }
       }
 
-      if (!edits.length) continue;
+      if (!edits.length) {
+        continue;
+      }
       let out = source;
       for (const edit of edits.sort((a, b) => b.start - a.start)) {
         // Trim what the star left behind, so `select ` does not keep a trailing space before the
@@ -364,7 +412,9 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
         action.source = out;
       }
     }
-    if (!changedThisPass || !opts.write) break;
+    if (!changedThisPass || !opts.write) {
+      break;
+    }
   }
 
   // GROUP BY ALL runs last: the ordinals depend on the select list, so any star has to have been
@@ -374,14 +424,20 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
     for (const u of unresolved) {
       result.unresolved.push({ file: action.file, line: u.line, reason: u.reason });
     }
-    if (!expanded) continue;
+    if (!expanded) {
+      continue;
+    }
     result.groupByAll += expanded;
     touched.add(action.file);
-    if (opts.write) fs.writeFileSync(path.join(opts.projectDir, action.file), text);
+    if (opts.write) {
+      fs.writeFileSync(path.join(opts.projectDir, action.file), text);
+    }
   }
 
   result.files = [...touched].sort();
-  if (opts.write) updateMigrationReport(opts.projectDir, result);
+  if (opts.write) {
+    updateMigrationReport(opts.projectDir, result);
+  }
   return result;
 }
 
@@ -395,14 +451,18 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
  */
 function updateMigrationReport(projectDir: string, result: MigrateFixResult): void {
   const jsonPath = path.join(projectDir, "migration-report.json");
-  if (!fs.existsSync(jsonPath)) return; // not a converted project, or the report was moved
+  if (!fs.existsSync(jsonPath)) {
+    return;
+  } // not a converted project, or the report was moved
   let report: MigrationReport;
   try {
     report = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
   } catch {
     return; // a corrupt report is not worth failing the fix over
   }
-  if (!Array.isArray(report.todo)) return;
+  if (!Array.isArray(report.todo)) {
+    return;
+  }
 
   const OWNED = new Set(["star-except", "group-by-all"]);
   const remaining = new Map<string, TodoClass>();
@@ -427,17 +487,25 @@ function updateMigrationReport(projectDir: string, result: MigrateFixResult): vo
       } as TodoClass);
     entry.count++;
     const loc = entry.locations.find((l) => l.file === site.file);
-    if (loc) loc.lines.push(site.line);
-    else entry.locations.push({ file: site.file, lines: [site.line] });
+    if (loc) {
+      loc.lines.push(site.line);
+    } else {
+      entry.locations.push({ file: site.file, lines: [site.line] });
+    }
     remaining.set(id, entry);
   }
 
   report.todo = [...report.todo.filter((t) => !OWNED.has(t.id)), ...remaining.values()];
   const applied = (n: number, id: string, title: string) => {
-    if (!n) return;
+    if (!n) {
+      return;
+    }
     const seen = report.applied.find((a) => a.id === id);
-    if (seen) seen.count = n;
-    else report.applied.push({ id, title, count: n });
+    if (seen) {
+      seen.count = n;
+    } else {
+      report.applied.push({ id, title, count: n });
+    }
   };
   applied(result.expanded, "star-except", "SELECT * EXCEPT expanded (migrate-fix)");
   applied(result.groupByAll, "group-by-all", "GROUP BY ALL rewritten as ordinals (migrate-fix)");
@@ -497,16 +565,26 @@ const AGGREGATES = new Set([
  */
 function isGroupable(item: Token[]): boolean {
   for (let i = 0; i < item.length; i++) {
-    if (item[i].kind !== "word" || !AGGREGATES.has(item[i].text.toLowerCase())) continue;
-    if (item[i + 1]?.text !== "(") continue;
+    if (item[i].kind !== "word" || !AGGREGATES.has(item[i].text.toLowerCase())) {
+      continue;
+    }
+    if (item[i + 1]?.text !== "(") {
+      continue;
+    }
     const close = matchBracket(item, i + 1);
-    if (close < 0) return false;
+    if (close < 0) {
+      return false;
+    }
     let after = close + 1;
     if (isWord(item[after], "filter") && item[after + 1]?.text === "(") {
       const filterClose = matchBracket(item, after + 1);
-      if (filterClose > 0) after = filterClose + 1;
+      if (filterClose > 0) {
+        after = filterClose + 1;
+      }
     }
-    if (!isWord(item[after], "over")) return false; // a real aggregate
+    if (!isWord(item[after], "over")) {
+      return false;
+    } // a real aggregate
   }
   // A window function over a non-aggregate — row_number(), lag(), … — is equally ungroupable.
   return !item.some((t, i) => isWord(t, "over") && i > 0);
@@ -520,8 +598,12 @@ function isGroupable(item: Token[]): boolean {
  * exactly the queries that need it most.
  */
 function isStarItem(item: Token[]): boolean {
-  if (!item.length) return false;
-  if (item[0].text === "*") return true;
+  if (!item.length) {
+    return false;
+  }
+  if (item[0].text === "*") {
+    return true;
+  }
   return item.length >= 3 && item[1].text === "." && item[2].text === "*";
 }
 
@@ -543,7 +625,9 @@ function expandGroupByAll(source: string): {
     const line = source.slice(0, toks[i].start).split("\n").length;
     // The enclosing SELECT is the nearest one before this clause.
     const scope = scopes.filter((s) => s.select < i).pop();
-    if (!scope) continue;
+    if (!scope) {
+      continue;
+    }
 
     const items = splitOnCommas(toks, scope.listStart, scope.listEnd);
     if (items.some(([s, e]) => isStarItem(toks.slice(s, e)))) {
@@ -576,10 +660,16 @@ function expandGroupByAll(source: string): {
 function cteColumns(source: string, name: string, resolver: Resolver): string[] | null {
   const toks = significant(tokenize(source));
   for (let i = 0; i < toks.length; i++) {
-    if (toks[i].kind !== "word" || toks[i].text.toLowerCase() !== name.toLowerCase()) continue;
-    if (!isWord(toks[i + 1], "as") || toks[i + 2]?.text !== "(") continue;
+    if (toks[i].kind !== "word" || toks[i].text.toLowerCase() !== name.toLowerCase()) {
+      continue;
+    }
+    if (!isWord(toks[i + 1], "as") || toks[i + 2]?.text !== "(") {
+      continue;
+    }
     const close = matchBracket(toks, i + 2);
-    if (close < 0) return null;
+    if (close < 0) {
+      return null;
+    }
     const inner = toks
       .slice(i + 3, close)
       .map((t) => t.text)

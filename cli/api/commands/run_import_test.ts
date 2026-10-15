@@ -1,8 +1,8 @@
 import { expect } from "chai";
 
 import { Runner } from "sa/cli/api/commands/run";
-import { suite, test } from "sa/testing";
 import { sqlanvil } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
 
 suite("runner import hook", () => {
   function makeRunner(calls: any[]) {

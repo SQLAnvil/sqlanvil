@@ -6,8 +6,8 @@ import {
   importTargetSql,
   readerForFormat,
 } from "sa/cli/api/dbadapters/duckdb_import";
-import { suite, test } from "sa/testing";
 import { sqlanvil } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
 
 suite("duckdb_import builders", () => {
   test("readerForFormat maps formats to DuckDB readers", () => {

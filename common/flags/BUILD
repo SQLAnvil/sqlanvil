@@ -10,10 +10,9 @@ ts_library(
         exclude = ["*_test.ts", "*.spec.ts"],
     ),
     deps = [
-        "//:modules-fix",
-        "@npm//@types/long",
-        "@npm//@types/node",
-        "@npm//long",
+        "//:node_modules/@types/long",
+        "//:node_modules/@types/node",
+        "//:node_modules/long",
     ],
 )
 
@@ -30,9 +29,9 @@ ts_test_suite(
     deps = [
         ":flags",
         "//testing",
-        "@npm//@types/chai",
-        "@npm//@types/node",
-        "@npm//chai",
-        "@npm//long",
+        "//:node_modules/@types/chai",
+        "//:node_modules/@types/node",
+        "//:node_modules/chai",
+        "//:node_modules/long",
     ],
 )

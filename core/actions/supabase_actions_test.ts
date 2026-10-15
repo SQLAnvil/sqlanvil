@@ -2,6 +2,7 @@ import { expect } from "chai";
 import * as fs from "fs-extra";
 import * as path from "path";
 
+import { sqlanvil } from "sa/protos/ts";
 import { asPlainObject, suite, test } from "sa/testing";
 import { TmpDirFixture } from "sa/testing/fixtures";
 import {
@@ -9,7 +10,6 @@ import {
   runMainInVm,
   VALID_WORKFLOW_SETTINGS_YAML,
 } from "sa/testing/run_core";
-import { sqlanvil } from "sa/protos/ts";
 
 suite("supabase actions", ({ afterEach }) => {
   const tmpDirFixture = new TmpDirFixture(afterEach);

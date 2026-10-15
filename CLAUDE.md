@@ -19,10 +19,10 @@ Guidance for Claude Code when working in the `sqlanvil/` project.
 ## Stack
 
 - **Language**: TypeScript
-- **Build**: Bazel 7 (via Bazelisk) — **bzlmod** (`MODULE.bazel`, migrated in #41; workspace name `sa`). Native Bazel works on macOS: deliverables/tests build with no flags; full-tree `bazel build //...` wants `--config=macos-cpp`. `./scripts/docker-bazel` remains an optional hermetic container.
+- **Build**: Bazel 7 (via Bazelisk) — **bzlmod** (`MODULE.bazel`, migrated in #41; workspace name `sa`). JS side is **rules_js + rules_ts over `pnpm-lock.yaml`** (upstream #2352, taken 2026-10-15): Bazel fetches its own Node (24.13) and pnpm (9.7.1); `//:node_modules/<pkg>` labels replace the old `@npm//<pkg>`; `tools/ts_library.bzl` wraps `ts_project`; tests are `js_test`s with `testing/resolver-patch.js` resolving `sa/...` at runtime; the CLI/worker bundles are rollup 3 (`packages/rollup.config.mjs`, commonjs plugin with `ignoreDynamicRequires` so `nativeRequire("@duckdb/node-api")` survives), core is a webpack bundle. TypeScript 5.5.4; tslint retired (eslint only, `eslint.config.js`). Add deps with `bazel run -- @pnpm//:pnpm --dir "$PWD" add <pkg>`, never a global pnpm. Native Bazel works on macOS: deliverables/tests build with no flags; full-tree `bazel build //...` wants `--config=macos-cpp` (plus the `DEVELOPER_DIR` pair in the build notes when Xcode is selected). `./scripts/docker-bazel` remains an optional hermetic container.
 - **Protos**: protobuf (`protos/*.proto`) for core/configs/db_adapter/etc.
 - **Target warehouses**: BigQuery, PostgreSQL, Supabase, and MySQL/MariaDB — all four adapters on `main` and integration-verified
-- **No npm `scripts`** in `package.json` — everything runs through Bazel.
+- **No npm `scripts`** in `package.json` — everything runs through Bazel. `scripts/regenerate_docs` is the one exception: typedoc 0.17.8 needs TypeScript 3.8, so it has its own pinned install under `tools/typedoc/`.
 
 ## Layout
 

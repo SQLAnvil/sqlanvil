@@ -557,4 +557,22 @@ SQLANVIL_VERSION = "1.34.0"
 # touches the adapters). Ships in the next release: #2350's "/" paths in core and chokidar 4 in
 # the CLI's dependencies.
 #
+# Taken after 1.34.0 as its own change (2026-10-15; DF_VERSION stays 3.1.0): #2352 Bazel toolchain
+# rewrite, with #2365 (TypeScript 5.5.4, rollup 3, typescript-eslint 8), #2366 (pnpm 9.7.1) and
+# #2380 (`package.publish` targets) riding on it, and #2297 (tslint -> eslint) folded in because
+# tslint 5 cannot run on TypeScript 5. rules_nodejs 3 + yarn v1 -> aspect rules_js 2.0.1 /
+# rules_ts 3.0.0 / rules_webpack / rules_rollup over pnpm-lock.yaml; WORKSPACE deleted; every
+# BUILD file re-derived (`@npm//x` -> `//:node_modules/x`, no `//:modules-fix`, js_test suites
+# with testing/resolver-patch.js); the compile worker is one entry point (cli/vm/worker.ts +
+# worker_loader.js) instead of rules_nodejs-generated loader scripts. Kept ours where upstream's
+# would not fit: the file-list `tar` in pkg_npm_tar (E415), vm2 in cli/vm and testing/run_core
+# (#2310 still declined), the extra externals (duckdb, pg, mysql2, google-auth-library),
+# LICENSE/NOTICE in both packages, `ignoreDynamicRequires` in rollup.config.mjs (our
+# nativeRequire("@duckdb/node-api") is a non-literal require that upstream has no equivalent of
+# — without it the bundle printed "Could not dynamically require" on stdout and broke `--json`),
+# vscode-languageserver-protocol pinned to 3.15.3 (yarn had resolved it; pnpm picked 3.18.4,
+# whose types no longer match vscode-languageserver 6), and typedoc moved to tools/typedoc with
+# its own TypeScript 3.8.3 (see the #2313 note). Verified: bazel build //... and every
+# non-integration test, eslint clean over the tree, and the rules_js-built tarballs install and
+# run (--version, compile, format --check, --watch) identically to the published 1.34.0.
 DF_VERSION = "3.1.0"

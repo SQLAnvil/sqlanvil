@@ -2,17 +2,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const runfilesDir = process.env.RUNFILES;
-let workspaceName = "sa";
-if (!fs.existsSync(path.resolve(runfilesDir, "sa"))) {
-  workspaceName = "_main";
-}
-
-export const CREDENTIALS_PATH = path.resolve(
-  runfilesDir,
-  workspaceName,
-  "test_credentials/bigquery.json",
-);
+export const CREDENTIALS_PATH = path.resolve("test_credentials/bigquery.json");
 
 // The GCP project for live BigQuery CLI integration tests (used as the project
 // arg when shelling out to `sqlanvil init`/`run`). Not hardcoded — this is OSS.
@@ -39,4 +29,4 @@ export const DEFAULT_DATABASE = detectDefaultProject();
 export const DEFAULT_LOCATION = "US";
 export const DEFAULT_RESERVATION = `projects/${DEFAULT_DATABASE}/locations/us/reservations/sqlanvil-test`;
 
-export const cliEntryPointPath = "cli/node_modules/@sqlanvil/cli/bundle.js";
+export const cliEntryPointPath = path.resolve("packages/@sqlanvil/cli/bundle.js");

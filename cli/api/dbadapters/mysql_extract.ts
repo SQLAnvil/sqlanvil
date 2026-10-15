@@ -92,7 +92,8 @@ export async function runMysqlExtract(args: MysqlExtractArgs): Promise<{ rowCoun
   }
   if (rows.length > rowCap) {
     rows = rows.slice(0, rowCap);
-    // eslint-disable-next-line no-console
+
+    // eslint-disable-next-line no-console -- runtime diagnostics on the CLI's own stderr
     console.warn(
       `runner-extract: ${target.schema}.${target.name} truncated at ${rowCap} rows (source is larger).`,
     );

@@ -2,8 +2,8 @@ import { expect } from "chai";
 import Long from "long";
 
 import * as dfapi from "sa/cli/api";
-import * as dbadapters from "sa/cli/api/dbadapters";
 import { validate, ValidateDeps } from "sa/cli/api/commands/validate";
+import * as dbadapters from "sa/cli/api/dbadapters";
 import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { targetAsReadableString } from "sa/core/targets";

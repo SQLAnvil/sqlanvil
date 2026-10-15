@@ -146,8 +146,11 @@ module.exports = { domainFromEmail };
     const walk = (rel: string) => {
       for (const e of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
         const r = rel ? `${rel}/${e.name}` : e.name;
-        if (e.isDirectory()) walk(r);
-        else map.set(r, fs.readFileSync(path.join(dir, r), "utf8"));
+        if (e.isDirectory()) {
+          walk(r);
+        } else {
+          map.set(r, fs.readFileSync(path.join(dir, r), "utf8"));
+        }
       }
     };
     walk("");

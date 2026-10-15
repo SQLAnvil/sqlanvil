@@ -62,7 +62,11 @@ for f in protos/ts.d.ts core/version.ts; do
   chmod 644 "${REPO_ROOT}/${f}"
 done
 
-( cd "${REPO_ROOT}" && npx typedoc )
+# typedoc 0.17.8 needs TypeScript 3.8/3.9, which the engine no longer uses, so it has its own
+# pinned install under tools/typedoc (see its package.json). Install it on first use.
+TYPEDOC_DIR="${REPO_ROOT}/tools/typedoc"
+[ -x "${TYPEDOC_DIR}/node_modules/.bin/typedoc" ] || ( cd "${TYPEDOC_DIR}" && npm install --no-audit --no-fund --silent )
+( cd "${REPO_ROOT}" && "${TYPEDOC_DIR}/node_modules/.bin/typedoc" --tsconfig "${REPO_ROOT}/tsconfig.json" )
 
 # typedoc filename stem -> published slug. Post-process each into a flat, link-clean page.
 PAGES="

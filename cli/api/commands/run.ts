@@ -1,18 +1,18 @@
 import EventEmitter from "events";
 import Long from "long";
 
-import * as dbadapters from "sa/cli/api/dbadapters";
 import { substituteConnectionCredentials } from "sa/cli/api/commands/connection_credentials";
+import { runScript, ScriptRunArgs } from "sa/cli/api/commands/script_run";
+import * as dbadapters from "sa/cli/api/dbadapters";
 import { IBigQueryExecutionOptions } from "sa/cli/api/dbadapters/bigquery";
 import { BigQueryExtractArgs, runBigQueryExtract } from "sa/cli/api/dbadapters/bigquery_extract";
-import { MysqlExtractArgs, runMysqlExtract } from "sa/cli/api/dbadapters/mysql_extract";
 import {
   DuckdbExportArgs,
   resolveLocalLocation,
   runDuckdbExport,
 } from "sa/cli/api/dbadapters/duckdb_export";
 import { DuckdbImportArgs, runDuckdbImport } from "sa/cli/api/dbadapters/duckdb_import";
-import { runScript, ScriptRunArgs } from "sa/cli/api/commands/script_run";
+import { MysqlExtractArgs, runMysqlExtract } from "sa/cli/api/dbadapters/mysql_extract";
 import { Flags } from "sa/common/flags";
 import { retry } from "sa/common/promises";
 import { deepClone, equals } from "sa/common/protos";

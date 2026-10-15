@@ -59,7 +59,9 @@ export function tokenize(sql: string): Token[] {
 
     if (/\s/.test(ch)) {
       const start = i;
-      while (i < sql.length && /\s/.test(sql[i])) i++;
+      while (i < sql.length && /\s/.test(sql[i])) {
+        i++;
+      }
       push("whitespace", start, i);
       continue;
     }
@@ -70,8 +72,9 @@ export function tokenize(sql: string): Token[] {
       const start = i;
       let depth = 0;
       for (; i < sql.length; i++) {
-        if (sql[i] === "{") depth++;
-        else if (sql[i] === "}" && --depth === 0) {
+        if (sql[i] === "{") {
+          depth++;
+        } else if (sql[i] === "}" && --depth === 0) {
           i++;
           break;
         }
@@ -82,7 +85,9 @@ export function tokenize(sql: string): Token[] {
 
     if (ch === "-" && sql[i + 1] === "-") {
       const start = i;
-      while (i < sql.length && sql[i] !== "\n") i++;
+      while (i < sql.length && sql[i] !== "\n") {
+        i++;
+      }
       push("comment", start, i);
       continue;
     }
@@ -91,7 +96,9 @@ export function tokenize(sql: string): Token[] {
     // identifier-ish token is not mistaken for one.
     if (ch === "#") {
       const start = i;
-      while (i < sql.length && sql[i] !== "\n") i++;
+      while (i < sql.length && sql[i] !== "\n") {
+        i++;
+      }
       push("comment", start, i);
       continue;
     }
@@ -99,7 +106,9 @@ export function tokenize(sql: string): Token[] {
     if (ch === "/" && sql[i + 1] === "*") {
       const start = i;
       i += 2;
-      while (i < sql.length && !(sql[i] === "*" && sql[i + 1] === "/")) i++;
+      while (i < sql.length && !(sql[i] === "*" && sql[i + 1] === "/")) {
+        i++;
+      }
       i = Math.min(sql.length, i + 2);
       push("comment", start, i);
       continue;
@@ -110,11 +119,15 @@ export function tokenize(sql: string): Token[] {
     const rawPrefix = (ch === "r" || ch === "R") && (sql[i + 1] === "'" || sql[i + 1] === '"');
     if (ch === "'" || ch === '"' || rawPrefix) {
       const start = i;
-      if (rawPrefix) i++;
+      if (rawPrefix) {
+        i++;
+      }
       const quote = sql[i];
       i++;
       for (; i < sql.length; i++) {
-        if (sql[i] !== quote) continue;
+        if (sql[i] !== quote) {
+          continue;
+        }
         if (quote === "'" && sql[i + 1] === "'") {
           i++; // '' is an escaped quote, not a terminator
           continue;
@@ -133,7 +146,9 @@ export function tokenize(sql: string): Token[] {
     if (ch === "`") {
       const start = i;
       i++;
-      while (i < sql.length && sql[i] !== "`") i++;
+      while (i < sql.length && sql[i] !== "`") {
+        i++;
+      }
       i = Math.min(sql.length, i + 1);
       push("backtick-ident", start, i, sql.slice(start + 1, i - 1));
       continue;
@@ -141,14 +156,18 @@ export function tokenize(sql: string): Token[] {
 
     if (/[0-9]/.test(ch)) {
       const start = i;
-      while (i < sql.length && /[0-9._eE]/.test(sql[i])) i++;
+      while (i < sql.length && /[0-9._eE]/.test(sql[i])) {
+        i++;
+      }
       push("number", start, i);
       continue;
     }
 
     if (/[A-Za-z_]/.test(ch)) {
       const start = i;
-      while (i < sql.length && /[A-Za-z0-9_$]/.test(sql[i])) i++;
+      while (i < sql.length && /[A-Za-z0-9_$]/.test(sql[i])) {
+        i++;
+      }
       push("word", start, i);
       continue;
     }
@@ -176,11 +195,16 @@ export function isWord(t: Token | undefined, ...words: string[]): boolean {
 export function matchBracket(toks: Token[], open: number): number {
   const openCh = toks[open]?.text;
   const closeCh = openCh === "(" ? ")" : openCh === "[" ? "]" : null;
-  if (!closeCh) return -1;
+  if (!closeCh) {
+    return -1;
+  }
   let depth = 0;
   for (let i = open; i < toks.length; i++) {
-    if (toks[i].text === openCh) depth++;
-    else if (toks[i].text === closeCh && --depth === 0) return i;
+    if (toks[i].text === openCh) {
+      depth++;
+    } else if (toks[i].text === closeCh && --depth === 0) {
+      return i;
+    }
   }
   return -1;
 }
@@ -222,15 +246,18 @@ const CLAUSE_ENDS = [
 export function selectScopes(toks: Token[]): SelectScope[] {
   const scopes: SelectScope[] = [];
   for (let i = 0; i < toks.length; i++) {
-    if (!isWord(toks[i], "select")) continue;
+    if (!isWord(toks[i], "select")) {
+      continue;
+    }
     let depth = 0;
     let from = -1;
     let listEnd = -1;
     let end = toks.length;
     for (let j = i + 1; j < toks.length; j++) {
       const t = toks[j];
-      if (t.text === "(" || t.text === "[") depth++;
-      else if (t.text === ")" || t.text === "]") {
+      if (t.text === "(" || t.text === "[") {
+        depth++;
+      } else if (t.text === ")" || t.text === "]") {
         if (depth === 0) {
           end = j; // the scope's own parenthesis closed
           break;
@@ -244,7 +271,9 @@ export function selectScopes(toks: Token[]): SelectScope[] {
         } else if (CLAUSE_ENDS.includes(w)) {
           // `except` closes a scope only as a set operator, never as `select * except (...)`,
           // which is a modifier on the star and sits INSIDE the list.
-          if (w === "except" && from === -1) continue;
+          if (w === "except" && from === -1) {
+            continue;
+          }
           end = j;
           break;
         }
@@ -253,7 +282,9 @@ export function selectScopes(toks: Token[]): SelectScope[] {
         break;
       }
     }
-    if (listEnd === -1) listEnd = end;
+    if (listEnd === -1) {
+      listEnd = end;
+    }
     scopes.push({
       select: i,
       listStart: i + 1,
@@ -274,14 +305,18 @@ export function splitOnCommas(toks: Token[], start: number, end: number): Array<
   let from = Math.max(0, start);
   for (let i = from; i < stop; i++) {
     const t = toks[i].text;
-    if (t === "(" || t === "[") depth++;
-    else if (t === ")" || t === "]") depth--;
-    else if (t === "," && depth === 0) {
+    if (t === "(" || t === "[") {
+      depth++;
+    } else if (t === ")" || t === "]") {
+      depth--;
+    } else if (t === "," && depth === 0) {
       out.push([from, i]);
       from = i + 1;
     }
   }
-  if (from < stop) out.push([from, stop]);
+  if (from < stop) {
+    out.push([from, stop]);
+  }
   return out;
 }
 
@@ -329,7 +364,9 @@ export function relationsIn(toks: Token[], start: number, end: number): Relation
     const parts: Token[] = [];
     if (toks[j]?.text === "(") {
       const close = matchBracket(toks, j);
-      if (close < 0) break;
+      if (close < 0) {
+        break;
+      }
       subquery = true;
       parts.push(...toks.slice(j, close + 1));
       j = close + 1;
@@ -345,8 +382,12 @@ export function relationsIn(toks: Token[], start: number, end: number): Relation
       ) {
         // `as` ends the name and begins the alias — without this the two run together and the
         // relation reads as `orders` + `as` + `o`.
-        if (isWord(toks[j], "as")) break;
-        if (toks[j].kind === "word" && JOIN_NOISE.has(toks[j].text.toLowerCase())) break;
+        if (isWord(toks[j], "as")) {
+          break;
+        }
+        if (toks[j].kind === "word" && JOIN_NOISE.has(toks[j].text.toLowerCase())) {
+          break;
+        }
         parts.push(toks[j]);
         j++;
       }
@@ -357,14 +398,18 @@ export function relationsIn(toks: Token[], start: number, end: number): Relation
     }
     let alias: string | undefined;
     let k = j;
-    if (isWord(toks[k], "as")) k++;
+    if (isWord(toks[k], "as")) {
+      k++;
+    }
     if (toks[k]?.kind === "word" && !JOIN_NOISE.has(toks[k].text.toLowerCase())) {
       alias = toks[k].text.toLowerCase();
       k++;
     } else {
       // No explicit alias: SQL exposes the relation under its own trailing name.
       const last = [...parts].reverse().find((p) => p.kind === "word" || p.kind === "quoted-ident");
-      if (last && !subquery) alias = (last.value ?? last.text).toLowerCase();
+      if (last && !subquery) {
+        alias = (last.value ?? last.text).toLowerCase();
+      }
     }
     rels.push({ tokens: parts, alias, subquery });
     i = Math.max(k, j);

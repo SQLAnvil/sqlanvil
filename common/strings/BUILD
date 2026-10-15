@@ -1,4 +1,4 @@
-load("@sa//testing:index.bzl", "ts_test_suite")
+load("//testing:index.bzl", "ts_test_suite")
 load("//tools:ts_library.bzl", "ts_library")
 
 package(default_visibility = ["//visibility:public"])
@@ -10,28 +10,20 @@ ts_library(
         exclude = ["*.spec.ts"],
     ),
     deps = [
-        "//:modules-fix",
-        "@npm//@types/long",
-        "@npm//long",
+        "//:node_modules/@types/long",
+        "//:node_modules/long",
     ],
 )
 
 ts_test_suite(
     name = "tests",
     srcs = glob(["*.spec.ts"]),
-    data = [
-        "@npm//source-map-support",
-    ],
-    templated_args = [
-        "--node_options=--require=source-map-support/register",
-        "--bazel_patch_module_resolver",
-    ],
     deps = [
         ":strings",
-        "@sa//testing",
-        "@npm//@types/chai",
-        "@npm//@types/long",
-        "@npm//@types/node",
-        "@npm//chai",
+        "//testing",
+        "//:node_modules/@types/chai",
+        "//:node_modules/@types/long",
+        "//:node_modules/@types/node",
+        "//:node_modules/chai",
     ],
 )

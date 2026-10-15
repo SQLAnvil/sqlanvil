@@ -5,8 +5,8 @@ import * as path from "path";
 
 import { Runner } from "sa/cli/api/commands/run";
 import { runScript } from "sa/cli/api/commands/script_run";
-import { suite, test } from "sa/testing";
 import { sqlanvil } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
 
 suite("runner script hook", () => {
   function makeRunner(calls: any[], options: any = {}) {

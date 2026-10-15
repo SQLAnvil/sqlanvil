@@ -1,6 +1,6 @@
 import * as fs from "fs";
-import * as path from "path";
 import { dump as dumpYaml, load as loadYaml } from "js-yaml";
+import * as path from "path";
 
 import { agentsMdContents, claudeMdBridgeContents } from "sa/cli/api/commands/agents_md";
 import { tokenize } from "sa/cli/api/commands/sql_lex";
@@ -203,7 +203,9 @@ interface ConfigSpan {
 /** Locate the sqlx `config { ... }` block with a quote-aware brace counter. */
 export function findConfigBlock(source: string): ConfigSpan | null {
   const m = /(^|\n)\s*config\s*\{/.exec(source);
-  if (!m) return null;
+  if (!m) {
+    return null;
+  }
   const open = source.indexOf("{", m.index + m[0].indexOf("config"));
   let depth = 0;
   let inString: string | null = null;
@@ -211,14 +213,18 @@ export function findConfigBlock(source: string): ConfigSpan | null {
     const ch = source[i];
     const prev = source[i - 1];
     if (inString) {
-      if (ch === inString && prev !== "\\") inString = null;
+      if (ch === inString && prev !== "\\") {
+        inString = null;
+      }
       continue;
     }
     if (ch === '"' || ch === "'" || ch === "`") {
       inString = ch;
       continue;
     }
-    if (ch === "{") depth++;
+    if (ch === "{") {
+      depth++;
+    }
     if (ch === "}") {
       depth--;
       if (depth === 0) {
@@ -244,7 +250,9 @@ export function jsBlockLines(source: string): Set<number> {
     let depth = 0;
     let end = -1;
     for (let i = open; i < source.length; i++) {
-      if (source[i] === "{") depth++;
+      if (source[i] === "{") {
+        depth++;
+      }
       if (source[i] === "}") {
         depth--;
         if (depth === 0) {
@@ -253,10 +261,14 @@ export function jsBlockLines(source: string): Set<number> {
         }
       }
     }
-    if (end < 0) end = source.length - 1;
+    if (end < 0) {
+      end = source.length - 1;
+    }
     const startLine = source.slice(0, m.index + (m[1] ? m[1].length : 0)).split("\n").length - 1;
     const endLine = source.slice(0, end).split("\n").length - 1;
-    for (let l = startLine; l <= endLine; l++) lines.add(l);
+    for (let l = startLine; l <= endLine; l++) {
+      lines.add(l);
+    }
   }
   return lines;
 }
@@ -459,7 +471,9 @@ function analyseStructArrays(report: MigrationReport, outDir: string): void {
     .filter((f): f is { file: string; source: string } => f !== null);
 
   const raw = files.flatMap((f) => findStructArrays(f.file, f.source));
-  if (!raw.length) return;
+  if (!raw.length) {
+    return;
+  }
   const sites = chooseStrategies(raw, files);
 
   // The generic flag is replaced: it said "consider jsonb or a composite type" for every site,
@@ -498,7 +512,9 @@ export function buildTriage(report: MigrationReport): void {
         applied.set(id, seen);
         // A rewrite that still needs a human eye (NOT ENFORCED is translated but left commented)
         // belongs on the to-do list as well as in the audit.
-        if (!meta || meta.owner !== "needs-decision") continue;
+        if (!meta || meta.owner !== "needs-decision") {
+          continue;
+        }
       }
       const entry =
         todo.get(id) ??
@@ -514,8 +530,11 @@ export function buildTriage(report: MigrationReport): void {
         } as TodoClass);
       entry.count++;
       const loc = entry.locations.find((l) => l.file === file.file);
-      if (loc) loc.lines.push(f.line);
-      else entry.locations.push({ file: file.file, lines: [f.line] });
+      if (loc) {
+        loc.lines.push(f.line);
+      } else {
+        entry.locations.push({ file: file.file, lines: [f.line] });
+      }
       todo.set(id, entry);
     }
   }
@@ -760,8 +779,11 @@ function maskSql(text: string, keepStrings = false): string {
 function matchParen(text: string, open: number): number {
   let depth = 0;
   for (let i = open; i < text.length; i++) {
-    if (text[i] === "(") depth++;
-    else if (text[i] === ")" && --depth === 0) return i;
+    if (text[i] === "(") {
+      depth++;
+    } else if (text[i] === ")" && --depth === 0) {
+      return i;
+    }
   }
   return -1;
 }
@@ -778,9 +800,11 @@ function splitArgs(src: string, mask: string, from: number, to: number): string[
   let start = from;
   for (let i = from; i < to; i++) {
     const ch = mask[i];
-    if (ch === "(") depth++;
-    else if (ch === ")") depth--;
-    else if (ch === "," && depth === 0) {
+    if (ch === "(") {
+      depth++;
+    } else if (ch === ")") {
+      depth--;
+    } else if (ch === "," && depth === 0) {
       parts.push(src.slice(start, i).trim());
       start = i + 1;
     }
@@ -826,9 +850,13 @@ const CALL_RULES: CallRule[] = [
     name: "cast",
     note: "CAST(x AS <BigQuery type>) → the PostgreSQL type name",
     rewrite(args) {
-      if (args.length !== 1) return null;
+      if (args.length !== 1) {
+        return null;
+      }
       const m = /^([\s\S]*?)\s+as\s+([A-Za-z][\w ]*)$/i.exec(args[0]);
-      if (!m) return null;
+      if (!m) {
+        return null;
+      }
       const t = pgType(m[2]);
       // Only rewrite when the name actually changes, so ordinary casts are left alone.
       return t === m[2].trim().toLowerCase() ? null : `cast(${m[1]} as ${t})`;
@@ -844,12 +872,18 @@ const CALL_RULES: CallRule[] = [
     name: "safe_cast",
     note: "SAFE_CAST → guarded cast via pg_input_is_valid (NULL on bad input, as in BigQuery)",
     rewrite(args) {
-      if (args.length !== 1) return null;
+      if (args.length !== 1) {
+        return null;
+      }
       const m = /^([\s\S]*?)\s+as\s+([A-Za-z][\w ]*)$/i.exec(args[0]);
-      if (!m) return null;
+      if (!m) {
+        return null;
+      }
       const [, expr, type] = m;
       const t = pgType(type);
-      if (t === "text") return `(${expr})::text`; // anything renders as text; no guard needed
+      if (t === "text") {
+        return `(${expr})::text`;
+      } // anything renders as text; no guard needed
       return `(case when pg_input_is_valid((${expr})::text, '${t}') then (${expr})::${t} end)`;
     },
   },
@@ -880,7 +914,9 @@ const CALL_RULES: CallRule[] = [
     name: "split",
     note: "SPLIT(x, d) → string_to_array(x, d); an empty delimiter becomes NULL (per character)",
     rewrite(args) {
-      if (args.length !== 2) return null;
+      if (args.length !== 2) {
+        return null;
+      }
       const d = args[1] === "''" || args[1] === '""' ? "NULL" : args[1];
       return `string_to_array(${args[0]}, ${d})`;
     },
@@ -889,7 +925,9 @@ const CALL_RULES: CallRule[] = [
     name: "date_sub",
     note: "DATE_SUB(d, INTERVAL n unit) → (d - interval 'n unit')",
     rewrite(args) {
-      if (args.length !== 2) return null;
+      if (args.length !== 2) {
+        return null;
+      }
       const m = INTERVAL_ARG.exec(args[1]);
       return m ? `(${args[0]} - interval '${m[1]} ${m[2].toLowerCase()}')` : null;
     },
@@ -898,7 +936,9 @@ const CALL_RULES: CallRule[] = [
     name: "date_add",
     note: "DATE_ADD(d, INTERVAL n unit) → (d + interval 'n unit')",
     rewrite(args) {
-      if (args.length !== 2) return null;
+      if (args.length !== 2) {
+        return null;
+      }
       const m = INTERVAL_ARG.exec(args[1]);
       return m ? `(${args[0]} + interval '${m[1]} ${m[2].toLowerCase()}')` : null;
     },
@@ -907,9 +947,13 @@ const CALL_RULES: CallRule[] = [
     name: "date_diff",
     note: "DATE_DIFF(a, b, DAY|HOUR) → PostgreSQL date/epoch arithmetic",
     rewrite(args) {
-      if (args.length !== 3) return null;
+      if (args.length !== 3) {
+        return null;
+      }
       const unit = args[2].trim().toLowerCase();
-      if (unit === "day") return `(${args[0]}::date - ${args[1]}::date)`;
+      if (unit === "day") {
+        return `(${args[0]}::date - ${args[1]}::date)`;
+      }
       // BigQuery counts boundaries CROSSED, not whole hours elapsed, so both sides are
       // truncated before subtracting; dividing the raw interval is off by one whenever the
       // minutes do not line up.
@@ -963,20 +1007,28 @@ export function applyCallRules(
       while ((m = finder.exec(mask)) !== null) {
         const open = m.index + m[0].length - 1;
         const close = matchParen(mask, open);
-        if (close < 0 || !isRewritableOffset(m.index)) continue;
+        if (close < 0 || !isRewritableOffset(m.index)) {
+          continue;
+        }
         const out = rule.rewrite(splitArgs(result, mask, open + 1, close));
-        if (out === null) continue;
+        if (out === null) {
+          continue;
+        }
         sites.push({ start: m.index, end: close + 1, out, note: rule.note });
       }
     }
-    if (!sites.length) break;
+    if (!sites.length) {
+      break;
+    }
 
     // Descending start = innermost first, so the enclosing call is left for the next pass and
     // reads arguments that have already been ported.
     sites.sort((a, b) => b.start - a.start);
     const seen: Site[] = [];
     for (const s of sites) {
-      if (seen.some((p) => s.start < p.end && p.start < s.end)) continue; // overlaps one applied
+      if (seen.some((p) => s.start < p.end && p.start < s.end)) {
+        continue;
+      } // overlaps one applied
       seen.push(s);
       applied.push({ line: result.slice(0, s.start).split("\n").length, note: s.note });
       result = result.slice(0, s.start) + s.out + result.slice(s.end);
@@ -1019,8 +1071,11 @@ export function jsBlockSpans(source: string): Array<{ start: number; end: number
 function matchParenLike(text: string, open: number, o: string, c: string): number {
   let depth = 0;
   for (let i = open; i < text.length; i++) {
-    if (text[i] === o) depth++;
-    else if (text[i] === c && --depth === 0) return i;
+    if (text[i] === o) {
+      depth++;
+    } else if (text[i] === c && --depth === 0) {
+      return i;
+    }
   }
   return -1;
 }
@@ -1059,9 +1114,13 @@ function applyTextRules(
     let m: RegExpExecArray | null;
     pattern.lastIndex = 0;
     while ((m = pattern.exec(mask)) !== null) {
-      if (!isSqlOffset(m.index)) continue;
+      if (!isSqlOffset(m.index)) {
+        continue;
+      }
       const sub = replace(m);
-      if (sub !== null) edits.push({ start: m.index, end: m.index + m[0].length, out: sub });
+      if (sub !== null) {
+        edits.push({ start: m.index, end: m.index + m[0].length, out: sub });
+      }
     }
     let out = src;
     for (const e of edits.reverse()) {
@@ -1111,7 +1170,9 @@ function applyTextRules(
       // After AS the token is an ALIAS, not a string — `x as "key"` names a column. Converting
       // it to `x as 'key'` is not valid SQL anywhere, and quietly turns a column name into a
       // string literal in the one place a reader is least likely to look.
-      if (m[1]) return null;
+      if (m[1]) {
+        return null;
+      }
       return m[2].includes("${") || m[2].includes("'") ? null : `'${m[2]}'`;
     },
     "BigQuery \"string\" → 'string' (double quotes are identifiers in PostgreSQL)",
@@ -1144,9 +1205,13 @@ function applyTextRules(
   for (;;) {
     const mask = maskSql(result);
     const m = /\bextract\s*\(\s*dayofweek\s+from\s+/i.exec(mask);
-    if (!m || !isSqlOffset(m.index)) break;
+    if (!m || !isSqlOffset(m.index)) {
+      break;
+    }
     const close = matchParen(mask, mask.indexOf("(", m.index));
-    if (close < 0) break;
+    if (close < 0) {
+      break;
+    }
     const inner = result.slice(m.index + m[0].length, close).trim();
     note(m.index, "EXTRACT(DAYOFWEEK FROM x) → extract(dow from x) + 1 (BigQuery is 1-based)");
     result =
@@ -1196,26 +1261,34 @@ function rewriteUnenforcedConstraints(
     let depth = 0;
     let end = mask.length;
     for (let i = m.index; i < mask.length; i++) {
-      if (mask[i] === "(") depth++;
-      else if (mask[i] === ")") depth--;
-      else if (mask[i] === ";" && depth === 0) {
+      if (mask[i] === "(") {
+        depth++;
+      } else if (mask[i] === ")") {
+        depth--;
+      } else if (mask[i] === ";" && depth === 0) {
         end = i + 1;
         break;
       }
     }
     finder.lastIndex = end; // never reconsider this statement
     const stmt = text.slice(m.index, end);
-    if (!/NOT\s+ENFORCED/i.test(stmt) || !isSqlOffset(m.index)) continue;
+    if (!/NOT\s+ENFORCED/i.test(stmt) || !isSqlOffset(m.index)) {
+      continue;
+    }
 
     const body = stmt.replace(/;\s*$/, "").replace(/^ALTER\s+TABLE\s*/i, "");
     const firstAction = /\b(ADD|DROP|ALTER)\b/i.exec(body);
-    if (!firstAction) continue;
+    if (!firstAction) {
+      continue;
+    }
     const target = body.slice(0, firstAction.index).trim();
     const actions = splitTopLevel(body.slice(firstAction.index))
       .map((a) => a.trim())
       .filter((a) => /^ADD\b/i.test(a))
       .map((a) => a.replace(/\s*\bNOT\s+ENFORCED\b/gi, "").trim());
-    if (!actions.length) continue;
+    if (!actions.length) {
+      continue;
+    }
 
     const lineStart = text.lastIndexOf("\n", m.index) + 1;
     const indent = /^[ \t]*/.exec(text.slice(lineStart))![0];
@@ -1250,12 +1323,17 @@ function splitTopLevel(s: string): string[] {
   let depth = 0;
   let cur = "";
   for (const ch of s) {
-    if (ch === "(") depth++;
-    else if (ch === ")") depth--;
+    if (ch === "(") {
+      depth++;
+    } else if (ch === ")") {
+      depth--;
+    }
     if (ch === "," && depth === 0) {
       parts.push(cur);
       cur = "";
-    } else cur += ch;
+    } else {
+      cur += ch;
+    }
   }
   parts.push(cur);
   return parts;
@@ -1268,8 +1346,12 @@ function parenthesiseSubscriptedCalls(text: string): string {
   let m: RegExpExecArray | null;
   while ((m = finder.exec(text)) !== null) {
     const close = matchParen(text, m.index + m[0].length - 1);
-    if (close < 0) continue;
-    if (/^\s*\[/.test(text.slice(close + 1))) spans.push({ start: m.index, end: close + 1 });
+    if (close < 0) {
+      continue;
+    }
+    if (/^\s*\[/.test(text.slice(close + 1))) {
+      spans.push({ start: m.index, end: close + 1 });
+    }
   }
   let out = text;
   for (const s of spans.reverse()) {
@@ -1305,7 +1387,9 @@ export function convertTarget(
       return !s || off < s.start || off >= s.end;
     };
     const called = applyCallRules(source, outsideConfig);
-    if (called.text !== source) source = called.text;
+    if (called.text !== source) {
+      source = called.text;
+    }
     for (const a of called.applied) {
       findings.push({ line: a.line, kind: "rewrite", note: a.note, class: classIdFor(a.note) });
     }
@@ -1393,8 +1477,9 @@ export function convertTarget(
         const opens = (line.match(/\{/g) || []).length;
         const closes = (line.match(/\}/g) || []).length;
         commentingConfigBlockDepth = Math.max(0, opens - closes);
-        if (commentingConfigBlockDepth === 0)
+        if (commentingConfigBlockDepth === 0) {
           swallowLeadingComma = !/,\s*$/.test(line) ? true : false;
+        }
         out.push(`// ${line}`);
         continue;
       }
@@ -1402,7 +1487,9 @@ export function convertTarget(
       const opens = (line.match(/\{/g) || []).length;
       const closes = (line.match(/\}/g) || []).length;
       commentingConfigBlockDepth = Math.max(0, commentingConfigBlockDepth + opens - closes);
-      if (commentingConfigBlockDepth === 0 && !/,\s*$/.test(line)) swallowLeadingComma = true;
+      if (commentingConfigBlockDepth === 0 && !/,\s*$/.test(line)) {
+        swallowLeadingComma = true;
+      }
       out.push(`// ${line}`);
       continue;
     }
@@ -1411,16 +1498,22 @@ export function convertTarget(
     if (dialectPass && (!inConfig || jsMode)) {
       for (const rule of SQL_RULES) {
         rule.pattern.lastIndex = 0;
-        if (!rule.pattern.test(line)) continue;
+        if (!rule.pattern.test(line)) {
+          continue;
+        }
         const cls = rule.id ?? classIdFor(rule.note);
         if (rule.replacement !== undefined) {
           rule.pattern.lastIndex = 0;
           line = line.replace(rule.pattern, rule.replacement);
           findings.push({ line: lineNo, kind: "rewrite", note: rule.note, class: cls });
-          if (markersSafe) notesForLine.push(rule.note);
+          if (markersSafe) {
+            notesForLine.push(rule.note);
+          }
         } else {
           findings.push({ line: lineNo, kind: "flag", note: rule.note, class: cls });
-          if (markersSafe) notesForLine.push(rule.note);
+          if (markersSafe) {
+            notesForLine.push(rule.note);
+          }
         }
       }
     }
@@ -1534,7 +1627,9 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
   }
   const sqlxFiles: SqlxInfo[] = [];
   for (const rel of files) {
-    if (!rel.endsWith(".sqlx")) continue;
+    if (!rel.endsWith(".sqlx")) {
+      continue;
+    }
     const source = fs.readFileSync(path.join(srcDir, rel), "utf8");
     const span = findConfigBlock(source);
     const parsed = span
@@ -1571,7 +1666,9 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
       const existing = connectionMap.get(name);
       if (existing) {
         existing.declarationCount++;
-        if (!existing.datasets.includes(dataset)) existing.datasets.push(dataset);
+        if (!existing.datasets.includes(dataset)) {
+          existing.datasets.push(dataset);
+        }
       } else {
         connectionMap.set(name, {
           name,
@@ -1706,7 +1803,9 @@ export async function migrateDataform(opts: MigrateDataformOptions): Promise<Mig
         ).toLowerCase(),
         sqlanvilCoreVersion: opts.coreVersion ?? sqlanvilVersion,
       };
-  if (sourceConfig.vars) settings.vars = sourceConfig.vars;
+  if (sourceConfig.vars) {
+    settings.vars = sourceConfig.vars;
+  }
   if (isBigQueryTarget) {
     // A ready-made TEST environment so the first real runs can't touch production datasets:
     // `sqlanvil run . --environment test` writes to `<dataset>_test`. Landing tests in a
@@ -1938,7 +2037,9 @@ export function renderReportMd(r: MigrationReport): string {
       "blocks-compile": "fails to compile",
     };
     const section = (title: string, items: TodoClass[], preamble: string) => {
-      if (!items.length) return;
+      if (!items.length) {
+        return;
+      }
       lines.push("");
       lines.push(`### ${title}`);
       lines.push("");
@@ -1946,8 +2047,12 @@ export function renderReportMd(r: MigrationReport): string {
       for (const t of items) {
         lines.push("");
         lines.push(`- [ ] **${t.title}** — ${t.count} site(s) · ${severityLabel[t.severity]}`);
-        if (t.postgres) lines.push(`      - PostgreSQL: ${t.postgres}`);
-        if (t.why) lines.push(`      - ${t.why}`);
+        if (t.postgres) {
+          lines.push(`      - PostgreSQL: ${t.postgres}`);
+        }
+        if (t.why) {
+          lines.push(`      - ${t.why}`);
+        }
         const shown = t.locations.slice(0, 8);
         for (const l of shown) {
           lines.push(`      - \`${l.file}\` L${l.lines.slice(0, 6).join(", L")}`);
@@ -1960,7 +2065,9 @@ export function renderReportMd(r: MigrationReport): string {
           lines.push(`      \`${s.file}\` L${s.line} — ${s.note}`);
           lines.push("");
           lines.push("      ```sql");
-          for (const l of s.sql.split("\n")) lines.push(`      ${l}`);
+          for (const l of s.sql.split("\n")) {
+            lines.push(`      ${l}`);
+          }
           lines.push("      ```");
         }
       }
@@ -1987,7 +2094,9 @@ export function renderReportMd(r: MigrationReport): string {
         `before it is run.`,
     );
     lines.push("");
-    for (const a of r.applied) lines.push(`- ${a.title} — ${a.count}`);
+    for (const a of r.applied) {
+      lines.push(`- ${a.title} — ${a.count}`);
+    }
   }
 
   lines.push("");
@@ -2006,7 +2115,9 @@ export function renderReportMd(r: MigrationReport): string {
       lines.push(`  - L${finding.line}: ${finding.note}`);
     }
     const more = f.findings.filter((x) => x.kind === "flag").length - 6;
-    if (more > 0) lines.push(`  - …and ${more} more (see migration-report.json)`);
+    if (more > 0) {
+      lines.push(`  - …and ${more} more (see migration-report.json)`);
+    }
   }
   lines.push("");
   lines.push(`## Declarations (${declarations.length})`);
@@ -2020,7 +2131,9 @@ export function renderReportMd(r: MigrationReport): string {
     lines.push("");
     lines.push(`## Warnings`);
     lines.push("");
-    for (const w of r.warnings) lines.push(`- ${w}`);
+    for (const w of r.warnings) {
+      lines.push(`- ${w}`);
+    }
   }
   lines.push("");
   lines.push(`## Finish the migration`);

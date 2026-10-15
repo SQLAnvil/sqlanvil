@@ -2,8 +2,8 @@ import { expect } from "chai";
 
 import * as dfapi from "sa/cli/api";
 import * as dbadapters from "sa/cli/api/dbadapters";
-import { SupabaseDbAdapter } from "sa/cli/api/dbadapters/supabase";
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
+import { SupabaseDbAdapter } from "sa/cli/api/dbadapters/supabase";
 import { targetAsReadableString } from "sa/core/targets";
 import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";

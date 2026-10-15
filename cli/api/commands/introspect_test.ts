@@ -2,8 +2,7 @@ import { expect } from "chai";
 import * as fs from "fs-extra";
 import * as path from "path";
 
-import { suite, test } from "sa/testing";
-import { TmpDirFixture } from "sa/testing/fixtures";
+import { read as readCredentials, readConnections } from "sa/cli/api/commands/credentials";
 import {
   mapBigQueryType,
   mapMysqlType,
@@ -12,7 +11,8 @@ import {
   resolveConnection,
   introspectToSqlx,
 } from "sa/cli/api/commands/introspect";
-import { read as readCredentials, readConnections } from "sa/cli/api/commands/credentials";
+import { suite, test } from "sa/testing";
+import { TmpDirFixture } from "sa/testing/fixtures";
 
 suite("introspect type mapping", () => {
   test("maps common BigQuery types to Postgres types", () => {

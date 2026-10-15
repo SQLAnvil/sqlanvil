@@ -1,8 +1,8 @@
 import { expect } from "chai";
 
 import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
-import { suite, test } from "sa/testing";
 import { sqlanvil } from "sa/protos/ts";
+import { suite, test } from "sa/testing";
 
 const exp = (o: any) =>
   sqlanvil.Export.create({
