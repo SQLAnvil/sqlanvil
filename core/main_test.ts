@@ -485,6 +485,34 @@ actions:
       ]);
     });
 
+    test("backslash file paths in the compile config are normalized to forward slashes", () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        VALID_WORKFLOW_SETTINGS_YAML,
+      );
+      fs.mkdirSync(path.join(projectDir, "definitions"));
+      fs.writeFileSync(
+        path.join(projectDir, "definitions/a.sqlx"),
+        `config { type: "table" } SELECT 1 AS test`,
+      );
+      const coreExecutionRequest = sqlanvil.CoreExecutionRequest.create({
+        compile: {
+          compileConfig: {
+            projectDir,
+            filePaths: ["definitions\\a.sqlx"],
+          },
+        },
+      });
+
+      const result = runMainInVm(coreExecutionRequest);
+
+      expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+      expect(result.compile.compiledGraph.tables.map((table) => table.fileName)).deep.equals([
+        "definitions/a.sqlx",
+      ]);
+    });
+
     test("fails when non-unique target", () => {
       const projectDir = tmpDirFixture.createNewTmpDir();
       fs.writeFileSync(
@@ -2420,6 +2448,66 @@ sqlanvil.jitData("key", {"number": 123});`,
           `config {
             type: "table",
             description: getContents('../../description.md'),
+          }
+            SELECT 1 AS test`,
+        );
+
+        const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+        expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).to.include(
+          "outside the project directory",
+        );
+      });
+
+      test("getContents resolves parent-relative paths that remain inside rootDir", () => {
+        const projectDir = tmpDirFixture.createNewTmpDir();
+        fs.writeFileSync(
+          path.join(projectDir, "workflow_settings.yaml"),
+          VALID_WORKFLOW_SETTINGS_YAML,
+        );
+        fs.mkdirSync(path.join(projectDir, "docs"));
+        fs.writeFileSync(path.join(projectDir, "docs", "descriptions.md"), "# Shared description");
+        fs.mkdirSync(path.join(projectDir, "definitions"));
+        fs.writeFileSync(
+          path.join(projectDir, "definitions/table.sqlx"),
+          `config {
+            type: "table",
+            description: getContents('../docs/descriptions.md'),
+          }
+            SELECT 1 AS test`,
+        );
+
+        const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+        expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+        expect(result.compile.compiledGraph.tables[0].actionDescriptor.description).to.equal(
+          `# Shared description`,
+        );
+      });
+
+      test("throws error for a sibling directory differing only by case", () => {
+        // With root ".../Proj", "../../proj/secret.md" must not be readable on case-sensitive
+        // file systems, even though it would be the same directory on Windows.
+        const parentDir = tmpDirFixture.createNewTmpDir();
+        const projectDir = path.join(parentDir, "Proj");
+        fs.mkdirSync(projectDir);
+        if (fs.existsSync(path.join(parentDir, "proj"))) {
+          // Case-insensitive file system (macOS APFS by default): "proj" IS the project
+          // directory, so there is no sibling to protect against. Nothing to test here.
+          return;
+        }
+        fs.mkdirSync(path.join(parentDir, "proj"));
+        fs.writeFileSync(path.join(parentDir, "proj", "secret.md"), "secret");
+        fs.writeFileSync(
+          path.join(projectDir, "workflow_settings.yaml"),
+          VALID_WORKFLOW_SETTINGS_YAML,
+        );
+        fs.mkdirSync(path.join(projectDir, "definitions"));
+        fs.writeFileSync(
+          path.join(projectDir, "definitions/table.sqlx"),
+          `config {
+            type: "table",
+            description: getContents('../../proj/secret.md'),
           }
             SELECT 1 AS test`,
         );

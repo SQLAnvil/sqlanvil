@@ -91,6 +91,7 @@ ts_test_suite(
         "index_compile_test.ts",
         "index_connections_test.ts",
         "index_run_e2e_test.ts",
+        "tests/bin_test.ts",
         "util_test.ts"
     ],
     data = [

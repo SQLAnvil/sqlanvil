@@ -130,6 +130,18 @@ SELECT  1  as   test
       // Should exit with code 0 when all files are properly formatted
       expect(afterFormatCheckResult.exitCode).equals(0);
       expect(afterFormatCheckResult.stdout).contains("All files are formatted correctly");
+
+      // Same formatted content, but with Windows line endings (e.g. a Git checkout with
+      // core.autocrlf=true): --check must still accept it.
+      const formattedContent = fs.readFileSync(unformattedFilePath, "utf8");
+      expect(formattedContent).not.contains("\r\n");
+      fs.writeFileSync(unformattedFilePath, formattedContent.replace(/\n/g, "\r\n"));
+
+      const crlfCheckResult = await getProcessResult(
+        execFile(nodePath, [cliEntryPointPath, "format", projectDir, "--check"]),
+      );
+      expect(crlfCheckResult.exitCode).equals(0);
+      expect(crlfCheckResult.stdout).contains("All files are formatted correctly");
     });
   });
 });

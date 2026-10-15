@@ -96,6 +96,7 @@ ts_test_suite(
         "jit_compiler_test.ts",
         "jit_context_test.ts",
         "main_test.ts",
+        "path_test.ts",
         "utils_test.ts",
     ],
     data = [

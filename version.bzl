@@ -471,4 +471,90 @@ SQLANVIL_VERSION = "1.33.1"
 #     published-core e2e tests in cli/index_compile_test.ts referenced versions that will never
 #     exist on our line (2.9.0, 3.0.50); the survivor now installs 1.0.0, the floor.
 #
-DF_VERSION = "3.0.71"
+# 3.1.0 reviewed (2026-10-15); 27 upstream commits (there is no 3.0.72 tag: #2353 bumped
+# DF_VERSION to 3.0.72 on main and #2375 straight on to 3.1.0). Already here, so no-ops: #2364
+# (cli/README.md shipped as the CLI's README, 1.32.10) and #2376 (core compatibility floor,
+# 1.33.1). The rest:
+#
+#   * #2350 Windows support. TAKEN, adapted, as planned on 2026-10-12. core/path.ts taken
+#     verbatim (ours was identical to upstream's before the change): the compiled graph now uses
+#     "/" on every platform, via toPosixPath / comparablePath / startsWithPath; getCallerFile and
+#     Session.getContents compare with startsWithPath (Windows drive letters case-insensitive,
+#     everything else case-sensitive, UNC roots kept); main() normalizes
+#     compileConfig.filePaths; the sqlx action name is JSON.stringify'd instead of
+#     escapedBasename'd (a `"` in a file name broke the generated JS); the compile worker no
+#     longer forks with a fifth "pipe" stdio (spawn EINVAL on Windows); `format --check` ignores
+#     CRLF-vs-LF differences and passes windowsPathsNoEscape to glob on win32. NOT taken:
+#     fs.rmSync(maxRetries) in cli/api/commands/compile.ts (we keep fs-extra's removeSync, see
+#     the 3.0.71 #2326 note), .github/workflows/test.yaml and the cli/tests/windows smoke suite
+#     (no Windows CI here), the contributing.md section. Tests: core/path_test.ts verbatim (sa/
+#     imports); the getCallerFile, compilers, getContents and backslash-filePaths tests folded
+#     into our utils_test / compilers_test / main_test. The "sibling directory differing only by
+#     case" test returns early on a case-insensitive file system (APFS: mkdir "proj" beside
+#     "Proj" is EEXIST) — upstream only runs it on Linux. .gitattributes `* text=auto eol=lf`
+#     added; the one CRLF file in the tree (vscode/workflow_settings_yaml.schema.json) converted,
+#     which is all upstream's "reformat" of it was. vscode-sqlanvil-tools fixed in step: it
+#     normalized relative paths to win32 before matching compiled fileName, which would now
+#     never match on Windows.
+#
+#   * #2352 Bazel toolchain rewrite (rules_nodejs + yarn -> rules_js + pnpm 9, WORKSPACE
+#     deleted, rollup 3, TypeScript 5.5.4 via #2365, pnpm-lock.yaml replaces yarn.lock) and
+#     everything riding on it: #2365, #2366 (pnpm 9.7.1), #2370 / #2371 (browserslist lockfile
+#     bumps), #2380 (npm publish through rules_js `publishable`). NOT TAKEN inside a sync. It is
+#     a ground-up rebuild of every BUILD file and packages/index.bzl against a tree with far more
+#     ts_library targets than upstream (adapters, DuckDB, scripts, artifacts), and
+#     scripts/publish, docker-bazel and check_upstream_resolutions all assume yarn. Same
+#     treatment as #2297 (tslint -> eslint) at 3.0.70: a deliberate deferral to its own change,
+#     not a decline. Until then every upstream lockfile-only commit is invisible here —
+#     check_upstream_resolutions now also reads upstream's `pnpm.overrides` (their `resolutions`
+#     block is gone), which is how the pins below were found. Taken from #2365 on its own: the
+#     two `!!x` -> `x !== undefined` guards in run.ts and testing/runner.ts.
+#
+#   * #2310 vm2 -> node:vm VmRunner. NOT TAKEN again (deferred 2026-10-12). node:vm is not a
+#     security boundary and the Cloud runner executes customer includes/ and js {} inside the
+#     CLI it spawns; the runner-side prerequisites (per-tenant containers, metadata-server token
+#     exposure) are still open. Instead #2358 + #2363 TAKEN: vm2 3.11.6 -> 3.12.2. Re-ran the
+#     2026-10-12 probe on both: `Buffer.constructor("return process")()` returns the same
+#     sandboxed process object on 3.12.2 as on 3.11.6 (19 keys, empty env; vm2 forwards only
+#     the pid), not the host's. When #2310 is eventually ported, keep the
+#     coreDataformVersion shim gate, the sql/yml source extensions and @sqlanvil/* in the JiT
+#     allowlist, and yarn.lock.
+#
+#   * #2377 chokidar ^3.5.3 -> ^4.0.3. TAKEN. A published CLI dependency (compile --watch), so a
+#     shipped change. v4 drops glob matching and the braces/picomatch chain; we watch a plain
+#     directory with a RegExp `ignored`, which v4 still accepts. (chokidar 5 exists; it is
+#     ESM-only and the CLI bundle require()s it, so ^4 like upstream.)
+#
+#   * #2378 brace-expansion 5.0.9 -> 5.0.12, #2379 serialize-javascript ^7.1.1 -> ^7.1.2, #2349
+#     / #2270 fast-uri pinned 3.1.7. TAKEN as resolutions (fast-uri as ^3.1.7: we already
+#     resolved 3.1.8 and an exact 3.1.7 would downgrade). Also aligned `**/protobufjs` to ^7.6.5
+#     (the lockfile has resolved 7.6.5 since 3.0.64). Build-only: none reach a bundle or the
+#     published dependencies. #2355 @grpc/grpc-js is not in our lockfile at all (no lineage, no
+#     @google-cloud/lineage) — nothing to take.
+#
+#   * #2351 BigQuery job labels (defaultJobLabels on WorkflowSettings/ProjectConfig, jobLabels
+#     on every action config, ActionDescriptor.job_labels). NOT TAKEN for now: proto fields
+#     only, nothing in upstream's CLI reads them yet (their feat/bq-job-labels branch is still
+#     open), so they would be user-visible config that silently does nothing. Four of upstream's
+#     numbers collide with ours — WorkflowSettings 20 (preserve_governance_controls), TableConfig
+#     26 (supabase), ViewConfig 22 (postgres), IncrementalTableConfig 31 (incremental_strategy).
+#     If taken once upstream wires execution: WorkflowSettings 21, TableConfig 29, ViewConfig 24,
+#     IncrementalTableConfig 34; AssertionConfig 13, OperationConfig 14, DataPreparationConfig
+#     15, ProjectConfig 26, ActionDescriptor 7, Test 11, DataPreparation 17 are free as upstream
+#     numbers them. The BigQuery adapter would also need to pass the labels on job insert.
+#
+#   * #2356 binary run test (cli/tests/bin_test.ts). TAKEN (sa/ imports, "sqlanvil [command]").
+#
+#   * #2368 / #2373 / #2382 OpenLineage for assertions and property graphs + lineage settings
+#     tests. NOT TAKEN — lineage is a standing won't-build; cli/api/lineage/ does not exist here.
+#
+#   * #2346 OSS test credentials (their encrypted BigQuery key), #2381 a contributing.md line we
+#     never had, #2353 / #2375 version bumps. N/A.
+#
+# Verified natively: bazel build //core/... //cli/... //protos/... and bazel test //core/...
+# //cli/... //common/... //sqlx/... (77 tests) with --config=macos-cpp plus the DEVELOPER_DIR
+# pin from the build notes. Integration specs not run (no Docker up; nothing in the release
+# touches the adapters). Ships in the next release: #2350's "/" paths in core and chokidar 4 in
+# the CLI's dependencies.
+#
+DF_VERSION = "3.1.0"

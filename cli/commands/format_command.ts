@@ -7,6 +7,8 @@ import { printError, printFormatFilesResult, printSuccess } from "sa/cli/console
 import { ICommand, option } from "sa/cli/yargswrapper";
 import { formatFile } from "sa/sqlx/format";
 
+const normalizeLineEndings = (text: string) => text.replace(/\r\n/g, "\n");
+
 interface FormatArgv {
   "project-dir": string;
   actions?: string[];
@@ -41,7 +43,13 @@ export const formatCommand: ICommand = {
       actions = argv[actionsOption.name];
     }
     const filenames = actions
-      .map((action: string) => glob.sync(action, { cwd: argv[projectDirMustExistOption.name] }))
+      .map((action: string) =>
+        glob.sync(action, {
+          cwd: argv[projectDirMustExistOption.name],
+          // Treat "\" as a path separator only on Windows; on POSIX it remains a glob escape.
+          windowsPathsNoEscape: process.platform === "win32",
+        }),
+      )
       .flat();
 
     const isCheckMode = argv[checkOptionName];
@@ -61,7 +69,8 @@ export const formatCommand: ICommand = {
             });
             return {
               filename,
-              needsFormatting: fileContent !== formattedContent,
+              needsFormatting:
+                normalizeLineEndings(fileContent) !== normalizeLineEndings(formattedContent),
             };
           } else {
             // Normal formatting mode

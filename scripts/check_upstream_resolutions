@@ -4,8 +4,13 @@ set -euo pipefail
 ####################################################################################################
 # Compare our package.json "resolutions" block against upstream dataform-co/dataform.
 #
+# Upstream moved from yarn to pnpm in 3.1.0 (#2352), so their pins now live in
+# `pnpm.overrides` rather than `resolutions`. Both blocks are read on both sides and keys are
+# normalized to a bare package name (`**/foo` -> `foo`, `pkg@1.2.3>foo` -> `foo`), so a
+# pnpm-style parent-scoped override still lines up with our `pkg/**/foo` yarn resolution.
+#
 # WHY THIS EXISTS
-# Upstream adds security pins to `resolutions` via Dependabot PRs that land on their `main`
+# Upstream adds security pins to their overrides via Dependabot PRs that land on their `main`
 # between tagged releases. Because sqlanvil takes upstream selectively rather than merging every
 # tag wholesale, those pins are easy to miss — they are a one-line package.json change buried in
 # a release diff, and nothing about a normal sync draws attention to them.
@@ -59,12 +64,40 @@ theirs=$(git show "${REF}:package.json")
 OURS="$ours" THEIRS="$theirs" REF="$REF" python3 <<'PY'
 import json, os, sys
 
-ours = json.loads(os.environ["OURS"]).get("resolutions", {})
-theirs = json.loads(os.environ["THEIRS"]).get("resolutions", {})
+def pins(pkg):
+    # yarn `resolutions` (ours, and upstream before 3.1.0) plus pnpm `overrides` (upstream since
+    # 3.1.0, #2352). Keys collapse to the bare dependency name so the two syntaxes compare:
+    #   "**/foo", "@google-cloud/storage/**/uuid"   (yarn glob selectors)
+    #   "foo", "gaxios@6.7.1>uuid"                   (pnpm, optionally parent-scoped)
+    out = {}
+    merged = dict(pkg.get("resolutions", {}))
+    merged.update(pkg.get("pnpm", {}).get("overrides", {}))
+    for key, value in merged.items():
+        name = key.split(">")[-1].split("/**/")[-1]
+        if name.startswith("**/"):
+            name = name[3:]
+        # a bare "name@range" selector (pnpm) -> name
+        if "@" in name[1:]:
+            name = name[0] + name[1:].split("@")[0]
+        # Keep the tightest pin when several selectors target one package.
+        if name not in out or out[name] != value:
+            out[name] = value if name not in out else out[name] + " | " + value
+    return out
+
+ours = pins(json.loads(os.environ["OURS"]))
+theirs = pins(json.loads(os.environ["THEIRS"]))
 ref = os.environ["REF"]
 
 missing = {k: v for k, v in theirs.items() if k not in ours}
-differing = {k: (ours[k], v) for k, v in theirs.items() if k in ours and ours[k] != v}
+def covers(our_pin, their_pin):
+    # Same string, or our caret/tilde range already includes their exact pin
+    # (e.g. ours "^3.1.7" vs theirs "3.1.7"): no action needed.
+    if our_pin == their_pin:
+        return True
+    stripped = our_pin.lstrip("^~")
+    return our_pin != stripped and stripped == their_pin.lstrip("^~")
+
+differing = {k: (ours[k], v) for k, v in theirs.items() if k in ours and not covers(ours[k], v)}
 extra = {k: v for k, v in ours.items() if k not in theirs}
 
 print(f"ours: {len(ours)} resolutions | {ref}: {len(theirs)}\n")
