@@ -7,7 +7,7 @@ import { sqlanvil } from "sa/protos/ts";
  * into a plain Postgres/Supabase table. The keyless path for a `connection: { mode: "runner-extract" }`
  * declaration — replaces the live FDW foreign table, so it needs no Vault secret and no
  * `wrappers`/`postgis` on the branch. Auth for the source rides in .df-credentials.json's `connections`
- * map (a brokered `accessToken`, a key JSON, or ADC).
+ * map (a brokered `accessToken`, an `impersonateServiceAccount`, a key JSON, or ADC).
  */
 
 // Guard rails (D5): cap the extract so a huge source can't blow up a branch. Truncation is logged.
@@ -77,6 +77,7 @@ export async function runBigQueryExtract(args: BigQueryExtractArgs): Promise<{ r
       projectId: spec.billingProject || spec.project,
       location: conn.location,
       accessToken: conn.accessToken,
+      impersonateServiceAccount: conn.impersonateServiceAccount,
       credentials: conn.credentials,
     }),
   );

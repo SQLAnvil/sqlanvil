@@ -127,7 +127,7 @@ The same pattern runs `:supabase.spec` / `:supabase_rls.spec` with `SUPABASE_*` 
   (`mode: runner-extract` — the CLI reads the source at run time and materializes a plain
   `<conn>_ext.<name>` table; `core/actions/extract.ts`, `cli/api/dbadapters/{bigquery,mysql}_extract.ts`
   + shared `extract_load.ts`; dispatched by `spec.platform` in `run.ts`). BigQuery supports both
-  modes (+ `billingProject`, keyless `accessToken`); **MySQL/MariaDB sources (1.18) are
+  modes (+ `billingProject`, keyless `accessToken`, `impersonateServiceAccount`); **MySQL/MariaDB sources (1.18) are
   runner-extract only** (`mode: fdw` = compile error in `session.ts declare()`). `introspect` maps
   source types → PG types (`mapMysqlType` etc.). Gotcha: the `Declaration` constructor MUTATES its
   config (`schema` → `dataset`) — read both in `declare()` branches. Single write warehouse: a

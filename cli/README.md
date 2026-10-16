@@ -108,10 +108,12 @@ Installs the NPM dependencies declared in the project's `package.json` (for exam
 sqlanvil init-creds [project-dir]
 ```
 
-**BigQuery only.** Asks for the dataset location and whether to use Application Default
-Credentials or a service-account JSON key, then writes `.df-credentials.json`. For Postgres,
-Supabase and MySQL, edit the template `init` wrote instead (see
-[Credentials file](#credentials-file)).
+**BigQuery only.** Asks for the dataset location, whether to use Application Default
+Credentials or a service-account JSON key, and (optional, press Enter to skip) a service account
+to impersonate — saved as `impersonateServiceAccount`, see [Credentials file](#credentials-file) —
+then writes `.df-credentials.json`. The connection test runs as the impersonated account, so a
+missing `roles/iam.serviceAccountTokenCreator` grant surfaces before the file is written. For
+Postgres, Supabase and MySQL, edit the template `init` wrote instead.
 
 | Flag | Default | Description |
 |---|---|---|
@@ -418,7 +420,11 @@ It is gitignored by `init` and must never be committed. Non-secret settings stay
 
 `credentials` is the service-account key JSON as a string. Omit it to use Application Default
 Credentials (`gcloud auth application-default login`). `accessToken` takes a short-lived OAuth2
-token instead, and wins over `credentials`.
+token instead, and wins over `credentials`. `impersonateServiceAccount` (a service-account email)
+makes the CLI run BigQuery queries as that account without holding its key: your ADC identity, or
+the `credentials` key, is the source and needs `roles/iam.serviceAccountTokenCreator` on it.
+Precedence: `accessToken` → `impersonateServiceAccount` → `credentials` → ADC. The same fields work
+in a `connections.<name>` BigQuery entry.
 
 Two optional sections can sit alongside the warehouse fields:
 

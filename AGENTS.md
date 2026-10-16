@@ -273,8 +273,8 @@ non-secret coordinates in `workflow_settings.yaml` under `connections:` (`platfo
 `project`/`dataset`/`saKeyId`/`billingProject` (>=1.13, bill your project for read-but-not-bill
 sources); `platform: postgres` with `host`/`port`/`database`/`defaultSchema`; `platform: mysql`
 (>=1.18) with `host`/`port`/`database`). Secrets go in `.df-credentials.json`'s `connections.<name>`
-map (postgres/mysql: user/password; BigQuery: SA `credentials` or a keyless short-lived
-`accessToken`, >=1.14). Tag a declaration with `connection: "<name>"` + **`columnTypes` in
+map (postgres/mysql: user/password; BigQuery: SA `credentials`, a keyless short-lived
+`accessToken` (>=1.14), or `impersonateServiceAccount` (>=1.36)). Tag a declaration with `connection: "<name>"` + **`columnTypes` in
 POSTGRES types** — scaffold via
 `sqlanvil introspect <conn> <schema.table> --output definitions/sources/<name>.sqlx` (maps
 BigQuery/Postgres/MySQL types to PG). Missing columnTypes: compile error on FDW mode; on

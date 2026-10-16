@@ -9,9 +9,10 @@ import { ExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { targetAsReadableString } from "sa/core/targets";
 import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";
+import { integrationSuite } from "sa/testing/credentials";
 import { compile, dropAllTables, getTableRows, keyBy } from "sa/tests/integration/utils";
 
-suite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) => {
+integrationSuite("@sqlanvil/integration/bigquery", { parallel: true }, ({ before, after }) => {
   const credentials = dfapi.credentials.read("test_credentials/bigquery.json");
   const PROJECT_ID = credentials.projectId;
   let dbadapter: BigQueryDbAdapter;

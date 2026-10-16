@@ -17,6 +17,14 @@ message BigQuery {
   // impersonating a customer-selected service account. Takes precedence over
   // `credentials`. Tokens are short-lived (≈1h), so this suits a single run.
   string access_token = 5;
+  // Optional service account to impersonate, e.g. sa@my-project.iam.gserviceaccount.com.
+  // The credentials above (or the application default credentials) are used as the
+  // source credentials and need roles/iam.serviceAccountTokenCreator on this account.
+  // `access_token` wins when both are set (it is already a minted identity).
+  // Upstream (dataform #2362) numbers this field 5, which is `access_token` here; it is 6 in
+  // sqlanvil and must stay 6 — JSON credentials files are keyed by name, so only the proto
+  // differs. Never renumber either field.
+  string impersonate_service_account = 6;
 
   reserved 2;
 }

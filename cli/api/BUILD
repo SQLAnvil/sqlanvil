@@ -118,6 +118,7 @@ ts_test_suite(
         "//:node_modules/@duckdb/node-api",
         "//:node_modules/@types/node",
         "//:node_modules/chai",
+        "//:node_modules/google-auth-library",
         "//:node_modules/fs-extra",
         "//:node_modules/js-yaml",
         "//:node_modules/ts-mockito",

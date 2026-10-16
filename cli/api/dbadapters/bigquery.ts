@@ -5,7 +5,7 @@ import {
   TableField,
   TableMetadata,
 } from "@google-cloud/bigquery";
-import { OAuth2Client } from "google-auth-library";
+import { AuthClient, gaxios, GoogleAuth, Impersonated, OAuth2Client } from "google-auth-library";
 import Long from "long";
 import { PromisePoolExecutor } from "promise-pool-executor";
 
@@ -24,21 +24,84 @@ import { coerceAsError } from "sa/common/errors/errors";
 import { retry } from "sa/common/promises";
 import { sqlanvil } from "sa/protos/ts";
 
+const CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
 const EXTRA_GOOGLE_SCOPES = ["https://www.googleapis.com/auth/drive"];
 
 /**
- * Build the `@google-cloud/bigquery` client options for a set of credentials. Three auth modes, in
+ * An AuthClient that delegates to a client resolved only when it's needed, e.g. Application Default
+ * Credentials from `GoogleAuth.getClient()` (which caches the resolved client). This allows an
+ * impersonated client to be created synchronously.
+ */
+export class DeferredAuthClient extends AuthClient {
+  constructor(private readonly resolveClient: () => Promise<AuthClient>) {
+    super();
+  }
+
+  public async getAccessToken(): Promise<{
+    token?: string | null;
+    res?: gaxios.GaxiosResponse | null;
+  }> {
+    return (await this.resolveClient()).getAccessToken();
+  }
+
+  public async getRequestHeaders(url?: string | URL): Promise<Headers> {
+    return (await this.resolveClient()).getRequestHeaders(url);
+  }
+
+  public async request<T>(options: gaxios.GaxiosOptions): gaxios.GaxiosPromise<T> {
+    return (await this.resolveClient()).request<T>(options);
+  }
+}
+
+/** Creates a client that impersonates `targetPrincipal`, authenticating with `sourceClient`. */
+export function createImpersonatedClient(
+  targetPrincipal: string,
+  sourceClient: AuthClient,
+): Impersonated {
+  return new Impersonated({
+    sourceClient,
+    targetPrincipal,
+    targetScopes: [CLOUD_PLATFORM_SCOPE, ...EXTRA_GOOGLE_SCOPES],
+  });
+}
+
+/**
+ * Returns a client that impersonates `credentials.impersonateServiceAccount`, or undefined if it
+ * isn't set (or an `accessToken` is set — see bigQueryClientOptions). The service account key in
+ * `credentials.credentials`, or Application Default Credentials if it's empty, is used as the
+ * source credentials.
+ */
+export function createAuthClient(credentials: sqlanvil.IBigQuery): AuthClient | undefined {
+  if (!credentials.impersonateServiceAccount || credentials.accessToken) {
+    return undefined;
+  }
+  const sourceAuth = new GoogleAuth({
+    credentials: credentials.credentials && JSON.parse(credentials.credentials),
+    scopes: [CLOUD_PLATFORM_SCOPE],
+  });
+  return createImpersonatedClient(
+    credentials.impersonateServiceAccount,
+    new DeferredAuthClient(() => sourceAuth.getClient()),
+  );
+}
+
+/**
+ * Build the `@google-cloud/bigquery` client options for a set of credentials. Four auth modes, in
  * precedence order:
  *   1. `accessToken` — a short-lived OAuth2 token (the keyless SQLAnvil Cloud path: the runner mints
  *      it by impersonating a customer-selected service account). Wrapped in an `OAuth2Client` so the
  *      client authenticates as that SA. No key held anywhere.
- *   2. `credentials` — a JSON service-account key.
- *   3. neither — Application Default Credentials (the library's own fallback).
+ *   2. `impersonateServiceAccount` — the CLI itself impersonates that service account, using the
+ *      `credentials` key or ADC as the source identity (upstream #2362). The caller passes the
+ *      `authClient` from createAuthClient() so every project's client shares one impersonated token.
+ *   3. `credentials` — a JSON service-account key.
+ *   4. none — Application Default Credentials (the library's own fallback).
  * Exported for unit testing (the client itself is otherwise constructed lazily/mocked).
  */
 export function bigQueryClientOptions(
   credentials: sqlanvil.IBigQuery,
   projectId: string,
+  authClient?: AuthClient,
 ): BigQueryOptions {
   const base: BigQueryOptions = {
     projectId,
@@ -48,11 +111,12 @@ export function bigQueryClientOptions(
     location: credentials.location || undefined,
   };
   if (credentials.accessToken) {
-    const authClient = new OAuth2Client();
-    authClient.setCredentials({ access_token: credentials.accessToken });
-    // Cast: @google-cloud/bigquery and this package may resolve google-auth-library at slightly
-    // different type versions; OAuth2Client is an AuthClient at runtime.
-    return { ...base, authClient: authClient as any };
+    const tokenClient = new OAuth2Client();
+    tokenClient.setCredentials({ access_token: credentials.accessToken });
+    return { ...base, authClient: tokenClient };
+  }
+  if (authClient) {
+    return { ...base, authClient };
   }
   return {
     ...base,
@@ -84,11 +148,16 @@ export function createBigQueryClientProvider(
   credentials: sqlanvil.IBigQuery,
 ): BigQueryClientProvider {
   const clients = new Map<string, BigQuery>();
+  // Shared by the clients of all projects, so that they reuse the same impersonated token.
+  const authClient = createAuthClient(credentials);
   return (projectId?: string) => {
     projectId = projectId || credentials.projectId;
     if (!clients.has(projectId)) {
-      // bigQueryClientOptions carries the accessToken > JSON key > ADC precedence (keyless support).
-      clients.set(projectId, new BigQuery(bigQueryClientOptions(credentials, projectId)));
+      // bigQueryClientOptions carries the accessToken > impersonation > JSON key > ADC precedence.
+      clients.set(
+        projectId,
+        new BigQuery(bigQueryClientOptions(credentials, projectId, authClient)),
+      );
     }
     return clients.get(projectId);
   };

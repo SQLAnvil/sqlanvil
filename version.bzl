@@ -551,6 +551,30 @@ SQLANVIL_VERSION = "1.35.0"
 #   * #2346 OSS test credentials (their encrypted BigQuery key), #2381 a contributing.md line we
 #     never had, #2353 / #2375 version bumps. N/A.
 #
+# Post-3.1.0, reviewed singly (2026-10-16, handed over from the Graver session's review):
+#
+#   * #2362 BigQuery service-account impersonation (`impersonateServiceAccount` in the credentials
+#     file; google-auth-library `Impersonated` over ADC or the JSON key as source). TAKEN, adapted:
+#     **upstream numbers the proto field 5, which is our `access_token`; ours is 6** — both are
+#     strings, so a wholesale merge would NOT fail loudly; resolve the profiles.proto conflict by
+#     keeping ours (the comment on the field says so). JSON credentials files are keyed by name,
+#     so nothing on disk is affected. Precedence here is accessToken > impersonateServiceAccount >
+#     credentials > ADC (an accessToken is already a minted identity; upstream has no accessToken).
+#     Adapter code (DeferredAuthClient / createImpersonatedClient / createAuthClient) and tests
+#     verbatim, folded into our bigQueryClientOptions(credentials, projectId, authClient?); the
+#     runner-extract path passes the field through for `connections.<name>`. init-creds prompt +
+#     cli/credentials_test.ts verbatim (sa/ imports). google-auth-library direct dep ^9.15.1 ->
+#     ^10.9.1 so the adapter and @google-cloud/bigquery 8.3 share one copy (the `as any` cast on
+#     the OAuth2Client authClient is gone). testing/credentials.ts (integrationSuite / requireAdc
+#     / ensureAdcAvailable) + its tests verbatim; only bigquery.spec.ts uses integrationSuite (the
+#     Postgres/MySQL/Supabase fixtures are Docker, not ADC). NOT TAKEN: the KMS-encrypted test key
+#     removal and its Cloud Build plumbing (tools/gcloud/, scripts/decrypt_secret,
+#     scripts/update_test_credentials, gcloud_sdk_ext in MODULE.bazel, the .bazelrc
+#     GCE_METADATA_* / METADATA_SERVER_DETECTION integration config,
+#     test_credentials/bigquery.default.json — ours stays a gitignored bigquery.json), the lineage
+#     emitter changes (no lineage here), contributing.md. Graver (Graver-App/graver#29) reads this
+#     field by name from the other side; keep the JSON name `impersonateServiceAccount`.
+#
 # Verified natively: bazel build //core/... //cli/... //protos/... and bazel test //core/...
 # //cli/... //common/... //sqlx/... (77 tests) with --config=macos-cpp plus the DEVELOPER_DIR
 # pin from the build notes. Integration specs not run (no Docker up; nothing in the release
