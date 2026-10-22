@@ -12,7 +12,7 @@ authority for the version you have installed: `sqlanvil help` lists the commands
 
 ```bash
 npm install -g @sqlanvil/cli
-sqlanvil --version    # sqlanvil 1.36.0 (Dataform core 3.1.0)
+sqlanvil --version    # sqlanvil 1.36.1 (Dataform core 3.1.2)
 ```
 
 Requires Node.js 20.19+ or 22.12+. `--version` reports the sqlanvil release and the Dataform core
@@ -349,7 +349,7 @@ exist.
 | `--environment` | | Load a named environment from `environments:` in `workflow_settings.yaml`. That environment's `schemaSuffix`, `vars`, `defaultDatabase`, `defaultLocation` and `credentials` file apply. See [Named Environments](https://sqlanvil.com/docs/guides/environments/). |
 | `--default-database` | `defaultProject` | Default database. On BigQuery, the Google Cloud project ID. |
 | `--default-schema` | `defaultDataset` | Default schema (a dataset on BigQuery). |
-| `--default-location` | `defaultLocation` | BigQuery only. Default location, e.g. `US`. |
+| `--default-location` | `defaultLocation` | BigQuery only. Default location, e.g. `US`. `run` and `validate` send BigQuery jobs and create new datasets in this location, even when the credentials file names a different `location` (since 1.36.1; `run` warns about the mismatch). |
 | `--assertion-schema` | `defaultAssertionDataset` | Schema that assertions are written to. |
 | `--database-suffix` | `projectSuffix` | Suffix appended to database names. |
 | `--schema-suffix` | `datasetSuffix` | Suffix appended to schema names, e.g. `dev` gives `analytics_dev`. Letters, digits and underscores only. |
