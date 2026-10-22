@@ -2,7 +2,7 @@ import { assert, config, expect } from "chai";
 import * as fs from "fs-extra";
 import Long from "long";
 import * as path from "path";
-import { anyString, anything, instance, mock, verify, when } from "ts-mockito";
+import { anyString, anything, capture, instance, mock, verify, when } from "ts-mockito";
 
 import { Builder, credentials, prune, Runner } from "sa/cli/api";
 import { IDbAdapter } from "sa/cli/api/dbadapters";
@@ -951,7 +951,7 @@ suite("@sqlanvil/api", () => {
 
     test("execute", async () => {
       const mockedDbAdapter = mock(BigQueryDbAdapter);
-      when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
+      when(mockedDbAdapter.createSchema(anyString(), anyString(), anything())).thenResolve(null);
       when(
         mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[0].statement, anything()),
       ).thenResolve({
@@ -983,8 +983,46 @@ suite("@sqlanvil/api", () => {
       expect(
         sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON(),
       ).to.deep.equal(EXPECTED_RUN_RESULT.toJSON());
-      verify(mockedDbAdapter.createSchema("database", "schema1")).once();
-      verify(mockedDbAdapter.createSchema("database2", "schema2")).once();
+      verify(mockedDbAdapter.createSchema("database", "schema1", anything())).once();
+      verify(mockedDbAdapter.createSchema("database2", "schema2", anything())).once();
+    });
+
+    test("execute passes projectConfig.defaultLocation to BigQuery jobs and datasets", async () => {
+      const graph = sqlanvil.ExecutionGraph.create({
+        projectConfig: {
+          warehouse: "bigquery",
+          defaultDatabase: "db",
+          defaultLocation: "europe-west1",
+        },
+        runConfig: {},
+        warehouseState: {},
+        actions: [
+          {
+            tasks: [{ type: "statement", statement: "SELECT 1" }],
+            type: "table",
+            target: { database: "db", schema: "s", name: "t" },
+            tableType: "table",
+            dependencyTargets: [],
+          },
+        ],
+      });
+      const mockedDbAdapter = mock(BigQueryDbAdapter);
+      when(mockedDbAdapter.schemas(anyString())).thenResolve([]);
+      when(mockedDbAdapter.createSchema(anyString(), anyString(), anything())).thenResolve(null);
+      when(mockedDbAdapter.execute(anyString(), anything())).thenResolve({
+        rows: [],
+        metadata: {},
+      });
+
+      const mockDbAdapterInstance = instance(mockedDbAdapter);
+      mockDbAdapterInstance.withClientLock = async (callback) =>
+        await callback(mockDbAdapterInstance);
+
+      await new Runner(mockDbAdapterInstance, graph).execute().result();
+
+      verify(mockedDbAdapter.createSchema("db", "s", "europe-west1")).once();
+      const [, options] = capture(mockedDbAdapter.execute).last();
+      expect(options.bigquery?.location).to.equal("europe-west1");
     });
 
     test("stop and then resume", async () => {
@@ -992,7 +1030,7 @@ suite("@sqlanvil/api", () => {
       let stopWasCalled = false;
 
       const mockedDbAdapter = mock(BigQueryDbAdapter);
-      when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
+      when(mockedDbAdapter.createSchema(anyString(), anyString(), anything())).thenResolve(null);
       when(
         mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[0].statement, anything()),
       ).thenCall(async () => {
@@ -1048,15 +1086,15 @@ suite("@sqlanvil/api", () => {
       expect(
         sqlanvil.RunResult.create(cleanTiming(await runner.execute().result())).toJSON(),
       ).to.deep.equal(EXPECTED_RUN_RESULT.toJSON());
-      verify(mockedDbAdapter.createSchema("database", "schema1")).once();
-      verify(mockedDbAdapter.createSchema("database2", "schema2")).once();
+      verify(mockedDbAdapter.createSchema("database", "schema1", anything())).once();
+      verify(mockedDbAdapter.createSchema("database2", "schema2", anything())).once();
     });
 
     suite("execute with retry", () => {
       test("should fail when execution fails too many times for the retry setting", async () => {
         const mockedDbAdapter = mock(BigQueryDbAdapter);
         const NEW_TEST_GRAPH = RUN_TEST_GRAPH;
-        when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
+        when(mockedDbAdapter.createSchema(anyString(), anyString(), anything())).thenResolve(null);
         when(
           mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[0].tasks[0].statement, anything()),
         ).thenResolve({
@@ -1096,7 +1134,7 @@ suite("@sqlanvil/api", () => {
       test("should pass when execution fails initially, then passes with the number of allowed retries", async () => {
         const mockedDbAdapter = mock(BigQueryDbAdapter);
         const NEW_TEST_GRAPH = RUN_TEST_GRAPH;
-        when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
+        when(mockedDbAdapter.createSchema(anyString(), anyString(), anything())).thenResolve(null);
         when(
           mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[0].tasks[0].statement, anything()),
         ).thenResolve({
@@ -1155,7 +1193,7 @@ suite("@sqlanvil/api", () => {
         const NEW_TEST_GRAPH_WITH_OPERATION = RUN_TEST_GRAPH;
         NEW_TEST_GRAPH_WITH_OPERATION.actions[1].tasks[0].type = "operation";
 
-        when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
+        when(mockedDbAdapter.createSchema(anyString(), anyString(), anything())).thenResolve(null);
         when(
           mockedDbAdapter.execute(RUN_TEST_GRAPH.actions[0].tasks[0].statement, anything()),
         ).thenResolve({
@@ -1265,7 +1303,7 @@ suite("@sqlanvil/api", () => {
 
         const mockedDbAdapter = mock(BigQueryDbAdapter);
         const NEW_TEST_GRAPH = RUN_TEST_GRAPH;
-        when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
+        when(mockedDbAdapter.createSchema(anyString(), anyString(), anything())).thenResolve(null);
         when(
           mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[0].tasks[0].statement, anything()),
         ).thenCall((statement: string, options: any) => {
@@ -1332,7 +1370,7 @@ suite("@sqlanvil/api", () => {
           bigqueryLabels: { action_level: "specific_value" },
         };
 
-        when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
+        when(mockedDbAdapter.createSchema(anyString(), anyString(), anything())).thenResolve(null);
         when(
           mockedDbAdapter.execute(NEW_TEST_GRAPH.actions[0].tasks[0].statement, anything()),
         ).thenCall((statement: string, options: any) => {
@@ -1439,7 +1477,7 @@ suite("@sqlanvil/api", () => {
         ],
       });
       const mockedDbAdapter = mock(BigQueryDbAdapter);
-      when(mockedDbAdapter.createSchema(anyString(), anyString())).thenResolve(null);
+      when(mockedDbAdapter.createSchema(anyString(), anyString(), anything())).thenResolve(null);
       when(mockedDbAdapter.execute(anything(), anything())).thenResolve({
         rows: [],
         metadata: {},

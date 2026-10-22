@@ -117,7 +117,13 @@ export async function runValidate(argv: any): Promise<number> {
   } else if (warehouse === "mysql") {
     dbadapter = await MySqlDbAdapter.create(readCredentials);
   } else if (warehouse === "bigquery") {
-    dbadapter = new BigQueryDbAdapter(readCredentials);
+    // Same rule as `run` (upstream #2389): jobs and the shadow datasets go to the project's
+    // defaultLocation, not the credentials file's. Set on the client so the dry-runs, the
+    // `create schema` DDL and the stubs all agree.
+    dbadapter = new BigQueryDbAdapter({
+      ...readCredentials,
+      location: compiledGraph.projectConfig.defaultLocation || readCredentials.location,
+    });
   } else {
     dbadapter = await PostgresDbAdapter.create(readCredentials);
   }

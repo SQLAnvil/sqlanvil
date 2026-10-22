@@ -1,5 +1,6 @@
 import { Dataset, Table } from "@google-cloud/bigquery";
 import { expect } from "chai";
+import { EventEmitter } from "events";
 import { AuthClient, gaxios, Impersonated } from "google-auth-library";
 import { anything, instance, mock, verify, when } from "ts-mockito";
 
@@ -210,6 +211,14 @@ suite("BigQueryDbAdapter", () => {
     });
   });
 
+  test("leaves the location undefined when it is not set, so BigQuery auto-selects it", () => {
+    // Unset proto3 string fields read as "", which BigQuery rejects as a job location.
+    const credentials = sqlanvil.BigQuery.create({ projectId: "default-project" });
+    expect(credentials.location).to.equal("");
+    expect(bigQueryClientOptions(credentials, "default-project").location).to.equal(undefined);
+    expect(createBigQueryClientProvider(credentials)().location).to.equal(undefined);
+  });
+
   test("createBigQueryClientProvider creates and caches one client per project", () => {
     const clientProvider = createBigQueryClientProvider(
       sqlanvil.BigQuery.create({ projectId: "default-project", location: "EU" }),
@@ -334,5 +343,63 @@ suite("BigQueryDbAdapter", () => {
     });
 
     await adapter.setMetadata(action);
+  });
+
+  test("search() filters out tables whose metadata is not found", async () => {
+    const projectId = "project1";
+    const liveSchema = "live_schema";
+    const deletedSchema = "deleted_schema";
+    const tableName = "table1";
+
+    const mockBigQuery: any = {
+      createQueryStream: () => {
+        const stream = new EventEmitter();
+        process.nextTick(() => {
+          stream.emit("data", {
+            table_catalog: projectId,
+            table_schema: liveSchema,
+            table_name: tableName,
+          });
+          stream.emit("data", {
+            table_catalog: projectId,
+            table_schema: deletedSchema,
+            table_name: tableName,
+          });
+          stream.emit("end");
+        });
+        return stream;
+      },
+      dataset: (schema: string) => ({
+        table: (name: string) => ({
+          getMetadata: () => {
+            if (schema === deletedSchema) {
+              return Promise.reject({ errors: [{ reason: "notFound" }] });
+            }
+            return Promise.resolve([
+              {
+                type: "TABLE",
+                tableReference: { projectId, datasetId: schema, tableId: name },
+                schema: { fields: [{ name: "col1", type: "STRING" }] },
+                lastModifiedTime: "123456789",
+              },
+            ]);
+          },
+        }),
+      }),
+    };
+
+    const credentials = sqlanvil.BigQuery.create({ projectId, location: "US" });
+    const adapter = new BigQueryDbAdapter(credentials, {
+      clientProvider: () => mockBigQuery,
+    });
+
+    const result = await adapter.search("schema");
+
+    expect(result.length).to.equal(1);
+    expect(result[0].target).to.eql({
+      database: projectId,
+      schema: liveSchema,
+      name: tableName,
+    });
   });
 });

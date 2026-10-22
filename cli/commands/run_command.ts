@@ -32,6 +32,7 @@ import {
   printExecutionGraph,
   printSuccess,
   printTestResult,
+  printWarning,
 } from "sa/cli/console";
 import { ProjectConfigArgv, ProjectConfigOptions } from "sa/cli/project_config_options";
 import { actuallyResolve, assertPathExists, compiledGraphHasErrors } from "sa/cli/util";
@@ -234,6 +235,20 @@ export const runCommand: ICommand = {
       credentialsPathWithEnvironment(argv[projectDirOption.name], argv),
       warehouse,
     );
+    const defaultLocation = compiledGraph.projectConfig?.defaultLocation;
+    if (
+      warehouse.toLowerCase() === "bigquery" &&
+      !argv[jsonOutputOption.name] &&
+      defaultLocation &&
+      readCredentials.location &&
+      defaultLocation.toLowerCase() !== readCredentials.location.toLowerCase()
+    ) {
+      printWarning(
+        `Warning: defaultLocation "${defaultLocation}" in the project config differs from ` +
+          `location "${readCredentials.location}" in the credentials file. BigQuery jobs and ` +
+          `new datasets will use "${defaultLocation}".\n`,
+      );
+    }
 
     let dbadapter: IDbAdapter;
     if (warehouse.toLowerCase() === "supabase") {

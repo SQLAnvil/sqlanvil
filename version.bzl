@@ -626,4 +626,56 @@ SQLANVIL_VERSION = "1.36.0"
 # Verified: bazel build //...; 81/81 non-integration tests (incl. the new //common/vm suites);
 # Postgres/Supabase/Supabase-RLS integration specs; eslint clean; the rebuilt tarballs compile
 # the postgres_shop example (13 actions) with artifacts on.
-DF_VERSION = "3.1.0"
+#
+# 3.1.1 + 3.1.2 reviewed together (2026-10-21); 13 upstream commits past 3.1.0. #2362 is the
+# impersonation commit already taken singly above.
+#
+#   * #2389 BigQuery jobs ignored the project's defaultLocation. TAKEN, extended. The runner never
+#     passed a location to its jobs, so they ran in the credentials file's location, and new
+#     datasets were created there too ("dataset not found in region EU" for a europe-west1
+#     project). Now run.ts passes projectConfig.defaultLocation as the job location and to
+#     createSchema (new optional third argument on IDbAdapter; the Postgres/MySQL adapters ignore
+#     it), search() takes an optional location, and `run` prints a warning on stderr when
+#     defaultLocation and the credentials location differ (BigQuery warehouses only, not with
+#     --json). printWarning added to cli/console.ts for it (upstream added it in #2256's
+#     advisory, which we did not take). EXTENDED: `validate` on BigQuery had the same bug in
+#     three places (the dry-runs, the shadow datasets' `create schema`, the LIMIT 0 stubs), so
+#     validate_command builds its BigQueryDbAdapter with location = defaultLocation ||
+#     credentials location. NOT taken: the lineage emitter half (no lineage here). Test taken into
+#     tests/api/api.spec.ts with the withClientLock wiring our Runner needs.
+#
+#   * #2388 search() returned null entries for tables deleted between the INFORMATION_SCHEMA
+#     query and the metadata fetch. TAKEN, verbatim, with its test.
+#
+#   * #2396 an unset location read as "" and BigQuery rejected it. Already here (the
+#     `credentials.location || undefined` in bigQueryClientOptions, from the runner-extract
+#     work); only its regression test taken, against our bigQueryClientOptions signature.
+#
+#   * #2390 search integration test counts only its own schema. TAKEN.
+#
+#   * #2384 4-part Lakehouse Catalog targets (`lakehouse: {catalog, namespace}` on table /
+#     incremental / operation / declaration / dependency targets, defaultLakehouseConfig in
+#     workflow_settings, core/actions/lakehouse.ts). NOT TAKEN: Iceberg / REST-catalog targets
+#     are a standing won't-build (decided 2026-08-20 after upstream #2242). It also rides on
+#     #2351's job-label field numbers, which we never took: upstream's TableConfig 27,
+#     IncrementalTableConfig 32, OperationConfig 15, DeclarationConfig 8, ActionConfig.Target 6,
+#     WorkflowSettings 21, ProjectConfig 27 would need re-checking against ours before any take.
+#
+#   * #2387 PropertyGraph entities/relationships -> nodes/edges. NOT TAKEN (no PropertyGraph
+#     here; declined in routine syncs, not permanently; see the 3.0.65/3.0.66 notes).
+#
+#   * #2391 OpenLineage facet cleanup. NOT TAKEN (no lineage here).
+#
+#   * #2385 per-run BigQuery dataset suffixes for concurrent CI runs (testing/bigquery.ts) and
+#     #2394 location-resolution e2e tests (built on it and on the test-credentials loader from
+#     #2362 that we did not take). NOT TAKEN: both are tooling for upstream's shared
+#     Cloud Build project. #2389 is covered here by the runner and adapter unit tests.
+#
+#   * #2354 canary test (Cloud Build + GCS bucket). NOT TAKEN (upstream CI infra).
+#
+#   * #2395 / #2397 version bumps.
+#
+# Verified natively: bazel test //core/... //cli/... //common/... //sqlx/... (80 tests) and
+# //tests/api:api.spec, with --config=macos-cpp plus the DEVELOPER_DIR pin. BigQuery integration
+# specs not run. Ships in the next release: the defaultLocation fix in run and validate.
+DF_VERSION = "3.1.2"

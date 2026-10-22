@@ -56,10 +56,13 @@ export interface IDbAdapter extends IDbClient {
   evaluate(queryOrAction: QueryOrAction): Promise<sqlanvil.IQueryEvaluation[]>;
 
   schemas(database: string): Promise<string[]>;
-  createSchema(database: string, schema: string): Promise<void>;
+  createSchema(database: string, schema: string, location?: string): Promise<void>;
 
   tables(database: string, schema?: string): Promise<sqlanvil.ITableMetadata[]>;
-  search(searchText: string, options?: { limit: number }): Promise<sqlanvil.ITableMetadata[]>;
+  search(
+    searchText: string,
+    options?: { limit: number; location?: string },
+  ): Promise<sqlanvil.ITableMetadata[]>;
   table(target: sqlanvil.ITarget): Promise<sqlanvil.ITableMetadata>;
   deleteTable(target: sqlanvil.ITarget): Promise<void>;
 
