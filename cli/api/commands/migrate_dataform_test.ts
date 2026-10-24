@@ -645,4 +645,74 @@ SELECT 1`;
     ).content;
     expect(withRef).to.contain('${ref("orders")}');
   });
+
+  test("double-quoted strings convert with their apostrophes and interpolations intact", () => {
+    const sql = (body: string) =>
+      convertTarget(`config { type: "view" }\n\n${body}\n`, false).content;
+
+    // An apostrophe is escaped, not a reason to skip: left double-quoted, the string is an
+    // identifier to PostgreSQL, and its stray apostrophe mis-paired every quote after it — so
+    // later rules (DAYOFWEEK here) silently stopped converting the rest of the file.
+    const holiday = sql(
+      `select "New Year's Day" as description, extract(dayofweek from d) as dw from t`,
+    );
+    expect(holiday).to.contain("'New Year''s Day' as description");
+    expect(holiday).to.contain("(extract(dow from d) + 1)");
+    expect(sql(`select "it\\'s" as a`)).to.contain("'it''s' as a");
+
+    // The interpolation is one atomic span inside the string: its own quotes are JavaScript.
+    // Pairing on them turned this into "${ref("x')}' — a compile error.
+    expect(sql(`select format('%s', "\${ref("eav")}") as q`)).to.contain(`'\${ref("eav")}'`);
+    expect(sql(`select "\${when(true, 'a')}" as v`)).to.contain(`'\${when(true, 'a')}'`);
+
+    // Rules 1 and 2 change the text's length before this one runs; spans measured up front
+    // would be off by then, and the interpolation's quotes would be read as SQL again.
+    expect(sql(`# note\nselect r'x' as a, "\${ref("eav")}" as b`)).to.contain(
+      `'\${ref("eav")}' as b`,
+    );
+
+    // The call rules run first, on BigQuery text: an apostrophe in a config description or in a
+    // double-quoted string must not pair with the next real quote and hide the calls after it.
+    const described = convertTarget(
+      `config {\n  type: "view",\n  description: "the store's budget"\n}\n\nselect COLLATE(s, '') as s from t\n`,
+      false,
+    ).content;
+    expect(described).to.contain("select s as s from t");
+    expect(sql(`select "Mother's Day" as d, SAFE_DIVIDE(a, b) as r`)).to.contain(
+      "(a / nullif(b, 0)) as r",
+    );
+
+    // Triple-quoted strings span lines and hold either quote, so they become dollar-quoted.
+    const triple = sql(`select """\n  it's "quoted"\n""" as q`);
+    expect(triple).to.contain(`$sa$\n  it's "quoted"\n$sa$ as q`);
+    expect(triple).to.not.contain(`"""`);
+  });
+
+  test("no inline marker inside a ${…} template spanning lines — it would break the JS", () => {
+    // The marker text holds backticks, so above `group by all` it closes the template literal
+    // early. The finding still reaches the report; only the inline comment is withheld.
+    const { content, findings } = convertTarget(
+      [
+        'config { type: "view" }',
+        "",
+        "select * from (",
+        "${tables.map(t => `",
+        "    select a, count(*) from ${t}",
+        "    group by all`).join(' union all ')}",
+        ")",
+        "",
+      ].join("\n"),
+      false,
+    );
+    expect(content).to.contain("${t}\n    group by all`).join(");
+    expect(content).to.not.contain("SQLANVIL-MIGRATE");
+    expect(findings.map((f) => f.note).join("\n")).to.contain("GROUP BY ALL");
+
+    // Outside a template the marker is still written.
+    const plain = convertTarget(
+      'config { type: "view" }\n\nselect a from t\ngroup by all\n',
+      false,
+    );
+    expect(plain.content).to.contain("-- SQLANVIL-MIGRATE: GROUP BY ALL");
+  });
 });

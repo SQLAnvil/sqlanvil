@@ -3,7 +3,7 @@ import { dump as dumpYaml, load as loadYaml } from "js-yaml";
 import * as path from "path";
 
 import { agentsMdContents, claudeMdBridgeContents } from "sa/cli/api/commands/agents_md";
-import { tokenize } from "sa/cli/api/commands/sql_lex";
+import { interpolationSpans, isWord, significant, tokenize } from "sa/cli/api/commands/sql_lex";
 import {
   chooseStrategies,
   findStructArrays,
@@ -974,6 +974,25 @@ const CALL_RULES: CallRule[] = [
 ];
 
 /**
+ * `text` prepared for maskSql, which pairs single quotes only: regions the call rules may not
+ * touch (the config block) and BigQuery double-quoted strings are blanked first, since an
+ * apostrophe in either — `"the store's budget"` in a config description is enough — would pair
+ * with the next real quote and hide every call between them. The call rules run before the
+ * double-quoted strings are converted, so they meet them in BigQuery form.
+ */
+function callRuleView(text: string, isRewritableOffset: (offset: number) => boolean): string {
+  const chars = Array.from(text, (c, i) => (c === "\n" || isRewritableOffset(i) ? c : " "));
+  for (const t of tokenize(chars.join(""))) {
+    if (t.kind === "quoted-ident" && !t.text.includes("\n")) {
+      for (let i = t.start + 1; i < t.end - 1; i++) {
+        chars[i] = " ";
+      }
+    }
+  }
+  return chars.join("");
+}
+
+/**
  * Apply the call rules over a whole body, right-to-left so earlier offsets stay valid.
  * `mask` is the offset-preserving copy used for MATCHING; arguments are read from `text`
  * itself, since the mask blanks string literals and would hide a regex pattern, an interval
@@ -999,7 +1018,7 @@ export function applyCallRules(
   // BigQuery constructs, so this terminates; the cap is a backstop against a rule that rewrites
   // to something it matches again.
   for (let pass = 0; pass < 10; pass++) {
-    const mask = maskSql(result);
+    const mask = maskSql(callRuleView(result, isRewritableOffset));
     const sites: Site[] = [];
     for (const rule of CALL_RULES) {
       const finder = new RegExp(`\\b${rule.name}\\s*\\(`, "gi");
@@ -1080,6 +1099,94 @@ function matchParenLike(text: string, open: number, o: string, c: string): numbe
   return -1;
 }
 
+/** `text` with every span blanked to spaces — newlines kept, so offsets and lines still line up. */
+function blankSpans(text: string, spans: Array<{ start: number; end: number }>): string {
+  if (spans.length === 0) {
+    return text;
+  }
+  return Array.from(text, (c, i) =>
+    c !== "\n" && spans.some((s) => i >= s.start && i < s.end) ? " " : c,
+  ).join("");
+}
+
+const DQ_STRING_NOTE =
+  "BigQuery \"string\" → 'string' (double quotes are identifiers in PostgreSQL)";
+const TRIPLE_QUOTED_NOTE =
+  'BigQuery """string""" → $sa$string$sa$ (PostgreSQL has no triple-quoted strings)';
+
+/**
+ * BigQuery double-quoted strings → PostgreSQL single-quoted ones, by token rather than by regex.
+ *
+ * The lexing happens on a copy with every non-SQL region (config, js blocks, `${…}`
+ * interpolations) blanked to spaces, so a quote that belongs to JavaScript can never pair with
+ * one in SQL — `"${ref("x")}"` is one string whose interpolation is kept verbatim. Blanking keeps
+ * offsets, so edits splice straight back into `text`.
+ *
+ * An apostrophe inside is escaped as `''`, never a reason to skip: a skipped `"New Year's Day"`
+ * is both an identifier to PostgreSQL and a stray apostrophe that mis-pairs every quote after it
+ * for the rules that run later.
+ *
+ * Triple-quoted `"""…"""` strings span lines and may contain both quote characters, so they
+ * become dollar-quoted rather than escaped.
+ */
+function convertDoubleQuotedStrings(
+  text: string,
+  isSqlOffset: (offset: number) => boolean,
+  note: (offset: number, n: string) => void,
+): string {
+  const chars = Array.from(text, (c, i) => (c === "\n" || isSqlOffset(i) ? c : " "));
+  const edits: Array<{ start: number; end: number; out: string }> = [];
+
+  const triple = /"""[\s\S]*?"""/g;
+  let m: RegExpExecArray | null;
+  while ((m = triple.exec(chars.join(""))) !== null) {
+    const inner = text.slice(m.index + 3, m.index + m[0].length - 3);
+    let tag = "$sa$";
+    for (let n = 1; inner.includes(tag); n++) {
+      tag = `$sa${n}$`;
+    }
+    edits.push({ start: m.index, end: m.index + m[0].length, out: `${tag}${inner}${tag}` });
+    for (let i = m.index; i < m.index + m[0].length; i++) {
+      chars[i] = chars[i] === "\n" ? "\n" : " ";
+    }
+    triple.lastIndex = m.index + m[0].length;
+  }
+
+  const toks = significant(tokenize(chars.join("")));
+  toks.forEach((t, k) => {
+    // Unterminated or spanning a line: not a BigQuery string, so the pairing is already wrong.
+    if (t.kind !== "quoted-ident" || t.text.length < 2 || !t.text.endsWith('"')) {
+      return;
+    }
+    if (t.text.includes("\n")) {
+      return;
+    }
+    // After AS the token is an ALIAS, not a string — `x as "key"` names a column. Converting it
+    // to `x as 'key'` is not valid SQL anywhere, and quietly turns a column name into a string
+    // literal in the one place a reader is least likely to look.
+    if (isWord(toks[k - 1], "as")) {
+      return;
+    }
+    let inner = "";
+    for (let i = t.start + 1; i < t.end - 1; i++) {
+      if (text[i] === "\\" && text[i + 1] === "'" && isSqlOffset(i)) {
+        inner += "''"; // BigQuery's \' escape; a PostgreSQL literal leaves backslashes alone
+        i++;
+      } else {
+        inner += text[i] === "'" && isSqlOffset(i) ? "''" : text[i];
+      }
+    }
+    edits.push({ start: t.start, end: t.end, out: `'${inner}'` });
+  });
+
+  let out = text;
+  for (const e of edits.sort((a, b) => b.start - a.start)) {
+    note(e.start, e.out.startsWith("$") ? TRIPLE_QUOTED_NOTE : DQ_STRING_NOTE);
+    out = out.slice(0, e.start) + e.out + out.slice(e.end);
+  }
+  return out;
+}
+
 /**
  * Lexical rewrites that need the whole body rather than a line, applied in a deliberate order.
  *
@@ -1087,10 +1194,14 @@ function matchParenLike(text: string, open: number, o: string, c: string): numbe
  * quotes an IDENTIFIER, and a double quote always opens a STRING. That makes both mechanical —
  * but only in SQL. Inside a `js { … }` block or a .js file the same characters are JavaScript
  * (template literals and string literals), so `isSqlOffset` excludes those regions entirely.
+ *
+ * `sqlOffsetsOf` builds that predicate for a given text, and each rule asks for it afresh: the
+ * rules change the text's length (`#` → `--` adds a character, a dropped raw prefix removes one),
+ * so spans measured before the first rule are off by the time a later one runs.
  */
 function applyTextRules(
   text: string,
-  isSqlOffset: (offset: number) => boolean,
+  sqlOffsetsOf: (text: string) => (offset: number) => boolean,
   applied: Array<{ line: number; note: string }>,
 ): string {
   const note = (offset: number, n: string) =>
@@ -1110,6 +1221,7 @@ function applyTextRules(
     replace: (m: RegExpExecArray) => string | null,
     ruleNote: string,
   ): string => {
+    const isSqlOffset = sqlOffsetsOf(src);
     const edits: Array<{ start: number; end: number; out: string }> = [];
     let m: RegExpExecArray | null;
     pattern.lastIndex = 0;
@@ -1162,21 +1274,7 @@ function applyTextRules(
   //    MUST run before the backtick rule below, which PRODUCES double quotes — reverse the order
   //    and a `col` identifier becomes "col" and then 'col', silently turning a column reference
   //    into a string literal.
-  result = rewrite(
-    result,
-    maskSql(result, true),
-    /(\bas\s+)?"([^"\n]*)"/gi,
-    (m) => {
-      // After AS the token is an ALIAS, not a string — `x as "key"` names a column. Converting
-      // it to `x as 'key'` is not valid SQL anywhere, and quietly turns a column name into a
-      // string literal in the one place a reader is least likely to look.
-      if (m[1]) {
-        return null;
-      }
-      return m[2].includes("${") || m[2].includes("'") ? null : `'${m[2]}'`;
-    },
-    "BigQuery \"string\" → 'string' (double quotes are identifiers in PostgreSQL)",
-  );
+  result = convertDoubleQuotedStrings(result, sqlOffsetsOf(result), note);
 
   // 4. Backtick identifiers → double quotes. Skipped when the token is a qualified
   //    project.dataset.table name (PostgreSQL has no third level, so that is a reference to
@@ -1205,7 +1303,7 @@ function applyTextRules(
   for (;;) {
     const mask = maskSql(result);
     const m = /\bextract\s*\(\s*dayofweek\s+from\s+/i.exec(mask);
-    if (!m || !isSqlOffset(m.index)) {
+    if (!m || !sqlOffsetsOf(result)(m.index)) {
       break;
     }
     const close = matchParen(mask, mask.indexOf("(", m.index));
@@ -1218,7 +1316,7 @@ function applyTextRules(
       result.slice(0, m.index) + `(extract(dow from ${inner}) + 1)` + result.slice(close + 1);
   }
 
-  return rewriteUnenforcedConstraints(result, isSqlOffset, applied);
+  return rewriteUnenforcedConstraints(result, sqlOffsetsOf(result), applied);
 }
 
 const UNENFORCED_HEADER = [
@@ -1377,6 +1475,16 @@ export function convertTarget(
   let span = jsMode ? null : findConfigBlock(source);
   const findings: FileFinding[] = [];
 
+  // Regions of `text` that are not SQL at all. Lexing SQL across them is how a `don't` in a js
+  // comment opens a phantom string that runs on into the query, so they are blanked first.
+  const configAndJsSpans = (text: string): Array<{ start: number; end: number }> => {
+    if (jsMode) {
+      return [{ start: 0, end: text.length }];
+    }
+    const config = findConfigBlock(text);
+    return [...(config ? [{ start: config.start, end: config.end }] : []), ...jsBlockSpans(text)];
+  };
+
   // Call rewrites go first, over the whole body: they need the arguments and can span lines,
   // neither of which the per-line rules below can do. Config keys are handled separately, so
   // the config block is excluded — but js regions are NOT, because shared helpers build SQL in
@@ -1400,14 +1508,15 @@ export function convertTarget(
     // excluding deliberately rather than relying on luck — a name containing an apostrophe would
     // not survive the same treatment.
     const textApplied: Array<{ line: number; note: string }> = [];
-    const jsSpans = jsMode ? [{ start: 0, end: source.length }] : jsBlockSpans(source);
-    const templates = tokenize(source).filter((t) => t.kind === "template");
     source = applyTextRules(
       source,
-      (off) =>
-        outsideConfig(off) &&
-        !jsSpans.some((s) => off >= s.start && off < s.end) &&
-        !templates.some((t) => off >= t.start && off < t.end),
+      (text) => {
+        const notSql = configAndJsSpans(text);
+        const templates = interpolationSpans(blankSpans(text, notSql));
+        return (off) =>
+          !notSql.some((s) => off >= s.start && off < s.end) &&
+          !templates.some((t) => off >= t.start && off < t.end);
+      },
       textApplied,
     );
     for (const a of textApplied) {
@@ -1423,6 +1532,23 @@ export function convertTarget(
 
   const lines = source.split("\n");
   const jsLines = jsMode ? new Set<number>() : jsBlockLines(source);
+  if (!jsMode) {
+    // A line that STARTS inside a `${…}` interpolation (`${xs.map(x => \`…\`)}` spanning lines)
+    // or a multi-line literal has no safe place for a marker either: above it is still inside the
+    // JavaScript template or the string, where an inserted comment changes or breaks the code.
+    const sql = blankSpans(source, configAndJsSpans(source));
+    const spans = [
+      ...interpolationSpans(sql),
+      ...tokenize(sql).filter((t) => t.kind === "string" || t.kind === "quoted-ident"),
+    ];
+    let lineStart = 0;
+    lines.forEach((line, i) => {
+      if (spans.some((s) => lineStart > s.start && lineStart < s.end)) {
+        jsLines.add(i);
+      }
+      lineStart += line.length + 1;
+    });
+  }
 
   let configStartLine = -1;
   let configEndLine = -1;

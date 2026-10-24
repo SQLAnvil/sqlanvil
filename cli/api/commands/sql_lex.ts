@@ -66,19 +66,10 @@ export function tokenize(sql: string): Token[] {
       continue;
     }
 
-    // `${ ... }` — atomic. Brace-counted so a nested object literal inside the interpolation
-    // does not end it early, and never inspected for SQL syntax.
+    // `${ ... }` — atomic, and never inspected for SQL syntax.
     if (ch === "$" && sql[i + 1] === "{") {
       const start = i;
-      let depth = 0;
-      for (; i < sql.length; i++) {
-        if (sql[i] === "{") {
-          depth++;
-        } else if (sql[i] === "}" && --depth === 0) {
-          i++;
-          break;
-        }
-      }
+      i = templateEnd(sql, i);
       push("template", start, i);
       continue;
     }
@@ -125,6 +116,13 @@ export function tokenize(sql: string): Token[] {
       const quote = sql[i];
       i++;
       for (; i < sql.length; i++) {
+        // sqlx interpolates `${…}` before SQL is ever lexed, so an interpolation inside a literal
+        // is still atomic: in `"${ref("x")}"` the inner quotes belong to the JavaScript, and
+        // reading the first of them as the terminator splits one string into two.
+        if (sql[i] === "$" && sql[i + 1] === "{") {
+          i = templateEnd(sql, i) - 1;
+          continue;
+        }
         if (sql[i] !== quote) {
           continue;
         }
@@ -176,6 +174,44 @@ export function tokenize(sql: string): Token[] {
     i++;
   }
   return tokens;
+}
+
+/**
+ * End offset (exclusive) of the `${…}` starting at `start`. Brace-counted so a nested object
+ * literal inside the interpolation does not end it early; unterminated runs to the end of input.
+ */
+function templateEnd(sql: string, start: number): number {
+  let depth = 0;
+  for (let i = start; i < sql.length; i++) {
+    if (sql[i] === "{") {
+      depth++;
+    } else if (sql[i] === "}" && --depth === 0) {
+      return i + 1;
+    }
+  }
+  return sql.length;
+}
+
+/**
+ * Every `${…}` span in `sql`, including those inside string literals — which `tokenize` folds
+ * into the enclosing string token. A rewrite that must leave JavaScript alone needs both kinds.
+ */
+export function interpolationSpans(sql: string): Array<{ start: number; end: number }> {
+  const spans: Array<{ start: number; end: number }> = [];
+  for (const t of tokenize(sql)) {
+    if (t.kind === "template") {
+      spans.push({ start: t.start, end: t.end });
+    } else if (t.kind === "string" || t.kind === "quoted-ident") {
+      for (let i = t.start; i < t.end; i++) {
+        if (sql[i] === "$" && sql[i + 1] === "{") {
+          const end = Math.min(templateEnd(sql, i), t.end);
+          spans.push({ start: i, end });
+          i = end - 1;
+        }
+      }
+    }
+  }
+  return spans;
 }
 
 /** Tokens that carry meaning — everything except whitespace and comments. */

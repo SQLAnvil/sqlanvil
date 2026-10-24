@@ -1,6 +1,7 @@
 import { expect } from "chai";
 
 import {
+  interpolationSpans,
   matchBracket,
   relationsIn,
   selectScopes,
@@ -53,6 +54,21 @@ suite("sql_lex", () => {
 
     // Raw-string prefixes belong to the token, so a rewrite can drop them as a unit.
     expect(sig(`select r'\\s+'`)[1].text).equals(`r'\\s+'`);
+
+    // sqlx interpolates before SQL is lexed, so a ${…} inside a literal stays atomic: its quotes
+    // are JavaScript and must not end the string.
+    const interp = sig(`select "\${ref("x")}" as a, '\${when(c, 'y')}' as b`);
+    expect(interp[1].kind).equals("quoted-ident");
+    expect(interp[1].text).equals(`"\${ref("x")}"`);
+    expect(interp.find((t) => t.kind === "string")!.text).equals(`'\${when(c, 'y')}'`);
+  });
+
+  test("interpolationSpans also finds the interpolations folded into strings", () => {
+    const sql = `select \${self()} as a, "\${ref("x")}" as b`;
+    expect(interpolationSpans(sql).map((s) => sql.slice(s.start, s.end))).deep.equals([
+      "${self()}",
+      `\${ref("x")}`,
+    ]);
   });
 
   test("comments in both spellings, and unterminated input does not throw", () => {
