@@ -32,7 +32,7 @@ below before authoring a `warehouse: mysql` project.
 warehouse: postgres            # flat string ("postgres" or "supabase") — NOT nested
 defaultDataset: public         # the Postgres SCHEMA
 defaultAssertionDataset: sqlanvil_assertions
-sqlanvilCoreVersion: 1.36.2    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
+sqlanvilCoreVersion: 1.36.3    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
 vars:
   someVar: value
 ```
@@ -299,7 +299,10 @@ missing source still fails at run time, like any SQL against a missing table.
 **Migrating a whole Dataform project?** `sqlanvil migrate-dataform <srcDir> <outDir>` (>=1.22)
 converts it: source dir is READ-ONLY, declarations become per-project runner-extract
 connections, targets get safe rewrites + inline `SQLANVIL-MIGRATE:` markers, and
-migration-report.{md,json} carries the to-do list (`validate` is the completion loop).
+migration-report.{md,json} carries the to-do list (`validate` is the completion loop). Work from
+the report, not a grep for markers: a site inside a `js {}` block, a `${…}` template or a
+multi-line string gets no inline marker (>=1.36.3), because an inserted comment there would
+change the code.
 `--target-warehouse bigquery` (>=1.24) is the SAME-warehouse tooling swap instead: SQL,
 `bigquery:{}` blocks, and declarations pass through untouched (no connections, no dialect
 pass — only the settings conversion + the `dataform.`→`sqlanvil.projectConfig` rename);
