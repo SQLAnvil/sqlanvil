@@ -222,6 +222,75 @@ ${cols.map((c) => `    ${c}: "text"`).join(",\n")}
     expect(read(dir, "migration-report.md")).to.contain("## What is left to do");
   });
 
+  test("removes the converter's marker once its site is rewritten, and only then", async () => {
+    // migrate-dataform writes these above every star and GROUP BY ALL. Left behind after the
+    // rewrite, they send the reader to run a step that has already run.
+    const star =
+      "-- SQLANVIL-MIGRATE: SELECT * EXCEPT — run `sqlanvil migrate-fix` after introspect to expand it";
+    const gba =
+      "-- SQLANVIL-MIGRATE: GROUP BY ALL — run `sqlanvil migrate-fix` after introspect to rewrite it";
+    const qualify = "-- SQLANVIL-MIGRATE: QUALIFY — rewrite as a subquery/CTE filter";
+    const dir = project({
+      "definitions/src/t.sqlx": declaration("t", ["a", "b", "junk"]),
+      "definitions/src/u.sqlx":
+        'config {\n  type: "declaration",\n  connection: "bq_x",\n  schema: "src",\n  name: "u",\n  columnTypes: {\n  }\n}\n',
+      "definitions/done.sqlx": `config { type: "view" }\n\n${star}\nselect * except (junk) from \${ref("t")}\n`,
+      "definitions/grouped.sqlx": `config { type: "view" }\n\nselect a, count(*) as n from \${ref("t")}\n${gba}\n${qualify}\ngroup by all\n`,
+      "definitions/pending.sqlx": `config { type: "view" }\n\n${star}\nselect * except (x) from \${ref("u")}\n`,
+      // The converter flags commented-out SQL too; nothing will ever rewrite it.
+      "definitions/commented.sqlx": `config { type: "assertion" }\n\n${gba}\n-- select a from t group by all\nselect 1\n`,
+    });
+
+    await migrateFix({ projectDir: dir, write: true });
+
+    const done = read(dir, "definitions/done.sqlx");
+    expect(done).to.not.contain("SQLANVIL-MIGRATE");
+    expect(done).to.contain("-- sqlanvil:star-except"); // the provenance marker stays
+    const grouped = read(dir, "definitions/grouped.sqlx");
+    expect(grouped).to.not.contain(gba);
+    expect(grouped).to.contain(`${qualify}\ngroup by 1`); // an unrelated marker is untouched
+    // Unresolved: the site is still there, so is its marker.
+    expect(read(dir, "definitions/pending.sqlx")).to.contain(`${star}\nselect * except (x)`);
+    expect(read(dir, "definitions/commented.sqlx")).to.not.contain(gba);
+  });
+
+  test("a star over an operations action is reported as unknowable, not as a bad EXCEPT", async () => {
+    // An operations action's last SELECT says nothing reliable about the table it leaves
+    // behind. Reading its columns from there reported the excluded columns as missing.
+    const dir = project({
+      "definitions/src/t.sqlx": declaration("t", ["sku", "attr", "val"]),
+      "definitions/op_pivot.sqlx":
+        'config { type: "operations", hasOutput: true }\n\ncreate or replace table ${self()} as\nselect sku from ${ref("t")}\n',
+      "definitions/vw.sqlx":
+        'config { type: "view" }\n\nselect p.* except (price) from (select * from ${ref("op_pivot")}) as p\n',
+    });
+
+    const result = await migrateFix({ projectDir: dir, write: true });
+    expect(result.expanded).equals(0);
+    expect(result.unresolved).to.have.length(1);
+    expect(result.unresolved[0].reason).to.contain("op_pivot is an operations action");
+    expect(result.unresolved[0].reason).to.not.contain("does not have");
+  });
+
+  test("a subquery's columns come from its outermost SELECT, not the one nested inside it", async () => {
+    // The dedup shape: number the rows one level up, then drop the counter. Reading the innermost
+    // SELECT lost every column added on the way out — reported as a bad EXCEPT when the excluded
+    // column was one of them, and silently dropped from the expansion when it was not.
+    const dir = project({
+      "definitions/src/t.sqlx": declaration("t", ["a", "b"]),
+      "definitions/dedup.sqlx":
+        'config { type: "view" }\n\nselect * except (rn)\nfrom (\n  select *, row_number() over (order by a) as rn\n  from (select a, b from ${ref("t")})\n)\nwhere rn = 1\n',
+      "definitions/extra.sqlx":
+        'config { type: "view" }\n\nselect * except (a)\nfrom (select *, 1 as extra from (select a, b from ${ref("t")}))\n',
+    });
+
+    const result = await migrateFix({ projectDir: dir, write: true });
+    expect(result.unresolved).to.deep.equal([]);
+    expect(result.expanded).equals(2);
+    expect(read(dir, "definitions/dedup.sqlx")).to.match(/\n\s+a,\n\s+b\nfrom/);
+    expect(read(dir, "definitions/extra.sqlx")).to.match(/\n\s+b,\n\s+extra\nfrom/);
+  });
+
   test("a project with no report is left alone", async () => {
     const dir = project({
       "definitions/src/t.sqlx": declaration("t", ["a", "junk"]),

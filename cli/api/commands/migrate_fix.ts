@@ -3,9 +3,11 @@ import * as path from "path";
 
 import {
   findConfigBlock,
+  GROUP_BY_ALL_NOTE,
   MigrationReport,
   parseSqlxConfig,
   renderReportMd,
+  STAR_EXCEPT_NOTE,
   TodoClass,
 } from "sa/cli/api/commands/migrate_dataform";
 import {
@@ -150,6 +152,11 @@ class Resolver {
   private readonly byName = new Map<string, Action[]>();
   private readonly byPair = new Map<string, Action>();
   private readonly memo = new Map<string, string[] | null>();
+  /**
+   * Why the most recent lookup came back empty, when the cause is a specific action — so a star
+   * over a subquery over an operations action is reported as that, not as "cannot determine".
+   */
+  unknownBecause: string | null = null;
 
   constructor(private readonly actions: Action[]) {
     for (const a of actions) {
@@ -192,8 +199,19 @@ class Resolver {
       return action.columns;
     }
     if (action.type === "declaration") {
+      this.unknownBecause = `${action.name} has no columnTypes; has introspect run for it?`;
       return null;
-    } // introspect has not run for this one
+    }
+    if (action.type === "operations") {
+      // Its SQL is statements, not a query: the last SELECT in it says nothing reliable about the
+      // table it leaves behind (a pivot, a CREATE … AS over something else, dynamic SQL), and
+      // reading one anyway produced confident nonsense — "EXCEPT names a column the source does
+      // not have" about a column that is there.
+      this.unknownBecause =
+        `${action.name} is an operations action, whose output columns cannot be read from ` +
+        "its SQL; list them by hand";
+      return null;
+    }
     if (seen.has(action.file)) {
       return null;
     }
@@ -216,8 +234,17 @@ class Resolver {
     if (!scopes.length) {
       return null;
     }
-    // The final top-level select is the one that shapes the action's output.
-    const scope = scopes.reduce((best, s) => (s.select > best.select ? s : best), scopes[0]);
+    // The final top-level select is the one that shapes the action's output. selectScopes lists
+    // nested ones too — a FROM subquery's SELECT comes later in the text than its parent's — so
+    // "final" is taken among the shallowest only.
+    const depthAt: number[] = [];
+    let depth = 0;
+    for (const t of toks) {
+      depthAt.push(depth);
+      depth += t.text === "(" ? 1 : t.text === ")" ? -1 : 0;
+    }
+    const top = Math.min(...scopes.map((s) => depthAt[s.select]));
+    const scope = scopes.filter((s) => depthAt[s.select] === top).pop()!;
     const rels = scope.from === -1 ? [] : relationsIn(toks, scope.fromStart, scope.fromEnd);
     const names: string[] = [];
     for (const [s, e] of splitOnCommas(toks, scope.listStart, scope.listEnd)) {
@@ -258,8 +285,12 @@ class Resolver {
     }
     const tmpl = tokens.find((t) => t.kind === "template");
     if (tmpl) {
-      const { action } = this.resolveRef(tmpl);
-      return action ? this.columnsOf(action, seen) : null;
+      const { action, reason } = this.resolveRef(tmpl);
+      if (!action) {
+        this.unknownBecause = reason ?? null;
+        return null;
+      }
+      return this.columnsOf(action, seen);
     }
     return null; // a CTE or bare name — resolved by the caller, which knows the file's CTEs
   }
@@ -337,6 +368,7 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
             continue;
           }
 
+          resolver.unknownBecause = null;
           let cols = resolver.relationColumns(rel.tokens, rel.subquery, new Set());
           if (!cols) {
             // A bare name is a CTE in this file, or an action referenced without ${ref}.
@@ -349,8 +381,8 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
             result.unresolved.push({
               file: action.file,
               line,
-              reason: rel.tokens.some((t) => t.kind === "template")
-                ? `columns of ${shown} are unknown — has introspect run for it?`
+              reason: resolver.unknownBecause
+                ? `columns of ${shown} are unknown — ${resolver.unknownBecause}`
                 : `cannot determine the columns of ${shown}`,
             });
             continue;
@@ -434,11 +466,70 @@ export async function migrateFix(opts: MigrateFixOptions): Promise<MigrateFixRes
     }
   }
 
+  if (opts.write) {
+    for (const action of loadActions(opts.projectDir)) {
+      const text = dropStaleMarkers(action.source);
+      if (text !== action.source) {
+        touched.add(action.file);
+        fs.writeFileSync(path.join(opts.projectDir, action.file), text);
+      }
+    }
+  }
+
   result.files = [...touched].sort();
   if (opts.write) {
     updateMigrationReport(opts.projectDir, result);
   }
   return result;
+}
+
+/**
+ * The converter's markers for the two sites this phase rewrites, and whether a line's tokens still
+ * hold that site. Tokens, not text: the converter's line rules also fire inside `--` comments, and
+ * a commented-out `group by all` is not work for anyone.
+ */
+const OWNED_MARKERS: Array<{ marker: string; site: (toks: Token[]) => boolean }> = [
+  {
+    marker: `-- SQLANVIL-MIGRATE: ${STAR_EXCEPT_NOTE}`,
+    site: (toks) =>
+      toks.some(
+        (t, i) => t.text === "*" && isWord(toks[i + 1], "except") && toks[i + 2]?.text === "(",
+      ),
+  },
+  {
+    marker: `-- SQLANVIL-MIGRATE: ${GROUP_BY_ALL_NOTE}`,
+    site: (toks) =>
+      toks.some(
+        (t, i) => isWord(t, "group") && isWord(toks[i + 1], "by") && isWord(toks[i + 2], "all"),
+      ),
+  },
+];
+
+/**
+ * Remove a "run `sqlanvil migrate-fix`" marker once the site under it is gone.
+ *
+ * migrate-dataform writes markers on the lines above the line they are about, stacked when a
+ * line has several. A marker whose line no longer holds its site has been dealt with — by this
+ * phase, or by hand — and left in place it sends the reader to re-run a step that has run. One
+ * whose site survived (unresolved, or a second star on the same line) is kept, and so is one over a
+ * line that starts inside a block comment, which a one-line lexer cannot tell from code. Checking
+ * the site rather than remembering what was expanded makes this re-runnable on a project fixed
+ * earlier.
+ */
+function dropStaleMarkers(source: string): string {
+  const lines = source.split("\n");
+  const kept = lines.filter((line, i) => {
+    const owned = OWNED_MARKERS.find((o) => line.trim() === o.marker);
+    if (!owned) {
+      return true;
+    }
+    let target = i + 1;
+    while (target < lines.length && lines[target].trim().startsWith("-- SQLANVIL-MIGRATE:")) {
+      target++;
+    }
+    return target < lines.length && owned.site(significant(tokenize(lines[target])));
+  });
+  return kept.length === lines.length ? source : kept.join("\n");
 }
 
 /**

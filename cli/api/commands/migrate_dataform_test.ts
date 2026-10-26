@@ -523,6 +523,15 @@ SELECT 1`;
     // BigQuery numbers the week from 1 = Sunday, PostgreSQL's dow from 0 — so the + 1 keeps
     // existing comparisons against 1 and 7 meaning weekend.
     expect(sql("select EXTRACT(DAYOFWEEK FROM d) as dw")).to.contain("(extract(dow from d) + 1)");
+    // One outside SQL is stepped over; it used to end the rule, leaving the real ones after it.
+    const described = convertTarget(
+      `config {\n  type: "view",\n  description: "EXTRACT(DAYOFWEEK FROM d), 1 = Sunday"\n}\n\nselect EXTRACT(DAYOFWEEK FROM d) as a, EXTRACT(DAYOFWEEK FROM e) as b\n`,
+      false,
+    ).content;
+    expect(described).to.contain('description: "EXTRACT(DAYOFWEEK FROM d), 1 = Sunday"');
+    expect(described).to.contain(
+      "select (extract(dow from d) + 1) as a, (extract(dow from e) + 1) as b",
+    );
 
     // After AS a double-quoted token is an ALIAS, not a string. Converting `x as "key"` to
     // `x as 'key'` is not valid SQL anywhere, and quietly turns a column name into a literal.

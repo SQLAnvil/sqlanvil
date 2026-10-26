@@ -569,6 +569,16 @@ const GLOBAL_RULES: Rule[] = [
   },
 ];
 
+/**
+ * Notes for the two sites `sqlanvil migrate-fix` owns. Exported because migrate-fix removes the
+ * marker once it has rewritten the site — left in place, it tells the reader to run a step that
+ * has already run.
+ */
+export const STAR_EXCEPT_NOTE =
+  "SELECT * EXCEPT — run `sqlanvil migrate-fix` after introspect to expand it";
+export const GROUP_BY_ALL_NOTE =
+  "GROUP BY ALL — run `sqlanvil migrate-fix` after introspect to rewrite it";
+
 /** SQL-body rules for TARGET files (materializing actions). Order matters. */
 const SQL_RULES: Rule[] = [
   // SAFE_CAST, SAFE_DIVIDE, COLLATE, REGEXP_EXTRACT, SPLIT, DATE_SUB/ADD/DIFF and UNIX_SECONDS
@@ -592,13 +602,13 @@ const SQL_RULES: Rule[] = [
   {
     pattern: /\*\s*except\s*\(/gi,
     kind: "flag",
-    note: "SELECT * EXCEPT — run `sqlanvil migrate-fix` after introspect to expand it",
+    note: STAR_EXCEPT_NOTE,
     id: "star-except",
   },
   {
     pattern: /\bGROUP\s+BY\s+ALL\b/gi,
     kind: "flag",
-    note: "GROUP BY ALL — run `sqlanvil migrate-fix` after introspect to rewrite it",
+    note: GROUP_BY_ALL_NOTE,
     id: "group-by-all",
   },
   {
@@ -1300,16 +1310,22 @@ function applyTextRules(
 
   // 6. EXTRACT(DAYOFWEEK FROM x). BigQuery numbers from 1 = Sunday; PostgreSQL's dow from
   //    0 = Sunday — so the + 1 keeps existing comparisons against 1 and 7 meaning weekend.
-  for (;;) {
+  //    A match outside SQL (a config description, a js block) is stepped over, not a reason to
+  //    stop: stopping there left every real one after it unconverted.
+  const dayOfWeek = /\bextract\s*\(\s*dayofweek\s+from\s+/gi;
+  for (let from = 0; ;) {
     const mask = maskSql(result);
-    const m = /\bextract\s*\(\s*dayofweek\s+from\s+/i.exec(mask);
-    if (!m || !sqlOffsetsOf(result)(m.index)) {
+    dayOfWeek.lastIndex = from;
+    const m = dayOfWeek.exec(mask);
+    if (!m) {
       break;
     }
     const close = matchParen(mask, mask.indexOf("(", m.index));
-    if (close < 0) {
-      break;
+    if (!sqlOffsetsOf(result)(m.index) || close < 0) {
+      from = m.index + 1;
+      continue;
     }
+    from = m.index; // the rewrite no longer matches here, and a nested one in `inner` still can
     const inner = result.slice(m.index + m[0].length, close).trim();
     note(m.index, "EXTRACT(DAYOFWEEK FROM x) → extract(dow from x) + 1 (BigQuery is 1-based)");
     result =
