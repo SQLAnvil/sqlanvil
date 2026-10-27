@@ -9,6 +9,8 @@ import { readConfigFromWorkflowSettings } from "sa/cli/api/utils";
 export interface NormalizedColumn {
   name: string;
   type: string;
+  /** BigQuery field mode: NULLABLE, REQUIRED or REPEATED. Other sources leave it unset. */
+  mode?: string;
   description?: string;
 }
 
@@ -29,15 +31,29 @@ const BIGQUERY_TYPE_MAP: { [bq: string]: string } = {
   TIME: "time",
   JSON: "jsonb",
   GEOGRAPHY: "text",
+  INTERVAL: "interval",
+  // A STRUCT has no PostgreSQL column type that keeps its shape without a CREATE TYPE per
+  // struct, and the extract loads it as the object the BigQuery client returns — so jsonb.
+  RECORD: "jsonb",
+  STRUCT: "jsonb",
 };
 
-export function mapBigQueryType(bqType: string): string {
+/**
+ * The PostgreSQL type for a BigQuery field. `mode` matters as much as the type: a REPEATED
+ * STRING is an array, and mapping it as `text` gave the extract a column that cannot hold it.
+ * A repeated scalar becomes a PostgreSQL array; a repeated STRUCT stays one jsonb value, an
+ * array of objects, since PostgreSQL arrays of jsonb are awkward to query and lose nothing here.
+ */
+export function mapBigQueryType(bqType: string, mode?: string): string {
   const key = bqType.trim().toUpperCase();
   const mapped = BIGQUERY_TYPE_MAP[key];
   if (!mapped) {
     throw new Error(
       `Unmapped BigQuery type "${bqType}". Add it to BIGQUERY_TYPE_MAP or set the column type by hand.`,
     );
+  }
+  if ((mode || "").trim().toUpperCase() === "REPEATED" && mapped !== "jsonb") {
+    return `${mapped}[]`;
   }
   return mapped;
 }
@@ -258,7 +274,12 @@ export const readBigQuerySchema: SchemaReader = function (resolved, sourceSchema
       const metadata = result[0];
       const fields: any[] = (metadata && metadata.schema && metadata.schema.fields) || [];
       return fields.map(function (f) {
-        return { name: f.name, type: f.type, description: f.description || undefined };
+        return {
+          name: f.name,
+          type: f.type,
+          mode: f.mode || undefined,
+          description: f.description || undefined,
+        };
       });
     });
 };
@@ -359,7 +380,7 @@ export function introspectToSqlx(
       ),
     );
   }
-  const mapType =
+  const mapType: (type: string, mode?: string) => string =
     resolved.definition.platform === "bigquery"
       ? mapBigQueryType
       : resolved.definition.platform === "mysql"
@@ -372,7 +393,7 @@ export function introspectToSqlx(
       );
     }
     const columns = rawColumns.map(function (col) {
-      return { name: col.name, type: mapType(col.type), description: col.description };
+      return { name: col.name, type: mapType(col.type, col.mode), description: col.description };
     });
     return renderDeclarationSqlx({
       connection: connectionName,

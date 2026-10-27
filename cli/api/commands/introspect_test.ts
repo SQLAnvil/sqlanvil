@@ -34,7 +34,20 @@ suite("introspect type mapping", () => {
   });
 
   test("unmapped BigQuery type throws with the type name", () => {
-    expect(() => mapBigQueryType("STRUCT")).to.throw(/Unmapped BigQuery type "STRUCT"/);
+    expect(() => mapBigQueryType("RANGE")).to.throw(/Unmapped BigQuery type "RANGE"/);
+  });
+
+  test("STRUCT and REPEATED fields map by mode, not just type", () => {
+    // A STRUCT column failed introspect outright, and a REPEATED STRING came out as plain text —
+    // a column that cannot hold the array the extract loads into it.
+    expect(mapBigQueryType("RECORD")).equals("jsonb");
+    expect(mapBigQueryType("STRUCT", "NULLABLE")).equals("jsonb");
+    expect(mapBigQueryType("STRING", "REPEATED")).equals("text[]");
+    expect(mapBigQueryType("INT64", "repeated")).equals("bigint[]");
+    // An array of structs stays one jsonb value: a JSON array of objects.
+    expect(mapBigQueryType("RECORD", "REPEATED")).equals("jsonb");
+    expect(mapBigQueryType("STRING", "REQUIRED")).equals("text");
+    expect(mapBigQueryType("INTERVAL")).equals("interval");
   });
 
   test("Postgres types pass through unchanged (lowercased/trimmed)", () => {

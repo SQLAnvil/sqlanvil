@@ -41,10 +41,31 @@ suite("bigquery extract value coercion", () => {
     expect(coerce(anon)).equals("-54.99");
   });
 
-  test("buffers and arrays pass through for pg's native handling", () => {
+  test("buffers pass through, and arrays keep their elements for pg's native handling", () => {
     const buf = Buffer.from("bytes");
     expect(coerce(buf)).equals(buf);
-    const arr = ["a", "b"];
-    expect(coerce(arr)).equals(arr);
+    expect(coerce(["a", "b"])).to.deep.equal(["a", "b"]);
+  });
+
+  test("STRUCT and REPEATED values are coerced all the way down", () => {
+    // The same wrappers sit inside structs and arrays; left there, jsonb stored
+    // {"value": "2026-07-27"} instead of the date.
+    expect(
+      coerce({
+        id: 1,
+        placed: { value: "2026-07-27" },
+        lines: [{ sku: "a", qty: { s: 1, e: 0, c: [2], toString: () => "2" } }],
+        tags: [{ value: "2026-07-28" }, null],
+      }),
+    ).to.deep.equal({
+      id: 1,
+      placed: "2026-07-27",
+      lines: [{ sku: "a", qty: "2" }],
+      tags: ["2026-07-28", null],
+    });
+  });
+
+  test("a struct with a `value` field is a struct, not a wrapper", () => {
+    expect(coerce({ value: 3, unit: "kg" })).to.deep.equal({ value: 3, unit: "kg" });
   });
 });

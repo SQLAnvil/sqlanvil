@@ -85,6 +85,25 @@ export function foldColumns(
   return cols;
 }
 
+/**
+ * The parameter for one cell. A json/jsonb column takes objects AND arrays as JSON text:
+ * node-postgres serializes a plain object as JSON but a JS array as a PostgreSQL array literal
+ * (`{"{\"a\":1}"}`), which jsonb rejects — so a repeated STRUCT (or a MySQL JSON array) failed
+ * the whole extract. Every other column keeps node-postgres' own handling (arrays for T[],
+ * Buffers for bytea).
+ */
+export function cellParam(value: any, columnType: string): any {
+  if (
+    value !== null &&
+    typeof value === "object" &&
+    !Buffer.isBuffer(value) &&
+    /^jsonb?$/i.test(columnType.trim())
+  ) {
+    return JSON.stringify(value);
+  }
+  return value;
+}
+
 export async function createPgLoader(args: PgLoaderArgs): Promise<PgLoader> {
   const { target, columnTypes } = args;
   const coerce = args.coerce || ((v: any) => (v === undefined ? null : v));
@@ -135,7 +154,7 @@ export async function createPgLoader(args: PgLoaderArgs): Promise<PgLoader> {
         const tuples = batch.map((row, r) => {
           const placeholders = cols.map((c, ci) => `$${r * cols.length + ci + 1}`);
           // Read by the SOURCE name — the row arrives keyed as the warehouse spelled it.
-          cols.forEach((c) => params.push(coerce(row[c.source])));
+          cols.forEach((c) => params.push(cellParam(coerce(row[c.source]), columnTypes[c.source])));
           return `(${placeholders.join(", ")})`;
         });
         await pg.execute(`insert into ${qualified} (${colIdents}) values ${tuples.join(", ")}`, {

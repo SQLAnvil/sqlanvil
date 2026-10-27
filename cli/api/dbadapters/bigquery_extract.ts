@@ -33,23 +33,34 @@ export interface BigQueryExtractArgs {
  * - NUMERIC/BIGNUMERIC come back as big.js `Big` instances — left alone, node-postgres
  *   JSON.stringifies them into a QUOTED literal (`"55"`) that numeric columns reject, so
  *   stringify losslessly and let Postgres cast the text.
- * Buffers (BYTES) and arrays/plain objects pass through — pg handles bytea/array/json natively.
+ * STRUCTs (plain objects) and REPEATED fields (arrays) are coerced recursively, since the same
+ * wrappers sit inside them and would otherwise land in jsonb as `{"value": "2026-07-27"}`. A
+ * wrapper is an object whose ONLY key is `value`: a struct that merely has a `value` field is
+ * a struct, and used to be collapsed to that one field. Buffers (BYTES) pass through.
  * Exported for tests.
  */
 export function coerce(v: any): any {
   if (v === null || v === undefined) {
     return null;
   }
-  if (typeof v === "object") {
-    if ("value" in v) {
-      return (v as { value: unknown }).value;
-    }
+  if (Array.isArray(v)) {
+    return v.map(coerce);
+  }
+  if (typeof v === "object" && !Buffer.isBuffer(v)) {
     if (
       v.constructor?.name === "Big" ||
       (typeof v.s === "number" && typeof v.e === "number" && Array.isArray(v.c))
     ) {
       return v.toString();
     }
+    const keys = Object.keys(v);
+    if (keys.length === 1 && keys[0] === "value") {
+      return (v as { value: unknown }).value;
+    }
+    if (v instanceof Date) {
+      return v;
+    }
+    return Object.fromEntries(keys.map((k) => [k, coerce(v[k])]));
   }
   return v;
 }
