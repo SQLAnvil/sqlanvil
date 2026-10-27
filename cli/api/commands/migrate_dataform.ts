@@ -4,7 +4,13 @@ import * as path from "path";
 
 import { agentsMdContents, claudeMdBridgeContents } from "sa/cli/api/commands/agents_md";
 import { detectResidue, RESIDUE_CLASSES, ResidueSite } from "sa/cli/api/commands/bigquery_residue";
-import { interpolationSpans, isWord, significant, tokenize } from "sa/cli/api/commands/sql_lex";
+import {
+  interpolationSpans,
+  isWord,
+  jsCommentSpans,
+  significant,
+  tokenize,
+} from "sa/cli/api/commands/sql_lex";
 import {
   chooseStrategies,
   findStructArrays,
@@ -1045,6 +1051,7 @@ function callRuleView(text: string, isRewritableOffset: (offset: number) => bool
 export function applyCallRules(
   text: string,
   isRewritableOffset: (offset: number) => boolean,
+  jsCommentsOf: (text: string) => Array<{ start: number; end: number }> = () => [],
 ): { text: string; applied: Array<{ line: number; note: string }> } {
   const applied: Array<{ line: number; note: string }> = [];
   interface Site {
@@ -1062,7 +1069,12 @@ export function applyCallRules(
   // BigQuery constructs, so this terminates; the cap is a backstop against a rule that rewrites
   // to something it matches again.
   for (let pass = 0; pass < 10; pass++) {
-    const mask = maskSql(callRuleView(result, isRewritableOffset));
+    // maskSql knows SQL comments only; a `//` comment in the JavaScript these rules reach is
+    // blanked separately, recomputed each pass because the offsets move.
+    const mask = blankSpans(
+      maskSql(callRuleView(result, isRewritableOffset)),
+      jsCommentsOf(result),
+    );
     const sites: Site[] = [];
     for (const rule of CALL_RULES) {
       const finder = new RegExp(`\\b${rule.name}\\s*\\(`, "gi");
@@ -1570,6 +1582,22 @@ export function convertTarget(
     return [...(config ? [{ start: config.start, end: config.end }] : []), ...jsBlockSpans(text)];
   };
 
+  // Comments in the JavaScript the dialect rules reach — js regions and `${…}` interpolations —
+  // including the SQL comments inside its template literals.
+  const jsCommentsOf = (text: string): Array<{ start: number; end: number }> => {
+    if (jsMode) {
+      return jsCommentSpans(text);
+    }
+    return [
+      ...jsBlockSpans(text).flatMap((b) =>
+        jsCommentSpans(text, text.indexOf("{", b.start) + 1, b.end - 1),
+      ),
+      ...interpolationSpans(blankSpans(text, configAndJsSpans(text))).flatMap((t) =>
+        jsCommentSpans(text, t.start + 2, t.end - 1),
+      ),
+    ];
+  };
+
   // Call rewrites go first, over the whole body: they need the arguments and can span lines,
   // neither of which the per-line rules below can do. Config keys are handled separately, so
   // the config block is excluded — but js regions are NOT, because shared helpers build SQL in
@@ -1579,7 +1607,7 @@ export function convertTarget(
       const s = jsMode ? null : findConfigBlock(source);
       return !s || off < s.start || off >= s.end;
     };
-    const called = applyCallRules(source, outsideConfig);
+    const called = applyCallRules(source, outsideConfig, jsCommentsOf);
     if (called.text !== source) {
       source = called.text;
     }
@@ -1618,16 +1646,19 @@ export function convertTarget(
   const lines = source.split("\n");
   const jsLines = jsMode ? new Set<number>() : jsBlockLines(source);
 
-  // Each line with its SQL comments blanked, for the per-line rules to match against. js regions
-  // are blanked before lexing, so they keep their text and the rules still reach SQL built there.
+  // Each line with its comments blanked, for the per-line rules to match against: SQL comments in
+  // the SQL, and JavaScript ones — plus the SQL comments inside its template literals — in js
+  // regions and `${…}` interpolations, where the rules also reach SQL built in JavaScript.
   const codeLines = (() => {
+    const comments = [
+      ...tokenize(blankSpans(source, configAndJsSpans(source))).filter((t) => t.kind === "comment"),
+      ...jsCommentsOf(source),
+    ];
     const chars = source.split("");
-    for (const t of tokenize(blankSpans(source, configAndJsSpans(source)))) {
-      if (t.kind === "comment") {
-        for (let k = t.start; k < t.end; k++) {
-          if (chars[k] !== "\n") {
-            chars[k] = " ";
-          }
+    for (const c of comments) {
+      for (let k = c.start; k < c.end; k++) {
+        if (chars[k] !== "\n") {
+          chars[k] = " ";
         }
       }
     }

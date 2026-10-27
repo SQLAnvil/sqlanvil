@@ -214,6 +214,170 @@ export function interpolationSpans(sql: string): Array<{ start: number; end: num
   return spans;
 }
 
+/**
+ * Comment spans in the JavaScript `js[start, end)`: `//` and block comments, and the SQL comments
+ * (`--` and block) in the text of its template literals — which, in a Dataform project, is where
+ * the SQL is. Strings, regex literals, templates and their `${…}` are followed, so a `//` in a
+ * URL string or a `--` decrement is not taken for a comment. Like `tokenize`, never throws:
+ * unterminated input runs to `end`.
+ */
+export function jsCommentSpans(
+  js: string,
+  start = 0,
+  end = js.length,
+): Array<{ start: number; end: number }> {
+  const spans: Array<{ start: number; end: number }> = [];
+  scanJs(js, start, end, false, spans);
+  return spans;
+}
+
+const REGEX_AFTER_PUNCT = /[(,=:[!&|?{};+\-*%<>~^]/;
+const REGEX_AFTER_WORD = /\b(?:return|typeof|case|in|of|delete|void|throw|new|yield|await)$/;
+
+/**
+ * Scan JavaScript from `i`, collecting comment spans. Inside an interpolation, stops at the `}`
+ * that closes it and returns its offset; otherwise returns `end`.
+ */
+function scanJs(
+  js: string,
+  i: number,
+  end: number,
+  inInterpolation: boolean,
+  spans: Array<{ start: number; end: number }>,
+): number {
+  let depth = 0;
+  let prev = ""; // last significant character: a `/` after an operand is division, not a regex
+  while (i < end) {
+    const ch = js[i];
+    if (ch === "/" && js[i + 1] === "/") {
+      const s = i;
+      while (i < end && js[i] !== "\n") {
+        i++;
+      }
+      spans.push({ start: s, end: i });
+      continue;
+    }
+    if (ch === "/" && js[i + 1] === "*") {
+      const close = js.indexOf("*/", i + 2);
+      const e = close < 0 ? end : Math.min(end, close + 2);
+      spans.push({ start: i, end: e });
+      i = e;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      i = skipJsString(js, i, end);
+      prev = ch;
+      continue;
+    }
+    if (ch === "`") {
+      i = scanJsTemplate(js, i, end, spans);
+      prev = ch;
+      continue;
+    }
+    if (
+      ch === "/" &&
+      (prev === "" ||
+        REGEX_AFTER_PUNCT.test(prev) ||
+        REGEX_AFTER_WORD.test(js.slice(Math.max(0, i - 12), i).trimEnd()))
+    ) {
+      i = skipJsRegex(js, i, end);
+      prev = "/";
+      continue;
+    }
+    if (ch === "{") {
+      depth++;
+    } else if (ch === "}") {
+      if (depth === 0 && inInterpolation) {
+        return i;
+      }
+      depth--;
+    }
+    if (!/\s/.test(ch)) {
+      prev = ch;
+    }
+    i++;
+  }
+  return end;
+}
+
+/** End of the '…' or "…" string at `i`: after its closing quote, or at an unescaped newline. */
+function skipJsString(js: string, i: number, end: number): number {
+  for (let j = i + 1; j < end; j++) {
+    if (js[j] === "\\") {
+      j++;
+    } else if (js[j] === js[i]) {
+      return j + 1;
+    } else if (js[j] === "\n") {
+      return j;
+    }
+  }
+  return end;
+}
+
+/** End of the regex literal at `i`, flags included. A `/` inside `[…]` does not close it. */
+function skipJsRegex(js: string, i: number, end: number): number {
+  let inClass = false;
+  for (let j = i + 1; j < end; j++) {
+    const c = js[j];
+    if (c === "\\") {
+      j++;
+    } else if (c === "\n") {
+      return j;
+    } else if (inClass) {
+      inClass = c !== "]";
+    } else if (c === "[") {
+      inClass = true;
+    } else if (c === "/") {
+      j++;
+      while (j < end && /[a-z]/i.test(js[j])) {
+        j++;
+      }
+      return j;
+    }
+  }
+  return end;
+}
+
+/**
+ * End of the template literal at `i`. Its `${…}` are scanned as JavaScript; its text is lexed as
+ * SQL with each `${…}` replaced by same-length filler, so a quote around one (`'${x}'`) still
+ * pairs. Only `--` and block comments count there: a `#` in template text is too often not SQL.
+ */
+function scanJsTemplate(
+  js: string,
+  i: number,
+  end: number,
+  spans: Array<{ start: number; end: number }>,
+): number {
+  const holes: Array<{ start: number; end: number }> = [];
+  let j = i + 1;
+  while (j < end && js[j] !== "`") {
+    if (js[j] === "\\") {
+      j += 2;
+    } else if (js[j] === "$" && js[j + 1] === "{") {
+      const close = scanJs(js, j + 2, end, true, spans);
+      holes.push({ start: j, end: Math.min(end, close + 1) });
+      j = close + 1;
+    } else {
+      j++;
+    }
+  }
+  const textEnd = Math.min(j, end);
+  const text = js
+    .slice(i + 1, textEnd)
+    .split("")
+    .map((c, k) =>
+      c !== "\n" && holes.some((h) => i + 1 + k >= h.start && i + 1 + k < h.end) ? "_" : c,
+    )
+    .join("");
+  for (const t of tokenize(text)) {
+    if (t.kind === "comment" && (t.text.startsWith("--") || t.text.startsWith("/*"))) {
+      spans.push({ start: i + 1 + t.start, end: i + 1 + t.end });
+    }
+  }
+  return textEnd < end ? textEnd + 1 : end;
+}
+
 /** Tokens that carry meaning — everything except whitespace and comments. */
 export function significant(tokens: Token[]): Token[] {
   return tokens.filter((t) => t.kind !== "whitespace" && t.kind !== "comment");

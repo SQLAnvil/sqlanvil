@@ -2,6 +2,7 @@ import { expect } from "chai";
 
 import {
   interpolationSpans,
+  jsCommentSpans,
   matchBracket,
   relationsIn,
   selectScopes,
@@ -80,6 +81,32 @@ suite("sql_lex", () => {
     expect(() => tokenize("select 'unterminated")).to.not.throw();
     expect(() => tokenize("select ${ref(")).to.not.throw();
     expect(() => tokenize("select /* unterminated")).to.not.throw();
+  });
+
+  test("jsCommentSpans: JavaScript comments, and SQL comments in template text", () => {
+    const comments = (js: string) => jsCommentSpans(js).map((c) => js.slice(c.start, c.end));
+
+    expect(comments("const a = 1; // QUALIFY\n/* GROUP\nBY ALL */ f();")).to.deep.equal([
+      "// QUALIFY",
+      "/* GROUP\nBY ALL */",
+    ]);
+    // Not comments: a URL in a string, a regex literal, a decrement, division.
+    expect(
+      comments(`const u = "http://x/y"; const r = /a\\/\/b[/]/g; i--; const d = a / b / c;`),
+    ).to.deep.equal([]);
+    // Template text is SQL: its -- comments count, its #s and its quoted -- do not, and a quote
+    // around an interpolation still pairs.
+    expect(
+      comments("const q = `select 1 -- QUALIFY\nwhere a = '${x}' -- x\nand b = '--' # c`;"),
+    ).to.deep.equal(["-- QUALIFY", "-- x"]);
+    // Interpolations are JavaScript again, nested templates included.
+    expect(
+      comments('`a ${xs.map((x) => /* js */ `b ${x} -- sql`).join(",")} c`; // end'),
+    ).to.deep.equal(["/* js */", "-- sql", "// end"]);
+    // Bounded, and unterminated input does not throw.
+    expect(comments("x // a")).to.deep.equal(["// a"]);
+    expect(jsCommentSpans("ab // c", 0, 2)).to.deep.equal([]);
+    expect(() => jsCommentSpans("`${ /* ")).to.not.throw();
   });
 
   test("select scopes delimit the list and the FROM chain, and nest", () => {

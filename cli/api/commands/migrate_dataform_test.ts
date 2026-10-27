@@ -826,4 +826,35 @@ select 1`)!.body,
     expect(content).to.contain("select CURRENT_DATE as d, x -- CURRENT_DATE() and UNNEST(xs)");
     expect(content).to.contain("-- the old version used QUALIFY and GENERATE_UUID()\n/*");
   });
+
+  test("the per-line rules skip JavaScript comments and the SQL comments in templates", () => {
+    const sqlx = convertTarget(
+      [
+        "js {",
+        "  // QUALIFY used to dedupe here; SAFE_DIVIDE(a, b) was the old ratio",
+        "  const q = `select SAFE_DIVIDE(x, y) from t -- GROUP BY ALL`;",
+        "  const r = `select * from t QUALIFY x = 1`;",
+        "}",
+        'config { type: "view" }',
+        "",
+        "select ${[1].map(() => /* EXPORT DATA */ `a -- UNNEST(b)`)} from t",
+        "",
+      ].join("\n"),
+      false,
+    );
+    expect(
+      sqlx.findings.filter((f) => f.kind === "flag").map((f) => [f.class, f.line]),
+    ).to.deep.equal([["qualify", 4]]);
+    // The call rules leave the comment as written and still port the code beside it.
+    expect(sqlx.content).to.contain("// QUALIFY used to dedupe here; SAFE_DIVIDE(a, b) was");
+    expect(sqlx.content).to.contain(
+      "const q = `select (x / nullif(y, 0)) from t -- GROUP BY ALL`;",
+    );
+
+    const js = convertTarget(
+      "const a = 1; // QUALIFY\n/* GROUP BY ALL */\nmodule.exports = `select GENERATE_UUID()`;\n",
+      true,
+    );
+    expect(js.findings.map((f) => [f.class, f.line])).to.deep.equal([["generate-uuid", 3]]);
+  });
 });
