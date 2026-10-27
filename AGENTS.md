@@ -32,7 +32,7 @@ below before authoring a `warehouse: mysql` project.
 warehouse: postgres            # flat string ("postgres" or "supabase") — NOT nested
 defaultDataset: public         # the Postgres SCHEMA
 defaultAssertionDataset: sqlanvil_assertions
-sqlanvilCoreVersion: 1.36.4    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
+sqlanvilCoreVersion: 1.37.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
 vars:
   someVar: value
 ```
@@ -302,7 +302,10 @@ connections, targets get safe rewrites + inline `SQLANVIL-MIGRATE:` markers, and
 migration-report.{md,json} carries the to-do list (`validate` is the completion loop). Work from
 the report, not a grep for markers: a site inside a `js {}` block, a `${…}` template or a
 multi-line string gets no inline marker (>=1.36.3), because an inserted comment there would
-change the code.
+change the code. From 1.37 the report also lists the BigQuery no rule handled (IFNULL, IF(),
+DATETIME, JSON_*, BQML, JS UDFs, …); work its `changes-meaning` classes first — REGEXP_REPLACE
+without 'g', CONCAT over a possibly-NULL argument and LOG all RUN on PostgreSQL and return
+different results. SQL built inside JavaScript (`${…}` templates, `.js` files) is not scanned.
 `--target-warehouse bigquery` (>=1.24) is the SAME-warehouse tooling swap instead: SQL,
 `bigquery:{}` blocks, and declarations pass through untouched (no connections, no dialect
 pass — only the settings conversion + the `dataform.`→`sqlanvil.projectConfig` rename);
