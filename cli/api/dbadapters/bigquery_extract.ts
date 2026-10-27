@@ -37,6 +37,8 @@ export interface BigQueryExtractArgs {
  * wrappers sit inside them and would otherwise land in jsonb as `{"value": "2026-07-27"}`. A
  * wrapper is an object whose ONLY key is `value`: a struct that merely has a `value` field is
  * a struct, and used to be collapsed to that one field. Buffers (BYTES) pass through.
+ * A RANGE comes back as a BigQueryRange — `start`/`end` wrappers, null when UNBOUNDED — and
+ * becomes PostgreSQL's range literal: half-open like BigQuery's, an empty bound unbounded.
  * Exported for tests.
  */
 export function coerce(v: any): any {
@@ -45,6 +47,10 @@ export function coerce(v: any): any {
   }
   if (Array.isArray(v)) {
     return v.map(coerce);
+  }
+  if (typeof v === "object" && !Buffer.isBuffer(v) && isBigQueryRange(v)) {
+    const bound = (b: any) => (b === null || b === undefined ? "" : `"${coerce(b)}"`);
+    return `[${bound(v.start)},${bound(v.end)})`;
   }
   if (typeof v === "object" && !Buffer.isBuffer(v)) {
     if (
@@ -63,6 +69,13 @@ export function coerce(v: any): any {
     return Object.fromEntries(keys.map((k) => [k, coerce(v[k])]));
   }
   return v;
+}
+
+function isBigQueryRange(v: any): boolean {
+  return (
+    v.constructor?.name === "BigQueryRange" ||
+    (["DATE", "DATETIME", "TIMESTAMP"].includes(v.elementType) && "start" in v && "end" in v)
+  );
 }
 
 export async function runBigQueryExtract(args: BigQueryExtractArgs): Promise<{ rowCount: number }> {

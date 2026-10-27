@@ -39,6 +39,17 @@ const BIGQUERY_TYPE_MAP: { [bq: string]: string } = {
 };
 
 /**
+ * BigQuery RANGE<T> → PostgreSQL's built-in range of the same element. readBigQuerySchema
+ * reports a RANGE with its element type, as `RANGE<DATE>`, since the field's `type` alone
+ * does not say which.
+ */
+const BIGQUERY_RANGE_MAP: { [element: string]: string } = {
+  DATE: "daterange",
+  DATETIME: "tsrange",
+  TIMESTAMP: "tstzrange",
+};
+
+/**
  * The PostgreSQL type for a BigQuery field. `mode` matters as much as the type: a REPEATED
  * STRING is an array, and mapping it as `text` gave the extract a column that cannot hold it.
  * A repeated scalar becomes a PostgreSQL array; a repeated STRUCT stays one jsonb value, an
@@ -46,7 +57,14 @@ const BIGQUERY_TYPE_MAP: { [bq: string]: string } = {
  */
 export function mapBigQueryType(bqType: string, mode?: string): string {
   const key = bqType.trim().toUpperCase();
-  const mapped = BIGQUERY_TYPE_MAP[key];
+  const range = /^RANGE\s*<\s*(\w+)\s*>$/.exec(key);
+  const mapped = range ? BIGQUERY_RANGE_MAP[range[1]] : BIGQUERY_TYPE_MAP[key];
+  if (key === "RANGE") {
+    throw new Error(
+      `BigQuery RANGE needs its element type (RANGE<DATE>, RANGE<DATETIME> or RANGE<TIMESTAMP>) ` +
+        `to map to daterange, tsrange or tstzrange.`,
+    );
+  }
   if (!mapped) {
     throw new Error(
       `Unmapped BigQuery type "${bqType}". Add it to BIGQUERY_TYPE_MAP or set the column type by hand.`,
@@ -260,6 +278,20 @@ export const readPostgresSchema: SchemaReader = function (resolved, sourceSchema
     );
 };
 
+/**
+ * A BigQuery schema field as a column. A RANGE carries its element type in `rangeElementType`,
+ * so it is reported as `RANGE<DATE>` — the one form mapBigQueryType can map. Exported for tests.
+ */
+export function bigQueryFieldColumn(f: any): NormalizedColumn {
+  return {
+    name: f.name,
+    type:
+      f.type === "RANGE" && f.rangeElementType?.type ? `RANGE<${f.rangeElementType.type}>` : f.type,
+    mode: f.mode || undefined,
+    description: f.description || undefined,
+  };
+}
+
 export const readBigQuerySchema: SchemaReader = function (resolved, sourceSchema, table) {
   const keyJson = resolved.credentials.credentials;
   const bq = new BigQuery({
@@ -273,14 +305,7 @@ export const readBigQuerySchema: SchemaReader = function (resolved, sourceSchema
     .then(function (result: any) {
       const metadata = result[0];
       const fields: any[] = (metadata && metadata.schema && metadata.schema.fields) || [];
-      return fields.map(function (f) {
-        return {
-          name: f.name,
-          type: f.type,
-          mode: f.mode || undefined,
-          description: f.description || undefined,
-        };
-      });
+      return fields.map(bigQueryFieldColumn);
     });
 };
 

@@ -4,6 +4,7 @@ import * as path from "path";
 
 import { read as readCredentials, readConnections } from "sa/cli/api/commands/credentials";
 import {
+  bigQueryFieldColumn,
   mapBigQueryType,
   mapMysqlType,
   mapPostgresType,
@@ -34,7 +35,34 @@ suite("introspect type mapping", () => {
   });
 
   test("unmapped BigQuery type throws with the type name", () => {
-    expect(() => mapBigQueryType("RANGE")).to.throw(/Unmapped BigQuery type "RANGE"/);
+    expect(() => mapBigQueryType("VECTOR")).to.throw(/Unmapped BigQuery type "VECTOR"/);
+    expect(() => mapBigQueryType("RANGE<INT64>")).to.throw(/Unmapped BigQuery type "RANGE<INT64>"/);
+  });
+
+  test("RANGE maps by its element type, to PostgreSQL's built-in ranges", () => {
+    expect(mapBigQueryType("RANGE<DATE>")).equals("daterange");
+    expect(mapBigQueryType("RANGE<DATETIME>")).equals("tsrange");
+    expect(mapBigQueryType("range< timestamp >")).equals("tstzrange");
+    expect(mapBigQueryType("RANGE<DATE>", "REPEATED")).equals("daterange[]");
+    // Without the element type there is no honest answer.
+    expect(() => mapBigQueryType("RANGE")).to.throw(/needs its element type/);
+  });
+
+  test("a RANGE field is read with its element type", () => {
+    const col = bigQueryFieldColumn({
+      name: "valid_for",
+      type: "RANGE",
+      mode: "NULLABLE",
+      rangeElementType: { type: "DATE" },
+    });
+    expect(col).deep.equals({
+      name: "valid_for",
+      type: "RANGE<DATE>",
+      mode: "NULLABLE",
+      description: undefined,
+    });
+    expect(mapBigQueryType(col.type, col.mode)).equals("daterange");
+    expect(bigQueryFieldColumn({ name: "s", type: "STRING" }).type).equals("STRING");
   });
 
   test("STRUCT and REPEATED fields map by mode, not just type", () => {

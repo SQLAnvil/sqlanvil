@@ -1,3 +1,4 @@
+import { BigQuery } from "@google-cloud/bigquery";
 import { expect } from "chai";
 
 import { coerce } from "sa/cli/api/dbadapters/bigquery_extract";
@@ -39,6 +40,26 @@ suite("bigquery extract value coercion", () => {
     // Duck-typed detection also works if the class name is mangled by bundling.
     const anon = { s: -1, e: 1, c: [5, 4, 9, 9], toString: () => "-54.99" };
     expect(coerce(anon)).equals("-54.99");
+  });
+
+  test("RANGE values become PostgreSQL range literals", () => {
+    // Built by the client itself, as it builds them from a query result: BigQueryRange with
+    // start/end wrappers, and no bound where BigQuery says UNBOUNDED.
+    expect(coerce(BigQuery.range("[2026-01-01, 2026-07-01)", "DATE"))).equals(
+      '["2026-01-01","2026-07-01")',
+    );
+    expect(coerce(BigQuery.range("[2026-01-01, UNBOUNDED)", "DATE"))).equals('["2026-01-01",)');
+    expect(coerce(BigQuery.range("[UNBOUNDED, UNBOUNDED)", "DATE"))).equals("[,)");
+    expect(coerce(BigQuery.range("[2026-01-01 08:30:00, UNBOUNDED)", "DATETIME"))).to.match(
+      /^\["2026-01-01[ T]08:30:00(\.0+)?",\)$/,
+    );
+    expect(
+      coerce(BigQuery.range("[2026-01-01 08:30:00 UTC, 2026-01-02 00:00:00 UTC)", "TIMESTAMP")),
+    ).to.match(/^\["2026-01-01T08:30:00(\.0+)?Z","2026-01-02T00:00:00(\.0+)?Z"\)$/);
+    // REPEATED ranges stay arrays, for node-postgres to write as a range[] literal.
+    expect(coerce([BigQuery.range("[2026-01-01, 2026-02-01)", "DATE")])).deep.equals([
+      '["2026-01-01","2026-02-01")',
+    ]);
   });
 
   test("buffers pass through, and arrays keep their elements for pg's native handling", () => {
