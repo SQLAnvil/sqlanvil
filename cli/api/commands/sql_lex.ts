@@ -226,9 +226,32 @@ export function jsCommentSpans(
   start = 0,
   end = js.length,
 ): Array<{ start: number; end: number }> {
-  const spans: Array<{ start: number; end: number }> = [];
-  scanJs(js, start, end, false, spans);
-  return spans;
+  return scanJsRange(js, start, end).comments;
+}
+
+/**
+ * The template literals in the JavaScript `js[start, end)` — nested ones included — as SQL: each
+ * literal's text with its `${…}` blanked to an empty `${ }` of the same length, so `tokenize`
+ * reads them as the atomic templates they are in a .sqlx body and every offset still lines up.
+ * `start` is where the text (after the opening backtick) begins in `js`.
+ */
+export function jsTemplateSql(
+  js: string,
+  start = 0,
+  end = js.length,
+): Array<{ start: number; sql: string }> {
+  return scanJsRange(js, start, end).templates;
+}
+
+interface JsScan {
+  comments: Array<{ start: number; end: number }>;
+  templates: Array<{ start: number; sql: string }>;
+}
+
+function scanJsRange(js: string, start: number, end: number): JsScan {
+  const out: JsScan = { comments: [], templates: [] };
+  scanJs(js, start, end, false, out);
+  return out;
 }
 
 const REGEX_AFTER_PUNCT = /[(,=:[!&|?{};+\-*%<>~^]/;
@@ -238,13 +261,7 @@ const REGEX_AFTER_WORD = /\b(?:return|typeof|case|in|of|delete|void|throw|new|yi
  * Scan JavaScript from `i`, collecting comment spans. Inside an interpolation, stops at the `}`
  * that closes it and returns its offset; otherwise returns `end`.
  */
-function scanJs(
-  js: string,
-  i: number,
-  end: number,
-  inInterpolation: boolean,
-  spans: Array<{ start: number; end: number }>,
-): number {
+function scanJs(js: string, i: number, end: number, inInterpolation: boolean, out: JsScan): number {
   let depth = 0;
   let prev = ""; // last significant character: a `/` after an operand is division, not a regex
   while (i < end) {
@@ -254,13 +271,13 @@ function scanJs(
       while (i < end && js[i] !== "\n") {
         i++;
       }
-      spans.push({ start: s, end: i });
+      out.comments.push({ start: s, end: i });
       continue;
     }
     if (ch === "/" && js[i + 1] === "*") {
       const close = js.indexOf("*/", i + 2);
       const e = close < 0 ? end : Math.min(end, close + 2);
-      spans.push({ start: i, end: e });
+      out.comments.push({ start: i, end: e });
       i = e;
       continue;
     }
@@ -270,7 +287,7 @@ function scanJs(
       continue;
     }
     if (ch === "`") {
-      i = scanJsTemplate(js, i, end, spans);
+      i = scanJsTemplate(js, i, end, out);
       prev = ch;
       continue;
     }
@@ -340,22 +357,17 @@ function skipJsRegex(js: string, i: number, end: number): number {
 
 /**
  * End of the template literal at `i`. Its `${…}` are scanned as JavaScript; its text is lexed as
- * SQL with each `${…}` replaced by same-length filler, so a quote around one (`'${x}'`) still
- * pairs. Only `--` and block comments count there: a `#` in template text is too often not SQL.
+ * SQL with each `${…}` blanked to `${ }`, so a quote around one (`'${x}'`) still pairs. Only `--`
+ * and block comments count there: a `#` in template text is too often not SQL.
  */
-function scanJsTemplate(
-  js: string,
-  i: number,
-  end: number,
-  spans: Array<{ start: number; end: number }>,
-): number {
+function scanJsTemplate(js: string, i: number, end: number, out: JsScan): number {
   const holes: Array<{ start: number; end: number }> = [];
   let j = i + 1;
   while (j < end && js[j] !== "`") {
     if (js[j] === "\\") {
       j += 2;
     } else if (js[j] === "$" && js[j + 1] === "{") {
-      const close = scanJs(js, j + 2, end, true, spans);
+      const close = scanJs(js, j + 2, end, true, out);
       holes.push({ start: j, end: Math.min(end, close + 1) });
       j = close + 1;
     } else {
@@ -363,16 +375,19 @@ function scanJsTemplate(
     }
   }
   const textEnd = Math.min(j, end);
-  const text = js
-    .slice(i + 1, textEnd)
-    .split("")
-    .map((c, k) =>
-      c !== "\n" && holes.some((h) => i + 1 + k >= h.start && i + 1 + k < h.end) ? "_" : c,
-    )
-    .join("");
+  const chars = js.slice(i + 1, textEnd).split("");
+  for (const h of holes) {
+    for (let k = h.start + 2; k < h.end - 1; k++) {
+      if (chars[k - i - 1] !== "\n") {
+        chars[k - i - 1] = " ";
+      }
+    }
+  }
+  const text = chars.join("");
+  out.templates.push({ start: i + 1, sql: text });
   for (const t of tokenize(text)) {
     if (t.kind === "comment" && (t.text.startsWith("--") || t.text.startsWith("/*"))) {
-      spans.push({ start: i + 1 + t.start, end: i + 1 + t.end });
+      out.comments.push({ start: i + 1 + t.start, end: i + 1 + t.end });
     }
   }
   return textEnd < end ? textEnd + 1 : end;

@@ -3,6 +3,7 @@ import { expect } from "chai";
 import {
   interpolationSpans,
   jsCommentSpans,
+  jsTemplateSql,
   matchBracket,
   relationsIn,
   selectScopes,
@@ -107,6 +108,25 @@ suite("sql_lex", () => {
     expect(comments("x // a")).to.deep.equal(["// a"]);
     expect(jsCommentSpans("ab // c", 0, 2)).to.deep.equal([]);
     expect(() => jsCommentSpans("`${ /* ")).to.not.throw();
+  });
+
+  test("jsTemplateSql: every template literal as SQL, its interpolations blanked", () => {
+    const hole = "xs.map((x) => `f(${x})`).join(',')";
+    const js = `q(\`select \${${hole}} from '\${t}'\`, 'no \`here\`');`;
+    const ts = jsTemplateSql(js);
+    // Nested first, then the outer; strings are not templates.
+    expect(ts.map((t) => t.sql)).to.deep.equal([
+      "f(${ })",
+      `select \${${" ".repeat(hole.length)}} from '\${ }'`,
+    ]);
+    // Same length as the source text, so an offset maps straight back.
+    for (const t of ts) {
+      expect(js[t.start - 1]).to.equal("`");
+      expect(js[t.start + t.sql.length]).to.equal("`");
+    }
+    // A blanked interpolation is a template token, as in a .sqlx body (the quoted one folds into
+    // its string, as there).
+    expect(tokenize(ts[1].sql).filter((t) => t.kind === "template")).to.have.length(1);
   });
 
   test("select scopes delimit the list and the FROM chain, and nest", () => {

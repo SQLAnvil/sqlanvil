@@ -8,6 +8,7 @@ import {
   interpolationSpans,
   isWord,
   jsCommentSpans,
+  jsTemplateSql,
   significant,
   tokenize,
 } from "sa/cli/api/commands/sql_lex";
@@ -1582,21 +1583,24 @@ export function convertTarget(
     return [...(config ? [{ start: config.start, end: config.end }] : []), ...jsBlockSpans(text)];
   };
 
-  // Comments in the JavaScript the dialect rules reach — js regions and `${…}` interpolations —
-  // including the SQL comments inside its template literals.
-  const jsCommentsOf = (text: string): Array<{ start: number; end: number }> => {
-    if (jsMode) {
-      return jsCommentSpans(text);
-    }
-    return [
-      ...jsBlockSpans(text).flatMap((b) =>
-        jsCommentSpans(text, text.indexOf("{", b.start) + 1, b.end - 1),
-      ),
-      ...interpolationSpans(blankSpans(text, configAndJsSpans(text))).flatMap((t) =>
-        jsCommentSpans(text, t.start + 2, t.end - 1),
-      ),
-    ];
-  };
+  // The JavaScript the dialect rules reach: js regions, and the `${…}` interpolations in the SQL.
+  // Helpers build SQL there, in template literals.
+  const jsCodeOf = (text: string): Array<{ start: number; end: number }> =>
+    jsMode
+      ? [{ start: 0, end: text.length }]
+      : [
+          ...jsBlockSpans(text).map((b) => ({
+            start: text.indexOf("{", b.start) + 1,
+            end: b.end - 1,
+          })),
+          ...interpolationSpans(blankSpans(text, configAndJsSpans(text))).map((t) => ({
+            start: t.start + 2,
+            end: t.end - 1,
+          })),
+        ];
+  // Its comments, including the SQL comments inside its template literals.
+  const jsCommentsOf = (text: string) =>
+    jsCodeOf(text).flatMap((r) => jsCommentSpans(text, r.start, r.end));
 
   // Call rewrites go first, over the whole body: they need the arguments and can span lines,
   // neither of which the per-line rules below can do. Config keys are handled separately, so
@@ -1668,14 +1672,22 @@ export function convertTarget(
   // What is left of BigQuery after the rewrites, by line. Run on the converted text, so a
   // construct the rules above already turned into PostgreSQL is not reported again.
   const residue = new Map<number, ResidueSite[]>();
-  if (dialectPass && !jsMode) {
+  if (dialectPass) {
     const lineStarts = [0];
     for (let i = 0; i < source.length; i++) {
       if (source[i] === "\n") {
         lineStarts.push(i + 1);
       }
     }
-    for (const site of detectResidue(blankSpans(source, configAndJsSpans(source)))) {
+    // The SQL, then the SQL built in JavaScript: every template literal there, read the way a
+    // .sqlx body is read. Those lines get report entries; markers only where the line is safe.
+    const sites = jsMode ? [] : detectResidue(blankSpans(source, configAndJsSpans(source)));
+    for (const r of jsCodeOf(source)) {
+      for (const t of jsTemplateSql(source, r.start, r.end)) {
+        sites.push(...detectResidue(t.sql).map((x) => ({ ...x, offset: x.offset + t.start })));
+      }
+    }
+    for (const site of sites) {
       let line = lineStarts.length - 1;
       while (lineStarts[line] > site.offset) {
         line--;

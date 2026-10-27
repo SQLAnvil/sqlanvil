@@ -23,7 +23,8 @@ import {
  * compiles, runs, and returns different numbers, so each is reported as `changes-meaning`.
  *
  * This works on tokens, so a comment, a string, or a `${…}` template can never trigger it. The
- * caller blanks config and `js {}` blocks first. Nothing here rewrites: these are findings for the
+ * caller blanks config and `js {}` blocks first, and passes the SQL that JavaScript builds — the
+ * text of each template literal, from `jsTemplateSql` — separately. Nothing here rewrites: these are findings for the
  * report and an inline marker, including where the PostgreSQL form is known, because most of them
  * depend on a column type or an intent the SQL does not show.
  */

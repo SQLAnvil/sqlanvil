@@ -775,8 +775,9 @@ select 1`)!.body,
   });
 
   test("BigQuery left over after the rewrites is marked and reported, never silent", () => {
-    // These used to pass through with no marker and no report entry. Config, js and comments are
-    // not SQL and must not trigger it; the emoji checks offsets stay aligned with the lines.
+    // These used to pass through with no marker and no report entry. Config and comments are not
+    // SQL and must not trigger it; the emoji checks offsets stay aligned with the lines. The SQL a
+    // js template builds is reported, but gets no marker: one there would land inside the JS.
     const { content, findings } = convertTarget(
       [
         "config {",
@@ -795,12 +796,47 @@ select 1`)!.body,
     );
     const flagged = findings.filter((f) => f.kind === "flag").map((f) => [f.class, f.line]);
     expect(flagged).to.deep.equal([
+      ["ifnull", 5],
       ["ifnull", 8],
       ["regexp-replace-all", 9],
     ]);
+    expect(content).to.contain("}\njs { const f = (x) => `ifnull(${x}, 0)`; }");
     expect(content).to.contain("-- SQLANVIL-MIGRATE: IFNULL(a, b) → coalesce(a, b)\nselect ifnull");
     expect(content).to.contain("→ add 'g'\n  regexp_replace(s, 'a', 'b')");
     expect(content).to.contain('description: "🙂 uses ifnull(a, b)"');
+  });
+
+  test("BigQuery in the SQL that JavaScript builds is reported too", () => {
+    const flags = (r: { findings: Array<{ kind: string; class?: string; line: number }> }) =>
+      r.findings.filter((f) => f.kind === "flag").map((f) => [f.class, f.line]);
+
+    const sqlx = convertTarget(
+      [
+        "js {",
+        "  const cols = (xs) => xs.map((x) => `countif(${x} > 0) as ${x}_n`).join(',');",
+        "  const s = 'ifnull(a, b)'; // a plain string, and this comment: not template SQL",
+        "  const t = `-- ifnull(a, b)\nwhere k = '${k}' and json_value(j, '$.a') is null`;",
+        "}",
+        'config { type: "view" }',
+        "",
+        "select ${[1].map(() => `farm_fingerprint(${c})`)} as h",
+        "from t",
+        "",
+      ].join("\n"),
+      false,
+    );
+    expect(flags(sqlx)).to.deep.equal([
+      ["countif", 2],
+      ["json", 5],
+      ["farm-fingerprint", 9],
+    ]);
+    // Inside the js block there is nowhere safe for a marker; above a SQL line there is.
+    expect(sqlx.content).to.contain("js {\n  const cols");
+    expect(sqlx.content).to.match(/-- SQLANVIL-MIGRATE: FARM_FINGERPRINT[^\n]*\nselect \$\{/);
+
+    const js = convertTarget("module.exports = (t) => `select logical_or(x) from ${t}`;\n", true);
+    expect(flags(js)).to.deep.equal([["logical-agg", 1]]);
+    expect(js.content).to.match(/^\/\* SQLANVIL-MIGRATE[^]*L1: LOGICAL_OR/);
   });
 
   test("the per-line rules skip comments", () => {
