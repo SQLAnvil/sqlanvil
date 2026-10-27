@@ -721,6 +721,53 @@ select 1`)!.body,
     expect(triple).to.not.contain(`"""`);
   });
 
+  test("triple-quoted strings, either quote, raw or not, are dollar-quoted before any rule", () => {
+    const conv = (body: string) =>
+      convertTarget(`config { type: "operations" }\n\n${body}\n`, false);
+    const out = (body: string) => conv(body).content;
+
+    // SQL with quotes of its own, the usual reason for '''. PostgreSQL would end the string at
+    // the first of them; and it is a string, so nothing inside is rewritten.
+    const dyn = conv(
+      [
+        "execute immediate format('''",
+        "  select SAFE_DIVIDE(a, b) from t where k = '%s'",
+        "''', key);",
+      ].join("\n"),
+    );
+    expect(dyn.content).to.contain(
+      "format($sa$\n  select SAFE_DIVIDE(a, b) from t where k = '%s'\n$sa$, key);",
+    );
+    expect(dyn.findings.filter((f) => f.note.startsWith("BigQuery '''"))).to.have.length(1);
+
+    // A raw string keeps its backslashes; otherwise BigQuery's escapes are decoded, and one it
+    // does not know is left as written.
+    expect(out(String.raw`select r'''\d+'it''' as re`)).to.contain(
+      String.raw`$sa$\d+'it$sa$ as re`,
+    );
+    expect(out(String.raw`select '''a\tb\'c\x41é\q''' as s`)).to.contain(
+      "$sa$a\tb'cAé\\q$sa$ as s",
+    );
+
+    // """ too; '' is BigQuery's empty string, not the start of one.
+    expect(out(`select """x""" as a, '' as b, 'y' as c`)).to.contain(
+      "select $sa$x$sa$ as a, '' as b, 'y' as c",
+    );
+
+    // Not in a comment or an ordinary string; byte strings are left alone.
+    const left = out([`-- note: '''`, `select "it is '''" as a, b'''raw''' as b`].join("\n"));
+    expect(left).to.contain(`-- note: '''`);
+    expect(left).to.contain(`'it is ''''''' as a`);
+    expect(left).to.contain(`b'''raw''' as b`);
+
+    // ${…} inside is JavaScript, kept as written; a body holding the tag gets another tag; and
+    // the rules after this one stay out of the body — a # is not a comment, a backtick and a
+    // double quote are not identifiers or strings.
+    expect(out(`select '''\${ref("x")} it's''' as r`)).to.contain(`$sa$\${ref("x")} it's$sa$ as r`);
+    expect(out(`select '''costs $sa$''' as c`)).to.contain("$sa1$costs $sa$$sa1$ as c");
+    expect(out("select ''' a #fff `x` \"y\"''' as c")).to.contain('$sa$ a #fff `x` "y"$sa$ as c');
+  });
+
   test("no inline marker inside a ${…} template spanning lines — it would break the JS", () => {
     // The marker text holds backticks, so above `group by all` it closes the template literal
     // early. The finding still reaches the report; only the inline comment is withheld.
@@ -837,6 +884,20 @@ select 1`)!.body,
     const js = convertTarget("module.exports = (t) => `select logical_or(x) from ${t}`;\n", true);
     expect(flags(js)).to.deep.equal([["logical-agg", 1]]);
     expect(js.content).to.match(/^\/\* SQLANVIL-MIGRATE[^]*L1: LOGICAL_OR/);
+
+    // A triple-quoted string there is BigQuery's, and no rule rewrites it — but in converted SQL
+    // the same ''' is an escaped quote: "'a'" became '''a'''.
+    const tq = convertTarget("module.exports = (p) => `regexp_contains(x, r'''${p}''')`;\n", true);
+    expect(flags(tq)).to.deep.equal([
+      ["regexp-contains", 1],
+      ["triple-quoted", 1],
+    ]);
+    // Template text is not always SQL: prose mentioning ''' never closes one.
+    const prose = convertTarget("throw new Error(`cannot contain ''' or end with '`);\n", true);
+    expect(flags(prose)).to.deep.equal([]);
+    const converted = convertTarget(`config { type: "view" }\n\nselect "'a'" as q\n`, false);
+    expect(converted.content).to.contain("select '''a''' as q");
+    expect(flags(converted)).to.deep.equal([]);
   });
 
   test("the per-line rules skip comments", () => {

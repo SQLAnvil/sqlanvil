@@ -165,6 +165,16 @@ export const RESIDUE_CLASSES: {
       "stable hash (or the string itself) will do; if it is stored, exported, or compared with " +
       "values BigQuery produced, every one of them changes.",
   },
+  "triple-quoted": {
+    title: "Triple-quoted string",
+    severity: "blocks-compile",
+    owner: "mechanical",
+    postgres: "$sa$…$sa$ (dollar quoting); drop an r prefix, decode escapes otherwise",
+    why:
+      "PostgreSQL has no triple quoting: '''a''' is the string 'a' with its quotes, and one " +
+      "holding quotes of its own ends at the first. The converter ports these in SQL; the ones " +
+      "left are in SQL built by JavaScript, which it cannot rewrite.",
+  },
   "format-specifier": {
     title: "FORMAT with a printf specifier PostgreSQL lacks",
     severity: "fails-at-run",
@@ -454,7 +464,12 @@ function statementStart(toks: Token[], i: number): boolean {
   return !prev || prev.text === ";" || isWord(prev, "begin", "then", "else");
 }
 
-export function detectResidue(sql: string): ResidueSite[] {
+/**
+ * `bigQueryQuoting` says the text still has BigQuery's quoting, as the SQL in a JavaScript
+ * template does — the converter rewrites quoting only in .sqlx SQL. Only then is `'''` a
+ * triple-quoted string: in converted SQL it is an escaped quote, `"'a'"` having become `'''a'''`.
+ */
+export function detectResidue(sql: string, bigQueryQuoting = false): ResidueSite[] {
   const toks = significant(tokenize(sql));
   const sites: ResidueSite[] = [];
   const add = (t: Token, cls: string, note: string) =>
@@ -462,6 +477,23 @@ export function detectResidue(sql: string): ResidueSite[] {
 
   for (let i = 0; i < toks.length; i++) {
     const t = toks[i];
+
+    // A triple-quoted string. `tokenize` reads one the PostgreSQL way, as `''` escapes or a run
+    // of `""` identifiers, so it is matched on the text and every token inside it is skipped.
+    const triple =
+      bigQueryQuoting && (t.kind === "string" || t.kind === "quoted-ident")
+        ? /^[rR]?('''|""")/.exec(sql.slice(t.start, t.start + 4))
+        : null;
+    // Only one that closes: template text is not always SQL, and prose about ''' never closes.
+    const tripleClose = triple ? sql.indexOf(triple[1], t.start + triple[0].length) : -1;
+    if (triple && tripleClose >= 0) {
+      add(t, "triple-quoted", "BigQuery triple-quoted string → $sa$…$sa$ (dollar quoting)");
+      const end = tripleClose + 3;
+      while (i + 1 < toks.length && toks[i + 1].start < end) {
+        i++;
+      }
+      continue;
+    }
 
     // A backticked name the converter left alone, `proj.ds.INFORMATION_SCHEMA.TABLE_OPTIONS`.
     if (

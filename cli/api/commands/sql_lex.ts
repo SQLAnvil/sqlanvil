@@ -19,6 +19,8 @@
  *   - BigQuery's backtick identifiers and double-quoted STRINGS, whose meanings are the reverse
  *     of PostgreSQL's
  *   - `#` line comments, which BigQuery allows and PostgreSQL does not
+ *   - `$tag$…$tag$` dollar quoting — PostgreSQL's, and what the converter turns BigQuery's
+ *     triple-quoted strings into — whose body may hold any quote character at all
  */
 
 export type TokenKind =
@@ -71,6 +73,19 @@ export function tokenize(sql: string): Token[] {
       const start = i;
       i = templateEnd(sql, i);
       push("template", start, i);
+      continue;
+    }
+
+    // `$tag$ … $tag$` is one string, whatever it holds. Never `$${`, which is a literal `$` before
+    // an interpolation in a JavaScript template.
+    const dollar =
+      ch === "$" ? /^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$(?!\{)/.exec(sql.slice(i, i + 64)) : null;
+    if (dollar) {
+      const start = i;
+      const tag = dollar[0];
+      const close = sql.indexOf(tag, i + tag.length);
+      i = close < 0 ? sql.length : close + tag.length;
+      push("string", start, i, sql.slice(start + tag.length, close < 0 ? i : close));
       continue;
     }
 

@@ -84,6 +84,24 @@ suite("sql_lex", () => {
     expect(() => tokenize("select /* unterminated")).to.not.throw();
   });
 
+  test("dollar-quoted strings are one string, whatever they hold", () => {
+    expect(kinds(`select $sa$it's "x" -- not a comment$sa$ as q`)).deep.equals([
+      "word:select",
+      `string:$sa$it's "x" -- not a comment$sa$`,
+      "word:as",
+      "word:q",
+    ]);
+    expect(sig("select $$a$$, $f$b$f$").map((t) => t.value ?? t.text)).deep.equals([
+      "select",
+      "a",
+      ",",
+      "b",
+    ]);
+    // `$${x}` in a JavaScript template is a `$` before an interpolation, not a quote.
+    expect(kinds("price $${x}")).deep.equals(["word:price", "punct:$", "template:${x}"]);
+    expect(() => tokenize("select $sa$unterminated")).to.not.throw();
+  });
+
   test("jsCommentSpans: JavaScript comments, and SQL comments in template text", () => {
     const comments = (js: string) => jsCommentSpans(js).map((c) => js.slice(c.start, c.end));
 

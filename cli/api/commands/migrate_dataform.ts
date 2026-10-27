@@ -818,7 +818,10 @@ function blankSpan(text: string, start: number, end: number): string {
  * matched with the literals left alone.
  */
 function maskSql(text: string, keepStrings = false): string {
-  let out = text.replace(/--[^\n]*/g, (m) => " ".repeat(m.length));
+  // The converter's own dollar-quoted strings (ported triple-quoted ones) first, and always: they
+  // pair unambiguously, may hold any quote or `--`, and no rule may reach into one.
+  let out = text.replace(DOLLAR_QUOTED, (m) => m.replace(/[^\n]/g, " "));
+  out = out.replace(/--[^\n]*/g, (m) => " ".repeat(m.length));
   out = out.replace(/\/\*[\s\S]*?\*\//g, (m) => " ".repeat(m.length));
   if (!keepStrings) {
     out = out.replace(/'(?:[^']|'')*'/g, (m) => `'${" ".repeat(Math.max(0, m.length - 2))}'`);
@@ -1032,7 +1035,9 @@ const CALL_RULES: CallRule[] = [
  * double-quoted strings are converted, so they meet them in BigQuery form.
  */
 function callRuleView(text: string, isRewritableOffset: (offset: number) => boolean): string {
-  const chars = Array.from(text, (c, i) => (c === "\n" || isRewritableOffset(i) ? c : " "));
+  // By UTF-16 unit, like the offsets: Array.from walks code points, so an emoji shifted the
+  // predicate by one for every offset after it.
+  const chars = text.split("").map((c, i) => (c === "\n" || isRewritableOffset(i) ? c : " "));
   for (const t of tokenize(chars.join(""))) {
     if (t.kind === "quoted-ident" && !t.text.includes("\n")) {
       for (let i = t.start + 1; i < t.end - 1; i++) {
@@ -1204,7 +1209,144 @@ function replaceAligned(
 const DQ_STRING_NOTE =
   "BigQuery \"string\" → 'string' (double quotes are identifiers in PostgreSQL)";
 const TRIPLE_QUOTED_NOTE =
-  'BigQuery """string""" → $sa$string$sa$ (PostgreSQL has no triple-quoted strings)';
+  "BigQuery '''string''' / \"\"\"string\"\"\" → $sa$string$sa$ (PostgreSQL has no triple-quoted strings)";
+
+/** The dollar-quoted strings this converter writes: `$sa$…$sa$`, `$sa1$…$sa1$`, … */
+const DOLLAR_QUOTED = /\$(sa\d*)\$[\s\S]*?\$\1\$/g;
+
+/** BigQuery's single-character escapes, by the character after the backslash. */
+const BQ_ESCAPES: { [c: string]: string } = {
+  a: "\x07",
+  b: "\b",
+  f: "\f",
+  n: "\n",
+  r: "\r",
+  t: "\t",
+  v: "\v",
+  "\\": "\\",
+  "?": "?",
+  '"': '"',
+  "'": "'",
+  "`": "`",
+};
+
+/**
+ * The BigQuery escape at `s[i]` (a backslash) as the character it stands for, with its length;
+ * null for one BigQuery does not know, or one for NUL, which no PostgreSQL text value can hold.
+ */
+function bigQueryEscape(s: string, i: number): { out: string; len: number } | null {
+  const c = s[i + 1];
+  if (c in BQ_ESCAPES) {
+    return { out: BQ_ESCAPES[c], len: 2 };
+  }
+  const code = (digits: string, radix: number, len: number) => {
+    const n = parseInt(digits, radix);
+    return n > 0 && n <= 0x10ffff ? { out: String.fromCodePoint(n), len } : null;
+  };
+  const octal = /^[0-7]{3}/.exec(s.slice(i + 1, i + 4));
+  if (octal) {
+    return code(octal[0], 8, 4);
+  }
+  const width = c === "x" || c === "X" ? 2 : c === "u" ? 4 : c === "U" ? 8 : 0;
+  const hex = s.slice(i + 2, i + 2 + width);
+  if (width && hex.length === width && /^[0-9a-fA-F]+$/.test(hex)) {
+    return code(hex, 16, 2 + width);
+  }
+  return null;
+}
+
+/** `body` dollar-quoted, with a tag nothing in the body can close early. */
+function dollarQuote(body: string): string {
+  let tag = "$sa$";
+  for (let n = 1; (body + tag).indexOf(tag) < body.length; n++) {
+    tag = `$sa${n}$`;
+  }
+  return `${tag}${body}${tag}`;
+}
+
+/**
+ * BigQuery's triple-quoted strings, `'''…'''` and `"""…"""`, raw or not → dollar-quoted.
+ *
+ * PostgreSQL has no triple quoting and reads both forms as something else. `'''a'''` is the
+ * string `'a'`, quotes included; a `'''` holding SQL with quotes of its own — the usual reason
+ * to write one — ends at the first of them, so the statement no longer parses, and every quote
+ * after it pairs wrongly for the rules that follow. A dollar-quoted body holds any text as it
+ * is, so this runs before every other rule, and the masks keep those rules out of the result.
+ *
+ * The scan follows BigQuery's lexing rather than `tokenize`, whose strings are PostgreSQL's: in
+ * BigQuery `''` is an empty string, not an escaped quote, and the escape is a backslash. A raw
+ * string keeps its backslashes; any other has BigQuery's escapes decoded, since a dollar-quoted
+ * body has none (one BigQuery does not know is left as written). Byte strings (`b'''…'''`) are
+ * left alone. A `${…}` inside is copied verbatim: it is JavaScript, interpolated before any SQL
+ * is read.
+ */
+function convertTripleQuotedStrings(
+  text: string,
+  isSqlOffset: (offset: number) => boolean,
+  note: (offset: number) => void,
+): string {
+  const view = text
+    .split("")
+    .map((c, i) => (c === "\n" || isSqlOffset(i) ? c : " "))
+    .join("");
+  const edits: Array<{ start: number; end: number; out: string }> = [];
+  let i = 0;
+  while (i < view.length) {
+    const c = view[i];
+    if ((c === "-" && view[i + 1] === "-") || c === "#") {
+      while (i < view.length && view[i] !== "\n") {
+        i++;
+      }
+      continue;
+    }
+    if ((c === "/" && view[i + 1] === "*") || c === "`") {
+      const close = view.indexOf(c === "`" ? "`" : "*/", i + 2);
+      i = close < 0 ? view.length : close + (c === "`" ? 1 : 2);
+      continue;
+    }
+    if (c !== "'" && c !== '"') {
+      i++;
+      continue;
+    }
+    const prefix = /(?:^|[^A-Za-z0-9_])([rRbB]{1,2})$/.exec(view.slice(Math.max(0, i - 3), i));
+    const p = prefix ? prefix[1] : "";
+    const q3 = c.repeat(3);
+    if (!view.startsWith(q3, i)) {
+      // An ordinary BigQuery string: backslash escapes, and it cannot run past a newline.
+      let j = i + 1;
+      while (j < view.length && view[j] !== c && view[j] !== "\n") {
+        j += view[j] === "\\" ? 2 : 1;
+      }
+      i = j + 1;
+      continue;
+    }
+    let j = i + 3;
+    while (j < view.length && !view.startsWith(q3, j)) {
+      j += view[j] === "\\" ? 2 : 1;
+    }
+    if (j >= view.length) {
+      break; // unterminated: leave it, and everything after it, as written
+    }
+    if (!/b/i.test(p)) {
+      const raw = /r/i.test(p);
+      let body = "";
+      for (let k = i + 3; k < j; k++) {
+        const esc = !raw && text[k] === "\\" && isSqlOffset(k) ? bigQueryEscape(text, k) : null;
+        body += esc ? esc.out : text[k];
+        k += esc ? esc.len - 1 : 0;
+      }
+      edits.push({ start: i - p.length, end: j + 3, out: dollarQuote(body) });
+    }
+    i = j + 3;
+  }
+
+  let out = text;
+  for (const e of edits.reverse()) {
+    note(e.start);
+    out = out.slice(0, e.start) + e.out + out.slice(e.end);
+  }
+  return out;
+}
 
 /**
  * BigQuery double-quoted strings → PostgreSQL single-quoted ones, by token rather than by regex.
@@ -1218,31 +1360,16 @@ const TRIPLE_QUOTED_NOTE =
  * is both an identifier to PostgreSQL and a stray apostrophe that mis-pairs every quote after it
  * for the rules that run later.
  *
- * Triple-quoted `"""…"""` strings span lines and may contain both quote characters, so they
- * become dollar-quoted rather than escaped.
+ * Triple-quoted `"""…"""` strings are dollar-quoted by then (convertTripleQuotedStrings), and
+ * `tokenize` reads those as strings, so nothing inside one is touched here.
  */
 function convertDoubleQuotedStrings(
   text: string,
   isSqlOffset: (offset: number) => boolean,
   note: (offset: number, n: string) => void,
 ): string {
-  const chars = Array.from(text, (c, i) => (c === "\n" || isSqlOffset(i) ? c : " "));
+  const chars = text.split("").map((c, i) => (c === "\n" || isSqlOffset(i) ? c : " "));
   const edits: Array<{ start: number; end: number; out: string }> = [];
-
-  const triple = /"""[\s\S]*?"""/g;
-  let m: RegExpExecArray | null;
-  while ((m = triple.exec(chars.join(""))) !== null) {
-    const inner = text.slice(m.index + 3, m.index + m[0].length - 3);
-    let tag = "$sa$";
-    for (let n = 1; inner.includes(tag); n++) {
-      tag = `$sa${n}$`;
-    }
-    edits.push({ start: m.index, end: m.index + m[0].length, out: `${tag}${inner}${tag}` });
-    for (let i = m.index; i < m.index + m[0].length; i++) {
-      chars[i] = chars[i] === "\n" ? "\n" : " ";
-    }
-    triple.lastIndex = m.index + m[0].length;
-  }
 
   const toks = significant(tokenize(chars.join("")));
   toks.forEach((t, k) => {
@@ -1273,7 +1400,7 @@ function convertDoubleQuotedStrings(
 
   let out = text;
   for (const e of edits.sort((a, b) => b.start - a.start)) {
-    note(e.start, e.out.startsWith("$") ? TRIPLE_QUOTED_NOTE : DQ_STRING_NOTE);
+    note(e.start, DQ_STRING_NOTE);
     out = out.slice(0, e.start) + e.out + out.slice(e.end);
   }
   return out;
@@ -1607,6 +1734,30 @@ export function convertTarget(
   // the config block is excluded — but js regions are NOT, because shared helpers build SQL in
   // template literals and are otherwise invisible to the dialect pass entirely.
   if (dialectPass) {
+    // Where the text rules may edit: SQL outside js regions and `${...}` interpolations — in both,
+    // a backtick opens a template literal and a double quote a JS string. Built per text, since
+    // every rule that runs moves the offsets.
+    const sqlOffsetsOf = (text: string) => {
+      const notSql = configAndJsSpans(text);
+      const templates = interpolationSpans(blankSpans(text, notSql));
+      return (off: number) =>
+        !notSql.some((s) => off >= s.start && off < s.end) &&
+        !templates.some((t) => off >= t.start && off < t.end);
+    };
+
+    // Triple-quoted strings before anything else reads the SQL: PostgreSQL has none, and every
+    // rule after this one pairs quotes the PostgreSQL way.
+    const tripleAt: number[] = [];
+    source = convertTripleQuotedStrings(source, sqlOffsetsOf(source), (off) => tripleAt.push(off));
+    for (const off of tripleAt) {
+      findings.push({
+        line: source.slice(0, off).split("\n").length,
+        kind: "rewrite",
+        note: TRIPLE_QUOTED_NOTE,
+        class: classIdFor(TRIPLE_QUOTED_NOTE),
+      });
+    }
+
     const outsideConfig = (off: number) => {
       const s = jsMode ? null : findConfigBlock(source);
       return !s || off < s.start || off >= s.end;
@@ -1619,23 +1770,12 @@ export function convertTarget(
       findings.push({ line: a.line, kind: "rewrite", note: a.note, class: classIdFor(a.note) });
     }
 
-    // Text rules additionally exclude js regions and `${...}` interpolations: in both, a backtick
-    // opens a template literal and a double quote a JS string. Rewriting `${ref("x")}` to
-    // `${ref('x')}` happens to stay valid JavaScript, which is precisely why it is worth
-    // excluding deliberately rather than relying on luck — a name containing an apostrophe would
-    // not survive the same treatment.
+    // Text rules additionally exclude js regions and `${...}` interpolations (sqlOffsetsOf).
+    // Rewriting `${ref("x")}` to `${ref('x')}` happens to stay valid JavaScript, which is
+    // precisely why it is worth excluding deliberately rather than relying on luck — a name
+    // containing an apostrophe would not survive the same treatment.
     const textApplied: Array<{ line: number; note: string }> = [];
-    source = applyTextRules(
-      source,
-      (text) => {
-        const notSql = configAndJsSpans(text);
-        const templates = interpolationSpans(blankSpans(text, notSql));
-        return (off) =>
-          !notSql.some((s) => off >= s.start && off < s.end) &&
-          !templates.some((t) => off >= t.start && off < t.end);
-      },
-      textApplied,
-    );
+    source = applyTextRules(source, sqlOffsetsOf, textApplied);
     for (const a of textApplied) {
       findings.push({
         line: a.line,
@@ -1684,7 +1824,9 @@ export function convertTarget(
     const sites = jsMode ? [] : detectResidue(blankSpans(source, configAndJsSpans(source)));
     for (const r of jsCodeOf(source)) {
       for (const t of jsTemplateSql(source, r.start, r.end)) {
-        sites.push(...detectResidue(t.sql).map((x) => ({ ...x, offset: x.offset + t.start })));
+        sites.push(
+          ...detectResidue(t.sql, true).map((x) => ({ ...x, offset: x.offset + t.start })),
+        );
       }
     }
     for (const site of sites) {
