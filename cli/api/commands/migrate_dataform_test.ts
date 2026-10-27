@@ -802,4 +802,28 @@ select 1`)!.body,
     expect(content).to.contain("→ add 'g'\n  regexp_replace(s, 'a', 'b')");
     expect(content).to.contain('description: "🙂 uses ifnull(a, b)"');
   });
+
+  test("the per-line rules skip comments", () => {
+    const { content, findings } = convertTarget(
+      [
+        'config { type: "view" }',
+        "",
+        "-- the old version used QUALIFY and GENERATE_UUID()",
+        "/* select * except (a) from t",
+        "   group by all */",
+        "select CURRENT_DATE() as d, x -- CURRENT_DATE() and UNNEST(xs)",
+        "from t",
+        "QUALIFY row_number() over () = 1",
+        "",
+      ].join("\n"),
+      false,
+    );
+    expect(findings.map((f) => [f.class, f.line])).to.deep.equal([
+      ["current-date-current-date", 6],
+      ["qualify", 8],
+    ]);
+    // The code is rewritten and the comment left as written.
+    expect(content).to.contain("select CURRENT_DATE as d, x -- CURRENT_DATE() and UNNEST(xs)");
+    expect(content).to.contain("-- the old version used QUALIFY and GENERATE_UUID()\n/*");
+  });
 });

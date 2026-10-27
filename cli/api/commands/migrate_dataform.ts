@@ -1161,6 +1161,33 @@ function blankSpans(text: string, spans: Array<{ start: number; end: number }>):
     .join("");
 }
 
+/**
+ * `pattern` replaced in `line`, with `code` — the same line with its comments blanked — kept
+ * aligned with it, offset for offset. `codeOnly` restricts the matches to code: a rule that
+ * rewrote or flagged text inside a `--` comment reported BigQuery that was never going to run.
+ */
+function replaceAligned(
+  line: string,
+  code: string,
+  pattern: RegExp,
+  replacement: string,
+  codeOnly: boolean,
+): { line: string; code: string; hits: number } {
+  const one = new RegExp(pattern.source, pattern.flags.replace("g", ""));
+  pattern.lastIndex = 0; // matchAll starts from it, and a `.test()` just moved it
+  const matches = [...(codeOnly ? code : line).matchAll(pattern)].reverse();
+  for (const m of matches) {
+    const start = m.index!;
+    const end = start + m[0].length;
+    const text = line.slice(start, end);
+    const rep = text.replace(one, replacement);
+    const inCode = code.slice(start, end) === text;
+    line = line.slice(0, start) + rep + line.slice(end);
+    code = code.slice(0, start) + (inCode ? rep : " ".repeat(rep.length)) + code.slice(end);
+  }
+  return { line, code, hits: matches.length };
+}
+
 const DQ_STRING_NOTE =
   "BigQuery \"string\" → 'string' (double quotes are identifiers in PostgreSQL)";
 const TRIPLE_QUOTED_NOTE =
@@ -1591,6 +1618,22 @@ export function convertTarget(
   const lines = source.split("\n");
   const jsLines = jsMode ? new Set<number>() : jsBlockLines(source);
 
+  // Each line with its SQL comments blanked, for the per-line rules to match against. js regions
+  // are blanked before lexing, so they keep their text and the rules still reach SQL built there.
+  const codeLines = (() => {
+    const chars = source.split("");
+    for (const t of tokenize(blankSpans(source, configAndJsSpans(source)))) {
+      if (t.kind === "comment") {
+        for (let k = t.start; k < t.end; k++) {
+          if (chars[k] !== "\n") {
+            chars[k] = " ";
+          }
+        }
+      }
+    }
+    return chars.join("").split("\n");
+  })();
+
   // What is left of BigQuery after the rewrites, by line. Run on the converted text, so a
   // construct the rules above already turned into PostgreSQL is not reported again.
   const residue = new Map<number, ResidueSite[]>();
@@ -1648,12 +1691,14 @@ export function convertTarget(
       inConfig ? `// SQLANVIL-MIGRATE: ${note}` : `-- SQLANVIL-MIGRATE: ${note}`;
     const lineNo = i + 1;
     const notesForLine: string[] = [];
+    let code = codeLines[i];
 
-    // Global rename rules apply everywhere (plain token replacement — string-safe).
+    // Global rename rules apply everywhere, comments included (plain token replacement —
+    // string-safe).
     for (const rule of GLOBAL_RULES) {
-      rule.pattern.lastIndex = 0;
-      if (rule.pattern.test(line)) {
-        line = line.replace(rule.pattern, rule.replacement!);
+      const r = replaceAligned(line, code, rule.pattern, rule.replacement!, false);
+      if (r.hits > 0) {
+        ({ line, code } = r);
         findings.push({ line: lineNo, kind: "rewrite", note: rule.note });
       }
     }
@@ -1699,15 +1744,15 @@ export function convertTarget(
 
     // SQL rules (SQL bodies + js regions; config lines only get the config handling above).
     if (dialectPass && (!inConfig || jsMode)) {
+      // Matched against the code only: a commented-out QUALIFY is not BigQuery left to port.
       for (const rule of SQL_RULES) {
         rule.pattern.lastIndex = 0;
-        if (!rule.pattern.test(line)) {
+        if (!rule.pattern.test(code)) {
           continue;
         }
         const cls = rule.id ?? classIdFor(rule.note);
         if (rule.replacement !== undefined) {
-          rule.pattern.lastIndex = 0;
-          line = line.replace(rule.pattern, rule.replacement);
+          ({ line, code } = replaceAligned(line, code, rule.pattern, rule.replacement, true));
           findings.push({ line: lineNo, kind: "rewrite", note: rule.note, class: cls });
           if (markersSafe) {
             notesForLine.push(rule.note);
