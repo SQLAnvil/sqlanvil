@@ -3,6 +3,7 @@ import { dump as dumpYaml, load as loadYaml } from "js-yaml";
 import * as path from "path";
 
 import { agentsMdContents, claudeMdBridgeContents } from "sa/cli/api/commands/agents_md";
+import { detectResidue, RESIDUE_CLASSES, ResidueSite } from "sa/cli/api/commands/bigquery_residue";
 import { interpolationSpans, isWord, significant, tokenize } from "sa/cli/api/commands/sql_lex";
 import {
   chooseStrategies,
@@ -442,6 +443,8 @@ const CLASS_META: {
       "BigQuery never checked these. Enforcing them may fail on data that has never been " +
       "validated; dropping them loses the declared model. Enable per table, deliberately.",
   },
+  // BigQuery the rules above neither rewrite nor flag — see bigquery_residue.ts.
+  ...RESIDUE_CLASSES,
 };
 
 /**
@@ -1114,9 +1117,12 @@ function blankSpans(text: string, spans: Array<{ start: number; end: number }>):
   if (spans.length === 0) {
     return text;
   }
-  return Array.from(text, (c, i) =>
-    c !== "\n" && spans.some((s) => i >= s.start && i < s.end) ? " " : c,
-  ).join("");
+  // By UTF-16 unit, like the offsets: Array.from walks code points, so an emoji in a blanked span
+  // shortened the text and shifted every offset after it.
+  return text
+    .split("")
+    .map((c, i) => (c !== "\n" && spans.some((s) => i >= s.start && i < s.end) ? " " : c))
+    .join("");
 }
 
 const DQ_STRING_NOTE =
@@ -1548,6 +1554,25 @@ export function convertTarget(
 
   const lines = source.split("\n");
   const jsLines = jsMode ? new Set<number>() : jsBlockLines(source);
+
+  // What is left of BigQuery after the rewrites, by line. Run on the converted text, so a
+  // construct the rules above already turned into PostgreSQL is not reported again.
+  const residue = new Map<number, ResidueSite[]>();
+  if (dialectPass && !jsMode) {
+    const lineStarts = [0];
+    for (let i = 0; i < source.length; i++) {
+      if (source[i] === "\n") {
+        lineStarts.push(i + 1);
+      }
+    }
+    for (const site of detectResidue(blankSpans(source, configAndJsSpans(source)))) {
+      let line = lineStarts.length - 1;
+      while (lineStarts[line] > site.offset) {
+        line--;
+      }
+      residue.set(line, [...(residue.get(line) ?? []), site]);
+    }
+  }
   if (!jsMode) {
     // A line that STARTS inside a `${…}` interpolation (`${xs.map(x => \`…\`)}` spanning lines)
     // or a multi-line literal has no safe place for a marker either: above it is still inside the
@@ -1660,7 +1685,14 @@ export function convertTarget(
       }
     }
 
-    for (const note of notesForLine) {
+    for (const site of residue.get(i) ?? []) {
+      findings.push({ line: lineNo, kind: "flag", note: site.note, class: site.class });
+      if (markersSafe) {
+        notesForLine.push(site.note);
+      }
+    }
+
+    for (const note of new Set(notesForLine)) {
       out.push(marker(note));
     }
     out.push(line);

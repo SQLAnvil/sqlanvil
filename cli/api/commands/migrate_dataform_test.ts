@@ -724,4 +724,33 @@ SELECT 1`;
     );
     expect(plain.content).to.contain("-- SQLANVIL-MIGRATE: GROUP BY ALL");
   });
+
+  test("BigQuery left over after the rewrites is marked and reported, never silent", () => {
+    // These used to pass through with no marker and no report entry. Config, js and comments are
+    // not SQL and must not trigger it; the emoji checks offsets stay aligned with the lines.
+    const { content, findings } = convertTarget(
+      [
+        "config {",
+        '  type: "view",',
+        '  description: "🙂 uses ifnull(a, b)"',
+        "}",
+        "js { const f = (x) => `ifnull(${x}, 0)`; }",
+        "",
+        "-- countif(x) in a comment",
+        "select ifnull(a, b) as x,",
+        "  regexp_replace(s, 'a', 'b') as y",
+        "from t",
+        "",
+      ].join("\n"),
+      false,
+    );
+    const flagged = findings.filter((f) => f.kind === "flag").map((f) => [f.class, f.line]);
+    expect(flagged).to.deep.equal([
+      ["ifnull", 8],
+      ["regexp-replace-all", 9],
+    ]);
+    expect(content).to.contain("-- SQLANVIL-MIGRATE: IFNULL(a, b) → coalesce(a, b)\nselect ifnull");
+    expect(content).to.contain("→ add 'g'\n  regexp_replace(s, 'a', 'b')");
+    expect(content).to.contain('description: "🙂 uses ifnull(a, b)"');
+  });
 });
