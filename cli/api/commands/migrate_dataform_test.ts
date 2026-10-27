@@ -432,6 +432,30 @@ SELECT 1`;
     expect(connectionNameFor("My-Proj")).equals("bq_my_proj");
   });
 
+  test("config parsing reads top-level keys only, not the column docs or longer keys", () => {
+    // A documented column called `name`, or one ending in `_name`/`_type`/`_schema`, was read as
+    // the action's own name, type or schema — so a ref to it failed to resolve.
+    const parsed = parseSqlxConfig(
+      findConfigBlock(`config {
+  columns: {
+    table_name: "The name of the table.",
+    data_type: "The column type",
+    table_schema: "x",
+    name: "Full name of the customer.",
+  },
+  type: "view",
+  schema: "looker",
+  name: "vw_meta",
+}
+select 1`)!.body,
+    );
+    expect(parsed).to.include({ type: "view", schema: "looker", name: "vw_meta" });
+    expect(
+      parseSqlxConfig(findConfigBlock(`config {\n  firstname_note: "a",\n  type: "table"\n}`)!.body)
+        .name,
+    ).equals(null);
+  });
+
   test("call rewrites reach the arguments, and span lines", () => {
     const sql = (body: string) =>
       convertTarget(`config { type: "view" }\n\n${body}\n`, false).content;
@@ -723,6 +747,31 @@ SELECT 1`;
       false,
     );
     expect(plain.content).to.contain("-- SQLANVIL-MIGRATE: GROUP BY ALL");
+  });
+
+  test("call rules leave method calls alone — in JavaScript, .split() is String.split", () => {
+    // The call rules reach into js regions on purpose (helpers build SQL in template literals),
+    // so `spec.key.split(",")` used to become string_to_array(", ") — a TypeError at compile time.
+    const js = convertTarget(
+      [
+        "const sql = `select * from t",
+        "where ${spec.key",
+        '      .split(",")',
+        "      .map((k) => `t.${k} is not null`)",
+        '      .join(" and ")}`;',
+        "const other = `select split(a, ',') from t`;",
+        "",
+      ].join("\n"),
+      true,
+    ).content;
+    expect(js).to.contain('      .split(",")\n');
+    expect(js).to.contain("string_to_array(a, ',')");
+    const sqlx = convertTarget(
+      'js {\n  const ks = keys\n    .split(",");\n}\nconfig { type: "view" }\n\nselect split(a, ",")[OFFSET(0)] from t\n',
+      false,
+    ).content;
+    expect(sqlx).to.contain('    .split(",");');
+    expect(sqlx).to.contain("(string_to_array(a, ','))[1]");
   });
 
   test("BigQuery left over after the rewrites is marked and reported, never silent", () => {

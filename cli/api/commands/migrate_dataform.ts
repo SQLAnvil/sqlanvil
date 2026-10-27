@@ -274,9 +274,40 @@ export function jsBlockLines(source: string): Set<number> {
   return lines;
 }
 
+/**
+ * The config body with every nested `{…}` / `[…]` blanked, so only top-level keys remain. The
+ * column docs are a nested object, and a column called `name` — or a `data_type` documented
+ * before the action's own `type` — was otherwise read as the action's.
+ */
+function topLevelOnly(body: string): string {
+  let out = "";
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (quote) {
+      if (ch === quote && body[i - 1] !== "\\") {
+        quote = null;
+      }
+    } else if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+    } else if (ch === "{" || ch === "[") {
+      depth++;
+    } else if (ch === "}" || ch === "]") {
+      depth = Math.max(0, depth - 1);
+      out += depth === 0 ? ch : " ";
+      continue;
+    }
+    out += depth > 0 && ch !== "\n" ? " " : ch;
+  }
+  return out;
+}
+
 const str = (field: string, body: string): string | null => {
-  const re = new RegExp(`${field}\\s*:\\s*["'\`]([^"'\`]+)["'\`]`);
-  const m = re.exec(body);
+  // A key starts an entry: at the start of the body, a line, or after a comma — so `field` is
+  // never read off the tail of a longer key (`table_name`) or out of a description.
+  const re = new RegExp(`(?:^|[\\n,{])\\s*${field}\\s*:\\s*["'\`]([^"'\`]+)["'\`]`);
+  const m = re.exec(topLevelOnly(body));
   return m ? m[1] : null;
 };
 
@@ -1040,6 +1071,11 @@ export function applyCallRules(
         const open = m.index + m[0].length - 1;
         const close = matchParen(mask, open);
         if (close < 0 || !isRewritableOffset(m.index)) {
+          continue;
+        }
+        // `x.split(…)` is a method call — String.split in the JavaScript these rules also reach —
+        // or a qualified name like SAFE.SPLIT; neither is the BigQuery function.
+        if (/\.\s*$/.test(mask.slice(Math.max(0, m.index - 64), m.index))) {
           continue;
         }
         const out = rule.rewrite(splitArgs(result, mask, open + 1, close));

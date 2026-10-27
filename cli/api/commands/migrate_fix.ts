@@ -109,7 +109,7 @@ function loadActions(projectDir: string): Action[] {
         const source = fs.readFileSync(full, "utf8");
         const span = findConfigBlock(source);
         const config = span ? source.slice(span.start, span.end) : "";
-        const parsed = parseSqlxConfig(config);
+        const parsed = parseSqlxConfig(span ? span.body : "");
         actions.push({
           file: path.relative(projectDir, full),
           type: parsed.type,
