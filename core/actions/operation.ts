@@ -69,11 +69,12 @@ export type JitOperationResult = string | string[] | sqlanvil.IJitOperationResul
  *
  * ```js
  * // definitions/file.js
- * operate("name").query("DELETE FROM dataset.table WHERE country = 'GB'")
+ * operate("name", { tags: ["cleanup"] }).queries("DELETE FROM dataset.table WHERE country = 'GB'")
  * ```
  *
  * Note: When using the Javascript API, methods in this class can be accessed by the returned value.
- * This is where `query` comes from.
+ * This is where `queries` comes from. Config options are passed as the second argument to
+ * `operate()`; there is no chained `.config()` method.
  *
  * **Naming the operation:**
  *

@@ -678,4 +678,56 @@ SQLANVIL_VERSION = "1.37.1"
 # Verified natively: bazel test //core/... //cli/... //common/... //sqlx/... (80 tests) and
 # //tests/api:api.spec, with --config=macos-cpp plus the DEVELOPER_DIR pin. BigQuery integration
 # specs not run. Ships in the next release: the defaultLocation fix in run and validate.
-DF_VERSION = "3.1.2"
+#
+# 3.1.3 reviewed (2026-11-02); 15 upstream commits past 3.1.2. Tracking issue SQLAnvil/sqlanvil#61.
+#
+#   * #2392 JiT pins @dataform/core. JiT itself NOT TAKEN (declined on sight since 3.0.65; there
+#     is no JiT runtime here, so compileForRun / expectedCoreVersion / the jit_worker half have
+#     nothing to attach to). PARTLY TAKEN, by hand, in cli/api/commands/compile.ts: the temporary
+#     directory is created only for projects that pin sqlanvilCoreVersion (a package.json project
+#     made one per compile and never removed it), it is removed in a `finally` (a failed install or
+#     compile leaked the whole project copy), and a failed `npm i` now reports "Failed to install
+#     @sqlanvil/core@X". The install step moved into installIsolatedCore(). Upstream's
+#     findInstalledCoreBundle() / core_installation.ts not taken: its error cases are the JiT
+#     worker's.
+#
+#   * #2413 operations: every query of an action (`---` in sqlx, several in .queries([...]))
+#     concatenated into ONE multi-statement task, plus #2414 (comment handling in
+#     concatenateQueries). NOT TAKEN, decided 2026-11-02. Upstream's reason is that the warehouses
+#     needing a split were dropped; here Postgres, Supabase and MySQL/MariaDB ship, and `---` is
+#     their documented statement separator (sqlanvil-sqlx-lint enforces `;` vs `---`; MySQL's
+#     driver would need multipleStatements). On BigQuery it is a breaking change (more than one
+#     DECLARE, a reused temp-table name, SET leaking across statements). Operations keep one task
+#     per query on every warehouse. Revisit only as an opt-in, BigQuery-only.
+#
+#   * #2344 defaultJobLabels (workflow_settings) + per-action jobLabels, resolveJobLabels, the
+#     64-label pre-run check, --job-labels on --run-tests. DEFERRED to its own change, decided
+#     2026-11-02 (~1,900 lines). It sits on #2351's proto fields, which we never took, and their
+#     numbers collide with ours, so a port picks sqlanvil numbers for every job_labels field and
+#     ActionDescriptor.job_labels, rejects or warns on non-BigQuery warehouses, and leaves out the
+#     PropertyGraph / data-preparation / Lakehouse hunks. Our `run --job-labels` flag is unchanged.
+#
+#   * #2410 markdown-it 14.3.1 -> 14.3.3. TAKEN: the pnpm override is gone and the lockfile now
+#     resolves 14.3.3 (same integrity as upstream's). Build-only (jsdoc/typedoc docs tooling; in
+#     neither published bundle), so no release on its own.
+#
+#   * #2409 Operation JS API example (`operate(name, config).queries(...)`). TAKEN in the
+#     core/actions/operation.ts doc comment, worded without upstream's "Dataform core 3.0".
+#
+#   * #2399 / #2393 / #2411 / #2412 lineage emitter fixes, lineage docs and IAM. NOT TAKEN (no
+#     lineage here; cli/api/lineage/ does not exist).
+#
+#   * #2400 JiT compiler options object. NOT TAKEN (JiT).
+#
+#   * #2406 defaultDataset required for incremental Lakehouse tables. NOT TAKEN (no Lakehouse
+#     targets here; see #2384 above).
+#
+#   * #2398 credentials unknown-field test. NO-OP: tests/api/credentials.spec.ts came with #2362's
+#     test-credentials loader, which we did not take, so the typo'd test does not exist here.
+#
+#   * #2405 Dependabot npm prefetch (cloudbuild-prefetch-deps.yaml, scripts/prefetch_npm_deps).
+#     NOT TAKEN (upstream CI).
+#
+#   * #2415 version bump.
+#
+DF_VERSION = "3.1.3"

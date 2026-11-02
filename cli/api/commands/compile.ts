@@ -28,8 +28,6 @@ export async function compile(
   const packageLockJsonPath = path.join(resolvedProjectPath, "package-lock.json");
   const projectNodeModulesPath = path.join(resolvedProjectPath, "node_modules");
 
-  const temporaryProjectPath = tmp.dirSync().name;
-
   const workflowSettings = readConfigFromWorkflowSettings(resolvedProjectPath);
   const workflowSettingsSqlanvilCoreVersion = workflowSettings?.sqlanvilCoreVersion;
   const workflowSettingsExtension = workflowSettings?.extension ?? undefined;
@@ -40,73 +38,96 @@ export async function compile(
     throw new Error(MISSING_CORE_VERSION_ERROR);
   }
 
-  // For stateless package installation, a temporary directory is used in order to avoid interfering
-  // with user's project directories.
   if (workflowSettingsSqlanvilCoreVersion) {
     [projectNodeModulesPath, packageJsonPath, packageLockJsonPath].forEach((npmPath) => {
       if (fs.existsSync(npmPath)) {
         throw new Error(`'${npmPath}' unexpected; remove it and try again`);
       }
     });
+  }
 
-    if (compileConfig.verbose) {
-      print(
-        `Using isolated environment for @sqlanvil/core@${workflowSettingsSqlanvilCoreVersion}\n`,
+  // For stateless package installation, a temporary directory is used in order to avoid interfering
+  // with user's project directories. It is created only for projects that pin sqlanvilCoreVersion
+  // (a package.json project compiles in place) and removed on every path, including a failed
+  // install or compile (upstream #2392; before, a package.json project leaked an empty directory
+  // per compile and a failed compile leaked the whole project copy).
+  const temporaryProjectPath = workflowSettingsSqlanvilCoreVersion ? tmp.dirSync().name : undefined;
+
+  try {
+    if (temporaryProjectPath) {
+      await installIsolatedCore(
+        compileConfig,
+        resolvedProjectPath,
+        temporaryProjectPath,
+        workflowSettingsSqlanvilCoreVersion,
       );
-      print(`Copying project to temporary directory: ${temporaryProjectPath}\n`);
-    }
-    const copyStartTime = performance.now();
-    fs.copySync(resolvedProjectPath, temporaryProjectPath);
-    if (compileConfig.verbose) {
-      print(`Project copy completed in ${performance.now() - copyStartTime}ms\n`);
+      compileConfig.projectDir = temporaryProjectPath;
     }
 
-    if (compileConfig.verbose) {
-      print(`Generating temporary package.json\n`);
+    const result = await new CompileChildProcess().compile(compileConfig);
+
+    const decodedResult = decode64(sqlanvil.CoreExecutionResponse, result);
+    compiledGraph = sqlanvil.CompiledGraph.create(decodedResult.compile.compiledGraph);
+  } finally {
+    if (temporaryProjectPath) {
+      // fs-extra's removeSync, not node's fs.rmSync. Node's recursive rm goes through its
+      // internal rimraf, which hands a Buffer path to readdirSync; the rules_nodejs 3.8.0
+      // node_patches shim that `bazel run` used to inject only handled strings, so every
+      // `./scripts/run compile` of a project pinning sqlanvilCoreVersion died on cleanup.
+      // fs-extra uses its own vendored rimraf and passes strings throughout.
+      fs.removeSync(temporaryProjectPath);
     }
-    fs.writeFileSync(
-      path.join(temporaryProjectPath, "package.json"),
-      `{
-  "dependencies": {
-  "@sqlanvil/core": "${workflowSettingsSqlanvilCoreVersion}"
-  }
-}`,
-    );
-
-    const npmCommand = `npm i --ignore-scripts${compileConfig.verbose ? " --loglevel=http" : ""}`;
-    if (compileConfig.verbose) {
-      print(`Running '${npmCommand}' in temporary directory...\n`);
-    }
-    const npmStartTime = performance.now();
-    const { stdout, stderr } = await promisify(exec)(npmCommand, {
-      cwd: temporaryProjectPath,
-    });
-
-    if (compileConfig.verbose) {
-      print(`NPM HTTP Logs:\n${stderr}\n`);
-      print(`NPM install completed in ${performance.now() - npmStartTime}ms\n`);
-    }
-
-    compileConfig.projectDir = temporaryProjectPath;
-  }
-
-  const result = await new CompileChildProcess().compile(compileConfig);
-
-  const decodedResult = decode64(sqlanvil.CoreExecutionResponse, result);
-  compiledGraph = sqlanvil.CompiledGraph.create(decodedResult.compile.compiledGraph);
-
-  if (workflowSettingsSqlanvilCoreVersion) {
-    // fs-extra's removeSync, not node's fs.rmSync. Node's recursive rm goes through its
-    // internal rimraf, which hands a Buffer path to readdirSync; the rules_nodejs 3.8.0
-    // node_patches shim that `bazel run` injects only handles strings, so every
-    // `./scripts/run compile` of a project pinning sqlanvilCoreVersion died on cleanup.
-    // fs-extra@9 uses its own vendored rimraf and passes strings throughout. The published
-    // bundle never loads node_patches, so this was dev-only — but there is no reason to
-    // depend on node's rimraf here.
-    fs.removeSync(temporaryProjectPath);
   }
 
   return compiledGraph;
+}
+
+async function installIsolatedCore(
+  compileConfig: sqlanvil.ICompileConfig,
+  resolvedProjectPath: string,
+  temporaryProjectPath: string,
+  coreVersion: string,
+) {
+  if (compileConfig.verbose) {
+    print(`Using isolated environment for @sqlanvil/core@${coreVersion}\n`);
+    print(`Copying project to temporary directory: ${temporaryProjectPath}\n`);
+  }
+  const copyStartTime = performance.now();
+  fs.copySync(resolvedProjectPath, temporaryProjectPath);
+  if (compileConfig.verbose) {
+    print(`Project copy completed in ${performance.now() - copyStartTime}ms\n`);
+  }
+
+  if (compileConfig.verbose) {
+    print(`Generating temporary package.json\n`);
+  }
+  fs.writeFileSync(
+    path.join(temporaryProjectPath, "package.json"),
+    `{
+  "dependencies": {
+  "@sqlanvil/core": "${coreVersion}"
+  }
+}`,
+  );
+
+  const npmCommand = `npm i --ignore-scripts${compileConfig.verbose ? " --loglevel=http" : ""}`;
+  if (compileConfig.verbose) {
+    print(`Running '${npmCommand}' in temporary directory...\n`);
+  }
+  const npmStartTime = performance.now();
+  let stderr: string;
+  try {
+    ({ stderr } = await promisify(exec)(npmCommand, {
+      cwd: temporaryProjectPath,
+    }));
+  } catch (e) {
+    throw new Error(`Failed to install @sqlanvil/core@${coreVersion}: ${coerceAsError(e).message}`);
+  }
+
+  if (compileConfig.verbose) {
+    print(`NPM HTTP Logs:\n${stderr}\n`);
+    print(`NPM install completed in ${performance.now() - npmStartTime}ms\n`);
+  }
 }
 
 export class CompileChildProcess extends BaseWorker<string, string | Error> {
