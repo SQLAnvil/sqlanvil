@@ -730,4 +730,39 @@ SQLANVIL_VERSION = "1.37.2"
 #
 #   * #2415 version bump.
 #
-DF_VERSION = "3.1.3"
+# 3.1.4 reviewed (2026-11-06); 6 upstream commits past 3.1.3. No tracking issue.
+#
+#   * #2272 stateless-install copy filtered by the project's ignore files. TAKEN, renamed: new
+#     cli/api/commands/compile_copy_filter.ts (+ its unit test). The copy made for a project that
+#     pins sqlanvilCoreVersion skips what the root .gitignore and an optional root .sqlanvilignore
+#     (upstream: .dataformignore) exclude, apart from definitions/, includes/,
+#     workflow_settings.yaml and .npmrc and anything they reach through symlinks; .git and
+#     node_modules are always skipped. No legacy dataform.json among the always-copied names (we
+#     never read one). When compilation can't find a module the copy left out, a "Note:" naming
+#     the excluded path goes to stderr next to the unchanged error. Cleanup of the copy is now
+#     best effort (a failed removal no longer fails the compile or hides its error). Adds `ignore`
+#     ^7.0.8 as a CLI dependency (externalized; lockfile already had 7.0.12), so it ships: users
+#     see it at the next release. Two of upstream's four end-to-end tests ported into the
+#     SA_TEST_PUBLISHED_CORE gate in cli/index_compile_test.ts (pinned to core 1.37.2); the
+#     root-symlink case and the require()d-helper case are covered by the unit tests only.
+#
+#   * #2408 create schemas lazily. DEFERRED to its own change, decided 2026-11-06. It drops the
+#     up-front createSchema pass from the warehouse-generic Runner and instead wraps a task whose
+#     dataset is missing as `create schema if not exists `db.ds`; begin <task> end;`, so BigQuery
+#     infers the dataset's location from the tables the task reads (plus a schema-creation lock,
+#     dry-run validation queries, error-position mapping, and a search() 404 guard). Taken
+#     verbatim it breaks Postgres/Supabase/MySQL (`begin` opens a transaction; backtick
+#     identifiers), and it leans on concatenateQueries changes from #2413, which we declined. A
+#     port would be BigQuery-only, with every other warehouse keeping eager createSchema. Upstream's
+#     location-optional branch is still unmerged, so wait for that series to settle. Until then
+#     BigQuery datasets are still created in defaultLocation -> credentials location -> "US".
+#
+#   * #2087 JiT SQLX support. NOT TAKEN (JiT, declined since 3.0.65).
+#
+#   * #2417 PropertyGraph Semantic Ontology V1 schema/DDL, #2420 PropertyGraphConfig docs. NOT
+#     TAKEN (PropertyGraph declined in routine syncs; the door is open if Acuantia wants it, and
+#     a take would use sqlanvil proto numbers).
+#
+#   * #2423 version bump.
+#
+DF_VERSION = "3.1.4"

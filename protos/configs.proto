@@ -14,7 +14,10 @@ import "extension.proto";
 // Workflow Settings defines the contents of the `workflow_settings.yaml`
 // configuration file.
 message WorkflowSettings {
-  // The desired sqlanvil core version to compile against.
+  // The desired sqlanvil core version to compile against. When set, the CLI
+  // installs this version into a copy of the project in a temporary directory
+  // and compiles the copy, which skips paths matched by `.gitignore` or
+  // `.sqlanvilignore` outside `definitions/` and `includes/`.
   string sqlanvil_core_version = 1;
 
   // Required. The default Google Cloud project (database).

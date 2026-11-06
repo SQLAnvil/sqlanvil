@@ -107,6 +107,110 @@ defaultLocation: "${DEFAULT_LOCATION}"
       expect(compiled.tables).to.have.lengthOf(1);
       expect(compiled.tables[0].fileName).equals("definitions/example.sqlx");
     });
+
+    // Upstream #2272 (3.1.4): the stateless-install copy skips what .gitignore / .sqlanvilignore
+    // exclude outside definitions/ and includes/. Pinned to a published core so `npm i` succeeds.
+    suite("stateless-install project copy", () => {
+      function setUpStatelessProject() {
+        const projectDir = tmpDirFixture.createNewTmpDir();
+        fs.writeFileSync(
+          path.join(projectDir, "workflow_settings.yaml"),
+          dumpYaml({
+            defaultProject: DEFAULT_DATABASE,
+            defaultLocation: DEFAULT_LOCATION,
+            defaultDataset: "dataform",
+            sqlanvilCoreVersion: "1.37.2",
+          }),
+        );
+        // npm needs a writable cache; ~/.npm is read-only in the bazel sandbox.
+        const env = { ...process.env, NPM_CONFIG_CACHE: tmpDirFixture.createNewTmpDir() };
+        const compileProject = (args = ["--json"]) =>
+          getProcessResult(
+            execFile(nodePath, [cliEntryPointPath, "compile", projectDir, ...args], { env }),
+          );
+        return { projectDir, compileProject };
+      }
+
+      test(
+        "compiles inputs that definitions/ and includes/ reach through symlinks into gitignored paths",
+        { timeout: 60000 },
+        async () => {
+          const { projectDir, compileProject } = setUpStatelessProject();
+          fs.writeFileSync(path.join(projectDir, ".gitignore"), "generated/\n");
+          fs.ensureDirSync(path.join(projectDir, "generated", "definitions", "nested"));
+          fs.writeFileSync(
+            path.join(projectDir, "generated", "definitions", "table.sqlx"),
+            `config { type: "table" }\nSELECT "\${constants.VALUE}" AS id`,
+          );
+          fs.writeFileSync(
+            path.join(projectDir, "generated", "definitions", "nested", "other_table.sqlx"),
+            `config { type: "table" }\nSELECT 2 AS id`,
+          );
+          fs.ensureDirSync(path.join(projectDir, "generated", "includes"));
+          fs.writeFileSync(
+            path.join(projectDir, "generated", "includes", "constants.js"),
+            `module.exports = { VALUE: "from_include" };`,
+          );
+          fs.symlinkSync(
+            path.join("generated", "definitions"),
+            path.join(projectDir, "definitions"),
+          );
+          fs.ensureDirSync(path.join(projectDir, "includes"));
+          fs.symlinkSync(
+            path.join("..", "generated", "includes", "constants.js"),
+            path.join(projectDir, "includes", "constants.js"),
+          );
+
+          const result = await compileProject();
+
+          expect(result.exitCode, `compile failed: ${result.stderr}`).equals(0);
+          const tables: sqlanvil.ITable[] = JSON.parse(result.stdout).tables ?? [];
+          expect(tables.map((table) => table.target.name).sort()).deep.equals([
+            "other_table",
+            "table",
+          ]);
+          expect(tables.find((table) => table.target.name === "table").query).contains(
+            "from_include",
+          );
+        },
+      );
+
+      test(
+        "explains a gitignored file actions.yaml references, removes the copy, and compiles it once re-included",
+        { timeout: 60000 },
+        async () => {
+          const { projectDir, compileProject } = setUpStatelessProject();
+          fs.writeFileSync(path.join(projectDir, ".gitignore"), "queries/\n");
+          fs.ensureDirSync(path.join(projectDir, "definitions"));
+          fs.writeFileSync(
+            path.join(projectDir, "definitions", "actions.yaml"),
+            dumpYaml({
+              actions: [{ table: { name: "example", filename: "../queries/example.sql" } }],
+            }),
+          );
+          fs.ensureDirSync(path.join(projectDir, "queries"));
+          fs.writeFileSync(path.join(projectDir, "queries", "example.sql"), "SELECT 1 AS id");
+          const excludedResult = await compileProject(["--json", "--verbose"]);
+
+          expect(excludedResult.exitCode).not.equals(0);
+          expect(excludedResult.stderr).contains(
+            "'queries' is in the project but not in the copy compiled for sqlanvilCoreVersion",
+          );
+          const copyPath = /Copying project to temporary directory: (.+)/.exec(
+            excludedResult.stdout + excludedResult.stderr,
+          )?.[1];
+          expect(copyPath, excludedResult.stderr).to.not.equal(undefined);
+          expect(fs.existsSync(copyPath)).equals(false);
+
+          fs.writeFileSync(path.join(projectDir, ".sqlanvilignore"), "!/queries/\n");
+          const result = await compileProject();
+
+          expect(result.exitCode, `compile failed: ${result.stderr}`).equals(0);
+          const tables: sqlanvil.ITable[] = JSON.parse(result.stdout).tables ?? [];
+          expect(tables.map((table) => table.query.trim())).deep.equals(["SELECT 1 AS id"]);
+        },
+      );
+    });
   } // end runPublishedCoreTests gate
 
   ["package.json", "package-lock.json", "node_modules"].forEach((npmFile) => {

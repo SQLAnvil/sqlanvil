@@ -5,6 +5,11 @@ import * as tmp from "tmp";
 import { promisify } from "util";
 
 import { BaseWorker } from "sa/cli/api/commands/base_worker";
+import {
+  copyProjectForStatelessInstall,
+  explainExcludedModule,
+  findProjectIgnoreFiles,
+} from "sa/cli/api/commands/compile_copy_filter";
 import { MISSING_CORE_VERSION_ERROR } from "sa/cli/api/commands/install";
 import { readConfigFromWorkflowSettings } from "sa/cli/api/utils";
 import { DEFAULT_COMPILATION_TIMEOUT_MILLIS } from "sa/cli/api/utils/constants";
@@ -64,10 +69,38 @@ export async function compile(
       compileConfig.projectDir = temporaryProjectPath;
     }
 
-    const result = await new CompileChildProcess().compile(compileConfig);
+    // A file the copy filter excluded surfaces as a missing module, and the error doesn't say
+    // why. Say why alongside the error, which is left as is (upstream #2272). This reads the
+    // copy, so it runs before the copy is removed.
+    const printExcludedModuleNotes = (messages: string[]) => {
+      if (!temporaryProjectPath) {
+        return;
+      }
+      const notes = new Set<string>();
+      for (const message of messages) {
+        const note = explainExcludedModule(message, resolvedProjectPath, temporaryProjectPath);
+        if (note) {
+          notes.add(note);
+        }
+      }
+      notes.forEach((note) => process.stderr.write(`Note: ${note}\n`));
+    };
+
+    let result: string;
+    try {
+      result = await new CompileChildProcess().compile(compileConfig);
+    } catch (e) {
+      if (e instanceof Error) {
+        printExcludedModuleNotes([e.message]);
+      }
+      throw e;
+    }
 
     const decodedResult = decode64(sqlanvil.CoreExecutionResponse, result);
     compiledGraph = sqlanvil.CompiledGraph.create(decodedResult.compile.compiledGraph);
+    printExcludedModuleNotes(
+      (compiledGraph.graphErrors?.compilationErrors ?? []).map((error) => error.message ?? ""),
+    );
   } finally {
     if (temporaryProjectPath) {
       // fs-extra's removeSync, not node's fs.rmSync. Node's recursive rm goes through its
@@ -75,7 +108,13 @@ export async function compile(
       // node_patches shim that `bazel run` used to inject only handled strings, so every
       // `./scripts/run compile` of a project pinning sqlanvilCoreVersion died on cleanup.
       // fs-extra uses its own vendored rimraf and passes strings throughout.
-      fs.removeSync(temporaryProjectPath);
+      // Removal is best effort: a failure to remove the directory mustn't turn a successful
+      // compile into a failure, or hide the error that ended the compile (upstream #2272).
+      try {
+        fs.removeSync(temporaryProjectPath);
+      } catch {
+        // Left for the OS to clean up with the rest of the temporary directory.
+      }
     }
   }
 
@@ -91,9 +130,18 @@ async function installIsolatedCore(
   if (compileConfig.verbose) {
     print(`Using isolated environment for @sqlanvil/core@${coreVersion}\n`);
     print(`Copying project to temporary directory: ${temporaryProjectPath}\n`);
+    const ignoreFiles = findProjectIgnoreFiles(resolvedProjectPath);
+    print(
+      ignoreFiles.length > 0
+        ? `Excluding .git, node_modules, and paths matched by ${ignoreFiles.join(" and ")}, except files reachable from definitions/ and includes/\n`
+        : `Excluding .git and node_modules, except files reachable from definitions/ and includes/ (no .gitignore or .sqlanvilignore in project root)\n`,
+    );
   }
   const copyStartTime = performance.now();
-  fs.copySync(resolvedProjectPath, temporaryProjectPath);
+  // Skips what the project's .gitignore / .sqlanvilignore exclude outside the compilation inputs,
+  // so a large .venv or build directory next to definitions/ no longer slows every compile
+  // (upstream #2272).
+  copyProjectForStatelessInstall(resolvedProjectPath, temporaryProjectPath);
   if (compileConfig.verbose) {
     print(`Project copy completed in ${performance.now() - copyStartTime}ms\n`);
   }
