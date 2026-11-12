@@ -6,29 +6,39 @@ const BYPASS_DOCKER =
   !!process.env.SUPABASE_HOST || !!process.env.PG_HOST || !!process.env.PG_CONNECTION_STRING;
 
 export class SupabaseFixture {
-  public static readonly host = BYPASS_DOCKER
-    ? process.env.SUPABASE_HOST || process.env.PG_HOST || "localhost"
-    : PostgresFixture.host;
+  public static get host() {
+    return BYPASS_DOCKER
+      ? process.env.SUPABASE_HOST || process.env.PG_HOST || "localhost"
+      : PostgresFixture.host;
+  }
 
-  public static readonly port = BYPASS_DOCKER
-    ? process.env.SUPABASE_PORT
-      ? parseInt(process.env.SUPABASE_PORT, 10)
-      : process.env.PG_PORT
-        ? parseInt(process.env.PG_PORT, 10)
-        : 5432
-    : PostgresFixture.port;
+  public static get port() {
+    return BYPASS_DOCKER
+      ? process.env.SUPABASE_PORT
+        ? parseInt(process.env.SUPABASE_PORT, 10)
+        : process.env.PG_PORT
+          ? parseInt(process.env.PG_PORT, 10)
+          : 5432
+      : PostgresFixture.port;
+  }
 
-  public static readonly user = BYPASS_DOCKER
-    ? process.env.SUPABASE_USER || process.env.PG_USER || "postgres"
-    : PostgresFixture.user;
+  public static get user() {
+    return BYPASS_DOCKER
+      ? process.env.SUPABASE_USER || process.env.PG_USER || "postgres"
+      : PostgresFixture.user;
+  }
 
-  public static readonly password = BYPASS_DOCKER
-    ? process.env.SUPABASE_PASSWORD || process.env.PG_PASSWORD || "password"
-    : PostgresFixture.password;
+  public static get password() {
+    return BYPASS_DOCKER
+      ? process.env.SUPABASE_PASSWORD || process.env.PG_PASSWORD || "password"
+      : PostgresFixture.password;
+  }
 
-  public static readonly database = BYPASS_DOCKER
-    ? process.env.SUPABASE_DATABASE || process.env.PG_DATABASE || "postgres"
-    : PostgresFixture.database;
+  public static get database() {
+    return BYPASS_DOCKER
+      ? process.env.SUPABASE_DATABASE || process.env.PG_DATABASE || "postgres"
+      : PostgresFixture.database;
+  }
 
   private postgresFixture: PostgresFixture;
 

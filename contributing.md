@@ -97,12 +97,17 @@ bazel test //tests/integration/...
 
 **BigQuery:** Place a GCP service account key at `test_credentials/bigquery.json`.
 
-**Postgres:** The Postgres integration tests use a Docker fixture started by Bazel:
+**Postgres / Supabase:** these specs start their own Docker container
+(`tools/postgres/postgres_fixture.ts`, image `pgvector/pgvector:0.8.7-pg15`), one per spec on its
+own host port, so they can run in parallel. Ports 5432 (`postgres.spec`), 5433 (`supabase.spec`)
+and 5434 (`supabase_rls.spec`) must be free:
 
 ```bash
-bazel test //tests/integration:postgres
-# Bazel launches tools/postgres/postgres_fixture.ts automatically inside the sandbox
+bazel test //tests/integration/...
 ```
+
+To run against a database you already have instead, set `PG_*` (or `SUPABASE_*`) and pass them
+with `--test_env`; the fixture then skips Docker.
 
 ## Code style
 
