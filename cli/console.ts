@@ -2,7 +2,12 @@ import * as readlineSync from "readline-sync";
 
 import { IInitResult } from "sa/cli/api/commands/init";
 import { prettyJsonStringify } from "sa/cli/api/utils";
-import { formatBytesInHumanReadableFormat, formatExecutionSuffix } from "sa/cli/util";
+import {
+  formatBytesInHumanReadableFormat,
+  formatDatasetWarehouseState,
+  formatExecutionSuffix,
+} from "sa/cli/util";
+import { targetStringifier } from "sa/core/targets";
 import { setOrValidateTableEnumType, tableTypeEnumToString } from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -323,15 +328,29 @@ export function printExecutionGraph(executionGraph: sqlanvil.ExecutionGraph, asJ
       }
       actionsByType[action.type].push(action);
     });
+    const tableMetadataByTarget = new Map<string, sqlanvil.ITableMetadata>();
+    executionGraph.warehouseState?.tables?.forEach((tableMetadata) => {
+      if (tableMetadata.target) {
+        tableMetadataByTarget.set(targetStringifier.stringify(tableMetadata.target), tableMetadata);
+      }
+    });
     const datasetActions = actionsByType.table;
     if (datasetActions && datasetActions.length) {
       writeStdOut(`${datasetActions.length} dataset(s):`);
-      datasetActions.forEach((datasetAction) =>
+      datasetActions.forEach((datasetAction) => {
+        const tableMetadata = datasetAction.target
+          ? tableMetadataByTarget.get(targetStringifier.stringify(datasetAction.target))
+          : undefined;
+        const datasetType = datasetAction.tableType || datasetAction.type;
         writeStdOut(
-          datasetString(datasetAction.target, datasetAction.type, datasetAction.tasks.length === 0),
+          `${datasetString(
+            datasetAction.target,
+            datasetType,
+            datasetAction.tasks.length === 0,
+          )} ${formatDatasetWarehouseState(datasetType, tableMetadata)}`,
           1,
-        ),
-      );
+        );
+      });
     }
     const assertionActions = actionsByType.assertion;
     if (assertionActions && assertionActions.length) {

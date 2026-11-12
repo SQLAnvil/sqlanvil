@@ -27,8 +27,8 @@ async function runQuery(projectDir: string, sql: string, json: boolean): Promise
 export const queryCommand: ICommand = {
   format: `query [sql] [${projectDirOption.name}]`,
   description:
-    "Run SQL over the project's queryable artifacts in target/ (views: actions, " +
-    "dependencies, columns, runs), via the bundled DuckDB.",
+    "Run SQL over the project's artifacts in target/ (views: actions, dependencies, columns, " +
+    "runs) with the bundled DuckDB. No warehouse is involved.",
   positionalOptions: [
     positionalOption(
       "sql",

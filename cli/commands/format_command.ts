@@ -21,17 +21,26 @@ const ignoreJsFilesOptionName = "ignore-js-files";
 
 export const formatCommand: ICommand = {
   format: `format [${projectDirMustExistOption.name}]`,
-  description: "Format the sqlanvil project's files.",
+  description: "Format the project's .sqlx and .js files in place.",
   positionalOptions: [projectDirMustExistOption],
   options: [
-    actionsOption,
+    // Same flag as the selection --actions (so argv parsing is shared), but for format the values
+    // are file globs, so it gets its own help text.
+    {
+      ...actionsOption,
+      option: {
+        ...actionsOption.option,
+        describe: "File globs to format, relative to the project directory (not action names).",
+      },
+      docs: { default: "`{definitions,includes}/**/*.{js,sqlx}`" },
+    },
     option(checkOptionName, {
-      describe: "Check if files are formatted correctly without modifying them.",
+      describe: "Change nothing; exit 1 if any file would be reformatted.",
       type: "boolean",
       default: false,
     }),
     option(ignoreJsFilesOptionName, {
-      describe: "If set, the formatter will not consider javascript files (.js).",
+      describe: "Skip .js files (with the default globs, only .sqlx files are formatted).",
       type: "boolean",
       default: false,
     }),

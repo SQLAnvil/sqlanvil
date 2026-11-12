@@ -24,6 +24,19 @@ export interface INamedOption<T, TName extends string = string> {
   name: TName;
   option: T;
   check?: (args: any) => void;
+  // Documentation-only metadata used to generate cli/README.md. It is not passed to yargs.
+  docs?: IOptionDocs;
+}
+
+export interface IOptionDocs {
+  // The default shown in cli/README.md, as markdown, when the effective default is computed at
+  // runtime rather than declared in `option.default`.
+  default?: string;
+  // Marks a positional argument as required in cli/README.md when it is validated at runtime
+  // (e.g. in a `check`) rather than by yargs.
+  required?: boolean;
+  // Project-config flags only: the workflow_settings.yaml key the flag overrides.
+  overrides?: string;
 }
 
 // Factories that capture the option name as a string literal type. Prefer these
@@ -32,16 +45,18 @@ export function option<TName extends string>(
   name: TName,
   opt: yargs.Options,
   check?: (args: any) => void,
+  docs?: IOptionDocs,
 ): INamedOption<yargs.Options, TName> {
-  return { name, option: opt, check };
+  return { name, option: opt, check, ...(docs ? { docs } : {}) };
 }
 
 export function positionalOption<TName extends string>(
   name: TName,
   opt: yargs.PositionalOptions,
   check?: (args: any) => void,
+  docs?: IOptionDocs,
 ): INamedOption<yargs.PositionalOptions, TName> {
-  return { name, option: opt, check };
+  return { name, option: opt, check, ...(docs ? { docs } : {}) };
 }
 
 export function createYargsCli(cli: ICli) {

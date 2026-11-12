@@ -765,4 +765,60 @@ SQLANVIL_VERSION = "1.37.3"
 #
 #   * #2423 version bump.
 #
-DF_VERSION = "3.1.4"
+# 3.1.5 reviewed (2026-11-12); 8 upstream commits past 3.1.4. Tracking issue: SQLAnvil/sqlanvil#62.
+#
+#   * #2402 location optional in init / init-creds. TAKEN, BigQuery only. `init` no longer
+#     requires default-location for BigQuery (default-database still is), and leaves
+#     defaultLocation out of workflow_settings.yaml when it isn't given; interactive init accepts
+#     an empty answer. init-creds gains an "auto" location choice, and an "other" region left
+#     blank (or whitespace) also means unset. Help text gives our real fallback rather than
+#     upstream's "BigQuery chooses dynamically": jobs infer their location from the tables they
+#     read, but #2408 is still deferred, so a missing dataset is created eagerly in US.
+#
+#   * #2421 warn when SET @@dataset_id is used without any location. TAKEN, BigQuery only:
+#     setsDatasetId plus its GoogleSQL comment/quote lexer, in a new
+#     cli/api/utils/query_transforms.ts (upstream's file name, holding only what we took; it gets
+#     its own test target), and warnAboutSetDatasetIdWithoutLocation in cli/util.ts, called after
+#     a BigQuery run. Our message also points at the credentials file's location.
+#
+#   * #2418 `feat(cli)!` run --json without --dry-run; --build-only. TAKEN, adapted. BREAKING:
+#     `run --json` now prints the RunResult (real runs and BigQuery dry runs), and the old
+#     ExecutionGraph output is `run --build-only --json`. On Postgres/Supabase/MySQL,
+#     `--dry-run --json` still prints validate's JSON (our dry run there is validate);
+#     --build-only skips that branch. With --json, stdout carries only the JSON: progress lines are
+#     suppressed, failed unit tests and warnings go to stderr, timeout/cancel errors print in both
+#     modes, and the stored-graph version warning moved to stderr. Also fixes our old guard, which
+#     printed its error on stdout and returned undefined (exit 0). Plain-text --build-only output
+#     now shows each dataset's tableType and warehouse state (formatDatasetWarehouseState). One
+#     sqlanvil difference: an existing table with no last-modified time (Postgres/MySQL) reads
+#     "(exists)" instead of upstream's "()", and a materialized view reports no type change.
+#     Upstream's compiledSql assertion is dropped (we only fill compiledSql for JiT, which we
+#     declined). Six e2e tests moved from --dry-run --json to --build-only --json; a new "json
+#     output" suite runs against live BigQuery in a throwaway dataset.
+#
+#   * #2419 generate the CLI reference tables in cli/README.md. TAKEN, adapted:
+#     cli/readme_generator.ts, cli/update_readme.ts (`bazel run //cli:update_readme`), and
+#     //cli:readme_generated_test, which fails when the README is stale. CLI_COMMANDS
+#     (cli/commands/index.ts) is now the command list for both runCli() and the generator, and
+#     INamedOption has a docs field (default / required / overrides, the last one ours). sqlanvil
+#     differences: `sqlanvil` usage lines in bash fences; a Command | Purpose table plus a `help`
+#     row instead of a bullet list; an Overrides column (workflow_settings key) on the
+#     project-config table; positionals written <name> in the usage line count as required; error
+#     messages name the file. The script also copies the README body into the sqlanvil.com
+#     mirror (sqlanvil-com reference/cli.md, below its own header) when that checkout is next to
+#     this one. Option and command describes were rewritten from the hand-kept README tables
+#     (plain text), so `sqlanvil help` reads the same. format --actions gets its own help text
+#     (file globs).
+#
+#   * #2425 / #2429 lineage ClientInfo gRPC header. NOT TAKEN (no lineage here).
+#
+#   * #2422 BigQuery property graphs user guide. NOT TAKEN (PropertyGraph declined in routine
+#     syncs).
+#
+#   * #2408 lazy schema creation (deferred in 3.1.4) STAYS DEFERRED, decided 2026-11-12: the
+#     location-optional series it waited for has landed (#2402, #2421 above), so it can now be
+#     ported, BigQuery-only, as its own change.
+#
+#   * #2430 version bump.
+#
+DF_VERSION = "3.1.5"

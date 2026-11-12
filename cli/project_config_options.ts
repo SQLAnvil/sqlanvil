@@ -22,70 +22,86 @@ export class ProjectConfigOptions {
   public static defaultDatabase: INamedOption<yargs.Options, "default-database"> = option(
     "default-database",
     {
-      describe:
-        "The default database to use, equivalent to Google Cloud Project ID. If unset, " +
-        "the value from workflow_settings.yaml is used.",
+      describe: "Default database. On BigQuery, the Google Cloud project ID.",
       type: "string",
     },
+    undefined,
+    { overrides: "defaultProject" },
   );
 
   public static defaultSchema: INamedOption<yargs.Options, "default-schema"> = option(
     "default-schema",
     {
-      describe:
-        "Override for the default schema name. If unset, the value from workflow_settings.yaml is used.",
+      describe: "Default schema (a dataset on BigQuery).",
+      type: "string",
     },
+    undefined,
+    { overrides: "defaultDataset" },
   );
 
   public static defaultLocation: INamedOption<yargs.Options, "default-location"> = option(
     "default-location",
     {
       describe:
-        "The default location to use. See " +
-        "https://cloud.google.com/bigquery/docs/locations for supported values. If unset, the " +
-        "value from workflow_settings.yaml is used.",
+        "BigQuery only. Default location, e.g. US. run and validate send BigQuery jobs and create " +
+        "new datasets in this location, even when the credentials file names a different " +
+        "location (run warns about the mismatch). See " +
+        "https://cloud.google.com/bigquery/docs/locations for supported values.",
+      type: "string",
     },
+    undefined,
+    { overrides: "defaultLocation" },
   );
 
   public static assertionSchema: INamedOption<yargs.Options, "assertion-schema"> = option(
     "assertion-schema",
     {
-      describe:
-        "Default assertion schema. If unset, the value from workflow_settings.yaml is used.",
+      describe: "Schema that assertions are written to.",
+      type: "string",
     },
+    undefined,
+    { overrides: "defaultAssertionDataset" },
   );
 
   public static databaseSuffix: INamedOption<yargs.Options, "database-suffix"> = option(
     "database-suffix",
     {
-      describe:
-        "A suffix to be appended to output database names. If unset, the value from " +
-        "workflow_settings.yaml is used.",
+      describe: "Suffix appended to database names.",
+      type: "string",
     },
+    undefined,
+    { overrides: "projectSuffix" },
   );
 
-  public static vars: INamedOption<yargs.Options, "vars"> = option("vars", {
-    describe:
-      "Override for variables to inject via '--vars=someKey=someValue,a=b', referenced by " +
-      "`sqlanvil.projectConfig.vars.someValue`.  If unset, the value from workflow_settings.yaml is used.",
-    type: "string",
-    default: null,
-    coerce: (rawVarsString: string | null) => {
-      const variables: { [key: string]: string } = {};
-      rawVarsString?.split(",").forEach((keyValueStr) => {
-        const [key, value] = keyValueStr.split("=");
-        variables[key] = value;
-      });
-      return variables;
+  public static vars: INamedOption<yargs.Options, "vars"> = option(
+    "vars",
+    {
+      describe:
+        "Variables as comma-separated key=value pairs, e.g. --vars=env=staging,region=eu, read " +
+        "in code as sqlanvil.projectConfig.vars.<key>. Values can't contain , or =. Keys merge " +
+        "with the file's vars, so a --vars key overrides only that key.",
+      type: "string",
+      default: null,
+      coerce: (rawVarsString: string | null) => {
+        const variables: { [key: string]: string } = {};
+        rawVarsString?.split(",").forEach((keyValueStr) => {
+          const [key, value] = keyValueStr.split("=");
+          variables[key] = value;
+        });
+        return variables;
+      },
     },
-  });
+    undefined,
+    { overrides: "vars" },
+  );
 
   public static schemaSuffix: INamedOption<yargs.Options, "schema-suffix"> = option(
     "schema-suffix",
     {
       describe:
-        "A suffix to be appended to output schema names. If unset, the value from workflow_settings.yaml " +
-        "is used.",
+        "Suffix appended to schema names, e.g. dev gives analytics_dev. Letters, digits and " +
+        "underscores only.",
+      type: "string",
     },
     (argv: Pick<ProjectConfigArgv, "schema-suffix">) => {
       if (
@@ -98,37 +114,49 @@ export class ProjectConfigOptions {
         );
       }
     },
+    { overrides: "datasetSuffix" },
   );
 
-  public static tablePrefix: INamedOption<yargs.Options, "table-prefix"> = option("table-prefix", {
-    describe:
-      "Adds a prefix for all table names. If unset, the value from workflow_settings.yaml is used.",
-  });
+  public static tablePrefix: INamedOption<yargs.Options, "table-prefix"> = option(
+    "table-prefix",
+    {
+      describe: "Prefix added to every table name.",
+      type: "string",
+    },
+    undefined,
+    { overrides: "namePrefix" },
+  );
 
   public static disableAssertions: INamedOption<yargs.Options, "disable-assertions"> = option(
     "disable-assertions",
     {
       describe:
-        "Disables all assertions including built-in assertions (uniqueKey, nonNull, rowConditions) and manual assertions (type: assertion).",
+        "Skip every assertion, built-in (uniqueKey, nonNull, rowConditions) and " +
+        'type: "assertion".',
       type: "boolean",
       default: false,
     },
+    undefined,
+    { overrides: "disableAssertions" },
   );
 
   public static defaultReservation: INamedOption<yargs.Options, "default-reservation"> = option(
     "default-reservation",
     {
       describe:
-        "The default BigQuery reservation to use for execution. If unset, the value from " +
-        "workflow_settings.yaml is used. If neither is set, default BigQuery behavior applies.",
+        "BigQuery only. Reservation to run queries in. If neither this nor the file sets one, " +
+        "default BigQuery behavior applies.",
       type: "string",
     },
+    undefined,
+    { overrides: "defaultReservation" },
   );
 
   public static environment: INamedOption<yargs.Options, "environment"> = option("environment", {
     describe:
-      "Named environment from workflow_settings.yaml `environments:` to load (its schemaSuffix, " +
-      "vars, defaultDatabase/location, and credentials file). Explicit flags override the environment.",
+      "Load a named environment from environments: in workflow_settings.yaml. That " +
+      "environment's schemaSuffix, vars, defaultDatabase, defaultLocation and credentials file " +
+      "apply, and explicit flags override them. See https://sqlanvil.com/docs/guides/environments/",
     type: "string",
   });
 

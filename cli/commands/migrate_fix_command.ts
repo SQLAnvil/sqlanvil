@@ -6,12 +6,8 @@ import { ICommand, option } from "sa/cli/yargswrapper";
 export const migrateFixCommand: ICommand = {
   format: "migrate-fix [project-dir]",
   description:
-    "Finish a converted project's dialect work, AFTER `scripts/introspect_all.sh` has run. " +
-    "Expands `SELECT * EXCEPT (...)` into explicit column lists and rewrites `GROUP BY ALL` " +
-    "as positional ordinals — both need the source columns that only exist once " +
-    "declarations have been introspected, so this is the " +
-    "third phase of a migration (convert, introspect, fix), not part of the conversion. " +
-    "Re-runnable; reports anything it could not resolve instead of guessing.",
+    "Finish a converted project's dialect rewrites once its declarations have been " +
+    "introspected: the third phase of a migration (convert, introspect, fix).",
   positionalOptions: [projectDirMustExistOption],
   options: [
     option("dry-run", {

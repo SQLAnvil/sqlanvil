@@ -35,9 +35,7 @@ import { dataformVersion } from "sa/core/version";
 import { sqlanvil } from "sa/protos/ts";
 
 const keepShadowOption = option("keep-shadow", {
-  describe:
-    "If set, `validate` leaves its temporary shadow schema(s) in place instead of dropping them " +
-    "(debugging aid).",
+  describe: "Leave the temporary shadow schemas in place instead of dropping them, for debugging.",
   type: "boolean",
 });
 
@@ -193,8 +191,8 @@ export async function runValidate(argv: any): Promise<number> {
 export const validateCommand: ICommand = {
   format: `validate [${projectDirMustExistOption.name}]`,
   description:
-    "Validate the project's SQL against the warehouse planner without executing: EXPLAIN on " +
-    "Postgres/Supabase/MySQL, a dry run on BigQuery.",
+    "Check every model's SQL against the warehouse planner without running it: EXPLAIN on " +
+    "Postgres, Supabase and MySQL, a dry run on BigQuery.",
   positionalOptions: [projectDirMustExistOption],
   options: [
     actionsOption,

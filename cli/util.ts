@@ -2,7 +2,9 @@ import * as fs from "fs";
 import * as path from "path";
 import untildify from "untildify";
 
-import { interactiveQuestion, print, printError, printSuccess } from "sa/cli/console";
+import { setsDatasetId } from "sa/cli/api/utils/query_transforms";
+import { interactiveQuestion, print, printError, printSuccess, printWarning } from "sa/cli/console";
+import { targetAsReadableString } from "sa/core/targets";
 import { validateConnectionFormat } from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -231,3 +233,75 @@ export const ICEBERG_TABLE_FOLDER_SUBPATH_PROMPT_QUESTION =
 export const ICEBERG_CONNECTION_HINT =
   "The connection can have the form `{project}.{location}.{connection_id}` or `projects/{project}/locations/{location}/connections/{connection_id} or be set to DEFAULT. If you do not want to provide a workflow-level default connection, leave this input empty.\n";
 export const ICEBERG_CONNECTION_QUESTION = "Enter the default connection:";
+
+const MAX_SET_DATASET_ID_AFFECTED_ACTIONS = 5;
+
+/**
+ * BigQuery only (upstream #2421). With no location configured, BigQuery infers a job's location
+ * from the tables it reads, but it does not resolve unqualified table names through
+ * `SET @@dataset_id` when it does so. Such jobs (and the datasets they create) may land in US.
+ * Warns once per run, naming up to five affected actions.
+ */
+export function warnAboutSetDatasetIdWithoutLocation(
+  actions: sqlanvil.IExecutionAction[],
+  location: string | undefined,
+) {
+  if (location) {
+    return;
+  }
+  const affectedActions = actions.filter((a) =>
+    a.tasks?.some((t) => setsDatasetId(t.statement || "")),
+  );
+  if (affectedActions.length === 0) {
+    return;
+  }
+  const listedTargets = affectedActions
+    .slice(0, MAX_SET_DATASET_ID_AFFECTED_ACTIONS)
+    .map((a) => (a.target ? targetAsReadableString(a.target) : ""))
+    .join(", ");
+  const truncatedCount = affectedActions.length - MAX_SET_DATASET_ID_AFFECTED_ACTIONS;
+  const truncatedSuffix = truncatedCount > 0 ? ` (...${truncatedCount} actions truncated)` : "";
+  printWarning(
+    "Warning: SET @@dataset_id is used without a configured location. BigQuery does not infer " +
+      "the query or new dataset location from @@dataset_id for unqualified table names, so " +
+      "queries may run in (and create datasets in) the default US location. Set defaultLocation " +
+      "in workflow_settings.yaml (or pass --default-location), set location in " +
+      ".df-credentials.json, or qualify source table names.\n" +
+      `Affected actions: ${listedTargets}${truncatedSuffix}\n`,
+  );
+}
+
+/**
+ * The warehouse state of a dataset action for `run --build-only` (upstream #2418): whether it
+ * exists, a table <-> view change, and when it was last modified. Materialized views (Postgres)
+ * report no type change. Where the warehouse has no last-modified time (Postgres/MySQL), an
+ * existing table reads "(exists)".
+ */
+export function formatDatasetWarehouseState(
+  datasetType: string,
+  tableMetadata?: sqlanvil.ITableMetadata,
+): string {
+  if (!tableMetadata) {
+    return "(does not exist)";
+  }
+  const details: string[] = [];
+  const oldBaseType =
+    tableMetadata.type === sqlanvil.TableMetadata.Type.VIEW
+      ? "view"
+      : tableMetadata.type === sqlanvil.TableMetadata.Type.TABLE
+        ? "table"
+        : undefined;
+  const newBaseType = datasetType === "view" ? "view" : "table";
+  if (oldBaseType && oldBaseType !== newBaseType) {
+    details.push(`type: ${oldBaseType} -> ${newBaseType}`);
+  }
+  const lastUpdatedMillis = Number(tableMetadata.lastUpdatedMillis ?? 0);
+  if (lastUpdatedMillis !== 0) {
+    const lastModified = new Date(lastUpdatedMillis)
+      .toISOString()
+      .replace("T", " ")
+      .replace(/\.\d{3}Z$/, " UTC");
+    details.push(`last modified: ${lastModified}`);
+  }
+  return details.length ? `(${details.join(", ")})` : "(exists)";
+}

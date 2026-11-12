@@ -143,7 +143,7 @@ select 1 as \${sqlanvil.projectConfig.vars.testVar2}
         projectDir,
         "--credentials",
         CREDENTIALS_PATH,
-        "--dry-run",
+        "--build-only",
         "--json",
         "--vars=testVar1=testValue1,testVar2=testValue2",
         "--default-location=europe",
@@ -341,7 +341,7 @@ SELECT 1 as id
           projectDir,
           "--credentials",
           CREDENTIALS_PATH,
-          "--dry-run",
+          "--build-only",
           "--json",
           "--disable-assertions",
           "--actions=test_assertion,example_table",
@@ -366,7 +366,7 @@ SELECT 1 as id
           projectDir,
           "--credentials",
           CREDENTIALS_PATH,
-          "--dry-run",
+          "--build-only",
           "--json",
           "--actions=test_assertion,example_table",
         ]),
@@ -390,7 +390,7 @@ SELECT 1 as id
           projectDir,
           "--credentials",
           CREDENTIALS_PATH,
-          "--dry-run",
+          "--build-only",
           "--json",
           "--disable-assertions",
           "--actions=test_assertion,example_table",
@@ -488,7 +488,7 @@ SELECT 1 as id
       });
     });
 
-    test("--default-reservation flag is applied to projectConfig in run (dry-run) output", async () => {
+    test("--default-reservation flag is applied to projectConfig in run --build-only output", async () => {
       const runResult = await getProcessResult(
         execFile(nodePath, [
           cliEntryPointPath,
@@ -496,7 +496,7 @@ SELECT 1 as id
           projectDir,
           "--credentials",
           CREDENTIALS_PATH,
-          "--dry-run",
+          "--build-only",
           "--json",
           `--default-reservation=${DEFAULT_RESERVATION}`,
           "--actions=example_table",
@@ -803,7 +803,7 @@ DROP SCHEMA IF EXISTS \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.p
               projectDir,
               "--credentials",
               CREDENTIALS_PATH,
-              "--dry-run",
+              "--build-only",
               "--json",
               "--actions=example_incremental",
             ]),
@@ -867,6 +867,263 @@ DROP SCHEMA IF EXISTS \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.p
             ]),
           );
         }
+      },
+    );
+  });
+
+  suite("json output", ({ beforeEach, after }) => {
+    const uniqueDataset = `sqlanvil_e2e_json_${Math.random().toString(36).substring(7)}`;
+    let projectDir: string;
+
+    const runCli = (args: string[]) =>
+      getProcessResult(execFile(nodePath, [cliEntryPointPath, "run", projectDir, ...args]));
+
+    const writeDefinition = (name: string, contents: string) => {
+      fs.ensureFileSync(path.join(projectDir, "definitions", name));
+      fs.writeFileSync(path.join(projectDir, "definitions", name), contents);
+    };
+
+    beforeEach("setup test project", async () => {
+      projectDir = tmpDirFixture.createNewTmpDir();
+      const npmCacheDir = tmpDirFixture.createNewTmpDir();
+      const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
+      await getProcessResult(
+        execFile(nodePath, [
+          cliEntryPointPath,
+          "init",
+          projectDir,
+          DEFAULT_DATABASE,
+          DEFAULT_LOCATION,
+          "--warehouse",
+          "bigquery",
+          "--bare",
+        ]),
+      );
+      const workflowSettings = sqlanvil.WorkflowSettings.create(
+        loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
+      );
+      delete workflowSettings.sqlanvilCoreVersion;
+      workflowSettings.defaultDataset = uniqueDataset;
+      fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
+      fs.writeFileSync(
+        path.join(projectDir, "package.json"),
+        `{ "dependencies": { "@sqlanvil/core": "${version}" } }`,
+      );
+      await getProcessResult(
+        execFile(npmPath, [
+          "install",
+          "--prefix",
+          projectDir,
+          "--cache",
+          npmCacheDir,
+          corePackageTarPath,
+        ]),
+      );
+      writeDefinition("example_table.sqlx", `config { type: "table" }\nSELECT 1 AS id\n`);
+      writeDefinition(
+        "teardown_schema.sqlx",
+        `config { type: "operations" }
+DROP SCHEMA IF EXISTS \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.projectConfig.defaultSchema}\` CASCADE
+`,
+      );
+    });
+
+    after("drop the test dataset", async () => {
+      if (projectDir) {
+        await runCli(["--credentials", CREDENTIALS_PATH, "--actions=teardown_schema"]);
+      }
+    });
+
+    test("run --dry-run --json outputs a RunResult", { timeout: 120000 }, async () => {
+      const result = await runCli([
+        "--credentials",
+        CREDENTIALS_PATH,
+        "--dry-run",
+        "--json",
+        "--actions=example_table",
+      ]);
+
+      expect(result.exitCode, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`).equals(0);
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.status).equals(sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL);
+      expect(parsed.actions).to.have.lengthOf(1);
+      expect(parsed.actions[0].target).deep.equals({
+        database: DEFAULT_DATABASE,
+        schema: uniqueDataset,
+        name: "example_table",
+      });
+      expect(parsed.actions[0].status).equals(sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL);
+      expect(parsed.actions[0].tasks).to.have.lengthOf(1);
+      expect(parsed.actions[0].tasks[0].status).equals(
+        sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL,
+      );
+    });
+
+    test("run --json executes actions and outputs a RunResult", { timeout: 120000 }, async () => {
+      const result = await runCli([
+        "--credentials",
+        CREDENTIALS_PATH,
+        "--json",
+        "--actions=example_table",
+      ]);
+
+      expect(result.exitCode, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`).equals(0);
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.status).equals(sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL);
+      expect(parsed.actions).to.have.lengthOf(1);
+      expect(parsed.actions[0].status).equals(sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL);
+      expect(parsed.actions[0].tasks[0].metadata?.bigquery?.jobId)
+        .to.be.a("string")
+        .and.not.equal("");
+    });
+
+    test(
+      "run --build-only without --json prints the warehouse state",
+      { timeout: 120000 },
+      async () => {
+        writeDefinition("new_table.sqlx", `config { type: "table" }\nSELECT 1 AS id\n`);
+        // Create example_table as a table, then make it a view locally.
+        const created = await runCli([
+          "--credentials",
+          CREDENTIALS_PATH,
+          "--actions=example_table",
+        ]);
+        expect(created.exitCode, created.stderr).equals(0);
+        writeDefinition("example_table.sqlx", `config { type: "view" }\nSELECT 1 AS id\n`);
+
+        const result = await runCli([
+          "--credentials",
+          CREDENTIALS_PATH,
+          "--build-only",
+          "--actions=example_table,new_table",
+        ]);
+
+        expect(result.exitCode, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`).equals(0);
+        expect(result.stdout).to.include("2 dataset(s):");
+        expect(result.stdout).to.match(
+          new RegExp(
+            `${uniqueDataset}\\.example_table.*\\[view\\] \\(type: table -> view, last modified: \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2} UTC\\)`,
+          ),
+        );
+        expect(result.stdout).to.match(
+          new RegExp(`${uniqueDataset}\\.new_table.*\\[table\\] \\(does not exist\\)`),
+        );
+      },
+    );
+
+    test("run --build-only notes that --dry-run and --run-tests are ignored", async () => {
+      const result = await runCli([
+        "--credentials",
+        CREDENTIALS_PATH,
+        "--build-only",
+        "--dry-run",
+        "--run-tests",
+        "--json",
+        "--actions=example_table",
+      ]);
+
+      expect(result.exitCode, result.stderr).equals(0);
+      expect(JSON.parse(result.stdout).actions).to.have.lengthOf(1);
+      expect(result.stderr).to.include("--dry-run is ignored because --build-only is set");
+      expect(result.stderr).to.include("--run-tests is ignored because --build-only is set");
+    });
+
+    test("run --json with no matching actions outputs an empty RunResult", async () => {
+      const result = await runCli([
+        "--credentials",
+        CREDENTIALS_PATH,
+        "--json",
+        "--actions=nonexistent_action",
+      ]);
+
+      expect(result.exitCode, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`).equals(0);
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.status).equals(sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL);
+      expect(parsed.actions).deep.equals([]);
+    });
+
+    test(
+      "run --dry-run --json --run-tests keeps stdout valid JSON when tests pass",
+      { timeout: 120000 },
+      async () => {
+        writeDefinition(
+          "passing_test.sqlx",
+          `config { type: "test", dataset: "example_table" }\nSELECT 1 AS id\n`,
+        );
+
+        const result = await runCli([
+          "--credentials",
+          CREDENTIALS_PATH,
+          "--dry-run",
+          "--json",
+          "--run-tests",
+          "--actions=example_table",
+        ]);
+
+        expect(result.exitCode, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`).equals(0);
+        const parsed = JSON.parse(result.stdout);
+        expect(parsed.status).equals(sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL);
+        expect(parsed.actions).to.have.lengthOf(1);
+      },
+    );
+
+    test(
+      "run --dry-run --json --run-tests writes failed test details to stderr only",
+      { timeout: 120000 },
+      async () => {
+        writeDefinition(
+          "failing_test.sqlx",
+          `config { type: "test", dataset: "example_table" }\nSELECT 2 AS id\n`,
+        );
+
+        const result = await runCli([
+          "--credentials",
+          CREDENTIALS_PATH,
+          "--dry-run",
+          "--json",
+          "--run-tests",
+          "--actions=example_table",
+        ]);
+
+        expect(result.exitCode).equals(1);
+        expect(result.stdout).equals("");
+        expect(result.stderr).to.include("failing_test: failed");
+        expect(result.stderr).to.include("Unit tests did not pass; aborting run.");
+      },
+    );
+
+    test(
+      "warns when SET @@dataset_id is used and no location is configured",
+      { timeout: 120000 },
+      async () => {
+        const workflowSettingsPath = path.join(projectDir, "workflow_settings.yaml");
+        const workflowSettings = sqlanvil.WorkflowSettings.create(
+          loadYaml(fs.readFileSync(workflowSettingsPath, "utf8")),
+        );
+        delete workflowSettings.defaultLocation;
+        fs.writeFileSync(workflowSettingsPath, dumpYaml(workflowSettings));
+        const credentialsWithoutLocation = path.join(projectDir, ".df-credentials.json");
+        const { location, ...rest } = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, "utf8"));
+        fs.writeFileSync(credentialsWithoutLocation, JSON.stringify(rest));
+        writeDefinition(
+          "sets_dataset.sqlx",
+          `config { type: "operations" }\nSET @@dataset_id = 'sqlanvil';\nSELECT 1 AS id\n`,
+        );
+
+        const result = await runCli([
+          "--credentials",
+          credentialsWithoutLocation,
+          "--dry-run",
+          "--actions=sets_dataset",
+        ]);
+
+        expect(result.exitCode, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`).equals(0);
+        expect(result.stderr).to.include(
+          "Warning: SET @@dataset_id is used without a configured location.",
+        );
+        expect(result.stderr, JSON.stringify(result.stderr)).to.include(
+          `Affected actions: ${DEFAULT_DATABASE}.${uniqueDataset}.sets_dataset`,
+        );
       },
     );
   });

@@ -26,7 +26,7 @@ suite("help command", () => {
     expect(output).to.include("Create a new sqlanvil project");
     expect(output).to.include("--iceberg");
     expect(output).to.include(
-      "Initialize the project with workflow-level Iceberg tables configuration.",
+      "BigQuery only. Prompts for a workflow-level BigQuery Iceberg table configuration.",
     );
   });
 
@@ -46,12 +46,10 @@ suite("help command", () => {
     );
     expect(result.exitCode).equals(0);
     const output = result.stdout;
-    expect(output).to.include(
-      "Create a .df-credentials.json file for sqlanvil to use when accessing BigQuery.",
-    );
+    expect(output).to.include("BigQuery only. Create a .df-credentials.json file interactively.");
     expect(output).to.include("[project-dir]");
     expect(output).to.include("--test-connection");
-    expect(output).to.include("If true, a test query will be run using your final credentials.");
+    expect(output).to.include("Run SELECT 1 with the new credentials before writing them.");
   });
 
   test("shows help for 'compile' command", async () => {
@@ -60,7 +58,7 @@ suite("help command", () => {
     );
     expect(result.exitCode).equals(0);
     const output = result.stdout;
-    expect(output).to.include("Compile the sqlanvil project.");
+    expect(output).to.include("Compile the project and print a summary of the graph");
     expect(output).to.include("--watch");
     expect(output).to.include("--json");
     expect(output).to.include("--quiet");
@@ -69,7 +67,7 @@ suite("help command", () => {
     expect(output).to.include("--include-deps");
     expect(output).to.include("--include-dependents");
     // Compile-specific wording: filters output rather than executing actions.
-    expect(output).to.include("include in the output");
+    expect(output).to.include("in the printed graph");
   });
 
   test("shows help for 'test' command", async () => {
@@ -88,7 +86,8 @@ suite("help command", () => {
     const result = await getProcessResult(execFile(nodePath, [cliEntryPointPath, "help", "run"]));
     expect(result.exitCode).equals(0);
     const output = result.stdout;
-    expect(output).to.include("Run the sqlanvil project.");
+    expect(output).to.include("Compile the project and run it against the warehouse");
+    expect(output).to.include("--build-only");
     expect(output).to.include("--dry-run");
     expect(output).to.include("--run-tests");
     expect(output).to.include("--action-retry-limit");
@@ -109,11 +108,12 @@ suite("help command", () => {
     );
     expect(result.exitCode).equals(0);
     const output = result.stdout;
-    expect(output).to.include("Format the sqlanvil project's files.");
+    expect(output).to.include("Format the project's .sqlx and .js files in place.");
     expect(output).to.include("--check");
-    expect(output).to.include("Check if files are formatted correctly without modifying them.");
+    expect(output).to.include("Change nothing; exit 1 if any file would be reformatted.");
     expect(output).to.include("--actions");
     expect(output).to.include("--ignore-js-files");
-    expect(output).to.include("the formatter will not consider javascript files (.js)");
+    expect(output).to.include("File globs to format, relative to the project directory");
+    expect(output).to.include("Skip .js files");
   });
 });

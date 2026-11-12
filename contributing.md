@@ -112,6 +112,23 @@ bazel test //tests/integration:postgres
   over the files your branch changed; `./scripts/format` rewrites those files with prettier.
 - Run `bazel build //...` and `bazel test //...` before submitting a PR
 
+### Changing CLI commands or flags
+
+The command table, usage lines and argument/flag tables in [`cli/README.md`](cli/README.md) are
+generated from the command and option definitions in `cli/` (e.g. a flag's `describe`), between
+`<!-- BEGIN GENERATED: ... -->` and `<!-- END GENERATED: ... -->` markers. If you add, remove or
+change a command, positional argument or flag:
+
+1. Change the definition in `cli/`, not the generated blocks in the README (they are overwritten).
+2. Regenerate: `bazel run //cli:update_readme`. This also copies the README body to the
+   sqlanvil.com mirror (`../sqlanvil-com/src/content/docs/docs/reference/cli.md`) when that
+   checkout sits next to this one. Commit the mirror in sqlanvil-com.
+3. Update the hand-written parts of the README (command descriptions, notes, examples) if needed.
+
+Descriptions are shown both in `sqlanvil help` and in the README, so keep them plain text (no
+markdown) and put longer explanations in the README prose. `bazel test //cli:readme_generated_test`
+fails when the README is out of date.
+
 ## Package names
 
 All packages are scoped under `@sqlanvil/`:

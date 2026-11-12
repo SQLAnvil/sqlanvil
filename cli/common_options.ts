@@ -66,13 +66,18 @@ export const projectDirMustExistOption: INamedOption<yargs.PositionalOptions, "p
 };
 
 export const actionsOption: INamedOption<yargs.Options, "actions"> = option("actions", {
-  describe: "A list of action names or patterns to run. Can include '*' wildcards.",
+  describe:
+    "Action names or patterns to select, space- or comma-separated. A bare name matches the " +
+    "unqualified name (and errors if it's ambiguous), a qualified schema.name matches exactly, " +
+    "and * wildcards are allowed.",
   type: "array",
   coerce: (rawActions: string[] | null) => rawActions.map((actions) => actions.split(",")).flat(),
 });
 
 export const tagsOption: INamedOption<yargs.Options, "tags"> = option("tags", {
-  describe: "A list of tags to filter the actions to run.",
+  describe:
+    "Select every action carrying any of these tags, space- or comma-separated. Combines with " +
+    "--actions as a union.",
   type: "array",
   coerce: (rawTags: string[] | null) => rawTags.map((tags) => tags.split(",")).flat(),
 });
@@ -80,7 +85,9 @@ export const tagsOption: INamedOption<yargs.Options, "tags"> = option("tags", {
 export const includeDepsOption: INamedOption<yargs.Options, "include-deps"> = option(
   "include-deps",
   {
-    describe: "If set, dependencies for selected actions will also be run.",
+    describe:
+      "Also select everything the selected actions depend on, transitively. Requires --actions " +
+      "or --tags.",
     type: "boolean",
   },
   // It would be nice to use yargs' "implies" to implement this, but it doesn't work for some reason.
@@ -96,7 +103,9 @@ export const includeDepsOption: INamedOption<yargs.Options, "include-deps"> = op
 export const includeDependentsOption: INamedOption<yargs.Options, "include-dependents"> = option(
   "include-dependents",
   {
-    describe: "If set, dependents (downstream) for selected actions will also be run.",
+    describe:
+      "Also select everything downstream of the selected actions, transitively. Requires " +
+      "--actions or --tags.",
     type: "boolean",
   },
   // It would be nice to use yargs' "implies" to implement this, but it doesn't work for some reason.
@@ -115,7 +124,10 @@ export const includeDependentsOption: INamedOption<yargs.Options, "include-depen
 export const credentialsOption: INamedOption<yargs.Options, "credentials"> = option(
   "credentials",
   {
-    describe: "The location of the credentials JSON file to use.",
+    describe:
+      "Path to the credentials file, relative to the project directory. An explicit " +
+      "--credentials beats the environment's credentials:, which beats the default.",
+    type: "string",
     default: CREDENTIALS_FILENAME,
   },
   (argv: { "project-dir": string; credentials: string }) => {
@@ -124,13 +136,13 @@ export const credentialsOption: INamedOption<yargs.Options, "credentials"> = opt
 );
 
 export const jsonOutputOption: INamedOption<yargs.Options, "json"> = option("json", {
-  describe: "Outputs a JSON representation of the compiled project or test results.",
+  describe: "Outputs the result as JSON instead of human-readable text.",
   type: "boolean",
   default: false,
 });
 
 export const timeoutOption: INamedOption<yargs.Options, "timeout"> = option("timeout", {
-  describe: "Duration to allow project compilation to complete. Examples: '1s', '10m', etc.",
+  describe: "Maximum compilation time, e.g. '30s' or '10m'.",
   type: "string",
   default: null,
   coerce: (rawTimeoutString: string | null) =>
@@ -142,14 +154,14 @@ export const timeoutOption: INamedOption<yargs.Options, "timeout"> = option("tim
 // undeclared `artifacts` and reject it in strict mode ("Unknown argument: artifacts").
 export const artifactsOption: INamedOption<yargs.Options, "artifacts"> = option("artifacts", {
   describe:
-    "Write the queryable Parquet artifacts under target/ (catalog on compile; run history on " +
-    "run). Pass --no-artifacts to skip them.",
+    "Write the queryable Parquet artifacts under target/ (the catalog on compile, run history " +
+    "on run). --no-artifacts skips them.",
   type: "boolean",
   default: true,
 });
 
 export const quietCompileOption: INamedOption<yargs.Options, "quiet"> = option("quiet", {
-  describe: "Less verbose compilation output. Example usage: 'sqlanvil compile --quiet'",
+  describe: "Less verbose output. Mutually exclusive with --verbose.",
   type: "boolean",
   default: false,
 });

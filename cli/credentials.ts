@@ -1,6 +1,6 @@
 import * as fs from "fs";
 
-import { question, selectionQuestion } from "sa/cli/console";
+import { printWarning, question, selectionQuestion } from "sa/cli/console";
 import { actuallyResolve } from "sa/cli/util";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -16,11 +16,22 @@ export function getBigQueryCredentials(
     "US (default)",
     "EU",
     "other",
+    "auto (BigQuery infers each job's location; new datasets are created in US)",
   ]);
-  let location = locationIndex === 0 ? "US" : "EU";
-  if (locationIndex === 2) {
-    location = prompts.question("Enter the location's region name (e.g. 'asia-south1'):");
+  let location: string | undefined;
+  if (locationIndex === 0) {
+    location = "US";
+  } else if (locationIndex === 1) {
+    location = "EU";
+  } else if (locationIndex === 2) {
+    location =
+      prompts.question("Enter the location's region name (e.g. 'asia-south1'):").trim() ||
+      undefined;
+    if (!location) {
+      printWarning("Note: no region name given; leaving the location unset (auto).");
+    }
   }
+  // "auto" leaves the location unset.
   const isApplicationDefaultOrJSONKeyIndex = prompts.selectionQuestion(
     "Do you wish to use Application Default Credentials or JSON Key:",
     ["ADC (default)", "JSON Key"],

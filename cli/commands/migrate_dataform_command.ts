@@ -5,9 +5,10 @@ import { ICommand, option, positionalOption } from "sa/cli/yargswrapper";
 
 const targetWarehouseOption = option("target-warehouse", {
   describe:
-    "Where the CONVERTED project runs: supabase/postgres = move off BigQuery (sources become " +
-    "named connections, SQL gets the dialect pass); bigquery = keep the SAME warehouse — a " +
-    "tooling swap with SQL and bigquery:{} blocks untouched.",
+    "Where the converted project runs. supabase or postgres moves the warehouse: BigQuery " +
+    "sources become named connections and the SQL gets safe dialect rewrites plus inline " +
+    "SQLANVIL-MIGRATE markers. bigquery is a tooling swap: the project keeps running on " +
+    "BigQuery with its SQL and bigquery: {} blocks untouched.",
   type: "string",
   choices: ["supabase", "postgres", "bigquery"],
   default: "supabase",
@@ -16,12 +17,8 @@ const targetWarehouseOption = option("target-warehouse", {
 export const migrateDataformCommand: ICommand = {
   format: "migrate-dataform <source-dir> <out-dir>",
   description:
-    "Convert a Dataform/BigQuery project to sqlanvil. The source directory is READ-ONLY; " +
-    "the converted project + migration-report.{md,json} land in <out-dir> (must be empty). " +
-    "Default target (supabase/postgres) MOVES the warehouse: sources stay in BigQuery as " +
-    "named connections and target SQL gets safe rewrites + inline SQLANVIL-MIGRATE markers. " +
-    "--target-warehouse bigquery is a TOOLING SWAP: the project keeps running on the same " +
-    "BigQuery warehouse, SQL and bigquery:{} blocks untouched.",
+    "Convert a Dataform project to sqlanvil. The source directory is never modified; the " +
+    "converted project and its migration report are written to out-dir, which must be empty.",
   positionalOptions: [
     positionalOption("source-dir", {
       describe: "The Dataform project to convert (never modified).",

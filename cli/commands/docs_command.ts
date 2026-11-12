@@ -27,8 +27,8 @@ async function runDocs(projectDir: string): Promise<number> {
 export const docsCommand: ICommand = {
   format: `docs [${projectDirOption.name}]`,
   description:
-    "Generate a self-contained HTML catalog of the project (models, columns, dependencies, " +
-    "last-run status) at target/docs/index.html, from the artifacts.",
+    "Generate a self-contained HTML catalog of the project at target/docs/index.html, from " +
+    "the artifacts.",
   positionalOptions: [projectDirOption],
   options: [],
   processFn: async (argv: any) => runDocs(argv[projectDirOption.name]),

@@ -170,6 +170,31 @@ suite("init --interactive", ({ afterEach }) => {
     expect(zipCodes).contains('database: "bigquery-public-data"');
   });
 
+  test("fresh bigquery project with no location leaves location unset", async () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    const testInputs = {
+      [withDefault(INIT_MODE_QUESTION, "fresh")]: "fresh",
+      [withDefault(INIT_WAREHOUSE_QUESTION, "supabase")]: "bigquery",
+      [withDefault(INIT_PROJECT_DIR_QUESTION, projectDir)]: "",
+      [INIT_BQ_PROJECT_QUESTION]: "my-gcp-project",
+      [INIT_BQ_LOCATION_QUESTION]: "",
+      [withDefault(INIT_DEFAULT_SCHEMA_QUESTION, "sqlanvil")]: "",
+      [withDefault(INIT_INCLUDE_SAMPLE_QUESTION, "y")]: "n",
+      [withDefault(BQ_AUTH_QUESTION, "adc")]: "later",
+    };
+
+    const result = await runInteractiveInit(projectDir, testInputs);
+    expect(result.exitCode).equals(0);
+
+    const settings = readSettings(projectDir);
+    expect(settings.defaultProject).equals("my-gcp-project");
+    expect(settings).to.not.have.property("defaultLocation");
+    const creds = JSON.parse(
+      fs.readFileSync(path.join(projectDir, ".df-credentials.json"), "utf8"),
+    );
+    expect(creds).deep.equals({ projectId: "my-gcp-project" });
+  });
+
   test("convert flow runs the Dataform converter and leaves the source untouched", async () => {
     const srcDir = tmpDirFixture.createNewTmpDir();
     const outDir = tmpDirFixture.createNewTmpDir();

@@ -50,6 +50,28 @@ defaultAssertionDataset: sqlanvil_assertions
 `);
   });
 
+  test("workflow_settings.yaml generated from a BigQuery init without a location", async () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+
+    const result = await getProcessResult(
+      execFile(nodePath, [
+        cliEntryPointPath,
+        "init",
+        projectDir,
+        "--warehouse=bigquery",
+        "--default-database=sqlanvil-database",
+      ]),
+    );
+
+    expect(result.exitCode).equals(0);
+    expect(fs.readFileSync(path.join(projectDir, "workflow_settings.yaml"), "utf8")).to
+      .equal(`sqlanvilCoreVersion: ${version}
+defaultProject: sqlanvil-database
+defaultDataset: sqlanvil
+defaultAssertionDataset: sqlanvil_assertions
+`);
+  });
+
   suite("with --iceberg", () => {
     test("init with --iceberg sets defaultIcebergConfig with all fields", async () => {
       const projectDir = tmpDirFixture.createNewTmpDir();

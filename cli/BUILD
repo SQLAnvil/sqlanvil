@@ -1,3 +1,4 @@
+load("@aspect_rules_js//js:defs.bzl", "js_binary")
 load("//testing:index.bzl", "ts_test_suite")
 load("//tools:ts_library.bzl", "ts_library")
 
@@ -38,6 +39,7 @@ ts_library(
     ],
     deps = [
         "//cli/api",
+        "//cli/api/utils",
         "//cli/vm",
         "//core",
         "//protos:ts",
@@ -77,6 +79,7 @@ ts_library(
 ts_test_suite(
     name = "tests",
     srcs = [
+        "console_test.ts",
         "credentials_test.ts",
         "index_help_test.ts",
         "index_init_test.ts",
@@ -112,6 +115,55 @@ ts_test_suite(
         "//:node_modules/chai",
         "//:node_modules/fs-extra",
         "//:node_modules/js-yaml",
+        "//:node_modules/long",
         "//:node_modules/ts-mockito",
+    ],
+)
+
+# Generates the parts of README.md derived from the CLI command definitions (upstream #2419). Kept
+# separate from :cli so that the generator isn't bundled into @sqlanvil/cli.
+ts_library(
+    name = "readme_generator",
+    srcs = [
+        "readme_generator.ts",
+        "update_readme.ts",
+    ],
+    deps = [
+        ":cli",
+        "//:node_modules/@types/node",
+        "//:node_modules/@types/yargs",
+    ],
+)
+
+# Regenerates the generated blocks of README.md (and the sqlanvil.com mirror, when the sibling
+# sqlanvil-com checkout exists): bazel run //cli:update_readme
+js_binary(
+    name = "update_readme",
+    data = [
+        ":readme_generator",
+        "//:node_modules/source-map-support",
+        "//testing:resolver-patch",
+    ],
+    entry_point = ":update_readme.js",
+    node_options = [
+        "--require=./testing/resolver-patch.js",
+        "--require=source-map-support/register",
+    ],
+)
+
+ts_test_suite(
+    name = "readme_tests",
+    srcs = [
+        "readme_generated_test.ts",
+        "readme_generator_test.ts",
+    ],
+    data = ["README.md"],
+    deps = [
+        ":cli",
+        ":readme_generator",
+        "//testing",
+        "//:node_modules/@types/chai",
+        "//:node_modules/@types/node",
+        "//:node_modules/chai",
     ],
 )

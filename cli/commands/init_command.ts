@@ -18,13 +18,13 @@ interface InitArgv {
 }
 
 const icebergOption = option("iceberg", {
-  describe: "Initialize the project with workflow-level Iceberg tables configuration.",
+  describe: "BigQuery only. Prompts for a workflow-level BigQuery Iceberg table configuration.",
   type: "boolean",
   default: false,
 });
 
 const bareOption = option("bare", {
-  describe: "Skip the sample project files — scaffold bare (gitkept) directories only.",
+  describe: "Skip the sample files; create empty (gitkept) directories only.",
   type: "boolean",
   default: false,
 });
@@ -33,13 +33,13 @@ const interactiveOption = option("interactive", {
   describe:
     "Guided Q&A setup: start a fresh project (warehouse, sample project, credentials) or " +
     "convert an existing Dataform project. Other init arguments are ignored except " +
-    "[project-dir], which seeds the directory prompt.",
+    "project-dir, which seeds the directory prompt.",
   type: "boolean",
   default: false,
 });
 
 const warehouseOption = option("warehouse", {
-  describe: "Target warehouse for the new project.",
+  describe: "Target warehouse for the new project: bigquery, postgres, supabase or mysql.",
   type: "string",
   choices: ["bigquery", "postgres", "supabase", "mysql"],
   default: "supabase",
@@ -57,7 +57,9 @@ export const initCommand: ICommand = {
     positionalOption(
       ProjectConfigOptions.defaultDatabase.name,
       {
-        describe: "The default database to use, equivalent to Google Cloud Project ID.",
+        describe:
+          "BigQuery: the Google Cloud project ID models build in. Required for BigQuery; ignored " +
+          "for the other warehouses.",
       },
       (argv: InitArgv) => {
         const warehouse = argv[warehouseOption.name] || "bigquery";
@@ -73,27 +75,13 @@ export const initCommand: ICommand = {
         }
       },
     ),
-    positionalOption(
-      ProjectConfigOptions.defaultLocation.name,
-      {
-        describe:
-          "The default location to use. See " +
-          "https://cloud.google.com/bigquery/docs/locations for supported values.",
-      },
-      (argv: InitArgv) => {
-        const warehouse = argv[warehouseOption.name] || "bigquery";
-        if (
-          warehouse === "bigquery" &&
-          !argv[interactiveOption.name] &&
-          !argv[ProjectConfigOptions.defaultLocation.name]
-        ) {
-          throw new Error(
-            `The ${ProjectConfigOptions.defaultLocation.name} positional argument is ` +
-              `required for BigQuery projects. Use "sqlanvil help init" for more info.`,
-          );
-        }
-      },
-    ),
+    positionalOption(ProjectConfigOptions.defaultLocation.name, {
+      describe:
+        "BigQuery only, optional, e.g. US or europe-west2. If omitted, defaultLocation is not " +
+        "written to workflow_settings.yaml and the credentials file's location is used; if that " +
+        "is also unset, BigQuery infers each job's location from the tables it reads, and new " +
+        "datasets are created in US.",
+    }),
   ],
   options: [warehouseOption, icebergOption, bareOption, interactiveOption],
   processFn: async (argv: InitArgv) => {

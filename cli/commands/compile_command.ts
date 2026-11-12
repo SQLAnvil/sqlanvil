@@ -51,20 +51,24 @@ const compileActionsOption = {
   option: {
     ...actionsOption.option,
     describe:
-      "A list of action names or patterns to include in the output. Can include '*' wildcards.",
+      "Show only these actions in the printed graph (space- or comma-separated names or " +
+      "patterns, * wildcards allowed). The whole project is still compiled, so ref()s resolve.",
   },
 };
 
 const compileTagsOption = {
   ...tagsOption,
-  option: { ...tagsOption.option, describe: "A list of tags to filter the output to." },
+  option: {
+    ...tagsOption.option,
+    describe: "Show only actions carrying any of these tags in the printed graph.",
+  },
 };
 
 const compileIncludeDepsOption = {
   ...includeDepsOption,
   option: {
     ...includeDepsOption.option,
-    describe: "If set, dependencies of selected actions are also included in the output.",
+    describe: "Also show everything the selected actions depend on, transitively.",
   },
 };
 
@@ -72,15 +76,14 @@ const compileIncludeDependentsOption = {
   ...includeDependentsOption,
   option: {
     ...includeDependentsOption.option,
-    describe:
-      "If set, dependents (downstream) of selected actions are also included in the output.",
+    describe: "Also show everything downstream of the selected actions, transitively.",
   },
 };
 
 const dotOutputOption = option(
   "dot",
   {
-    describe: "Outputs a dot representation of the compiled project.",
+    describe: "Print the dependency graph in Graphviz dot format. Mutually exclusive with --json.",
     type: "boolean",
     default: false,
   },
@@ -97,11 +100,12 @@ const verboseOptionName = "verbose";
 export const compileCommand: ICommand = {
   format: `compile [${projectDirMustExistOption.name}]`,
   description:
-    "Compile the sqlanvil project. Produces JSON output describing the non-executable graph.",
+    "Compile the project and print a summary of the graph (the full compiled graph with " +
+    "--json). Never connects to a warehouse.",
   positionalOptions: [projectDirMustExistOption],
   options: [
     option(watchOptionName, {
-      describe: "Whether to watch the changes in the project directory.",
+      describe: "Recompile whenever a file in the project changes (ignores node_modules).",
       type: "boolean",
       default: false,
     }),
@@ -117,7 +121,7 @@ export const compileCommand: ICommand = {
     option(
       verboseOptionName,
       {
-        describe: "Enable verbose compilation output. Example usage: 'sqlanvil compile --verbose'",
+        describe: "More verbose output.",
         type: "boolean",
         default: false,
       },

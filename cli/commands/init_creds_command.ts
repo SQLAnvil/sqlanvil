@@ -18,13 +18,12 @@ const testConnectionOptionName = "test-connection";
 
 export const initCredsCommand: ICommand = {
   format: `init-creds [${projectDirMustExistOption.name}]`,
-  description:
-    `Create a ${credentials.CREDENTIALS_FILENAME} file for sqlanvil to use when ` +
-    `accessing BigQuery.`,
+  description: `BigQuery only. Create a ${credentials.CREDENTIALS_FILENAME} file interactively.`,
   positionalOptions: [projectDirMustExistOption],
   options: [
     option(testConnectionOptionName, {
-      describe: "If true, a test query will be run using your final credentials.",
+      describe:
+        "Run SELECT 1 with the new credentials before writing them. --no-test-connection skips it.",
       type: "boolean",
       default: true,
     }),

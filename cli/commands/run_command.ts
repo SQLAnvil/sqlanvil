@@ -9,6 +9,7 @@ import { BigQueryDbAdapter } from "sa/cli/api/dbadapters/bigquery";
 import { MySqlDbAdapter } from "sa/cli/api/dbadapters/mysql";
 import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
 import { SupabaseDbAdapter } from "sa/cli/api/dbadapters/supabase";
+import { prettyJsonStringify } from "sa/cli/api/utils";
 import { runValidate } from "sa/cli/commands/validate_command";
 import {
   actionsOption,
@@ -35,7 +36,12 @@ import {
   printWarning,
 } from "sa/cli/console";
 import { ProjectConfigArgv, ProjectConfigOptions } from "sa/cli/project_config_options";
-import { actuallyResolve, assertPathExists, compiledGraphHasErrors } from "sa/cli/util";
+import {
+  actuallyResolve,
+  assertPathExists,
+  compiledGraphHasErrors,
+  warnAboutSetDatasetIdWithoutLocation,
+} from "sa/cli/util";
 import { ICommand, option } from "sa/cli/yargswrapper";
 import { targetAsReadableString } from "sa/core/targets";
 import { version as sqlanvilVersion } from "sa/core/version";
@@ -44,6 +50,7 @@ import { sqlanvil } from "sa/protos/ts";
 interface RunArgv extends ProjectConfigArgv {
   "project-dir": string;
   "dry-run"?: boolean;
+  "build-only"?: boolean;
   "run-tests"?: boolean;
   "action-retry-limit": number;
   actions?: string[];
@@ -64,16 +71,16 @@ interface RunArgv extends ProjectConfigArgv {
 }
 
 const fullRefreshOption = option("full-refresh", {
-  describe: "Forces incremental tables to be rebuilt from scratch.",
+  describe: "Rebuild incremental tables from scratch.",
   type: "boolean",
   default: false,
 });
 
 const graphFileOption = option("graph", {
   describe:
-    "Path to a stored compiled graph (the JSON emitted by `compile --json`). Runs it directly, " +
-    "without compiling the project — what executes is exactly what was compiled, including any " +
-    "environment overrides baked in at compile time.",
+    "Run a stored compiled graph (the output of compile --json) instead of compiling. What " +
+    "runs is exactly what was compiled, including any environment overrides baked in at " +
+    "compile time.",
   type: "string",
   coerce: (rawPath?: string) => (rawPath ? actuallyResolve(rawPath) : rawPath),
 });
@@ -81,9 +88,9 @@ const graphFileOption = option("graph", {
 // Deliberately separate from --timeout, which is and stays compile-only (upstream #2247/#2256).
 const executionTimeoutOption = option("execution-timeout", {
   describe:
-    "Wall-clock deadline for the entire run (compile + all actions). When it fires, " +
-    "in-flight actions are cancelled and pending actions are skipped. Off by default. " +
-    "Examples: '10m', '2h'.",
+    "Wall-clock deadline for the entire run (compilation plus every action), e.g. '15m'. When " +
+    "it expires, in-flight actions are cancelled, pending ones are skipped and the run fails. " +
+    "Off by default.",
   type: "string",
   default: null,
   coerce: (rawTimeoutString: string | null) =>
@@ -92,13 +99,14 @@ const executionTimeoutOption = option("execution-timeout", {
 
 const jobPrefixOption = option("job-prefix", {
   describe:
-    "BigQuery only. Adds a prefix to BigQuery job IDs, in the form `sqlanvil-${jobPrefix}-`.",
+    "BigQuery only. Prefix for BigQuery job IDs: --job-prefix nightly gives " +
+    "sqlanvil-nightly-<uuid>.",
   type: "string",
   default: null,
 });
 
 const bigqueryJobLabelsOption = option("job-labels", {
-  describe: "Comma-separated list of labels to add to BigQuery jobs, e.g. 'key1=val1,key2=val2'.",
+  describe: "BigQuery only. Labels added to every BigQuery job, e.g. team=data,pipeline=nightly.",
   type: "string",
   coerce: (raw: string | null) => {
     const labels: { [key: string]: string } = {};
@@ -113,26 +121,41 @@ const bigqueryJobLabelsOption = option("job-labels", {
   },
 });
 
+// Upstream #2418: what `run --dry-run --json` used to print (the execution graph), as its own flag.
+const buildOnlyOption = option("build-only", {
+  describe:
+    "Only builds the execution graph (what would run, and each dataset's current state in the " +
+    "warehouse) without running anything. With --json, prints the graph as JSON. --dry-run and " +
+    "--run-tests are ignored when this is set.",
+  type: "boolean",
+  default: false,
+});
+
 const dryRunOptionName = "dry-run";
 const runTestsOptionName = "run-tests";
 const actionRetryLimitName = "action-retry-limit";
 
 export const runCommand: ICommand = {
   format: `run [${projectDirMustExistOption.name}]`,
-  description: "Run the sqlanvil project.",
+  description:
+    "Compile the project and run it against the warehouse named by warehouse: in " +
+    "workflow_settings.yaml.",
   positionalOptions: [projectDirMustExistOption],
   options: [
     option(dryRunOptionName, {
       describe:
-        "If set, BigQuery will validate the run SQL without applying changes to the warehouse.",
+        "Check the run without applying changes. On BigQuery this is BigQuery's server-side dry " +
+        "run; on Postgres, Supabase and MySQL it runs validate, because those warehouses have " +
+        "no native dry run.",
       type: "boolean",
     }),
+    buildOnlyOption,
     option(runTestsOptionName, {
-      describe: "If set, the project's unit tests are required to pass before running the project.",
+      describe: "Run the project's unit tests first, and abort the run if any fail.",
       type: "boolean",
     }),
     option(actionRetryLimitName, {
-      describe: "If set, idempotent actions will be retried up to the limit.",
+      describe: "Retry failed idempotent actions up to this many times.",
       type: "number",
       default: 0,
     }),
@@ -152,12 +175,17 @@ export const runCommand: ICommand = {
     ...ProjectConfigOptions.allYargsOptions,
   ],
   processFn: async (argv: RunArgv) => {
-    if (argv[jsonOutputOption.name] && !argv[dryRunOptionName]) {
-      print(
-        `For execution, the --${jsonOutputOption.name} option is only supported if the ` +
-          `--${dryRunOptionName} option is enabled`,
+    const isJsonOutput = !!argv[jsonOutputOption.name];
+    const buildOnly = !!argv[buildOnlyOption.name];
+    if (buildOnly && argv[dryRunOptionName]) {
+      printWarning(
+        `Note: --${dryRunOptionName} is ignored because --${buildOnlyOption.name} is set`,
       );
-      return;
+    }
+    if (buildOnly && argv[runTestsOptionName]) {
+      printWarning(
+        `Note: --${runTestsOptionName} is ignored because --${buildOnlyOption.name} is set`,
+      );
     }
     const graphPath = argv[graphFileOption.name];
     let compiledGraph: sqlanvil.CompiledGraph;
@@ -185,7 +213,7 @@ export const runCommand: ICommand = {
       const graphCore = compiledGraph.sqlanvilCoreVersion;
       const majorMinor = (v: string) => v.split(".").slice(0, 2).join(".");
       if (graphCore && majorMinor(graphCore) !== majorMinor(sqlanvilVersion)) {
-        print(
+        printWarning(
           `WARNING: graph was compiled by core ${graphCore}; this CLI is ${sqlanvilVersion}. ` +
             `Recompile the graph if the run misbehaves.\n`,
         );
@@ -220,7 +248,7 @@ export const runCommand: ICommand = {
     // model in an isolated shadow namespace without executing. (BigQuery keeps its own
     // server-side dry-run below.) Delegated to the shared validate flow, which re-compiles
     // into the shadow namespace.
-    if (argv[dryRunOptionName] && warehouse.toLowerCase() !== "bigquery") {
+    if (argv[dryRunOptionName] && !buildOnly && warehouse.toLowerCase() !== "bigquery") {
       if (graphPath) {
         printError(
           `--${dryRunOptionName} on ${warehouse} validates by recompiling the project source, ` +
@@ -238,7 +266,6 @@ export const runCommand: ICommand = {
     const defaultLocation = compiledGraph.projectConfig?.defaultLocation;
     if (
       warehouse.toLowerCase() === "bigquery" &&
-      !argv[jsonOutputOption.name] &&
       defaultLocation &&
       readCredentials.location &&
       defaultLocation.toLowerCase() !== readCredentials.location.toLowerCase()
@@ -273,20 +300,34 @@ export const runCommand: ICommand = {
       dbadapter,
     );
 
-    if (argv[dryRunOptionName] && argv[jsonOutputOption.name]) {
-      printExecutionGraph(executionGraph, argv[jsonOutputOption.name]);
-      return;
+    if (buildOnly) {
+      printExecutionGraph(executionGraph, isJsonOutput);
+      return 0;
     }
 
     if (argv[runTestsOptionName]) {
-      print(`Running ${compiledGraph.tests.length} unit tests...\n`);
+      if (!isJsonOutput) {
+        print(`Running ${compiledGraph.tests.length} unit tests...\n`);
+      }
       const testResults = await test(dbadapter, compiledGraph.tests);
-      testResults.forEach((testResult) => printTestResult(testResult));
+      if (!isJsonOutput) {
+        testResults.forEach((testResult) => printTestResult(testResult));
+      } else {
+        // Keep stdout a single JSON document: failures go to stderr.
+        testResults
+          .filter((testResult) => !testResult.successful)
+          .forEach((testResult) => {
+            printError(`${testResult.name}: failed`);
+            testResult.messages?.forEach((message) => printError(message, 1));
+          });
+      }
       if (testResults.some((testResult) => !testResult.successful)) {
         printError("\nUnit tests did not pass; aborting run.");
         return 1;
       }
-      printSuccess("Unit tests completed successfully.\n");
+      if (!isJsonOutput) {
+        printSuccess("Unit tests completed successfully.\n");
+      }
     }
 
     let bigqueryOptions: {} = {
@@ -308,12 +349,21 @@ export const runCommand: ICommand = {
     });
 
     if (actionsByName.size === 0) {
-      print("No actions to run.\n");
+      if (isJsonOutput) {
+        print(
+          prettyJsonStringify({
+            status: sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL,
+            actions: [],
+          }),
+        );
+      } else {
+        print("No actions to run.\n");
+      }
       return 0;
     }
 
     // Source-connection creds for FDW-bridge user mappings. Read here (not in the
-    // --dry-run --json path above) and validated fail-fast before anything executes.
+    // --build-only path above) and validated fail-fast before anything executes.
     const connectionCredentials = credentials.readConnections(
       credentialsPathWithEnvironment(argv[projectDirOption.name], argv),
     );
@@ -327,7 +377,9 @@ export const runCommand: ICommand = {
     const isPostgresLike =
       warehouse.toLowerCase() === "postgres" || warehouse.toLowerCase() === "supabase";
 
-    if (argv[dryRunOptionName]) {
+    if (isJsonOutput) {
+      // No progress lines: stdout carries only the final RunResult.
+    } else if (argv[dryRunOptionName]) {
       print("Dry running (no changes to the warehouse will be applied)...");
     } else {
       print("Running...\n");
@@ -367,25 +419,36 @@ export const runCommand: ICommand = {
         });
     };
 
-    runner.onChange(printExecutedGraph);
+    if (!isJsonOutput) {
+      runner.onChange(printExecutedGraph);
+    }
     const runResult = await runner.result();
-    printExecutedGraph(runResult);
-    if (!argv[jsonOutputOption.name]) {
-      if (runResult.status === sqlanvil.RunResult.ExecutionStatus.TIMED_OUT) {
-        const executionTimeoutMillis = argv[executionTimeoutOption.name];
-        const suffix = executionTimeoutMillis
-          ? ` after ${executionTimeoutMillis / 1000} seconds (--execution-timeout)`
-          : "";
-        printError(`Run timed out${suffix}.`);
-      } else if (runResult.status === sqlanvil.RunResult.ExecutionStatus.CANCELLED) {
-        printError("Run cancelled.");
-      }
+    if (isJsonOutput) {
+      print(prettyJsonStringify(runResult));
+    } else {
+      printExecutedGraph(runResult);
+    }
+    if (warehouse.toLowerCase() === "bigquery") {
+      warnAboutSetDatasetIdWithoutLocation(
+        executionGraph.actions,
+        defaultLocation || readCredentials.location || undefined,
+      );
+    }
+    // stderr, so these show with --json too.
+    if (runResult.status === sqlanvil.RunResult.ExecutionStatus.TIMED_OUT) {
+      const executionTimeoutMillis = argv[executionTimeoutOption.name];
+      const suffix = executionTimeoutMillis
+        ? ` after ${executionTimeoutMillis / 1000} seconds (--execution-timeout)`
+        : "";
+      printError(`Run timed out${suffix}.`);
+    } else if (runResult.status === sqlanvil.RunResult.ExecutionStatus.CANCELLED) {
+      printError("Run cancelled.");
     }
     if (argv[artifactsOption.name] !== false) {
       await safeWriteArtifacts(compiledGraph, argv[projectDirOption.name], {
         runResult,
         runId: Date.now(),
-        warn: print,
+        warn: isJsonOutput ? (message: string) => printWarning(message) : print,
       });
     }
     return runResult.status === sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL ? 0 : 1;

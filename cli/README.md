@@ -2,7 +2,10 @@
 
 <!-- Mirror of sqlanvil-com src/content/docs/docs/reference/cli.md (published at
      https://sqlanvil.com/docs/reference/cli/). The body below this comment is identical in both
-     files (only the header differs) — change one, change the other. -->
+     files (only the header differs). The command table, usage lines and argument/flag tables
+     are generated from the CLI definitions in cli/: don't edit the generated blocks by hand.
+     Change the definitions (e.g. a flag's `describe`), then run `bazel run //cli:update_readme`,
+     which also copies this body to the sqlanvil-com mirror. -->
 
 This page documents every command and flag of the `sqlanvil` CLI. The CLI's own help is the
 authority for the version you have installed: `sqlanvil help` lists the commands and
@@ -54,116 +57,202 @@ sqlanvil <command> [positional arguments] [flags]
 
 ## Commands
 
-| Command | Purpose | Needs a warehouse |
-|---|---|---|
-| [`init`](#init) | Create a new project | no |
-| [`install`](#install) | Install the project's NPM dependencies | no |
-| [`init-creds`](#init-creds) | Create a BigQuery credentials file interactively | yes (to test) |
-| [`compile`](#compile) | Compile the project and print the graph | no |
-| [`test`](#test) | Run the project's unit tests | yes |
-| [`validate`](#validate) | Check every model's SQL against the warehouse planner without executing | yes |
-| [`run`](#run) | Run the project | yes |
-| [`query`](#query) | Run SQL over the project's artifacts | no |
-| [`inspect`](#inspect) | Summarize the artifacts and the latest run | no |
-| [`docs`](#docs) | Generate an HTML catalog of the project | no |
-| [`format`](#format) | Format `.sqlx` and `.js` files | no |
-| [`introspect`](#introspect) | Generate a declaration from a source table's schema | yes (the source) |
-| [`migrate-dataform`](#migrate-dataform) | Convert a Dataform project to sqlanvil | no |
-| [`migrate-fix`](#migrate-fix) | Finish a converted project's dialect rewrites | no |
-| `help [command]` | Show help | no |
+<!-- BEGIN GENERATED: commands -->
+| Command | Purpose |
+|---|---|
+| [`init`](#init) | Create a new sqlanvil project (BigQuery, Postgres, Supabase, or MySQL/MariaDB). Use --interactive for a guided setup, including converting a Dataform project. |
+| [`install`](#install) | Install a project's NPM dependencies. |
+| [`init-creds`](#init-creds) | BigQuery only. Create a .df-credentials.json file interactively. |
+| [`compile`](#compile) | Compile the project and print a summary of the graph (the full compiled graph with --json). Never connects to a warehouse. |
+| [`test`](#test) | Run the sqlanvil project's unit tests. |
+| [`validate`](#validate) | Check every model's SQL against the warehouse planner without running it: EXPLAIN on Postgres, Supabase and MySQL, a dry run on BigQuery. |
+| [`run`](#run) | Compile the project and run it against the warehouse named by warehouse: in workflow_settings.yaml. |
+| [`query`](#query) | Run SQL over the project's artifacts in target/ (views: actions, dependencies, columns, runs) with the bundled DuckDB. No warehouse is involved. |
+| [`inspect`](#inspect) | Summarize the artifacts: action counts by type, and the latest run's status, timing and failures. |
+| [`docs`](#docs) | Generate a self-contained HTML catalog of the project at target/docs/index.html, from the artifacts. |
+| [`format`](#format) | Format the project's .sqlx and .js files in place. |
+| [`introspect`](#introspect) | Read a source table's schema from a connection and write a declaration .sqlx with columnTypes. |
+| [`migrate-dataform`](#migrate-dataform) | Convert a Dataform project to sqlanvil. The source directory is never modified; the converted project and its migration report are written to out-dir, which must be empty. |
+| [`migrate-fix`](#migrate-fix) | Finish a converted project's dialect rewrites once its declarations have been introspected: the third phase of a migration (convert, introspect, fix). |
+| `help [command]` | Show help for every command, or for one command. |
+<!-- END GENERATED: commands -->
 
 ### `init`
 
+<!-- BEGIN GENERATED: usage init -->
 ```bash
 sqlanvil init [project-dir] [default-database] [default-location]
 ```
+<!-- END GENERATED: usage init -->
 
 Creates a new project: `workflow_settings.yaml`, `package.json`, a `.gitignore` that excludes
 `.df-credentials*.json` and `node_modules/`, and a sample project. For Postgres, Supabase and
 MySQL/MariaDB it also writes a starter `.df-credentials.json` for you to fill in.
 
-| Flag | Default | Description |
-|---|---|---|
-| `--warehouse` | `supabase` | Target warehouse: `bigquery`, `postgres`, `supabase` or `mysql`. |
-| `--interactive` | `false` | Guided setup: start a fresh project (warehouse, sample, credentials) or convert an existing Dataform project. Ignores the other arguments except `project-dir`, which seeds the directory prompt. |
-| `--bare` | `false` | Skip the sample files; create empty (gitkept) directories only. |
-| `--iceberg` | `false` | BigQuery only. Prompts for a workflow-level BigQuery Iceberg table configuration. |
+**Positional arguments**
 
-`default-database` (the Google Cloud project ID) and `default-location` (for example `US` or
-`europe-west2`) are **required for BigQuery** and ignored for the other warehouses.
+<!-- BEGIN GENERATED: positionals init -->
+| Argument | Required | Description |
+|---|---|---|
+| `project-dir` | No (default `.`) | The sqlanvil project directory. |
+| `default-database` | No | BigQuery: the Google Cloud project ID models build in. Required for BigQuery; ignored for the other warehouses. |
+| `default-location` | No | BigQuery only, optional, e.g. US or europe-west2. If omitted, defaultLocation is not written to workflow_settings.yaml and the credentials file's location is used; if that is also unset, BigQuery infers each job's location from the tables it reads, and new datasets are created in US. |
+<!-- END GENERATED: positionals init -->
+
+**Options**
+
+<!-- BEGIN GENERATED: options init -->
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--warehouse` | string | `supabase` | Target warehouse for the new project: bigquery, postgres, supabase or mysql. |
+| `--iceberg` | boolean | `false` | BigQuery only. Prompts for a workflow-level BigQuery Iceberg table configuration. |
+| `--bare` | boolean | `false` | Skip the sample files; create empty (gitkept) directories only. |
+| `--interactive` | boolean | `false` | Guided Q&amp;A setup: start a fresh project (warehouse, sample project, credentials) or convert an existing Dataform project. Other init arguments are ignored except project-dir, which seeds the directory prompt. |
+<!-- END GENERATED: options init -->
+
+On BigQuery, `default-database` (the Google Cloud project ID) is **required** and
+`default-location` is optional. The other warehouses ignore both. Without a location, BigQuery
+infers each job's location from the tables the job reads. Dataset creation can't be inferred that
+way, so new datasets are created in `US`, and scripts that use `SET @@dataset_id` with unqualified
+table names may run in `US` too (`run` warns about these). Set a location if your data lives
+anywhere else.
 
 ### `install`
 
+<!-- BEGIN GENERATED: usage install -->
 ```bash
 sqlanvil install [project-dir]
 ```
+<!-- END GENERATED: usage install -->
 
 Installs the NPM dependencies declared in the project's `package.json` (for example
 [packages](https://sqlanvil.com/docs/guides/packages/)). No flags. If compilation fails with
 `Could not find NPM dependencies`, run this first.
 
+**Positional arguments**
+
+<!-- BEGIN GENERATED: positionals install -->
+| Argument | Required | Description |
+|---|---|---|
+| `project-dir` | No (default `.`) | The sqlanvil project directory. |
+<!-- END GENERATED: positionals install -->
+
+**Options**
+
+<!-- BEGIN GENERATED: options install -->
+None.
+<!-- END GENERATED: options install -->
+
 ### `init-creds`
 
+<!-- BEGIN GENERATED: usage init-creds -->
 ```bash
 sqlanvil init-creds [project-dir]
 ```
+<!-- END GENERATED: usage init-creds -->
 
-**BigQuery only.** Asks for the dataset location, whether to use Application Default
-Credentials or a service-account JSON key, and (optional, press Enter to skip) a service account
+**BigQuery only.** Asks for the dataset location (`US`, `EU`, another region, or `auto`, which
+leaves `location` out of the file; see [`init`](#init) for what an unset location means), whether
+to use Application Default Credentials or a service-account JSON key, and (optional, press Enter to skip) a service account
 to impersonate — saved as `impersonateServiceAccount`, see [Credentials file](#credentials-file) —
 then writes `.df-credentials.json`. The connection test runs as the impersonated account, so a
 missing `roles/iam.serviceAccountTokenCreator` grant surfaces before the file is written. For
 Postgres, Supabase and MySQL, edit the template `init` wrote instead.
 
-| Flag | Default | Description |
+**Positional arguments**
+
+<!-- BEGIN GENERATED: positionals init-creds -->
+| Argument | Required | Description |
 |---|---|---|
-| `--test-connection` | `true` | Run `SELECT 1` with the new credentials before writing them. `--no-test-connection` skips it. |
+| `project-dir` | No (default `.`) | The sqlanvil project directory. |
+<!-- END GENERATED: positionals init-creds -->
+
+**Options**
+
+<!-- BEGIN GENERATED: options init-creds -->
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--test-connection` | boolean | `true` | Run SELECT 1 with the new credentials before writing them. --no-test-connection skips it. |
+<!-- END GENERATED: options init-creds -->
 
 ### `compile`
 
+<!-- BEGIN GENERATED: usage compile -->
 ```bash
 sqlanvil compile [project-dir]
 ```
+<!-- END GENERATED: usage compile -->
 
 Compiles the project and prints a summary of the resulting graph. It never connects to a
-warehouse. Exits `1` if the project has compilation errors.
+warehouse. Exits `1` if the project has compilation errors. With `--json` it prints the full
+compiled graph, which is the file `run --graph` accepts. The selection flags filter only the
+printed graph. See [Selecting actions](#selecting-actions).
 
-| Flag | Default | Description |
+**Positional arguments**
+
+<!-- BEGIN GENERATED: positionals compile -->
+| Argument | Required | Description |
 |---|---|---|
-| `--json` | `false` | Print the full compiled graph as JSON. This is the file `run --graph` accepts. |
-| `--dot` | `false` | Print the dependency graph in Graphviz dot format. Mutually exclusive with `--json`. |
-| `--watch` | `false` | Recompile whenever a file in the project changes (ignores `node_modules`). |
-| `--actions`, `--tags`, `--include-deps`, `--include-dependents` | | Filter the **printed** graph. The whole project is still compiled, so `ref()`s resolve. See [Selecting actions](#selecting-actions). |
-| `--quiet` | `false` | Less verbose output. Mutually exclusive with `--verbose`. |
-| `--verbose` | `false` | More verbose output. |
-| `--timeout` | none | Maximum time compilation may take, e.g. `30s`. |
-| `--no-artifacts` | | Don't write the catalog under `target/`. |
+| `project-dir` | No (default `.`) | The sqlanvil project directory. |
+<!-- END GENERATED: positionals compile -->
 
-Also accepts every [project-config flag](#project-config-flags).
+**Options**
+
+<!-- BEGIN GENERATED: options compile -->
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--watch` | boolean | `false` | Recompile whenever a file in the project changes (ignores node_modules). |
+| `--json` | boolean | `false` | Outputs the result as JSON instead of human-readable text. |
+| `--dot` | boolean | `false` | Print the dependency graph in Graphviz dot format. Mutually exclusive with --json. |
+| `--timeout` | string | — | Maximum compilation time, e.g. '30s' or '10m'. |
+| `--quiet` | boolean | `false` | Less verbose output. Mutually exclusive with --verbose. |
+| `--actions` | array | — | Show only these actions in the printed graph (space- or comma-separated names or patterns, \* wildcards allowed). The whole project is still compiled, so ref()s resolve. |
+| `--tags` | array | — | Show only actions carrying any of these tags in the printed graph. |
+| `--include-deps` | boolean | — | Also show everything the selected actions depend on, transitively. |
+| `--include-dependents` | boolean | — | Also show everything downstream of the selected actions, transitively. |
+| `--artifacts` | boolean | `true` | Write the queryable Parquet artifacts under target/ (the catalog on compile, run history on run). --no-artifacts skips them. |
+| `--verbose` | boolean | `false` | More verbose output. |
+| Project-config overrides | — | — | See [Project-config flags](#project-config-flags). |
+<!-- END GENERATED: options compile -->
 
 ### `test`
 
+<!-- BEGIN GENERATED: usage test -->
 ```bash
 sqlanvil test [project-dir]
 ```
+<!-- END GENERATED: usage test -->
 
 Compiles the project and runs its [unit tests](https://sqlanvil.com/docs/reference/test/) (actions
 of `type: "test"`) against the warehouse. Exits `1` if any test fails, or if the project has no
 unit tests.
 
-| Flag | Default | Description |
-|---|---|---|
-| `--credentials` | `.df-credentials.json` | Credentials file. See [Other shared flags](#other-shared-flags). |
-| `--json` | `false` | Print the test results as JSON. |
-| `--timeout` | none | Maximum compilation time. |
+**Positional arguments**
 
-Also accepts every [project-config flag](#project-config-flags).
+<!-- BEGIN GENERATED: positionals test -->
+| Argument | Required | Description |
+|---|---|---|
+| `project-dir` | No (default `.`) | The sqlanvil project directory. |
+<!-- END GENERATED: positionals test -->
+
+**Options**
+
+<!-- BEGIN GENERATED: options test -->
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--credentials` | string | `.df-credentials.json` | Path to the credentials file, relative to the project directory. An explicit --credentials beats the environment's credentials:, which beats the default. |
+| `--timeout` | string | — | Maximum compilation time, e.g. '30s' or '10m'. |
+| `--json` | boolean | `false` | Outputs the result as JSON instead of human-readable text. |
+| Project-config overrides | — | — | See [Project-config flags](#project-config-flags). |
+<!-- END GENERATED: options test -->
 
 ### `validate`
 
+<!-- BEGIN GENERATED: usage validate -->
 ```bash
 sqlanvil validate [project-dir]
 ```
+<!-- END GENERATED: usage validate -->
 
 Checks every model's SQL against the warehouse's own planner without running it. On Postgres,
 Supabase and MySQL that means `EXPLAIN`; on BigQuery it means a dry run. `validate` compiles into a
@@ -180,42 +269,90 @@ Each action reports one of:
 
 Exits `1` on any `FAIL` or `BLOCK`. See the [Validate guide](https://sqlanvil.com/docs/guides/validate/).
 
-| Flag | Default | Description |
-|---|---|---|
-| `--actions`, `--tags`, `--include-deps`, `--include-dependents` | | Validate only the selected actions. See [Selecting actions](#selecting-actions). |
-| `--credentials` | `.df-credentials.json` | Credentials file. |
-| `--json` | `false` | Print the per-action results as JSON. |
-| `--keep-shadow` | `false` | Leave the shadow schemas in place for debugging. |
-| `--timeout` | none | Maximum compilation time. |
+**Positional arguments**
 
-Also accepts every [project-config flag](#project-config-flags).
+<!-- BEGIN GENERATED: positionals validate -->
+| Argument | Required | Description |
+|---|---|---|
+| `project-dir` | No (default `.`) | The sqlanvil project directory. |
+<!-- END GENERATED: positionals validate -->
+
+**Options**
+
+<!-- BEGIN GENERATED: options validate -->
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--actions` | array | — | Action names or patterns to select, space- or comma-separated. A bare name matches the unqualified name (and errors if it's ambiguous), a qualified schema.name matches exactly, and \* wildcards are allowed. |
+| `--tags` | array | — | Select every action carrying any of these tags, space- or comma-separated. Combines with --actions as a union. |
+| `--include-deps` | boolean | — | Also select everything the selected actions depend on, transitively. Requires --actions or --tags. |
+| `--include-dependents` | boolean | — | Also select everything downstream of the selected actions, transitively. Requires --actions or --tags. |
+| `--credentials` | string | `.df-credentials.json` | Path to the credentials file, relative to the project directory. An explicit --credentials beats the environment's credentials:, which beats the default. |
+| `--json` | boolean | `false` | Outputs the result as JSON instead of human-readable text. |
+| `--timeout` | string | — | Maximum compilation time, e.g. '30s' or '10m'. |
+| `--keep-shadow` | boolean | — | Leave the temporary shadow schemas in place instead of dropping them, for debugging. |
+| Project-config overrides | — | — | See [Project-config flags](#project-config-flags). |
+<!-- END GENERATED: options validate -->
 
 ### `run`
 
+<!-- BEGIN GENERATED: usage run -->
 ```bash
 sqlanvil run [project-dir]
 ```
+<!-- END GENERATED: usage run -->
 
 Compiles the project and executes it against the warehouse named by `warehouse:` in
-`workflow_settings.yaml`. Exits `0` only if every action succeeded.
+`workflow_settings.yaml`. Exits `0` only if every action succeeded. See
+[Selecting actions](#selecting-actions) for running part of the graph.
 
-| Flag | Default | Description |
+Output modes:
+
+- `--json` prints the run's result (a `RunResult`: overall status, and each action's status,
+  tasks, timing and BigQuery job IDs) as one JSON document on stdout, for real runs and BigQuery
+  dry runs alike. Progress, warnings and failed unit-test details go to stderr. On Postgres,
+  Supabase and MySQL, `--dry-run --json` prints [`validate`](#validate)'s JSON results instead.
+- `--build-only` stops after building the execution graph and prints what would run, without
+  running anything, then exits `0`. For each dataset it shows its type and its current state in
+  the warehouse: `(does not exist)`, a type change such as `(type: table -> view)`, and the last
+  modified time where the warehouse reports one (BigQuery). With `--json` it prints the graph
+  itself (the SQL of every task, the project and run config, and the warehouse state).
+  `--dry-run` and `--run-tests` are ignored with it.
+
+Before 1.38.0, `--json` required `--dry-run` and printed the execution graph. Scripts that used
+`run --dry-run --json` to get the graph should switch to `run --build-only --json`.
+
+**Positional arguments**
+
+<!-- BEGIN GENERATED: positionals run -->
+| Argument | Required | Description |
 |---|---|---|
-| `--actions`, `--tags`, `--include-deps`, `--include-dependents` | | Run only part of the graph. See [Selecting actions](#selecting-actions). |
-| `--full-refresh` | `false` | Rebuild incremental tables from scratch. |
-| `--dry-run` | | Check the run without applying changes. On **BigQuery** this is BigQuery's server-side dry run. On **Postgres, Supabase and MySQL** it runs [`validate`](#validate), because those warehouses have no native dry run. |
-| `--run-tests` | | Run the project's unit tests first, and abort the run if any fail. |
-| `--action-retry-limit` | `0` | Retry failed idempotent actions up to this many times. |
-| `--graph` | | Run a stored compiled graph (the output of `compile --json`) instead of compiling. What runs is exactly what was compiled. See [Compile once, run later](#compile-once-run-later). |
-| `--credentials` | `.df-credentials.json` | Credentials file. |
-| `--json` | `false` | Only valid with `--dry-run`. It prints the execution plan (BigQuery) or the validation results (other warehouses) as JSON. Without `--dry-run` the CLI prints a notice and exits without running anything. |
-| `--timeout` | none | Maximum **compilation** time. |
-| `--execution-timeout` | none | Wall-clock deadline for the **whole run** (compilation plus every action), e.g. `15m`. When it expires, in-flight actions are cancelled, pending ones are skipped and the run fails. |
-| `--job-labels` | | BigQuery only. Labels added to every BigQuery job, e.g. `team=data,pipeline=nightly`. |
-| `--job-prefix` | | BigQuery only. Prefix for BigQuery job IDs: `--job-prefix nightly` gives `sqlanvil-nightly-<uuid>`. |
-| `--no-artifacts` | | Don't write the catalog or run history under `target/`. |
+| `project-dir` | No (default `.`) | The sqlanvil project directory. |
+<!-- END GENERATED: positionals run -->
 
-Also accepts every [project-config flag](#project-config-flags).
+**Options**
+
+<!-- BEGIN GENERATED: options run -->
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--dry-run` | boolean | — | Check the run without applying changes. On BigQuery this is BigQuery's server-side dry run; on Postgres, Supabase and MySQL it runs validate, because those warehouses have no native dry run. |
+| `--build-only` | boolean | `false` | Only builds the execution graph (what would run, and each dataset's current state in the warehouse) without running anything. With --json, prints the graph as JSON. --dry-run and --run-tests are ignored when this is set. |
+| `--run-tests` | boolean | — | Run the project's unit tests first, and abort the run if any fail. |
+| `--action-retry-limit` | number | `0` | Retry failed idempotent actions up to this many times. |
+| `--actions` | array | — | Action names or patterns to select, space- or comma-separated. A bare name matches the unqualified name (and errors if it's ambiguous), a qualified schema.name matches exactly, and \* wildcards are allowed. |
+| `--credentials` | string | `.df-credentials.json` | Path to the credentials file, relative to the project directory. An explicit --credentials beats the environment's credentials:, which beats the default. |
+| `--full-refresh` | boolean | `false` | Rebuild incremental tables from scratch. |
+| `--graph` | string | — | Run a stored compiled graph (the output of compile --json) instead of compiling. What runs is exactly what was compiled, including any environment overrides baked in at compile time. |
+| `--include-deps` | boolean | — | Also select everything the selected actions depend on, transitively. Requires --actions or --tags. |
+| `--include-dependents` | boolean | — | Also select everything downstream of the selected actions, transitively. Requires --actions or --tags. |
+| `--json` | boolean | `false` | Outputs the result as JSON instead of human-readable text. |
+| `--timeout` | string | — | Maximum compilation time, e.g. '30s' or '10m'. |
+| `--execution-timeout` | string | — | Wall-clock deadline for the entire run (compilation plus every action), e.g. '15m'. When it expires, in-flight actions are cancelled, pending ones are skipped and the run fails. Off by default. |
+| `--tags` | array | — | Select every action carrying any of these tags, space- or comma-separated. Combines with --actions as a union. |
+| `--job-prefix` | string | — | BigQuery only. Prefix for BigQuery job IDs: --job-prefix nightly gives sqlanvil-nightly-&lt;uuid&gt;. |
+| `--job-labels` | string | — | BigQuery only. Labels added to every BigQuery job, e.g. team=data,pipeline=nightly. |
+| `--artifacts` | boolean | `true` | Write the queryable Parquet artifacts under target/ (the catalog on compile, run history on run). --no-artifacts skips them. |
+| Project-config overrides | — | — | See [Project-config flags](#project-config-flags). |
+<!-- END GENERATED: options run -->
 
 Restrictions on `--graph`:
 
@@ -227,61 +364,123 @@ Restrictions on `--graph`:
 
 ### `query`
 
+<!-- BEGIN GENERATED: usage query -->
 ```bash
-sqlanvil query "<sql>" [project-dir]
+sqlanvil query [sql] [project-dir]
 ```
+<!-- END GENERATED: usage query -->
 
 Runs SQL over the project's artifacts with the bundled DuckDB. No warehouse is involved. The
 available views are `actions`, `dependencies` and `columns` (written by `compile`) and `runs`
 (written by `run`). Run `compile` first.
 
-| Flag | Default | Description |
+**Positional arguments**
+
+<!-- BEGIN GENERATED: positionals query -->
+| Argument | Required | Description |
 |---|---|---|
-| `--json` | `false` | Print the rows as JSON instead of a table. |
+| `sql` | No | SQL to run, e.g. "select type, count(\*) from actions group by 1". |
+| `project-dir` | No (default `.`) | The sqlanvil project directory. |
+<!-- END GENERATED: positionals query -->
+
+**Options**
+
+<!-- BEGIN GENERATED: options query -->
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--json` | boolean | `false` | Outputs the result as JSON instead of human-readable text. |
+<!-- END GENERATED: options query -->
 
 ### `inspect`
 
+<!-- BEGIN GENERATED: usage inspect -->
 ```bash
 sqlanvil inspect [project-dir]
 ```
+<!-- END GENERATED: usage inspect -->
 
 Summarizes the artifacts: action counts by type, plus the latest run's status, success and
 failure counts, wall time, and up to 20 failures with their error messages.
 
-| Flag | Default | Description |
+**Positional arguments**
+
+<!-- BEGIN GENERATED: positionals inspect -->
+| Argument | Required | Description |
 |---|---|---|
-| `--json` | `false` | Print the summary as JSON. |
+| `project-dir` | No (default `.`) | The sqlanvil project directory. |
+<!-- END GENERATED: positionals inspect -->
+
+**Options**
+
+<!-- BEGIN GENERATED: options inspect -->
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--json` | boolean | `false` | Outputs the result as JSON instead of human-readable text. |
+<!-- END GENERATED: options inspect -->
 
 ### `docs`
 
+<!-- BEGIN GENERATED: usage docs -->
 ```bash
 sqlanvil docs [project-dir]
 ```
+<!-- END GENERATED: usage docs -->
 
 Writes a self-contained HTML catalog of the project to `target/docs/index.html`, covering models,
 types, tags, columns, dependencies and last-run status. It is built from the artifacts, so run
 `compile` (or `run`) first. No flags.
 
+**Positional arguments**
+
+<!-- BEGIN GENERATED: positionals docs -->
+| Argument | Required | Description |
+|---|---|---|
+| `project-dir` | No (default `.`) | The sqlanvil project directory. |
+<!-- END GENERATED: positionals docs -->
+
+**Options**
+
+<!-- BEGIN GENERATED: options docs -->
+None.
+<!-- END GENERATED: options docs -->
+
 ### `format`
 
+<!-- BEGIN GENERATED: usage format -->
 ```bash
 sqlanvil format [project-dir]
 ```
+<!-- END GENERATED: usage format -->
 
 Formats the project's files in place. By default that is every `.sqlx` and `.js` file under
-`definitions/` and `includes/`.
+`definitions/` and `includes/`. For `format`, `--actions` takes **file globs** relative to the
+project directory, not action names.
 
-| Flag | Default | Description |
+**Positional arguments**
+
+<!-- BEGIN GENERATED: positionals format -->
+| Argument | Required | Description |
 |---|---|---|
-| `--actions` | `{definitions,includes}/**/*.{js,sqlx}` | For `format`, these are **file globs** relative to the project directory, not action names. |
-| `--check` | `false` | Change nothing. Exit `1` if any file would be reformatted. |
-| `--ignore-js-files` | `false` | Skip `.js` files (with the default globs, only `.sqlx` is formatted). |
+| `project-dir` | No (default `.`) | The sqlanvil project directory. |
+<!-- END GENERATED: positionals format -->
+
+**Options**
+
+<!-- BEGIN GENERATED: options format -->
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--actions` | array | `{definitions,includes}/**/*.{js,sqlx}` | File globs to format, relative to the project directory (not action names). |
+| `--check` | boolean | `false` | Change nothing; exit 1 if any file would be reformatted. |
+| `--ignore-js-files` | boolean | `false` | Skip .js files (with the default globs, only .sqlx files are formatted). |
+<!-- END GENERATED: options format -->
 
 ### `introspect`
 
+<!-- BEGIN GENERATED: usage introspect -->
 ```bash
 sqlanvil introspect <connection> <tableRef> [project-dir]
 ```
+<!-- END GENERATED: usage introspect -->
 
 Reads a source table's schema through one of the named `connections:` in `workflow_settings.yaml`
 and generates a declaration `.sqlx` with its `columnTypes`. Source types are mapped to the
@@ -289,29 +488,60 @@ warehouse's types. `tableRef` is `schema.table`, or just `table`. The source's c
 from the `connections` section of `.df-credentials.json`. See
 [Foreign Data Wrappers](https://sqlanvil.com/docs/guides/foreign-wrappers/).
 
-| Flag | Default | Description |
+**Positional arguments**
+
+<!-- BEGIN GENERATED: positionals introspect -->
+| Argument | Required | Description |
 |---|---|---|
-| `--output` | stdout | Write the declaration to this file instead of printing it. |
+| `connection` | **Yes** | Connection name (from workflow_settings.yaml connections). |
+| `tableRef` | **Yes** | Source table as schema.table (or just table). |
+| `project-dir` | No (default `.`) | The sqlanvil project directory. |
+<!-- END GENERATED: positionals introspect -->
+
+**Options**
+
+<!-- BEGIN GENERATED: options introspect -->
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--output` | string | — | File to write the declaration .sqlx to. Prints to stdout if omitted. |
+<!-- END GENERATED: options introspect -->
 
 ### `migrate-dataform`
 
+<!-- BEGIN GENERATED: usage migrate-dataform -->
 ```bash
 sqlanvil migrate-dataform <source-dir> <out-dir>
 ```
+<!-- END GENERATED: usage migrate-dataform -->
 
 Converts a Dataform project to sqlanvil. The source directory is never modified. The converted
 project, plus `migration-report.md` and `migration-report.json`, are written to `out-dir`, which
 must be empty. See [Migrate from Dataform](https://sqlanvil.com/docs/guides/migrate-dataform/).
 
-| Flag | Default | Description |
+**Positional arguments**
+
+<!-- BEGIN GENERATED: positionals migrate-dataform -->
+| Argument | Required | Description |
 |---|---|---|
-| `--target-warehouse` | `supabase` | Where the converted project runs. `supabase` or `postgres` **moves** the warehouse: BigQuery sources become named connections and the SQL gets safe dialect rewrites plus inline `SQLANVIL-MIGRATE` markers. `bigquery` is a **tooling swap**: the project keeps running on BigQuery with its SQL and `bigquery: {}` blocks untouched. |
+| `source-dir` | **Yes** | The Dataform project to convert (never modified). |
+| `out-dir` | **Yes** | Where the converted sqlanvil project is written (created; must be empty). |
+<!-- END GENERATED: positionals migrate-dataform -->
+
+**Options**
+
+<!-- BEGIN GENERATED: options migrate-dataform -->
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--target-warehouse` | string | `supabase` | Where the converted project runs. supabase or postgres moves the warehouse: BigQuery sources become named connections and the SQL gets safe dialect rewrites plus inline SQLANVIL-MIGRATE markers. bigquery is a tooling swap: the project keeps running on BigQuery with its SQL and bigquery: {} blocks untouched. |
+<!-- END GENERATED: options migrate-dataform -->
 
 ### `migrate-fix`
 
+<!-- BEGIN GENERATED: usage migrate-fix -->
 ```bash
 sqlanvil migrate-fix [project-dir]
 ```
+<!-- END GENERATED: usage migrate-fix -->
 
 The third phase of a migration (convert, introspect, fix). Run it after the converted project's
 declarations have been introspected (`sh scripts/introspect_all.sh`, generated by
@@ -321,9 +551,21 @@ ordinals; both need the source columns that introspection provides. It is safe t
 reports anything it couldn't resolve, rather than guessing, and exits `1` if anything is
 unresolved.
 
-| Flag | Default | Description |
+**Positional arguments**
+
+<!-- BEGIN GENERATED: positionals migrate-fix -->
+| Argument | Required | Description |
 |---|---|---|
-| `--dry-run` | `false` | Report what would change without writing. |
+| `project-dir` | No (default `.`) | The sqlanvil project directory. |
+<!-- END GENERATED: positionals migrate-fix -->
+
+**Options**
+
+<!-- BEGIN GENERATED: options migrate-fix -->
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--dry-run` | boolean | `false` | Report what would change without writing. |
+<!-- END GENERATED: options migrate-fix -->
 
 ## Selecting actions
 
@@ -344,19 +586,21 @@ exist.
 `compile`, `run`, `test` and `validate` accept these flags. Each one overrides a setting in
 `workflow_settings.yaml` for a single invocation. When a flag is unset, the file's value applies.
 
-| Flag | Overrides | Description |
-|---|---|---|
-| `--environment` | | Load a named environment from `environments:` in `workflow_settings.yaml`. That environment's `schemaSuffix`, `vars`, `defaultDatabase`, `defaultLocation` and `credentials` file apply. See [Named Environments](https://sqlanvil.com/docs/guides/environments/). |
-| `--default-database` | `defaultProject` | Default database. On BigQuery, the Google Cloud project ID. |
-| `--default-schema` | `defaultDataset` | Default schema (a dataset on BigQuery). |
-| `--default-location` | `defaultLocation` | BigQuery only. Default location, e.g. `US`. `run` and `validate` send BigQuery jobs and create new datasets in this location, even when the credentials file names a different `location` (since 1.36.2; `run` warns about the mismatch). |
-| `--assertion-schema` | `defaultAssertionDataset` | Schema that assertions are written to. |
-| `--database-suffix` | `projectSuffix` | Suffix appended to database names. |
-| `--schema-suffix` | `datasetSuffix` | Suffix appended to schema names, e.g. `dev` gives `analytics_dev`. Letters, digits and underscores only. |
-| `--table-prefix` | `namePrefix` | Prefix added to every table name. |
-| `--vars` | `vars` | Variables in the form `--vars=key1=value1,key2=value2`, read as `sqlanvil.projectConfig.vars.key1`. Values can't contain `,` or `=`. |
-| `--disable-assertions` | | Skip every assertion, built-in (`uniqueKey`, `nonNull`, `rowConditions`) and `type: "assertion"`. |
-| `--default-reservation` | `defaultReservation` | BigQuery only. Reservation to run queries in. |
+<!-- BEGIN GENERATED: project-config-options -->
+| Flag | Type | Overrides | Description |
+|---|---|---|---|
+| `--default-database` | string | `defaultProject` | Default database. On BigQuery, the Google Cloud project ID. |
+| `--default-schema` | string | `defaultDataset` | Default schema (a dataset on BigQuery). |
+| `--default-location` | string | `defaultLocation` | BigQuery only. Default location, e.g. US. run and validate send BigQuery jobs and create new datasets in this location, even when the credentials file names a different location (run warns about the mismatch). See https://cloud.google.com/bigquery/docs/locations for supported values. |
+| `--assertion-schema` | string | `defaultAssertionDataset` | Schema that assertions are written to. |
+| `--vars` | string | `vars` | Variables as comma-separated key=value pairs, e.g. --vars=env=staging,region=eu, read in code as sqlanvil.projectConfig.vars.&lt;key&gt;. Values can't contain , or =. Keys merge with the file's vars, so a --vars key overrides only that key. |
+| `--database-suffix` | string | `projectSuffix` | Suffix appended to database names. |
+| `--schema-suffix` | string | `datasetSuffix` | Suffix appended to schema names, e.g. dev gives analytics_dev. Letters, digits and underscores only. |
+| `--table-prefix` | string | `namePrefix` | Prefix added to every table name. |
+| `--disable-assertions` | boolean | `disableAssertions` | Skip every assertion, built-in (uniqueKey, nonNull, rowConditions) and type: "assertion". |
+| `--default-reservation` | string | `defaultReservation` | BigQuery only. Reservation to run queries in. If neither this nor the file sets one, default BigQuery behavior applies. |
+| `--environment` | string | — | Load a named environment from environments: in workflow_settings.yaml. That environment's schemaSuffix, vars, defaultDatabase, defaultLocation and credentials file apply, and explicit flags override them. See https://sqlanvil.com/docs/guides/environments/ |
+<!-- END GENERATED: project-config-options -->
 
 Precedence is **flags > `--environment` > `workflow_settings.yaml`**. `vars` merge key by key, so a
 `--vars` key overrides that key and keeps the others.
@@ -418,7 +662,9 @@ It is gitignored by `init` and must never be committed. Non-secret settings stay
 }
 ```
 
-`credentials` is the service-account key JSON as a string. Omit it to use Application Default
+`location` is optional: without it (and without `defaultLocation` in `workflow_settings.yaml`),
+BigQuery infers each job's location, as described under [`init`](#init). `credentials` is the
+service-account key JSON as a string. Omit it to use Application Default
 Credentials (`gcloud auth application-default login`). `accessToken` takes a short-lived OAuth2
 token instead, and wins over `credentials`. `impersonateServiceAccount` (a service-account email)
 makes the CLI run BigQuery queries as that account without holding its key: your ADC identity, or
@@ -449,7 +695,7 @@ cd my_project && sqlanvil install
 # Postgres or MySQL/MariaDB
 sqlanvil init my_project --warehouse postgres
 
-# BigQuery — project ID and location are required
+# BigQuery — the project ID is required; the location (here US) is optional
 sqlanvil init my_project my-gcp-project US --warehouse bigquery
 sqlanvil init-creds my_project
 

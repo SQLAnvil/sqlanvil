@@ -27,7 +27,8 @@ export const INIT_WAREHOUSE_QUESTION = "Which warehouse? (supabase/postgres/bigq
 export const INIT_PROJECT_DIR_QUESTION = "Project directory?";
 export const INIT_BQ_PROJECT_QUESTION =
   "Google Cloud project ID (the default project models build in)?";
-export const INIT_BQ_LOCATION_QUESTION = "Default BigQuery location (e.g. US, us-central1)?";
+export const INIT_BQ_LOCATION_QUESTION =
+  "Default BigQuery location (e.g. US, us-central1; Enter to leave unset)?";
 export const INIT_DEFAULT_SCHEMA_QUESTION = "Default schema for models?";
 export const INIT_INCLUDE_SAMPLE_QUESTION =
   "Include the sample project (sources -> staging views -> outputs -> assertion)?";
@@ -408,7 +409,11 @@ async function runFreshFlow(defaultProjectDir: string): Promise<number> {
   const projectConfig: sqlanvil.IProjectConfig = { warehouse };
   if (warehouse === "bigquery") {
     projectConfig.defaultDatabase = askRequired(INIT_BQ_PROJECT_QUESTION);
-    projectConfig.defaultLocation = askRequired(INIT_BQ_LOCATION_QUESTION);
+    // Optional (upstream #2402): unset means the credentials location, else BigQuery infers it.
+    const defaultLocation = ask(INIT_BQ_LOCATION_QUESTION);
+    if (defaultLocation) {
+      projectConfig.defaultLocation = defaultLocation;
+    }
   }
   projectConfig.defaultSchema = ask(INIT_DEFAULT_SCHEMA_QUESTION, defaultSchemaFor(warehouse));
 

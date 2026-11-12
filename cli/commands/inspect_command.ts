@@ -62,8 +62,8 @@ async function runInspect(projectDir: string, json: boolean): Promise<number> {
 export const inspectCommand: ICommand = {
   format: `inspect [${projectDirOption.name}]`,
   description:
-    "Summarize the project's artifacts: action counts by type, the latest run's status/" +
-    "timing, and recent failures.",
+    "Summarize the artifacts: action counts by type, and the latest run's status, timing " +
+    "and failures.",
   positionalOptions: [projectDirOption],
   options: [jsonOutputOption],
   processFn: async (argv: any) =>

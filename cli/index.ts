@@ -1,22 +1,6 @@
 import yargs from "yargs";
 
-import {
-  compileCommand,
-  docsCommand,
-  formatCommand,
-  helpCommand,
-  initCommand,
-  initCredsCommand,
-  inspectCommand,
-  installCommand,
-  introspectCommand,
-  migrateDataformCommand,
-  migrateFixCommand,
-  queryCommand,
-  runCommand,
-  testCommand,
-  validateCommand,
-} from "sa/cli/commands";
+import { CLI_COMMANDS, helpCommand } from "sa/cli/commands";
 import { printError } from "sa/cli/console";
 import { createYargsCli } from "sa/cli/yargswrapper";
 
@@ -26,26 +10,11 @@ process.on("unhandledRejection", async (reason: unknown) => {
 
 // Each command lives in cli/commands/<name>_command.ts; options shared across commands
 // are in cli/common_options.ts and the workflow_settings overrides in
-// cli/project_config_options.ts. This file only registers them (order = help order).
+// cli/project_config_options.ts. This file only registers them; the order (= help order) is
+// CLI_COMMANDS in cli/commands/index.ts.
 export function runCli() {
   const builtYargs = createYargsCli({
-    commands: [
-      helpCommand,
-      initCommand,
-      installCommand,
-      initCredsCommand,
-      compileCommand,
-      testCommand,
-      validateCommand,
-      runCommand,
-      queryCommand,
-      inspectCommand,
-      docsCommand,
-      formatCommand,
-      introspectCommand,
-      migrateDataformCommand,
-      migrateFixCommand,
-    ],
+    commands: [helpCommand, ...CLI_COMMANDS],
   })
     .scriptName("sqlanvil")
     .strict()
