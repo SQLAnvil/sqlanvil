@@ -26,8 +26,11 @@ message WorkflowSettings {
   // Required. The default dataset (schema).
   string default_dataset = 3;
 
-  // Required. The default BigQuery location to use. For more information on
-  // BigQuery locations, see https://cloud.google.com/bigquery/docs/locations.
+  // Optional. The default BigQuery location to use. If neither this nor the
+  // credentials file's location is set, BigQuery infers each job's location
+  // from the tables it reads, and new datasets are created in US. For more
+  // information on BigQuery locations, see
+  // https://cloud.google.com/bigquery/docs/locations.
   string default_location = 4;
 
   // Required. The default dataset (schema) for assertions.
