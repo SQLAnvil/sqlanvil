@@ -102,7 +102,10 @@ def pkg_npm_tar(name, srcs = [], deps = [], publishable = False):
         outs = [name + ".tar.gz"],
         # Archive the file list, not the directory: a bare `package/` directory entry
         # makes npm >=11 reject the tarball at publish time (E415 invalid path: package/).
-        cmd = "tar -cvzf $(location {name}.tar.gz) -C $(location :{name})/.. --dereference $$(cd $(location :{name})/.. && find -L {name} -type f | sort)"
+        # COPYFILE_DISABLE: macOS tar otherwise stores each file's extended attributes
+        # (com.apple.provenance) as a `._<file>` entry, which npm publishes (core 1.38.0 has 11).
+        # GNU tar ignores the variable.
+        cmd = "COPYFILE_DISABLE=1 tar -cvzf $(location {name}.tar.gz) -C $(location :{name})/.. --dereference $$(cd $(location :{name})/.. && find -L {name} -type f | sort)"
             .format(name = name),
         visibility = ["//visibility:public"],
     )
