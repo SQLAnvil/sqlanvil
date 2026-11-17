@@ -52,6 +52,18 @@ published CLI must install at runtime also goes in `externals` in `packages/@sql
 Security pins live in `pnpm.overrides` in `package.json`; `scripts/check_upstream_resolutions`
 compares them against upstream Dataform's.
 
+Dependabot (`.github/dependabot.yml`) opens security-update PRs only, and with pnpm it can only
+update direct dependencies. A vulnerable transitive dependency is fixed by adding or updating its
+entry in `pnpm.overrides` and regenerating the lockfile:
+
+```bash
+bazel run -- @pnpm//:pnpm --dir "$PWD" install --lockfile-only
+```
+
+Prefer a range (`"^3.1.9"`) over an exact version in an override, so later compatible releases are
+picked up without editing it. Use an exact version only when the override deliberately forces a
+version outside the range the depending package asks for.
+
 ## macOS build note
 
 Native Bazel works on macOS since the Bazel 7 + bzlmod migration (#41) — deliverables and
