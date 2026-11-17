@@ -833,7 +833,7 @@ someKey: and an extra: colon
       );
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        `Workflow settings error: Unexpected property "notAProjectConfigField", or property value type of "string" is incorrect. See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-WorkflowSettings for allowed properties.`,
+        `Workflow settings error: Unexpected property "notAProjectConfigField", or property value type of "string" is incorrect. See https://sqlanvil.com/docs/reference/configs/#sqlanvil-WorkflowSettings for allowed properties.`,
       );
     });
 
@@ -1559,7 +1559,7 @@ actions:
       );
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        `Unexpected property "materialized", or property value type of "boolean" is incorrect. See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-ActionConfigs for allowed properties.`,
+        `Unexpected property "materialized", or property value type of "boolean" is incorrect. See https://sqlanvil.com/docs/reference/configs/#sqlanvil-ActionConfigs for allowed properties.`,
       );
     });
 
@@ -1577,7 +1577,7 @@ actions:`,
       );
 
       expect(() => runMainInVm(coreExecutionRequestFromPath(projectDir))).to.throw(
-        `Unexpected empty value for "actions". See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-ActionConfigs for allowed properties.`,
+        `Unexpected empty value for "actions". See https://sqlanvil.com/docs/reference/configs/#sqlanvil-ActionConfigs for allowed properties.`,
       );
     });
 
@@ -2602,7 +2602,7 @@ publish("name", {
   materialized: true,
 })`,
           expectedError:
-            'Unexpected property "materialized", or property value type of "boolean" is incorrect. See https://github.com/sqlanvil/docs/blob/main/reference/configs.md#sqlanvil-ActionConfig-TableConfig for allowed properties.',
+            'Unexpected property "materialized", or property value type of "boolean" is incorrect. See https://sqlanvil.com/docs/reference/configs/#sqlanvil-ActionConfig-TableConfig for allowed properties.',
         },
         {
           testName: "partitionExpirationDays invalid for BigQuery tables",
