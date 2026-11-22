@@ -7,6 +7,9 @@ Entry lines in order: Detected, Classification, Confirmed, Touches, Evidence (at
 Detected: 2026-11-22, adoption extract of artifacts (cli/commands/inspect_command.ts:29 @f4b3f49e)
 Classification: code bug
 Touches: FR-018, FR-019
+Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test_tag_filters=integration --build_tests_only --test_output=all` @984785d8
+  T-018.5: line 10 is "Latest run (SUCCESSFUL): 1 succeeded, 0 failed, 1400ms" where 400ms is intended
+  T-019.3: latestRun.wall_ms is 1400 where 400 is intended
 Diagnosis: inspect computes wall_ms as `max(end_millis) - min(start_millis)` over every row of the latest run. runRows writes 0 for start_millis and end_millis when an action result has no timing (artifact_rows.ts:78-81, 171-172). The runner records SKIPPED and DISABLED action results with no timing (cli/api/commands/run.ts:350-354, 396-401, 428-431). So one such action makes min(start_millis) 0, and inspect prints the latest end time in epoch milliseconds (about 1.7e12 ms) as the run's wall time. Two things say it should not. The sibling code treats 0 as missing: duration_millis is set only when both times are non-zero (artifact_rows.ts:182). And the command describes this figure as "the latest run's status, timing" (inspect_command.ts:65; cli/README.md:402 "wall time").
 Resolution: open, intended: the wall time is the latest end_millis minus the earliest start_millis over the latest run's rows that have non-zero start and end times, and 0 when no row has both (confirmed a bug by Ivan Histand, 2026-11-22)
 Recurrence of: -
@@ -15,6 +18,11 @@ Recurrence of: -
 Detected: 2026-11-22, adoption extract of artifacts (cli/api/commands/artifact_rows.ts:168 @f4b3f49e)
 Classification: code bug
 Touches: FR-005, FR-018, FR-019, FR-021
+Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test_tag_filters=integration --build_tests_only --test_output=all` @984785d8
+  T-005.9: `select distinct run_id, run_status from runs where run_id = 300` returns 0 rows
+  T-018.6: line 10 is "Latest run (FAILED): 1 succeeded, 1 failed, 600ms", the previous run 123, not the latest run 200
+  T-019.4: latestRun.run_id is 123 (FAILED, 1 succeeded, 1 failed, 600) where run 200 is intended
+  T-021.8: latestRun.runId is 123 where run 200 is intended
 Diagnosis: The run id and run status are stored only in per-action rows (artifacts.ts:29-39, artifact_rows.ts:170-185). A run result with no action results therefore writes `run_<id>.parquet` with zero rows (artifacts.ts:64-70, duckdb_artifacts.ts:30-32), and `max(run_id)` never sees that run (inspect_command.ts:30, 36; docs.ts:63). inspect and docs then report the previous run as "Latest run" or "Last run", or "No runs recorded yet." when it is the only run. The docs say otherwise: inspect summarizes "the latest run's status" (inspect_command.ts:65, cli/README.md:402), run "adds a run-history entry" (cli/README.md:53), and docs shows "last-run status" (docs.ts:5).
 Resolution: open, intended: a run with no action results is recorded with its run id and run status, and inspect and docs report it as the latest run with 0 succeeded and 0 failed (confirmed a bug by Ivan Histand, 2026-11-22)
 Recurrence of: -
@@ -23,6 +31,8 @@ Recurrence of: -
 Detected: 2026-11-22, adoption extract of artifacts (cli/api/dbadapters/duckdb_artifacts.ts:31 @f4b3f49e)
 Classification: code bug
 Touches: FR-006
+Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test_tag_filters=integration --build_tests_only --test_output=all` @984785d8
+  T-006.1: every column of the empty actions file has type JSON; the file written from rows has VARCHAR, and BOOLEAN for disabled
 Diagnosis: The comments say an empty rowset produces a "correctly-typed 0-row Parquet" (artifacts.ts:14; duckdb_artifacts.ts:16-18). The writer only has column names, though. It writes one all-null JSON row and filters it out with `WHERE false`, so DuckDB's read_json_auto infers each column from nulls alone. Those columns cannot get the BOOLEAN, BIGINT and VARCHAR types the same columns get from real rows (disabled, run_id, start_millis and the rest). Two things need a run to confirm: the exact type DuckDB infers, and whether a `runs` glob that mixes such a file with typed files fails to read.
 Resolution: open, intended: an empty artifact file has the same column names and the same column types as a file written from rows, so a runs glob that mixes it with typed files reads cleanly (confirmed a bug by Ivan Histand, 2026-11-22)
 Recurrence of: -
@@ -31,6 +41,8 @@ Recurrence of: -
 Detected: 2026-11-22, adoption extract of artifacts (cli/api/commands/docs.ts:76 @f4b3f49e)
 Classification: code bug
 Touches: FR-021
+Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test_tag_filters=integration --build_tests_only --test_output=all` @984785d8
+  T-021.7: the a.b.c table's model has status FAILED, the status of the other target that reads as a.b.c, where its own SUCCESSFUL is intended
 Diagnosis: buildDocsModel keys each model's last-run status (docs.ts:75-77, 103) and its depends-on list (docs.ts:81-87, 104) by readable_name, even though every row carries target_key. core/targets.ts:12-13 says of targetAsReadableString: "This is an ambiguous transformation, multiple targets may map to the same string and it should not be used for indexing. Use targetStringifier instead." Two targets with the same readable name share one status and one merged dependency list. For example, database a, schema b, name c and schema a.b, name c both read as a.b.c.
 Resolution: open, intended: docs matches a model's status and depends-on list by target_key, so two targets that share a readable name keep their own status and dependencies (confirmed a bug by Ivan Histand, 2026-11-22)
 Recurrence of: -
@@ -47,6 +59,9 @@ Recurrence of: -
 Detected: 2026-11-22, confirmation of FR-001 (open question Q-07)
 Classification: code bug
 Touches: FR-001, FR-010
+Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test_tag_filters=integration --build_tests_only --test_output=all` @984785d8
+  T-001.4: writeArtifacts into a directory named o'brien-… rejects with `Parser Error: syntax error at or near "brien"`
+  T-010.5: the same rejection while writing the project's artifacts, so the query never runs
 Diagnosis: Project and temporary paths go into DuckDB SQL inside single quotes without escaping (cli/api/dbadapters/duckdb_artifacts.ts:38, 70; cli/api/dbadapters/duckdb.ts:59 @f4b3f49e). A path holding a `'` ends the string literal early, so the write fails and is skipped with a warning (FR-008), and query, inspect and docs fail on that project. The owner confirmed it a bug on 2026-11-22.
 Resolution: open, intended: a path that contains a single quote works like any other path, for writing and for reading the artifacts (Ivan Histand, 2026-11-22)
 Recurrence of: -
