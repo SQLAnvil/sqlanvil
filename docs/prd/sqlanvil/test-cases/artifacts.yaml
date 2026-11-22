@@ -1,0 +1,1646 @@
+# Format: references/prd-format.md, "Test cases". One entry per T-id.
+# Enum values (enumType, status) name the member of that name in sqlanvil.TableType,
+# sqlanvil.RunResult.ExecutionStatus or sqlanvil.ActionResult.ExecutionStatus.
+# "P" is a new empty temporary directory made for the case. CLI cases run the sqlanvil CLI
+# binary with NO_COLOR=1 and capture stdout, stderr and the exit code.
+# &G1 is defined in T-001.1 and &R1 in T-005.1; later cases reuse them as *G1 and *R1.
+T-001.1:
+  ac: AC-001.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: P (no target/ in it)
+    graph: &G1
+      tables:
+        - {target: {schema: s, name: src}, enumType: TABLE, tags: [daily], fileName: definitions/src.sqlx, actionDescriptor: {description: source, columns: [{path: [id], description: the id}]}}
+        - {target: {schema: s, name: v}, enumType: VIEW, dependencyTargets: [{schema: s, name: src}]}
+      assertions:
+        - {target: {schema: s, name: a}, dependencyTargets: [{schema: s, name: v}]}
+      operations: []
+      exports: []
+      declarations: []
+    call: "writeArtifacts(G1, P)"
+  expect:
+    output: {targetDir: "P/target"}
+    effects:
+      - "file exists: P/target/catalog/actions.parquet"
+      - "file exists: P/target/catalog/dependencies.parquet"
+      - "file exists: P/target/catalog/columns.parquet"
+    errors: []
+    leaks: none
+T-001.2:
+  ac: AC-001.2
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    call: "writeArtifacts(G1, P)"
+    graph: *G1
+    read_back: "queryParquet(\"select name from pragma_table_info('<view>') order by cid\") for each of the views actions, dependencies, columns over the three files"
+  expect:
+    output:
+      actions: [target_key, database, schema, name, readable_name, type, tags, disabled, file_name, description]
+      dependencies: [from_target_key, to_target_key, from_readable, to_readable]
+      columns: [target_key, readable_name, column_name, description]
+    effects: []
+    errors: []
+    leaks: none
+T-001.3:
+  ac: AC-001.3
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    first_call: "writeArtifacts(G1, P)"
+    graph: *G1
+    second_call: "writeArtifacts({tables: [{target: {schema: s, name: only}, enumType: TABLE}], operations: [], assertions: [], exports: [], declarations: []}, P)"
+    read_back: "queryParquet('select readable_name from actions') over P/target/catalog/actions.parquet"
+  expect:
+    output: [{readable_name: s.only}]
+    effects: ["P/target/catalog holds exactly actions.parquet, dependencies.parquet, columns.parquet"]
+    errors: []
+    leaks: none
+T-001.4:
+  ac: AC-001.4
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "Q, a new empty temporary directory whose name contains a single quote (for example o'brien)"
+    graph: *G1
+    call: "writeArtifacts(G1, Q, {runResult: R1, runId: 123})"
+  expect:
+    output: {targetDir: "Q/target"}
+    effects: ["Q/target/catalog holds actions.parquet, dependencies.parquet and columns.parquet", "Q/target/runs holds run_123.parquet"]
+    errors: []
+    leaks: none
+T-002.1:
+  ac: AC-002.1
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph:
+      tables: [{target: {schema: s, name: t1}, enumType: TABLE}, {target: {schema: s, name: t2}, enumType: VIEW}]
+      operations: [{target: {schema: s, name: op}}]
+      assertions: [{target: {schema: s, name: as}}]
+      exports: [{target: {schema: s, name: ex}}]
+      imports: [{target: {schema: s, name: im}}]
+      scripts: [{target: {schema: s, name: sc}}]
+      declarations: [{target: {schema: s, name: dc}}]
+    call: "writeArtifacts(graph, P)"
+    read_back: "queryParquet('select name from actions order by name') over P/target/catalog/actions.parquet"
+  expect:
+    output: [{name: as}, {name: dc}, {name: ex}, {name: im}, {name: op}, {name: sc}, {name: t1}, {name: t2}]
+    effects: []
+    errors: []
+    leaks: none
+T-002.2:
+  ac: AC-002.2
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph:
+      tables:
+        - {target: {schema: s, name: t_table}, enumType: TABLE}
+        - {target: {schema: s, name: t_view}, enumType: VIEW}
+        - {target: {schema: s, name: t_incr}, enumType: INCREMENTAL}
+        - {target: {schema: s, name: t_untyped}}
+      operations: [{target: {schema: s, name: x_op}}]
+      assertions: [{target: {schema: s, name: x_as}}]
+      exports: [{target: {schema: s, name: x_ex}}]
+      imports: [{target: {schema: s, name: x_im}}]
+      scripts: [{target: {schema: s, name: x_sc}}]
+      declarations: [{target: {schema: s, name: x_dc}}]
+    call: "writeArtifacts(graph, P)"
+    read_back: "queryParquet('select name, type from actions order by name') over actions.parquet"
+  expect:
+    output:
+      - {name: t_incr, type: incremental}
+      - {name: t_table, type: table}
+      - {name: t_untyped, type: table}
+      - {name: t_view, type: view}
+      - {name: x_as, type: assertion}
+      - {name: x_dc, type: declaration}
+      - {name: x_ex, type: export}
+      - {name: x_im, type: import}
+      - {name: x_op, type: operation}
+      - {name: x_sc, type: script}
+    effects: []
+    errors: []
+    leaks: none
+T-002.3:
+  ac: AC-002.3
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph:
+      tables:
+        - {target: {database: d, schema: s, name: t}, enumType: TABLE}
+        - {target: {schema: s, name: u}, enumType: TABLE}
+      operations: []
+      assertions: []
+      exports: []
+      declarations: []
+    call: "writeArtifacts(graph, P)"
+    read_back: "queryParquet('select target_key, database, schema, name, readable_name from actions order by name') over actions.parquet"
+  expect:
+    output:
+      - {target_key: '{"database":"d","name":"t","schema":"s"}', database: d, schema: s, name: t, readable_name: d.s.t}
+      - {target_key: '{"name":"u","schema":"s"}', database: "", schema: s, name: u, readable_name: s.u}
+    effects: []
+    errors: []
+    leaks: none
+T-002.4:
+  ac: AC-002.4
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph:
+      tables:
+        - {target: {schema: s, name: t}, enumType: TABLE, tags: [a, b], disabled: true, fileName: definitions/t.sqlx, actionDescriptor: {description: the t table}}
+      operations: []
+      assertions: []
+      exports: []
+      declarations: []
+    call: "writeArtifacts(graph, P)"
+    read_back: "queryParquet('select tags, disabled, file_name, description from actions') over actions.parquet"
+  expect:
+    output: [{tags: '["a","b"]', disabled: true, file_name: definitions/t.sqlx, description: the t table}]
+    effects: []
+    errors: []
+    leaks: none
+T-002.5:
+  ac: AC-002.5
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    call: "writeArtifacts(G1, P)"
+    read_back: "queryParquet(\"select database, tags, disabled, file_name, description from actions where name = 'a'\") over actions.parquet"
+  expect:
+    output: [{database: "", tags: "[]", disabled: false, file_name: "", description: ""}]
+    effects: []
+    errors: []
+    leaks: none
+T-003.1:
+  ac: AC-003.1
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    call: "writeArtifacts(G1, P)"
+    read_back: "queryParquet('select * from dependencies order by from_readable') over P/target/catalog/dependencies.parquet"
+  expect:
+    output:
+      - {from_target_key: '{"name":"a","schema":"s"}', to_target_key: '{"name":"v","schema":"s"}', from_readable: s.a, to_readable: s.v}
+      - {from_target_key: '{"name":"v","schema":"s"}', to_target_key: '{"name":"src","schema":"s"}', from_readable: s.v, to_readable: s.src}
+    effects: []
+    errors: []
+    leaks: none
+T-003.2:
+  ac: AC-003.2
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    call: "writeArtifacts(G1, P)"
+    read_back: "queryParquet(\"select count(*) as n from dependencies where from_readable = 's.src'\")"
+  expect:
+    output: [{n: 0}]
+    effects: []
+    errors: []
+    leaks: none
+T-004.1:
+  ac: AC-004.1
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph:
+      tables:
+        - {target: {schema: s, name: t}, enumType: TABLE, actionDescriptor: {columns: [{path: [id], description: the id}, {path: [address, city]}]}}
+      operations: []
+      assertions: []
+      exports: []
+      declarations: []
+    call: "writeArtifacts(graph, P)"
+    read_back: "queryParquet('select * from columns order by column_name') over P/target/catalog/columns.parquet"
+  expect:
+    output:
+      - {target_key: '{"name":"t","schema":"s"}', readable_name: s.t, column_name: address.city, description: ""}
+      - {target_key: '{"name":"t","schema":"s"}', readable_name: s.t, column_name: id, description: the id}
+    effects: []
+    errors: []
+    leaks: none
+T-004.2:
+  ac: AC-004.2
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    call: "writeArtifacts(G1, P)"
+    read_back: "queryParquet(\"select count(*) as n from columns where readable_name in ('s.v', 's.a')\")"
+  expect:
+    output: [{n: 0}]
+    effects: []
+    errors: []
+    leaks: none
+T-005.1:
+  ac: AC-005.1
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    run_result: &R1
+      status: FAILED
+      actions:
+        - {target: {schema: s, name: src}, status: SUCCESSFUL, timing: {startTimeMillis: 1000, endTimeMillis: 1400}, tasks: []}
+        - {target: {schema: s, name: v}, status: FAILED, timing: {startTimeMillis: 1400, endTimeMillis: 1600}, tasks: [{errorMessage: boom}]}
+    call: "writeArtifacts(G1, P, {runResult: R1, runId: 123})"
+    read_back: "queryParquet('select * from runs order by readable_name') over P/target/runs/*.parquet"
+  expect:
+    output:
+      - {run_id: 123, run_status: FAILED, target_key: '{"name":"src","schema":"s"}', readable_name: s.src, status: SUCCESSFUL, start_millis: 1000, end_millis: 1400, duration_millis: 400, error_message: ""}
+      - {run_id: 123, run_status: FAILED, target_key: '{"name":"v","schema":"s"}', readable_name: s.v, status: FAILED, start_millis: 1400, end_millis: 1600, duration_millis: 200, error_message: boom}
+    effects: ["P/target/runs holds exactly run_123.parquet"]
+    errors: []
+    leaks: none
+T-005.2:
+  ac: AC-005.2
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    run_result: *R1
+    call: "t0 = Date.now(); writeArtifacts(G1, P, {runResult: R1}); t1 = Date.now()"
+    read_back: "the file name under P/target/runs and queryParquet('select distinct run_id from runs')"
+  expect:
+    output: {files: ["run_<n>.parquet, one file"], run_id: "n, where t0 <= n <= t1"}
+    effects: []
+    errors: []
+    leaks: none
+T-005.3:
+  ac: AC-005.3
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    run_result:
+      status: TIMED_OUT
+      actions:
+        - {target: {schema: s, name: src}, status: SKIPPED, timing: {startTimeMillis: 10, endTimeMillis: 20}, tasks: []}
+        - {target: {schema: s, name: v}, status: CANCELLED, timing: {startTimeMillis: 10, endTimeMillis: 20}, tasks: []}
+    call: "writeArtifacts(G1, P, {runResult, runId: 7})"
+    read_back: "queryParquet('select run_status, readable_name, status from runs order by readable_name')"
+  expect:
+    output:
+      - {run_status: TIMED_OUT, readable_name: s.src, status: SKIPPED}
+      - {run_status: TIMED_OUT, readable_name: s.v, status: CANCELLED}
+    effects: []
+    errors: []
+    leaks: none
+T-005.4:
+  ac: AC-005.4
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    run_result:
+      actions:
+        - {target: {schema: s, name: src}, timing: {startTimeMillis: 10, endTimeMillis: 20}, tasks: []}
+    note: "neither the run result nor the action result has a status field"
+    call: "writeArtifacts(G1, P, {runResult, runId: 8})"
+    read_back: "queryParquet('select run_status, status from runs')"
+  expect:
+    output: [{run_status: UNKNOWN, status: UNKNOWN}]
+    effects: []
+    errors: []
+    leaks: none
+T-005.5:
+  ac: AC-005.5
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    run_result:
+      status: SUCCESSFUL
+      actions:
+        - {target: {schema: s, name: src}, status: SUCCESSFUL, timing: {startTimeMillis: "Long 1000", endTimeMillis: "Long 1500"}, tasks: []}
+        - {target: {schema: s, name: v}, status: DISABLED, tasks: []}
+      note: "src's times are protobufjs Long values; v has no timing"
+    call: "writeArtifacts(G1, P, {runResult, runId: 9})"
+    read_back: "queryParquet('select readable_name, start_millis, end_millis, duration_millis from runs order by readable_name')"
+  expect:
+    output:
+      - {readable_name: s.src, start_millis: 1000, end_millis: 1500, duration_millis: 500}
+      - {readable_name: s.v, start_millis: 0, end_millis: 0, duration_millis: 0}
+    effects: []
+    errors: []
+    leaks: none
+T-005.6:
+  ac: AC-005.6
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    run_result:
+      status: FAILED
+      actions:
+        - {target: {schema: s, name: src}, status: FAILED, timing: {startTimeMillis: 1, endTimeMillis: 2}, tasks: [{}, {errorMessage: first}, {errorMessage: second}]}
+        - {target: {schema: s, name: v}, status: SUCCESSFUL, timing: {startTimeMillis: 1, endTimeMillis: 2}, tasks: [{}]}
+    call: "writeArtifacts(G1, P, {runResult, runId: 10})"
+    read_back: "queryParquet('select readable_name, error_message from runs order by readable_name')"
+  expect:
+    output:
+      - {readable_name: s.src, error_message: first}
+      - {readable_name: s.v, error_message: ""}
+    effects: []
+    errors: []
+    leaks: none
+T-005.7:
+  ac: AC-005.7
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    call: "writeArtifacts(G1, P)"
+  expect:
+    output: {targetDir: "P/target"}
+    effects: ["no path P/target/runs exists"]
+    errors: []
+    leaks: none
+T-005.8:
+  ac: AC-005.8
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    run_result: *R1
+    calls: ["writeArtifacts(G1, P, {runResult: R1, runId: 1})", "writeArtifacts(G1, P, {runResult: R1, runId: 2})"]
+    read_back: "queryParquet('select run_id, count(*) as n from runs group by run_id order by run_id') over P/target/runs/*.parquet"
+  expect:
+    output: [{run_id: 1, n: 2}, {run_id: 2, n: 2}]
+    effects: ["P/target/runs holds exactly run_1.parquet and run_2.parquet; run_1.parquet's bytes are unchanged by the second call"]
+    errors: []
+    leaks: none
+T-005.9:
+  ac: AC-005.9
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    call: "writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 300})"
+    read_back: "queryParquet('select distinct run_id, run_status from runs where run_id = 300') over P/target/runs/*.parquet"
+  expect:
+    output: [{run_id: 300, run_status: SUCCESSFUL}]
+    effects: []
+    errors: []
+    leaks: none
+T-005.10:
+  ac: AC-005.10
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    calls: ["writeArtifacts(G1, P, {runResult: R1, runId: 1})", "writeArtifacts(G1, P, {runResult: R1, runId: 2})", "writeArtifacts(G1, P, {runResult: R1, runId: 3})", "writeArtifacts(G1, P)"]
+  expect:
+    output: "each call resolves {targetDir: P/target}"
+    effects: ["P/target/runs holds exactly run_1.parquet, run_2.parquet and run_3.parquet"]
+    errors: []
+    leaks: none
+T-006.1:
+  ac: AC-006.1
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: {tables: [], operations: [], assertions: [], exports: [], declarations: []}
+    call: "writeArtifacts(graph, P)"
+    read_back:
+      - "queryParquet('select count(*) as n from actions') over P/target/catalog/actions.parquet"
+      - "queryParquet(\"select name from pragma_table_info('actions') order by cid\")"
+      - "the same two reads for dependencies and columns"
+      - "queryParquet(\"select name, type from pragma_table_info('<view>') order by cid\") for actions, dependencies and columns, over P and over a second directory P2 written by writeArtifacts(G1, P2)"
+  expect:
+    output:
+      column_types: "for each of the three files, the (name, type) list over P equals the one over P2"
+      actions_count: [{n: 0}]
+      actions_columns: [target_key, database, schema, name, readable_name, type, tags, disabled, file_name, description]
+      dependencies_count: [{n: 0}]
+      dependencies_columns: [from_target_key, to_target_key, from_readable, to_readable]
+      columns_count: [{n: 0}]
+      columns_columns: [target_key, readable_name, column_name, description]
+    effects: []
+    errors: []
+    leaks: none
+T-007.1:
+  ac: AC-007.1
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    env: {TMPDIR: "an empty directory D"}
+    graph: *G1
+    run_result: *R1
+    call: "writeArtifacts(G1, P, {runResult: R1, runId: 5})"
+  expect:
+    output: {targetDir: "P/target"}
+    effects: ["D holds no file whose name starts with sa_artifact_"]
+    errors: []
+    leaks: none
+T-007.2:
+  ac: AC-007.2
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    env: {TMPDIR: "an empty directory D"}
+    setup: "P/target/catalog/actions.parquet is created as a directory before the call"
+    graph: *G1
+    call: "writeArtifacts(G1, P)"
+  expect:
+    output: "the call rejects"
+    effects: ["D holds no file whose name starts with sa_artifact_"]
+    errors: []
+    leaks: none
+T-008.1:
+  ac: AC-008.1
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.safeWriteArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    setup: "P/target is a regular file, so no directory can be made under it"
+    graph: *G1
+    call: "safeWriteArtifacts(G1, P, {warn})"
+  expect:
+    output: "resolves with undefined; warn called exactly once, with a message that starts with 'Artifacts skipped: '"
+    effects: ["P/target is still the same regular file"]
+    errors: [ARTIFACTS_SKIPPED]
+    leaks: none
+T-008.2:
+  ac: AC-008.2
+  level: integration
+  target: code:sa/cli/api/commands/artifacts.safeWriteArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    setup: "P/target is a regular file"
+    graph: *G1
+    call: "safeWriteArtifacts(G1, P)"
+  expect:
+    output: "resolves with undefined; nothing written to stdout or stderr"
+    effects: []
+    errors: []
+    leaks: none
+T-009.1:
+  ac: AC-009.1
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: P (empty)
+    env: {NO_COLOR: "1"}
+    argv: [query, "select 1", P]
+  expect:
+    output:
+      exit_code: 1
+      stderr_lines: ["No artifacts found under target/. Run `sqlanvil compile` (or `run`) first."]
+      stdout: ""
+    effects: []
+    errors: [ARTIFACTS_NOT_FOUND]
+    leaks: none
+T-009.2:
+  ac: AC-009.2
+  level: integration
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, holding target/runs/run_1.parquet written by writeArtifacts(G1, Q, {runResult: R1, runId: 1}) and copied in, but no target/catalog/"
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P]
+  expect:
+    output:
+      exit_code: 1
+      stderr_lines: ["No artifacts found under target/. Run `sqlanvil compile` (or `run`) first."]
+      stdout: ""
+    effects: []
+    errors: [ARTIFACTS_NOT_FOUND]
+    leaks: none
+T-009.3:
+  ac: AC-009.3
+  level: integration
+  target: code:sa/cli/commands/docs_command.docsCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: P (empty)
+    env: {NO_COLOR: "1"}
+    argv: [docs, P]
+  expect:
+    output:
+      exit_code: 1
+      stderr_lines: ["No artifacts found under target/. Run `sqlanvil compile` (or `run`) first."]
+      stdout: ""
+    effects: ["no path P/target/docs/index.html exists"]
+    errors: [ARTIFACTS_NOT_FOUND]
+    leaks: none
+T-009.4:
+  ac: AC-009.4
+  level: integration
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    cwd: P
+    env: {NO_COLOR: "1"}
+    argv: [inspect]
+  expect:
+    output:
+      exit_code: 0
+      stdout_lines: ["Actions by type:", "type       n", "---------  -", "assertion  1", "table      1", "view       1", "", "(3 rows)", "", "No runs recorded yet."]
+    effects: []
+    errors: []
+    leaks: none
+T-010.1:
+  ac: AC-010.1
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [query, "select (select count(*) from actions) as a, (select count(*) from dependencies) as d, (select count(*) from columns) as c", P, --json]
+  expect:
+    output: {exit_code: 0, stdout_json: [{a: 3, d: 2, c: 1}]}
+    effects: []
+    errors: []
+    leaks: none
+T-010.2:
+  ac: AC-010.2
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, written by writeArtifacts(G1, P, {runResult: R1, runId: 100}) and then writeArtifacts(G1, P, {runResult: R_one, runId: 200})"
+    graph: *G1
+    run_result: *R1
+    run_result_R_one: {status: SUCCESSFUL, actions: [{target: {schema: s, name: src}, status: SUCCESSFUL, timing: {startTimeMillis: 1, endTimeMillis: 2}, tasks: []}]}
+    env: {NO_COLOR: "1"}
+    argv: [query, "select run_id, count(*) as n from runs group by run_id order by run_id", P, --json]
+  expect:
+    output: {exit_code: 0, stdout_json: [{run_id: 100, n: 2}, {run_id: 200, n: 1}]}
+    effects: []
+    errors: []
+    leaks: none
+T-010.3:
+  ac: AC-010.3
+  level: integration
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P), plus a file P/target/runs/notes.txt and no .parquet file in P/target/runs"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P, --json]
+  expect:
+    output:
+      exit_code: 0
+      stdout_json: {actionsByType: [{type: assertion, n: 1}, {type: table, n: 1}, {type: view, n: 1}], latestRun: null, failures: []}
+    effects: []
+    errors: []
+    leaks: none
+T-010.4:
+  ac: AC-010.4
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P), then P/target/catalog/dependencies.parquet and columns.parquet deleted"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [query, "select count(*) as n from actions", P, --json]
+  expect:
+    output: {exit_code: 0, stdout_json: [{n: 3}]}
+    effects: []
+    errors: []
+    leaks: none
+T-010.5:
+  ac: AC-010.5
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "Q, a temporary directory whose name contains a single quote, with target/ written by writeArtifacts(G1, Q)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [query, "select count(*) as n from actions", Q, --json]
+  expect:
+    output: {exit_code: 0, stdout_json: [{n: 3}]}
+    effects: []
+    errors: []
+    leaks: none
+T-011.1:
+  ac: AC-011.1
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [query, "select name, type from actions order by name", P]
+  expect:
+    output:
+      exit_code: 0
+      stdout_lines: ["name  type     ", "----  ---------", "a     assertion", "src   table    ", "v     view     ", "", "(3 rows)"]
+      stderr: ""
+    effects: ["the files under P/target are unchanged"]
+    errors: []
+    leaks: none
+T-011.2:
+  ac: AC-011.2
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [query, "select * from actions where false", P]
+  expect:
+    output: {exit_code: 0, stdout_lines: ["(0 rows)"]}
+    effects: []
+    errors: []
+    leaks: none
+T-011.3:
+  ac: AC-011.3
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [query, "select null as x, 'y' as y", P]
+  expect:
+    output: {exit_code: 0, stdout_lines: ["x  y", "-  -", "   y", "", "(1 row)"]}
+    effects: []
+    errors: []
+    leaks: none
+T-011.4:
+  ac: AC-011.4
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [query, "select * from no_such_view", P]
+  expect:
+    output:
+      exit_code: 1
+      stderr_contains: "no_such_view"
+      stdout: ""
+    effects: []
+    errors: [QUERY_SQL_REJECTED]
+    leaks: none
+T-012.1:
+  ac: AC-012.1
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [query, "select name, type from actions order by name", P, --json]
+  expect:
+    output:
+      exit_code: 0
+      stdout_json: [{name: a, type: assertion}, {name: src, type: table}, {name: v, type: view}]
+      stdout_indent: "nested lines indented by multiples of four spaces"
+    effects: []
+    errors: []
+    leaks: none
+T-013.1:
+  ac: AC-013.1
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    cwd: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [query]
+  expect:
+    output:
+      exit_code: 1
+      stderr_contains: 'Provide a SQL query, e.g. sqlanvil query "select * from actions".'
+      stdout: ""
+    effects: []
+    errors: [QUERY_SQL_REQUIRED]
+    leaks: none
+T-013.2:
+  ac: AC-013.2
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [query, "", P]
+  expect:
+    output:
+      exit_code: 1
+      stderr_contains: 'Provide a SQL query, e.g. sqlanvil query "select * from actions".'
+      stdout: ""
+    effects: []
+    errors: [QUERY_SQL_REQUIRED]
+    leaks: none
+T-013.3:
+  ac: AC-013.3
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    cwd: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [query, "select count(*) as n from actions", --json]
+  expect:
+    output:
+      exit_code: 0
+      stdout_json: [{n: 3}]
+    effects: []
+    errors: []
+    leaks: none
+T-014.1:
+  ac: AC-014.1
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [query, "select count(*) as n, 9007199254740991::BIGINT as hi, -9007199254740991::BIGINT as lo from actions", P, --json]
+  expect:
+    output: {exit_code: 0, stdout_json: [{n: 3, hi: 9007199254740991, lo: -9007199254740991}], note: "n, hi and lo are JSON numbers"}
+    effects: []
+    errors: []
+    leaks: none
+T-014.2:
+  ac: AC-014.2
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [query, "select 9007199254740993::BIGINT as big, -9007199254740993::BIGINT as neg", P, --json]
+  expect:
+    output: {exit_code: 0, stdout_json: [{big: "9007199254740993", neg: "-9007199254740993"}], note: "both are JSON strings"}
+    effects: []
+    errors: []
+    leaks: none
+T-015.1:
+  ac: AC-015.1
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    first_argv: [query, "create table t as select 1 as x", P]
+    second_argv: [query, "select count(*) as n from duckdb_tables() where table_name = 't'", P, --json]
+  expect:
+    output: {first_exit_code: 0, second_exit_code: 0, second_stdout_json: [{n: 0}]}
+    effects: ["P and P/target gain no new file or directory (no DuckDB database or WAL file)"]
+    errors: []
+    leaks: none
+T-015.2:
+  ac: AC-015.2
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [query, "copy (select 1 as x) to 'P/out.csv' (header)", P]
+  expect:
+    output:
+      exit_code: 0
+    effects: ["P/out.csv exists and holds the lines x and 1"]
+    errors: []
+    leaks: none
+T-016.1:
+  ac: AC-016.1
+  level: integration
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1", TMPDIR: "an existing directory D, given without a trailing slash", HOME: "unset"}
+    argv: [query, "select current_setting('home_directory') as h", P, --json]
+  expect:
+    output: {exit_code: 0, stdout_json: [{h: D}]}
+    effects: []
+    errors: []
+    leaks: none
+T-017.1:
+  ac: AC-017.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/api/commands/artifacts.safeWriteArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    setup: "a child Node process started with the --require preload of testing.md Harness, Lifecycle, so require('@duckdb/node-api') fails"
+    graph: *G1
+    call: "safeWriteArtifacts(G1, P, {warn})"
+  expect:
+    output: "resolves; warn called once with a message that starts with 'Artifacts skipped: This feature requires the optional \"@duckdb/node-api\" dependency, which failed to load: '"
+    effects: ["no .parquet file under P/target"]
+    errors: [ARTIFACTS_SKIPPED]
+    leaks: none
+T-018.1:
+  ac: AC-018.1
+  level: integration
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123})"
+    graph: *G1
+    run_result: *R1
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P]
+  expect:
+    output:
+      exit_code: 0
+      stdout_first_lines: ["Actions by type:", "type       n", "---------  -", "assertion  1", "table      1", "view       1", "", "(3 rows)"]
+    effects: []
+    errors: []
+    leaks: none
+T-018.2:
+  ac: AC-018.2
+  level: integration
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123})"
+    graph: *G1
+    run_result: *R1
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P]
+  expect:
+    output:
+      exit_code: 0
+      stdout_lines_9_to_10: ["", "Latest run (FAILED): 1 succeeded, 1 failed, 600ms"]
+    effects: []
+    errors: []
+    leaks: none
+T-018.3:
+  ac: AC-018.3
+  level: integration
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    first_project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123})"
+    graph: *G1
+    run_result: *R1
+    first_argv: [inspect, P]
+    second_project_dir: "Q, with target/ written by writeArtifacts(G21, Q, {runResult: R21, runId: 5}), where G21 has 21 tables s.f01 to s.f21 and R21 has status FAILED and one FAILED action result per table, each with timing {startTimeMillis: 10, endTimeMillis: 20} and tasks [{errorMessage: e}]"
+    second_argv: [inspect, Q]
+    env: {NO_COLOR: "1"}
+  expect:
+    output:
+      first_exit_code: 0
+      first_stdout_last_lines: ["", "Failures:", "readable_name  error_message", "-------------  -------------", "s.v            boom         ", "", "(1 row)"]
+      second_exit_code: 0
+      second_stdout: "after `Failures:`, a table of exactly 20 rows, readable_name s.f01 to s.f20 in that order and each error_message e, ending with `(20 rows)`"
+    effects: []
+    errors: []
+    leaks: none
+T-018.4:
+  ac: AC-018.4
+  level: integration
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P]
+  expect:
+    output:
+      exit_code: 0
+      stdout_lines: ["Actions by type:", "type       n", "---------  -", "assertion  1", "table      1", "view       1", "", "(3 rows)", "", "No runs recorded yet."]
+    effects: []
+    errors: []
+    leaks: none
+T-018.5:
+  ac: AC-018.2
+  level: integration
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: [{target: {schema: s, name: src}, status: SUCCESSFUL, timing: {startTimeMillis: 1000, endTimeMillis: 1400}, tasks: []}, {target: {schema: s, name: v}, status: SKIPPED, tasks: []}]}, runId: 124})"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P]
+  expect:
+    output:
+      exit_code: 0
+      stdout_lines_9_to_10: ["", "Latest run (SUCCESSFUL): 1 succeeded, 0 failed, 400ms"]
+    effects: []
+    errors: []
+    leaks: none
+T-018.6:
+  ac: AC-018.5
+  level: integration
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123}) and then writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 200})"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P]
+  expect:
+    output:
+      exit_code: 0
+      stdout_lines_9_to_10: ["", "Latest run (SUCCESSFUL): 0 succeeded, 0 failed, 0ms"]
+    effects: []
+    errors: []
+    leaks: none
+T-019.1:
+  ac: AC-019.1
+  level: integration
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123})"
+    graph: *G1
+    run_result: *R1
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P, --json]
+  expect:
+    output:
+      exit_code: 0
+      stdout_json:
+        actionsByType: [{type: assertion, n: 1}, {type: table, n: 1}, {type: view, n: 1}]
+        latestRun: {run_id: 123, run_status: FAILED, succeeded: 1, failed: 1, wall_ms: 600}
+        failures: [{readable_name: s.v, error_message: boom}]
+    effects: []
+    errors: []
+    leaks: none
+T-019.2:
+  ac: AC-019.2
+  level: integration
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P, --json]
+  expect:
+    output:
+      exit_code: 0
+      stdout_json: {actionsByType: [{type: assertion, n: 1}, {type: table, n: 1}, {type: view, n: 1}], latestRun: null, failures: []}
+    effects: []
+    errors: []
+    leaks: none
+T-019.3:
+  ac: AC-019.1
+  level: integration
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: [{target: {schema: s, name: src}, status: SUCCESSFUL, timing: {startTimeMillis: 1000, endTimeMillis: 1400}, tasks: []}, {target: {schema: s, name: v}, status: SKIPPED, tasks: []}]}, runId: 124})"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P, --json]
+  expect:
+    output:
+      exit_code: 0
+      stdout_json:
+        actionsByType: [{type: assertion, n: 1}, {type: table, n: 1}, {type: view, n: 1}]
+        latestRun: {run_id: 124, run_status: SUCCESSFUL, succeeded: 1, failed: 0, wall_ms: 400}
+        failures: []
+    effects: []
+    errors: []
+    leaks: none
+T-019.4:
+  ac: AC-019.3
+  level: integration
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123}) and then writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 200})"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P, --json]
+  expect:
+    output:
+      exit_code: 0
+      stdout_json:
+        actionsByType: [{type: assertion, n: 1}, {type: table, n: 1}, {type: view, n: 1}]
+        latestRun: {run_id: 200, run_status: SUCCESSFUL, succeeded: 0, failed: 0, wall_ms: 0}
+        failures: []
+    effects: []
+    errors: []
+    leaks: none
+T-020.1:
+  ac: AC-020.1
+  level: integration
+  target: code:sa/cli/commands/docs_command.docsCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P (an absolute path), with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123}) and no P/target/docs"
+    graph: *G1
+    run_result: *R1
+    env: {NO_COLOR: "1"}
+    argv: [docs, P]
+  expect:
+    output:
+      exit_code: 0
+      stdout_lines: ["Wrote catalog to P/target/docs/index.html"]
+    effects:
+      - "file exists: P/target/docs/index.html"
+      - "it contains <title>SQLAnvil catalog</title>"
+      - "it contains 3 models — 1 assertion, 1 table, 1 view"
+      - "it contains Last run: <strong>FAILED</strong> (run 123)"
+    errors: []
+    leaks: none
+T-020.2:
+  ac: AC-020.2
+  level: integration
+  target: code:sa/cli/commands/docs_command.docsCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P) and a file P/target/docs/index.html holding the text old"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [docs, P]
+  expect:
+    output: {exit_code: 0}
+    effects: ["P/target/docs/index.html no longer contains the text old and contains <title>SQLAnvil catalog</title>"]
+    errors: []
+    leaks: none
+T-020.3:
+  ac: AC-020.3
+  level: integration
+  target: code:sa/cli/commands/docs_command.docsCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P)"
+    graph: *G1
+    env: {NO_COLOR: "1"}
+    argv: [docs, P]
+    timing: "t0 taken before the command, t1 after"
+  expect:
+    output: {exit_code: 0}
+    effects: ["index.html contains `generated <ts>` where ts matches YYYY-MM-DDTHH:MM:SS.sssZ and t0 <= ts <= t1"]
+    errors: []
+    leaks: none
+T-021.1:
+  ac: AC-021.1
+  level: integration
+  target: code:sa/cli/api/commands/docs.buildDocsModel
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    setup: "writeArtifacts(G1, P, {runResult: R1, runId: 123})"
+    graph: *G1
+    run_result: *R1
+    views: "[{actions, P/target/catalog/actions.parquet}, {dependencies, …/dependencies.parquet}, {columns, …/columns.parquet}, {runs, P/target/runs/*.parquet}]"
+    call: "buildDocsModel(views, '2026-06-24T00:00:00Z')"
+  expect:
+    output:
+      models:
+        - {readable: s.a, type: assertion, tags: [], description: "", dependsOn: [s.v]}
+        - {readable: s.src, type: table, tags: [daily], description: source, status: SUCCESSFUL, dependsOn: []}
+        - {readable: s.v, type: view, tags: [], description: "", status: FAILED, dependsOn: [s.src]}
+    effects: []
+    errors: []
+    leaks: none
+T-021.2:
+  ac: AC-021.2
+  level: integration
+  target: code:sa/cli/api/commands/docs.buildDocsModel
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    setup: "writeArtifacts(G1, P, {runResult: R1, runId: 123})"
+    graph: *G1
+    run_result: *R1
+    views: "the four views of T-021.1"
+    call: "buildDocsModel(views, '2026-06-24T00:00:00Z')"
+  expect:
+    output:
+      generatedAt: "2026-06-24T00:00:00Z"
+      summary: {total: 3, byType: [{type: assertion, n: 1}, {type: table, n: 1}, {type: view, n: 1}]}
+    effects: []
+    errors: []
+    leaks: none
+T-021.3:
+  ac: AC-021.3
+  level: integration
+  target: code:sa/cli/api/commands/docs.buildDocsModel
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    setup:
+      - "writeArtifacts(G1, P, {runResult: R1, runId: 100})"
+      - "writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: [{target: {schema: s, name: v}, status: SUCCESSFUL, timing: {startTimeMillis: 1, endTimeMillis: 2}, tasks: []}]}, runId: 200})"
+    graph: *G1
+    run_result: *R1
+    views: "the four views of T-021.1"
+    call: "buildDocsModel(views, '2026-06-24T00:00:00Z')"
+  expect:
+    output:
+      latestRun: {runId: 200, status: SUCCESSFUL}
+      statuses: {s.v: SUCCESSFUL, s.src: "absent", s.a: "absent"}
+    effects: []
+    errors: []
+    leaks: none
+T-021.4:
+  ac: AC-021.4
+  level: integration
+  target: code:sa/cli/api/commands/docs.buildDocsModel
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    setup: "writeArtifacts(G1, P)"
+    graph: *G1
+    views: "the actions, dependencies and columns views of T-021.1, no runs view"
+    call: "buildDocsModel(views, '2026-06-24T00:00:00Z')"
+  expect:
+    output: {latestRun: "absent", model_statuses: "absent on all three models"}
+    effects: []
+    errors: []
+    leaks: none
+T-021.5:
+  ac: AC-021.5
+  level: integration
+  target: code:sa/cli/api/commands/docs.buildDocsModel
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    setup:
+      - "writeParquet([{target_key: k, database: '', schema: s, name: x, readable_name: s.x, type: table, tags: 'not json', disabled: false, file_name: '', description: ''}], P/target/catalog/actions.parquet, the actions column list of AC-001.2)"
+      - "writeParquet([], P/target/catalog/dependencies.parquet, the dependencies column list)"
+      - "writeParquet([], P/target/catalog/columns.parquet, the columns column list)"
+    views: "actions, dependencies and columns over those files"
+    call: "buildDocsModel(views, '2026-06-24T00:00:00Z')"
+  expect:
+    output: {models: [{readable: s.x, type: table, tags: [], description: "", dependsOn: []}]}
+    effects: []
+    errors: []
+    leaks: none
+T-021.6:
+  ac: AC-021.6
+  level: integration
+  target: code:sa/cli/api/commands/docs.buildDocsModel
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    setup: "writeArtifacts(graph, P)"
+    graph:
+      tables:
+        - {target: {schema: s, name: zeta}, enumType: TABLE, actionDescriptor: {columns: [{path: [b], description: bee}, {path: [a]}]}}
+        - {target: {schema: s, name: alpha}, enumType: TABLE, actionDescriptor: {columns: [{path: [z], description: zed}]}}
+      operations: []
+      assertions: []
+      exports: []
+      declarations: []
+    views: "actions, dependencies and columns over P/target/catalog"
+    call: "buildDocsModel(views, '2026-06-24T00:00:00Z')"
+  expect:
+    output:
+      columns:
+        - {readable: s.alpha, column: z, description: zed}
+        - {readable: s.zeta, column: a, description: ""}
+        - {readable: s.zeta, column: b, description: bee}
+    effects: []
+    errors: []
+    leaks: none
+T-021.7:
+  ac: AC-021.3
+  level: integration
+  target: code:sa/cli/api/commands/docs.buildDocsModel
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph:
+      tables:
+        - {target: {database: a, schema: b, name: c}, enumType: TABLE, dependencyTargets: [{schema: s, name: x}]}
+        - {target: {schema: a.b, name: c}, enumType: VIEW}
+      operations: []
+      assertions: []
+      exports: []
+      declarations: []
+    run_result:
+      status: FAILED
+      actions:
+        - {target: {database: a, schema: b, name: c}, status: SUCCESSFUL, timing: {startTimeMillis: 1, endTimeMillis: 2}, tasks: []}
+        - {target: {schema: a.b, name: c}, status: FAILED, timing: {startTimeMillis: 2, endTimeMillis: 3}, tasks: [{errorMessage: e}]}
+    setup: "writeArtifacts(graph, P, {runResult: run_result, runId: 10})"
+    views: "the four views of T-021.1, over P"
+    call: "buildDocsModel(views, '2026-06-24T00:00:00Z')"
+  expect:
+    output:
+      models:
+        - {readable: a.b.c, type: table, tags: [], description: "", status: SUCCESSFUL, dependsOn: [s.x]}
+        - {readable: a.b.c, type: view, tags: [], description: "", status: FAILED, dependsOn: []}
+    effects: []
+    errors: []
+    leaks: none
+T-021.8:
+  ac: AC-021.3
+  level: integration
+  target: code:sa/cli/api/commands/docs.buildDocsModel
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    setup:
+      - "writeArtifacts(G1, P, {runResult: R1, runId: 123})"
+      - "writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 200})"
+    graph: *G1
+    run_result: *R1
+    views: "the four views of T-021.1, over P"
+    call: "buildDocsModel(views, '2026-06-24T00:00:00Z')"
+  expect:
+    output:
+      latestRun: {runId: 200, status: SUCCESSFUL}
+      statuses: {s.v: "absent", s.src: "absent", s.a: "absent"}
+    effects: []
+    errors: []
+    leaks: none
+T-022.1:
+  ac: AC-022.1
+  level: integration
+  target: code:sa/cli/api/commands/docs.renderDocsHtml
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    model: &M1
+      generatedAt: "2026-06-24T00:00:00Z"
+      summary: {total: 2, byType: [{type: table, n: 1}, {type: view, n: 1}]}
+      latestRun: {runId: 123, status: FAILED}
+      models:
+        - {readable: s.src, type: table, tags: [daily], description: "a <b>source</b> & \"x\"", status: SUCCESSFUL, dependsOn: []}
+        - {readable: s.v, type: view, tags: [], description: "", status: FAILED, dependsOn: [s.src, s.other]}
+      columns: [{readable: s.src, column: id, description: the id}]
+    call: "renderDocsHtml(M1)"
+  expect:
+    output:
+      starts_with: "<!doctype html>"
+      contains: ["<title>SQLAnvil catalog</title>", "<style>", "<script>"]
+      not_contains: ["src=", "href="]
+    effects: []
+    errors: []
+    leaks: none
+T-022.2:
+  ac: AC-022.2
+  level: integration
+  target: code:sa/cli/api/commands/docs.renderDocsHtml
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    model: *M1
+    call: "renderDocsHtml(M1)"
+  expect:
+    output:
+      contains: ['<div class="meta">2 models — 1 table, 1 view &middot; Last run: <strong>FAILED</strong> (run 123) &middot; generated 2026-06-24T00:00:00Z</div>']
+    effects: []
+    errors: []
+    leaks: none
+T-022.3:
+  ac: AC-022.3
+  level: integration
+  target: code:sa/cli/api/commands/docs.renderDocsHtml
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    model: *M1
+    calls: ["renderDocsHtml(M1)", "renderDocsHtml(M1 with latestRun removed)"]
+  expect:
+    output:
+      first_contains: ["Last run: <strong>FAILED</strong> (run 123)"]
+      second_contains: ["No runs recorded yet."]
+      second_not_contains: ["Last run:"]
+    effects: []
+    errors: []
+    leaks: none
+T-022.4:
+  ac: AC-022.4
+  level: integration
+  target: code:sa/cli/api/commands/docs.renderDocsHtml
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    model: "M1 plus a third model {readable: s.w, type: view, tags: [], description: '', status: SKIPPED, dependsOn: []} and a fourth {readable: s.n, type: table, tags: [], description: '', dependsOn: []} with no status"
+    call: "renderDocsHtml(model)"
+  expect:
+    output:
+      contains:
+        - "<td><code>s.src</code></td>"
+        - '<span class="tag">daily</span>'
+        - '<span class="badge ok">SUCCESSFUL</span>'
+        - '<span class="badge fail">FAILED</span>'
+        - '<span class="badge muted">SKIPPED</span>'
+        - "<code>s.src</code><br><code>s.other</code>"
+      badge_count: "exactly three elements with class badge"
+    effects: []
+    errors: []
+    leaks: none
+T-022.5:
+  ac: AC-022.5
+  level: integration
+  target: code:sa/cli/api/commands/docs.renderDocsHtml
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    model: "M1 with columns [{readable: s.src, column: id, description: '<i>k</i>'}]"
+    call: "renderDocsHtml(model)"
+  expect:
+    output:
+      contains: ["a &lt;b&gt;source&lt;/b&gt; &amp; &quot;x&quot;", "&lt;i&gt;k&lt;/i&gt;"]
+      not_contains: ["a <b>source</b>", "<i>k</i>"]
+    effects: []
+    errors: []
+    leaks: none
+T-022.6:
+  ac: AC-022.6
+  level: integration
+  target: code:sa/cli/api/commands/docs.renderDocsHtml
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    model: "M1 with columns []"
+    call: "renderDocsHtml(model)"
+  expect:
+    output:
+      contains: ['<tr><td colspan="3" class="meta">No documented columns.</td></tr>']
+    effects: []
+    errors: []
+    leaks: none
+T-022.7:
+  ac: AC-022.7
+  level: integration
+  target: code:sa/cli/api/commands/docs.renderDocsHtml
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    model: "M1 with the first model's readable set to S.Src and tags [Daily, Hot]"
+    call: "renderDocsHtml(model)"
+  expect:
+    output:
+      contains: ['data-search="s.src table daily hot"', 'data-search="s.v view "', 'oninput="filterModels(this.value)"', "function filterModels(q)"]
+    effects: []
+    errors: []
+    leaks: none
+T-023.1:
+  ac: AC-023.1
+  level: integration
+  target: code:sa/cli/api/commands/query.run
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    adapter: "a stub database adapter whose execute(sql, options) records its arguments and resolves {rows: [{x: 1}]}"
+    call: "query.run(stub, 'select 1', {compileConfig: {projectDir: '/does/not/exist'}, rowLimit: 10, byteLimit: 1000})"
+  expect:
+    output: [{x: 1}]
+    effects: ["execute called exactly once, with sql 'select 1' and options {interactive: true, rowLimit: 10, byteLimit: 1000, onCancel: a function}"]
+    errors: []
+    leaks: none
+T-023.2:
+  ac: AC-023.2
+  level: integration
+  target: code:sa/cli/api/commands/query.run
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    adapter: "a stub database adapter whose execute rejects with the Error E (message bad)"
+    call: "query.run(stub, 'select 1')"
+  expect:
+    output: "rejects with the same Error object E"
+    effects: []
+    errors: []
+    leaks: none
+T-023.3:
+  ac: AC-023.3
+  level: integration
+  target: code:sa/cli/api/commands/query.run
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    adapter: "a stub database adapter whose execute registers a handler H through options.onCancel and stays pending until H is called, then resolves {rows: []}"
+    call: "p = query.run(stub, 'select 1'); p.cancel()"
+  expect:
+    output: "p resolves with []"
+    effects: ["H called exactly once"]
+    errors: []
+    leaks: none
+T-023.4:
+  ac: AC-023.4
+  level: integration
+  target: code:sa/cli/api/commands/query.run
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    adapter: "a stub database adapter whose execute(sql, options) records its arguments and resolves {rows: [{x: 1}]}"
+    calls: ["query.run(stub, 'select 1', {compileConfig: {projectDir: '/does/not/exist'}})", "query.run(stub, 'select 1', {})"]
+  expect:
+    output: "both calls resolve [{x: 1}]"
+    effects: ["the two execute calls received the same sql and the same options apart from the onCancel function"]
+    errors: []
+    leaks: none
+T-024.1:
+  ac: AC-024.1
+  level: integration
+  target: code:sa/cli/api/commands/query.evaluate
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    adapter: "a stub database adapter whose evaluate(sql) records sql and resolves [{status: SUCCESS, id: e1}, {status: FAILURE, id: e2}]"
+    call: "query.evaluate(stub, 'select 1')"
+  expect:
+    output: {status: SUCCESS, id: e1}
+    effects: ["evaluate called exactly once with 'select 1'"]
+    errors: []
+    leaks: none

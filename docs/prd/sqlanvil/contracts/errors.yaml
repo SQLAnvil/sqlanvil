@@ -1,0 +1,33 @@
+# Format: references/prd-format.md, "Contract YAML shapes". CODE: {meaning, when, status, message, log_level, retryable, metric}
+ARTIFACTS_NOT_FOUND:
+  meaning: The project has no artifact catalog to read
+  when: query, inspect or docs runs and <project-dir>/target/catalog/actions.parquet does not exist (cli/commands/artifact_views.ts:11)
+  status: 1
+  message: "No artifacts found under target/. Run `sqlanvil compile` (or `run`) first."
+  log_level: error
+  retryable: false
+  metric: none
+QUERY_SQL_REQUIRED:
+  meaning: sqlanvil query was given no SQL
+  when: 'the sql positional is missing or empty (cli/commands/query_command.ts:37); printed through the CLI''s fail handler as "sqlanvil encountered an error: <message>" plus a stack trace (cli/index.ts:23)'
+  status: 1
+  message: 'Provide a SQL query, e.g. sqlanvil query "select * from actions".'
+  log_level: error
+  retryable: false
+  metric: none
+ARTIFACTS_SKIPPED:
+  meaning: Writing the artifacts failed and was skipped; the command's own result stands
+  when: safeWriteArtifacts catches any error from writeArtifacts (cli/api/commands/artifacts.ts:87), including a DuckDB binding that fails to load (cli/api/dbadapters/duckdb.ts:15)
+  status: 0
+  message: "Artifacts skipped: <the error's message>"
+  log_level: warn
+  retryable: false
+  metric: none
+QUERY_SQL_REJECTED:
+  meaning: DuckDB rejected the SQL given to sqlanvil query
+  when: 'the SQL fails to parse, names a view or column that does not exist, or fails while it runs (FR-011, answer to Q-02 by the owner, 2026-11-22)'
+  status: 1
+  message: "an error containing DuckDB's error message"
+  log_level: error
+  retryable: false
+  metric: none

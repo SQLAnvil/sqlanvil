@@ -1,0 +1,27 @@
+# Format: references/prd-format.md, "Contract YAML shapes".
+# Required content:
+#  - per table: `retention`, `deletion`, and each column as public, internal, confidential or pii
+#  - `masking` for logs, errors and fixtures
+#  - fixtures hold synthetic PII only, never real personal data
+# [ASSUMPTION A-04: every artifact column is internal (it describes the user's project), except runs.error_message, which is confidential because warehouse error text can quote data values]
+tables:
+  actions:
+    retention: replaced on every compile and run that writes artifacts
+    deletion: sqlanvil never deletes it; the user deletes target/
+    columns: {target_key: internal, database: internal, schema: internal, name: internal, readable_name: internal, type: internal, tags: internal, disabled: internal, file_name: internal, description: internal}
+  dependencies:
+    retention: replaced on every compile and run that writes artifacts
+    deletion: sqlanvil never deletes it; the user deletes target/
+    columns: {from_target_key: internal, to_target_key: internal, from_readable: internal, to_readable: internal}
+  columns:
+    retention: replaced on every compile and run that writes artifacts
+    deletion: sqlanvil never deletes it; the user deletes target/
+    columns: {target_key: internal, readable_name: internal, column_name: internal, description: internal}
+  runs:
+    retention: one file per run (target/runs/run_<run id>.parquet), kept indefinitely
+    deletion: sqlanvil never deletes it; the user deletes target/runs/
+    columns: {run_id: internal, run_status: internal, target_key: internal, readable_name: internal, status: internal, start_millis: internal, end_millis: internal, duration_millis: internal, error_message: confidential}
+masking:
+  logs: "[NEEDS CLARIFICATION: what is never written to logs]"
+  errors: "[NEEDS CLARIFICATION: what error bodies may carry]"
+  fixtures: "[NEEDS CLARIFICATION: how fixtures avoid real personal data]"
