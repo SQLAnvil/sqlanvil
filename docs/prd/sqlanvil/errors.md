@@ -109,6 +109,7 @@ Recurrence of: -
 ### E-009 The CI eslint job cannot load `typescript-eslint`
 Detected: 2026-11-23, CI run 45207610173 on PR #65, job standards-1
 Classification: environment
+Confirmed: 2026-11-23, "Confirm the class (form)"
 URL: https://github.com/SQLAnvil/sqlanvil/actions/runs/45207610173
 Evidence: PR #65, workflow prd-toolkit, run 45207610173 (2026-11-23), at d865b97e, job standards-1
   INFO: Running command line: bazel-bin/eslint_/eslint '**/*.ts' ./cli/api/commands/agents_md.ts ...
