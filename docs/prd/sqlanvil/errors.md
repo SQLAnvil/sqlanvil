@@ -105,3 +105,19 @@ Evidence: PR #65, workflow prd-toolkit, run 45205148047 (2026-11-23), at fdc5ffa
 Diagnosis: The code and the PRD agree; the CI runner lacks what the PRD says a runner needs. testing.md, Harness, Tools on the runner: "a `~/.npmrc` file, empty if nothing else, because `MODULE.bazel` sets `use_home_npmrc = True` and rules_js fails when the file is missing". MODULE.bazel:34 sets `use_home_npmrc = True` (from upstream, 65341c8d). GitHub's ubuntu-latest runner has no `~/.npmrc`, and the workflow that `prd hooks ci --github` generated (prd-toolkit 0.8.14, prdlint/hooks.py render_github) runs each Levels or standards command straight after checkout and setup-uv, with no step that creates one; the generator has no way to add a setup step, and a Levels command must be one simple command. Every Bazel job therefore stops while loading the npm module extension, before any test or linter runs; prd-lint and prd-trace, which do not use Bazel, pass. Reproduced in this session: the same `FileNotFoundException` for /Users/ihistand/.npmrc stopped a local `bazel build` until an empty file was created. Nothing in the repository needs a home .npmrc since scripts/create_npmrc (Google's internal registry) was deleted in 95156a78. Not yet seen, because this error hides them: whether the warehouse job can reach BigQuery (its credential is only on the owner's machine) and whether eslint and prettier pass over every .ts file.
 Resolution: -, PRD 1.0.1, run 45207610173
 Recurrence of: -
+
+### E-009 The CI eslint job cannot load `typescript-eslint`
+Detected: 2026-11-23, CI run 45207610173 on PR #65, job standards-1
+Classification: unclassified
+URL: https://github.com/SQLAnvil/sqlanvil/actions/runs/45207610173
+Evidence: PR #65, workflow prd-toolkit, run 45207610173 (2026-11-23), at d865b97e, job standards-1
+  INFO: Running command line: bazel-bin/eslint_/eslint '**/*.ts' ./cli/api/commands/agents_md.ts ...
+  Error: Cannot find module 'typescript-eslint'
+  Require stack:
+  - /home/runner/work/sqlanvil/sqlanvil/eslint.config.js
+      at Module._resolveFilename (/home/runner/work/sqlanvil/sqlanvil/testing/resolver-patch.js:27:14)
+      at Object.<anonymous> (/home/runner/work/sqlanvil/sqlanvil/eslint.config.js:8:18)
+  ##[error]Process completed with exit code 123.
+Diagnosis: -
+Resolution: -
+Recurrence of: -
