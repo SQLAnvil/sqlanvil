@@ -62,6 +62,7 @@ Recurrence of: -
 ### E-006 A path that contains a single quote breaks the artifacts
 Detected: 2026-11-22, confirmation of FR-001 (open question Q-07)
 Classification: code bug
+Confirmed: 2026-11-23, "Confirm the class (form)"
 Touches: FR-001, FR-010
 Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test_tag_filters=integration --build_tests_only --test_output=all` @984785d8
   T-001.4: writeArtifacts into a directory named o'brien-… rejects with `Parser Error: syntax error at or near "brien"`
