@@ -174,3 +174,32 @@ The same pattern runs `:supabase.spec` / `:supabase_rls.spec` with `SUPABASE_*` 
 - The legacy root `api/` directory is **gone** — all adapter code lives under `cli/api/dbadapters/`. (The old reintegration assessment doc references `api/`; that relocation is done.)
 - Integration tests need real warehouses: BigQuery creds in `test_credentials/bigquery.json` (a `{projectId, location, credentials}` wrapper, not a raw key — see contributing.md); Postgres/Supabase via the Docker container from `./tools/postgres/run-postgres-db.sh`, reached as `127.0.0.1` with native bazel (or `host.docker.internal` only if running inside `docker-bazel`).
 - Rename audit (performed via grep): No active `@dataform/*` imports or `dataform.*` proto usages remain in code. All critical paths use `sqlanvil`. Remaining mentions are docs/comments/links.
+
+<!-- prd-toolkit:start -->
+## Product requirements (by prd_block.py; do not edit)
+
+The PRD at `docs/prd/sqlanvil` (version 1.0.0) is the authority.
+
+- To learn what an area does, run `/prd-toolkit:prd-context <area>` and work from its pack; read
+  whole PRD files only to edit them. Build an approved change with
+  `/prd-toolkit:prd-build <area> <IDs>`. Code implements the PRD; it never defines behaviour the PRD
+  lacks.
+- Every behaviour change in an adopted area starts with `/prd-toolkit:prd-change`, before code.
+- Gap rule: if the PRD is silent on what you need, stop and raise it with
+  `/prd-toolkit:prd-change`. Do not guess or read the code to fill the gap.
+- Deploy with `/prd-toolkit:prd-deploy`; never run a runbook command yourself.
+- A bug, a failing test, an error or a failed deploy goes to `/prd-toolkit:prd-error` (skill
+  `prd-toolkit:handling-errors`) before any code changes.
+- Commits cite IDs: `Refs: FR-012`.
+- Install the hooks once per clone:
+  `.prd-toolkit/prd hooks install docs/prd/sqlanvil`.
+- Lint runs inside the prd-toolkit skills; after any PRD edit, finish through
+  `/prd-toolkit:prd-change`.
+
+Required skills:
+- `superpowers:writing-plans` for planning a change
+- `superpowers:test-driven-development` for writing code
+- `superpowers:systematic-debugging` for diagnosing a failure
+
+Adopted areas: artifacts
+<!-- prd-toolkit:end -->

@@ -252,7 +252,7 @@ Status: live (since 1.0.0)
 Source: cli/commands/docs_command.ts:17 @f4b3f49e
   cli/commands/docs_command.ts:19 @f4b3f49e
 Acceptance (EARS):
-- AC-020.1 When `sqlanvil docs <project-dir>` runs on a project with a catalog, the docs command shall write the rendered catalog page to `<project-dir>/target/docs/index.html`, creating `target/docs/` when missing, print `Wrote catalog to <absolute path of index.html>` on stdout, and exit with code 0.
+- AC-020.1 When `sqlanvil docs <project-dir>` runs on a project with a catalog, the docs command shall write the rendered catalog page to `<project-dir>/target/docs/index.html`, creating `target/docs/` when missing, print `Wrote catalog to <absolute path of index.html>` on stdout, where the absolute path is `<project-dir>` made absolute with its symlinks left unresolved, and exit with code 0.
 - AC-020.2 When `target/docs/index.html` already exists, the docs command shall replace it.
 - AC-020.3 The docs command shall stamp the page with the time it ran, as an ISO 8601 UTC timestamp, in its `generated <timestamp>` text.
 Errors: -
@@ -296,7 +296,7 @@ Source: cli/api/commands/query.ts:5 @f4b3f49e
 Acceptance (EARS):
 - AC-023.1 When query.run is called with a database adapter, SQL and options, the query API shall call the adapter's execute once with the SQL unchanged and the options `interactive: true` and the given rowLimit and byteLimit, and resolve with the result's rows.
 - AC-023.2 If the adapter's execute rejects, the query API shall reject with the same error.
-- AC-023.3 When the promise query.run returned is cancelled, the query API shall call the cancel handler the adapter registered through `onCancel`.
+- AC-023.3 When the promise query.run returned is cancelled, the query API shall call the cancel handler the adapter registered through `onCancel`. A cancel that arrives before the adapter registers its handler is delivered as soon as the handler is registered (cli/api/utils/cancellable_promise.ts, owner, 2026-11-22).
 - AC-023.4 When query.run is given `options.compileConfig`, the query API shall ignore it.
 Errors: -
 Tests: T-023.1 [integration], T-023.2 [integration], T-023.3 [integration], T-023.4 [integration]  (test-cases/artifacts.yaml)

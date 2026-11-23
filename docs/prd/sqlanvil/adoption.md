@@ -13,7 +13,7 @@
 | mysql | not started | `cli/api/dbadapters/mysql.ts`, `cli/api/dbadapters/mysql_execution_sql.ts` |
 | sources | not started | `cli/api/dbadapters/bigquery_extract*`, `cli/api/dbadapters/mysql_extract.ts`, `cli/api/dbadapters/extract_load*`, `cli/api/commands/connection_credentials*`, `cli/api/commands/introspect*` |
 | files | not started | `cli/api/dbadapters/duckdb_export*`, `cli/api/dbadapters/duckdb_import*`, `cli/api/dbadapters/export_*`, `cli/api/dbadapters/import_*` |
-| artifacts | confirmed | `cli/commands/artifact_views.ts`, `cli/commands/docs_command.ts`, `cli/commands/inspect_command.ts`, `cli/commands/query_command.ts`, `cli/api/commands/artifact*`, `cli/api/commands/docs*`, `cli/api/commands/query.ts`, `cli/api/dbadapters/duckdb.ts`, `cli/api/dbadapters/duckdb_artifacts.ts` |
+| artifacts | adopted | `cli/commands/artifact_views.ts`, `cli/commands/docs_command.ts`, `cli/commands/inspect_command.ts`, `cli/commands/query_command.ts`, `cli/api/commands/artifact*`, `cli/api/commands/docs*`, `cli/api/commands/query.ts`, `cli/api/dbadapters/duckdb.ts`, `cli/api/dbadapters/duckdb_artifacts.ts` |
 | validate | not started | `cli/api/commands/validate*` |
 | scripts | not started | `cli/api/commands/script*` |
 | project-setup | not started | `cli/api/commands/agents_md.ts`, `cli/api/commands/credentials*`, `cli/api/commands/init*`, `cli/api/commands/install.ts`, `cli/api/commands/migrate_*` |
