@@ -1,0 +1,530 @@
+# The help catalogue prd_help.py prints: one entry per field of the PRD grammar.
+# Fields: key, name, what, why (required); rules, checked_by, see (optional). `see` is a heading of
+# references/prd-format.md, a name for a reader. A rule's own description lives on its @rule registration.
+
+- key: kind.UJ
+  name: User journey
+  what: "A block `### UJ-nn <title>` that tells, step by step, how a person or a program reaches a goal."
+  why: "The journey says why its requirements exist and in what order they are used; a requirement names the journey it serves on its Traces line (`Traces: UJ-02`)."
+  rules:
+    - "The ID is `UJ-` and two digits (`UJ-03`); the next free number is the highest UJ number in the PRD, removed ones included, plus 1."
+    - "The block sits in `features/<area>.md`."
+    - A UJ block has no acceptance criteria and no tests.
+    - The block has a row in the section 11 requirement index with the same title, status and file.
+  checked_by: [id-format, id-unique, index-consistent]
+  see: Requirement blocks
+
+- key: kind.FR
+  name: Requirement
+  what: "A block `### FR-nnn <title>` that states one behaviour of the system as acceptance criteria a test can prove."
+  why: Requirements are what the builder builds and the tester tests; a build moves each one from approved to built to verified.
+  rules:
+    - "The ID is `FR-` and three digits; FR and NFR share one number sequence, so `FR-004` and `NFR-004` cannot both exist."
+    - "The block sits in `features/<area>.md`; its field lines (`Status:`, `Flow:`, `Acceptance (EARS):`, `Errors:`, `Edge cases:`, `Tests:`, `Traces:` and, optionally, `Source:`) start at column 0, and a continuation line is indented two or more spaces."
+    - It has at least one acceptance criterion that is not removed.
+    - The block has a row in the section 11 requirement index with the same title, status and file.
+  checked_by: [id-format, id-unique, index-consistent, fr-has-ac]
+  see: Requirement blocks
+
+- key: kind.NFR
+  name: Quality requirement
+  what: "A block `### NFR-nnn <title>` in `nfr.md` that states a quality of the whole system, such as speed, size or availability, with a number."
+  why: A quality with no number cannot fail a test; the bound is what the tester measures.
+  rules:
+    - "The ID is `NFR-` and three digits, from the one sequence FR and NFR share."
+    - "The block states a measurable bound: a number with a unit such as ms, %, requests/s or MB."
+    - "Its tests are in `test-cases/nfr.yaml`."
+    - It has at least one acceptance criterion that is not removed, and a row in the section 11 index.
+  checked_by: [id-format, id-unique, index-consistent, nfr-bound, fr-has-ac, vague-word]
+  see: Requirement blocks
+
+- key: kind.T
+  name: Test case
+  what: "One entry `T-nnn.n` of a `test-cases/<area>.yaml` file: the full description of one test of one acceptance criterion."
+  why: The tester writes the test from the case alone, without the code, so the case must say everything the test needs.
+  rules:
+    - "The ID is `T-` with the requirement's three digits, a dot and a number: `T-012.n` belongs to FR-012 or NFR-012."
+    - "Every case has the sufficiency elements `ac`, `level`, `target`, `environment`, `identity`, `preconditions`, `input` and `expect`."
+    - "The requirement's `Tests:` line lists the T-id with its level, and the case's `level:` is the same."
+    - A T number is never reused, even after its case is deleted.
+  checked_by: [id-format, id-unique, test-cases-consistent, sufficiency]
+  see: Test cases
+
+- key: kind.E
+  name: Error
+  what: "One entry `### E-nnn <title>` of `errors.md`: a bug, a failing test, an error or a failed deploy, from detection to resolution."
+  why: The entry is the record that a defect was diagnosed and fixed; a test that fails on purpose until then names it in `known-failing:`.
+  rules:
+    - "The ID is `E-` and three digits; entries run from E-001 upward with no gap, newest last."
+    - "The lines are `Detected: <YYYY-MM-DD>, <source>`, `Classification:`, `Confirmed:` (optional, written only by `prd_error.py confirm`), `Touches:` (optional; requirement IDs, comma-separated, or `-`), `URL: <address>` (optional; the web address the entry is about, with no white space, written by `prd_error.py new --url` or `prd_error.py url`), `Evidence:` (optional; at most 20 lines, continuation lines indented two spaces, never a secret or a `confidential` or `pii` value), `Diagnosis:`, `Resolution:` and `Recurrence of:` (an `E-nnn` or `-`)."
+    - "`Classification:` is code bug, spec gap, invalid requirement, environment, standard or unclassified."
+    - "An entry is open until its `Resolution:` holds a value other than empty, `-` or one starting with `open`."
+    - "A resolution is `<T-id> [<level>], PRD <X.Y.Z>, fixed in <commit>` (code bug, spec gap, invalid requirement, standard), `<T-id or ->, PRD <X.Y.Z>, run <run id>` (environment), `not a defect: <why>` (any class), or a red run `fixed in <commit>, red run <test id> [<level>]` (code bug)."
+  checked_by: [id-format, id-unique, error-entries, index-consistent]
+  see: errors.md
+
+- key: kind.CS
+  name: Change set
+  what: "A record `changes/CS-nnn.md` of one change made across linked PRDs, with the order they are built and merged in."
+  why: A change that spans repositories needs one plan, one approval and one log that every member can point to.
+  rules:
+    - "The ID is `CS-` and three digits, per PRD, never reused."
+    - "Only `prd_links.py changeset` writes the record."
+    - "It holds `# CS-nnn <title>`, `Started: YYYY-MM-DD in <prd>`, one `Status:` line (`proposed`, `approved`, `running`, `stopped: <prd>: <reason>`, `done` or `abandoned`), one `Approval:` line per approval, the members' table, a `## Log` section and, once closed, a `## Merge order` section."
+    - "A commit made for it carries the trailer `Change-set: <prd>/CS-nnn` beside `Refs:`."
+  checked_by: [change-sets]
+  see: links.md
+
+- key: kind.S
+  name: Source
+  what: "A row `S-nn` of the Sources table in `practices.md`: a document the project's practices come from, with its title, its location, what it covers, the date it was read and its decision."
+  why: "A practice names the source it was taken from, and a section 5 standards row can name one in its Rules live in cell, so a reader can find the document and see that it was approved."
+  rules:
+    - "The ID is `S-` and two digits (`S-01`), once in the Sources table; `prd change ids next docs/prd/<slug> S` prints the next free one."
+    - "Decision is `approved`, `declined` or `proposed`; a source may not stay `proposed` once the PRD is Approved."
+    - "Read is the date the source was read, `YYYY-MM-DD`, a day of the calendar."
+    - "Each `S-nn` a section 5 row names in its Rules live in cell is a source of the Sources table, and an approved one."
+  checked_by: [practices]
+  see: practices.md
+
+- key: kind.P
+  name: Practice
+  what: "A row `P-nn` of the Practices table in `practices.md`: one practice taken from a source, what it applies to and what it says."
+  why: "The implement context pack of an area lists each code practice whose glob matches one of the area's paths, so the builder works to it."
+  rules:
+    - "The ID is `P-` and two digits (`P-01`), once in the Practices table; `prd change ids next docs/prd/<slug> P` prints the next free one."
+    - "Source names an `S-nn` of the Sources table that is approved, or proposed while the PRD is not Approved."
+    - "Applies to is `code` or `prd`; a code practice has a glob in Object (glob), not empty and not `-`."
+  checked_by: [practices]
+  see: practices.md
+
+- key: block.title
+  name: Title
+  what: "The heading of a requirement block, `### <ID> <title>`: the ID and a short name of what it does."
+  why: The title is how people find a requirement, and the section 11 index repeats it.
+  rules:
+    - "The heading is level 3, `### `, in `features/*.md` or `nfr.md`."
+    - The ID is followed by one space and the title.
+    - The section 11 index row of the ID has the same title, word for word.
+  checked_by: [id-format, index-consistent, platform-word]
+  see: Requirement blocks
+
+- key: block.status
+  name: Status
+  what: "The `Status:` line of a requirement block: where the requirement is, from approved to live."
+  why: The status says what a build or a deploy has proved about the requirement.
+  rules:
+    - "The value is `approved`, `built`, `verified`, `live`, `as-built` or `removed`, optionally followed by `(since X.Y.Z)`."
+    - "`live` always carries `(since X.Y.Z)`."
+    - "Statuses move `approved`, then `built`, then `verified`; a status move is progress, with no version bump."
+    - The section 11 index row carries the same status.
+  checked_by: [index-consistent, id-removed-reused]
+  see: Requirement blocks
+
+- key: block.flow
+  name: Flow
+  what: "The `Flow:` line of a block: the steps of a journey or a behaviour, joined by arrows."
+  why: It shows a reader the order of events in one line, before the acceptance criteria.
+  rules:
+    - "Write numbered steps joined by `→`; continuation lines are indented two or more spaces."
+    - Lint does not parse it; it is free text for people and agents.
+  see: Requirement blocks
+
+- key: block.acceptance
+  name: Acceptance criteria
+  what: "The `Acceptance (EARS):` line of a block and the list of `- AC-nnn.n` items under it."
+  why: The criteria are the requirement's testable content; each one gets at least one test case.
+  rules:
+    - "The label is `Acceptance (EARS):` at column 0, followed by one `- AC-nnn.n <text>` item per criterion."
+    - Every FR and NFR that is not removed has at least one criterion that is not removed.
+    - A UJ block has none.
+  checked_by: [fr-has-ac]
+  see: Requirement blocks
+
+- key: block.ac
+  name: Acceptance criterion
+  what: "One item `- AC-nnn.n <text>` under `Acceptance (EARS):`: one testable statement of what the system does."
+  why: Each criterion gets at least one test case, and a build is verified against them.
+  rules:
+    - "`nnn` is the parent requirement's number; the next free AC number is the highest in the block, removed ones included, plus 1."
+    - "The text starts with When, While, If or Where, or reads `The <thing> shall`, and contains `shall`; in a PRD whose `language:` is not `en`, the openers and the modal verb come from its language table."
+    - Keep one response per criterion, so one test case proves it, and give a number where a word such as fast would be vague.
+    - "A removed AC keeps its line, with `(removed in X.Y.Z)` between the ID and its text; its test cases are deleted."
+    - Extra lines of one criterion are indented two or more spaces.
+  checked_by: [id-format, id-unique, ac-ears, ac-has-test, vague-word, platform-word]
+  see: Requirement blocks
+
+- key: block.errors
+  name: Errors
+  what: "The `Errors:` line of a block: the error codes the requirement can produce."
+  why: Each code names one failure a caller can see, defined once in `contracts/errors.yaml`.
+  rules:
+    - "A comma-separated list of catalogue codes, then an optional parenthetical: `Errors: IMPORT_DUPLICATE (contracts/errors.yaml)`."
+    - "Write `Errors: -` for none."
+    - "Each code is in `contracts/errors.yaml`, in `UPPER_SNAKE_CASE`."
+  checked_by: [error-codes]
+  see: Requirement blocks
+
+- key: block.edge_cases
+  name: Edge cases
+  what: "The `Edge cases:` line of a block: the unusual inputs and states the requirement covers, each pointing to the criterion that settles it."
+  why: It records the cases a reader would ask about, and which criterion answers each.
+  rules:
+    - "Write each case and an arrow to its AC: `the same key twice in one file → AC-012.1`."
+    - Lint does not parse it; it is free text.
+  see: Requirement blocks
+
+- key: block.tests
+  name: Tests
+  what: "The `Tests:` line of a block: the T-ids that test it, each with its level, and the test-cases file that holds them."
+  why: It ties the requirement to its test cases, so a build knows which tests to run and which ones are its own.
+  rules:
+    - "List `T-nnn.n [level]` items, then `(test-cases/<area>.yaml)`: `Tests: T-012.1 [integration], T-012.2 [unit]  (test-cases/import.yaml)`."
+    - "Blocks in `nfr.md` pair with `test-cases/nfr.yaml`."
+    - "Each T-id has an entry in the named file at the level the line gives, and every entry there is cited by a `Tests:` line."
+    - A UJ block has no tests.
+  checked_by: [test-cases-consistent]
+  see: Requirement blocks
+
+- key: block.traces
+  name: Traces
+  what: "The `Traces:` line of a block: the journeys, contracts, settings and fixtures the requirement connects to."
+  why: It lets a reader and the context pack follow a requirement to what it touches.
+  rules:
+    - "Free text, written as semicolon-separated tokens: ``UJ-02; `orders.order_key` UNIQUE; fixture orders/one_existing``."
+    - "Lint reads it as free text, except that an AC or requirement ID on it may not name a removed one, a prefixed `<kind>:<prd>/<name>` token must name an item of that upstream's snapshot, and a backticked `table.column` must name a column of `contracts/schema.sql`."
+    - "A reference to an upstream PRD's item is `<kind>:<prd>/<name>`."
+  checked_by: [id-removed-reused, upstream-refs, schema-refs]
+  see: Requirement blocks
+
+- key: block.source
+  name: Source
+  what: "The optional `Source: <path>:<line> @<sha>` line of a block: where the code that implements it starts."
+  why: For an as-built block it records the code the requirement was read from; for a built one it points a reader at the implementation.
+  rules:
+    - "The form is `Source: <path>:<line> @<sha>`; continuation lines are allowed."
+    - "An `as-built` block must have one."
+    - "A build writes it at its close; it is optional outside `as-built`."
+  checked_by: [index-consistent]
+  see: Requirement blocks
+
+- key: case.ac
+  name: Criterion under test
+  what: "The `ac:` key of a test case: the acceptance criterion the case proves."
+  why: It ties the test to one criterion, so every criterion is shown to have a test.
+  rules:
+    - "One AC ID, such as `ac: AC-012.2`."
+    - "The AC belongs to the requirement the T-id is numbered for: `T-012.n` names an `AC-012.x`."
+    - A removed AC may not be cited.
+  checked_by: [sufficiency, test-refs, ac-has-test, id-removed-reused]
+  see: Test cases
+
+- key: case.level
+  name: Level
+  what: "The `level:` key of a test case: the kind of test, such as unit, integration, system or acceptance."
+  why: The level decides who writes the test, how it runs and whether it runs before or after a deploy.
+  rules:
+    - "A level that is a row of the Levels table in `testing.md`."
+    - "The same level as the T-id's item on the requirement's `Tests:` line."
+    - Unit cases are the builder's; every other level is the tester's.
+  checked_by: [sufficiency, test-level, test-cases-consistent]
+  see: Test cases
+
+- key: case.target
+  name: Target
+  what: "The `target:` key of a test case: the thing under test, as `<kind>:<name>`."
+  why: The target tells the tester which contract describes what it calls, and lint checks that the contract has it.
+  rules:
+    - "`<kind>` is `op`, `table`, `event`, `job`, `component`, `page`, `code`, or a custom type named in section 7 or a pack."
+    - "`op:` names an `operationId` of `contracts/openapi.yaml`, `table:` a table of `contracts/schema.sql`, and `event:` and `job:` a `### <name>` heading of `contracts/events.md` or a channel or operation of `contracts/asyncapi.yaml`."
+    - "`code:` is for unit cases."
+    - "An upstream PRD's item is `<kind>:<prd>/<name>`; `code:` never crosses repositories."
+  checked_by: [sufficiency, test-refs, upstream-refs]
+  see: Test cases
+
+- key: case.environment
+  name: Environment
+  what: "The `environment:` key of a test case: where the test runs."
+  why: The environment fixes which system, data and logs the test reaches.
+  rules:
+    - "An environment of the Environments table in `testing.md`, such as `local`."
+    - "A system case names an environment other than `local`."
+  checked_by: [sufficiency, test-refs]
+  see: Test cases
+
+- key: case.identity
+  name: Identity
+  what: "The `identity:` key of a test case: who the test acts as."
+  why: Permission rules depend on the caller, so a case that tests one names the identity it uses.
+  rules:
+    - "`none`, or a test identity of a role in `contracts/permissions.yaml`."
+    - "Every deny cell of the permissions contract needs a case with target `op:<operation>`, that role's identity and a non-empty `expect.errors`."
+  checked_by: [sufficiency, test-refs, deny-tested]
+  see: Test cases
+
+- key: case.preconditions
+  name: Preconditions
+  what: "The `preconditions:` key of a test case: the fixtures loaded and the services mocked before the test runs."
+  why: The test starts from a known state, so its result depends on the code alone.
+  rules:
+    - "A list; `[]` for none."
+    - "Each item is a fixture name, a path under `contracts/fixtures/` without the extension and a row of the Fixtures table in `testing.md`, or `mock:<service>` for a file in `contracts/dependencies/`."
+  checked_by: [sufficiency, test-refs]
+  see: Test cases
+
+- key: case.input
+  name: Input
+  what: "The `input:` key of a test case: what the test passes to the target."
+  why: The tester needs every value the call takes; nothing may be left to guess.
+  rules:
+    - Inline values, or `file:` with a path relative to `contracts/fixtures/` that exists.
+    - It may not be empty.
+    - "An email address, phone number or SSN in inline values must be a synthetic form, such as an `example.com` address, a 555-01xx phone number or an SSN starting 000, 666 or 9."
+  checked_by: [sufficiency, test-refs, classified-fixtures]
+  see: Test cases
+
+- key: case.expect
+  name: Expectation
+  what: "The `expect:` key of a test case: what the test asserts, as output, effects, errors and leaks."
+  why: It is the pass condition; a tester writes the assertions from it alone.
+  rules:
+    - "A mapping with `output`, `effects`, `errors` and `leaks`."
+    - "A judged case has `rubric:` and `threshold:` in place of `output:`."
+  checked_by: [sufficiency, judged-case]
+  see: Test cases
+
+- key: case.expect.output
+  name: Expected output
+  what: "The `expect.output` key: the value, exit code or lines the target returns."
+  why: It is what the test compares the real output with.
+  rules:
+    - It may not be empty, except in a judged case, where it is absent.
+    - "The test compares it the way the Assertions slot of `testing.md`'s Harness says."
+  checked_by: [sufficiency, judged-case]
+  see: Test cases
+
+- key: case.expect.effects
+  name: Expected effects
+  what: "The `expect.effects` key: the changes the call leaves behind, such as a row written or a line logged."
+  why: A call can return the right value and still change the wrong thing; effects say what must change.
+  rules:
+    - "A list; `[]` for none."
+    - "An acceptance case's effects are `[]`: a signer cannot see a database row."
+  checked_by: [sufficiency]
+  see: Test cases
+
+- key: case.expect.errors
+  name: Expected errors
+  what: "The `expect.errors` key: the error codes the call must produce."
+  why: It proves a failure is reported with the right code.
+  rules:
+    - "A list of codes from `contracts/errors.yaml`; `[]` for none."
+  checked_by: [sufficiency, test-refs, error-codes, deny-tested]
+  see: Test cases
+
+- key: case.expect.leaks
+  name: Expected leaks
+  what: "The `expect.leaks` key: which classified data must not appear in the sinks the test reads."
+  why: A test proves that logs and error bodies hold no personal or confidential value.
+  rules:
+    - "`none` means no classified column named in the Leak checks table of `testing.md` appears in any sink that table lists."
+    - Keep it on every case.
+  checked_by: [sufficiency]
+  see: Test cases
+
+- key: case.rubric
+  name: Rubric
+  what: "The `expect.rubric` key of a judged case: the claims a model grader checks in the output."
+  why: Some outputs, such as a document, cannot be compared exactly; the rubric says what a reader must find.
+  rules:
+    - "A non-empty list of non-empty strings, each different, in the PRD's `language:`."
+    - Each item is one claim a grader can prove with a quote from the output.
+    - "`output:` is absent beside it."
+  checked_by: [judged-case]
+  see: Judged cases
+
+- key: case.threshold
+  name: Threshold
+  what: "The `expect.threshold` key of a judged case: the share of rubric items the median run must pass."
+  why: It sets how good the output must be to pass.
+  rules:
+    - "A number greater than 0 and at most 1."
+    - A threshold below 1.0 that still needs every item is warned about; write one that allows the misses you mean to allow.
+  checked_by: [judged-case]
+  see: Judged cases
+
+- key: case.runs
+  name: Runs
+  what: "The optional `expect.runs` key of a judged case: how many times the grader scores the output."
+  why: A model grader varies between runs; the median of several runs is steadier than one.
+  rules:
+    - An integer of at least 1; the default is 3.
+  checked_by: [judged-case]
+  see: Judged cases
+
+- key: case.steps
+  name: Steps
+  what: "The `steps:` key of an acceptance case: the plain-language actions the signer takes."
+  why: An acceptance test is run and signed by a person, who needs each action spelled out.
+  rules:
+    - An acceptance case needs a non-empty list of strings.
+    - Every expect item has a step that observes it.
+    - "Written in the PRD's `language:`."
+  checked_by: [sufficiency]
+  see: Test cases
+
+- key: case.signoff
+  name: Sign-off
+  what: "The `signoff:` key of an acceptance case: the business owner who signs the result."
+  why: Acceptance is a person's judgement; the case names who gives it.
+  rules:
+    - An acceptance case needs a non-empty string.
+    - It names a person, not a team.
+  checked_by: [sufficiency]
+  see: Test cases
+
+- key: case.known_failing
+  name: Known failing
+  what: "The optional `known-failing: E-nnn` key of a test case: the case fails on purpose until the error it names is fixed."
+  why: A recorded bug keeps its test in the suite, and the suite stays green until the fix.
+  rules:
+    - "The YAML key is `known-failing:`, with a hyphen; its value is an `E-nnn` entry of `errors.md` that is still open."
+    - "The test is a strict expected failure, and its citation reads `@prd <T-id> known-failing <E-nnn>`."
+    - "Give a `symptom:` beside it, or any failure passes as the known one."
+    - "Only a build with `--fixes E-nnn` removes the line."
+  checked_by: [test-refs]
+  see: Test cases
+
+- key: case.symptom
+  name: Symptom
+  what: "The optional `symptom:` key beside `known-failing:`: the one observable failure the open bug shows."
+  why: The test treats only that symptom as the expected failure, so a new failure is not hidden.
+  rules:
+    - "Plain language, one observable symptom."
+    - "It is allowed only beside `known-failing:`, where a blank one counts as absent; a `symptom:` key without `known-failing:`, even a blank one, is an error."
+  checked_by: [test-refs]
+  see: Test cases
+
+- key: case.refs
+  name: References
+  what: "The optional `refs:` key of a test case: what the case depends on outside its contracts."
+  why: The tester reads every entry, so a fact the test needs from elsewhere in the PRD is not missed.
+  rules:
+    - "A list of paths in the PRD folder, each optionally followed by `#` and the exact text of a heading in that file: `testing.md#Harness`."
+    - Each file and heading exists.
+  checked_by: [test-refs]
+  see: Test cases
+
+- key: table.glossary
+  name: Glossary
+  what: "The section 3 table `| Term | Meaning | Banned synonyms |`: the words the PRD uses for its concepts."
+  why: One word per concept keeps requirements, tests and code from meaning different things by the same word.
+  rules:
+    - "Write the header `| Term | Meaning | Banned synonyms |`; lint does not check the header row and reads the cells by position, so keep the columns in that order."
+    - "Banned synonyms are comma-separated; `none` or `-` for none."
+    - A banned synonym may not appear in the PRD's prose.
+  checked_by: [glossary-synonym, sections]
+  see: prd.md sections
+
+- key: table.standards
+  name: Standards registry
+  what: "The section 5 table of the linters the project's files must pass."
+  why: The pre-commit hook and every build run each enforced linter on the files its glob matches.
+  rules:
+    - "Write the header `| Object (glob) | Linter command | Rules live in | Applies to | Decision |`; lint does not check the header row and reads the cells by position, so keep the columns in that order."
+    - "Decision is `enforced`, `declined` or `proposed`; `proposed` blocks approval."
+    - An enforced row has its linter command in backticks, and the command is on PATH.
+  checked_by: [registries, sections]
+  see: prd.md sections
+
+- key: table.skills
+  name: Skills registry
+  what: "The section 6 table of the agent skills a kind of work must follow."
+  why: An agent that touches what a row names reads that skill and follows it.
+  rules:
+    - "Write the header `| Object or activity | Skill | Decision |`; lint does not check the header row and reads the cells by position, so keep the columns in that order."
+    - "Decision is `required`, `recommended`, `declined` or `proposed`; `proposed` blocks approval."
+    - "The Skill cell is `plugin:skill` for a plugin's skill, or a bare skill name for one in `.claude/skills/`."
+    - A required skill is installed; a skill built into Claude Code can only be recommended.
+  checked_by: [registries, sections]
+  see: prd.md sections
+
+- key: table.index
+  name: Requirement index
+  what: "The section 11 table of every UJ, FR and NFR block, with its title, status, file and since version."
+  why: It is the one list of what the PRD requires and how far each requirement has got.
+  rules:
+    - "Write the header `| ID | Title | Status | File | Since |`; lint does not check the header row and reads the cells by position, so keep the columns in that order."
+    - One row per block, with the block's title, status and file.
+    - "The File cell is the block's file path in the PRD folder, such as `features/import.md` or `nfr.md`."
+    - A live row has a Since version; a removed requirement keeps its row with status removed.
+  checked_by: [index-consistent, id-removed-reused, sections]
+  see: prd.md sections
+
+- key: table.assumptions
+  name: Assumptions index
+  what: "The section 12 table of every assumption the PRD makes, by its A-nn ID."
+  why: An assumption is a guess about intent; the index keeps it visible until someone confirms or corrects it.
+  rules:
+    - "Write the header `| ID | Assumption | Status |`; lint does not check the header row and reads the cells by position, so keep the columns in that order."
+    - "Status is `open`, `confirmed`, `corrected` or `awaiting <who>`, a named person."
+    - An open assumption blocks approval.
+  checked_by: [assumption-indexed, id-format, id-unique, sections]
+  see: prd.md sections
+
+- key: marker.assumption
+  name: Assumption marker
+  what: "A marker `[ASSUMPTION A-nn: text]` in a Markdown, YAML, SQL or JSON file of the PRD: a stated guess about intent."
+  why: It shows where the PRD rests on a guess, so the owner can confirm it.
+  rules:
+    - "The form is `[ASSUMPTION A-nn: text]`, with an ID of two digits."
+    - It may appear in Markdown prose and in YAML, SQL and JSON values and comments.
+    - Each ID has a row in the section 12 assumptions index.
+  checked_by: [assumption-indexed, id-format]
+  see: Requirement blocks
+
+- key: marker.needs_clarification
+  name: Clarification marker
+  what: "A marker `[NEEDS CLARIFICATION: question]` in a Markdown, YAML, SQL or JSON file of the PRD: a question the PRD cannot answer yet."
+  why: It stops the PRD from being reviewed or approved with an open question in it.
+  rules:
+    - "The form is `[NEEDS CLARIFICATION: question]`."
+    - "None may remain once the status is `In review` or `Approved`, comments included."
+    - "Fixture data under `contracts/fixtures/`, files other than Markdown, YAML, SQL and JSON (such as `.lkml`), and hidden or editor-backup files are not scanned."
+  checked_by: [markers-open]
+  see: Requirement blocks
+
+- key: file.practices
+  name: Practices file
+  what: "The optional file `practices.md` directly in the PRD folder: a Sources table of the documents the project's practices come from and a Practices table of the practices taken from them."
+  why: "It records where each practice comes from and whether its source was approved, so `prd practices` and the implement context pack can give an agent the practices that apply to the files it changes."
+  rules:
+    - "It sits directly in the PRD folder; a `practices.md` in a subfolder is not read."
+    - "Each table is the first pipe table under its level-2 heading, `## Sources` or `## Practices`."
+    - "Without the file the PRD has no practices, and the rule `practices` reports nothing."
+    - "`prd practices docs/prd/<slug>` lists both tables; with `--paths` it lists only the code practices whose glob matches one or more of the paths."
+  checked_by: [practices]
+  see: practices.md
+
+- key: table.sources
+  name: Sources table
+  what: "The table under `## Sources` in `practices.md`, one row per source: ID, Title, Location, Covers, Read and Decision."
+  why: "It is the one list of the documents the PRD's practices and standards rest on, each with the date it was read and whether it was approved."
+  rules:
+    - "Lint does not check the header row and reads the cells by position, so keep the columns in the order ID, Title, Location, Covers, Read, Decision; a missing cell reads as empty."
+    - "Each ID is `S-` and two digits, once in the table."
+    - "Decision is `approved`, `declined` or `proposed`, and no longer `proposed` once the PRD is Approved; Read is a date `YYYY-MM-DD`."
+  checked_by: [practices]
+  see: practices.md
+
+- key: table.practices
+  name: Practices table
+  what: "The table under `## Practices` in `practices.md`, one row per practice: ID, Source, Object (glob), Applies to and Practice."
+  why: "Each row ties one practice to its source and to the files it governs, which is how the implement context pack and `prd practices --paths` choose the practices for a change."
+  rules:
+    - "Lint does not check the header row and reads the cells by position, so keep the columns in the order ID, Source, Object (glob), Applies to, Practice; a missing cell reads as empty."
+    - "Each ID is `P-` and two digits, once in the table."
+    - "Source is an `S-nn` of the Sources table that is approved, or proposed while the PRD is not Approved."
+    - "Applies to is `code` or `prd`; a code practice has a glob in Object (glob)."
+  checked_by: [practices]
+  see: practices.md

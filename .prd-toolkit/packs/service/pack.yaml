@@ -1,0 +1,16 @@
+pack: service
+version: 1.0.0
+toolkit: ">=0.8.0,<0.9"
+description: Services with an API, a database or events; the PRD of prd-toolkit 0.7.
+contract-types:
+  - {type: openapi, files: contracts/openapi.yaml, validator: built-in}
+  - {type: schema, files: contracts/schema.sql, validator: built-in}
+  - {type: events, files: contracts/events.md, validator: built-in}
+  - {type: errors, files: contracts/errors.yaml, validator: built-in}
+  - {type: permissions, files: contracts/permissions.yaml, validator: built-in}
+  - {type: config, files: contracts/config.yaml, validator: built-in}
+  - {type: classification, files: contracts/data-classification.yaml, validator: built-in}
+  - {type: dependencies, files: "contracts/dependencies/*.yaml", validator: built-in}
+  - {type: fixtures, files: "contracts/fixtures/**", validator: built-in}
+vocabulary: []
+builder-tests: unit

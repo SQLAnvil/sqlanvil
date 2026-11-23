@@ -1,0 +1,104 @@
+language: es
+ears:
+  openers: [Cuando, Mientras, Si, Donde]
+  ubiquitous: '^(El|La|Los|Las) \S.*? deberán?\b'
+  ubiquitous_hint: "'El/La/Los/Las <cosa> deberá'"
+  modal: '\bdeberán?\b'
+  modal_word: deberá
+vague:
+  - rápido
+  - rápida
+  - seguro
+  - segura
+  - escalable
+  - robusto
+  - robusta
+  - intuitivo
+  - intuitiva
+  - fluido
+  - fluida
+  - amigable
+  - fácil de usar
+labels:
+  business: "Negocio"
+  technical: "Técnico"
+  requirement: "Requisito"
+  status: "Estado"
+  test: "Prueba"
+  level: "Nivel"
+  gate: "Compuerta"
+  in_code: "En el código"
+  diagnosis: "Diagnóstico"
+  resolution: "Resolución"
+  recurrence_of: "Recurrencia de"
+  none: "Ninguno."
+  prd: "PRD"
+  project: "Proyecto"
+  prd_version: "Versión del PRD"
+  commit: "Commit"
+  generated: "Generado"
+  environment: "Entorno"
+  date: "Fecha"
+  not_deployed: "sin desplegar"
+  id: "ID"
+  assumption: "Supuesto"
+  code: "Código"
+  meaning: "Significado"
+  no_tests: "sin pruebas"
+  cited: "citado"
+  missing: "falta"
+  summary_of_ids: "Resumen de Claude de {ids}, PRD {version}"
+  summary_of_area: "Resumen de Claude del área {area}, PRD {version}"
+  blocks: "Bloques"
+  removed: "eliminado"
+  since: "desde"
+  requirements_area: "Requisitos: {area}"
+  summary_goals: "Resumen y objetivos"
+  glossary: "Glosario"
+  user_journeys: "Recorridos de usuario"
+  open_assumptions: "Supuestos abiertos"
+  open_questions: "Preguntas abiertas"
+  running_environments: "En ejecución en cada entorno"
+  open_errors: "Entradas de error abiertas"
+  metadata_stack: "Metadatos y tecnología"
+  architecture: "Arquitectura"
+  contracts: "Contratos"
+  operations: "Operaciones"
+  tables: "Tablas"
+  events: "Eventos"
+  error_codes: "Códigos de error"
+  nfrs: "Requisitos no funcionales"
+  test_levels: "Niveles de prueba"
+  matrix: "Matriz de requisitos y pruebas"
+  environments: "Entornos"
+  links: "Enlaces"
+  runbook: "Guía de operación"
+  standards: "Registro de estándares"
+  skills: "Registro de habilidades"
+  contract_types: "Tipos de contrato"
+  error_ledger: "Registro de errores"
+  state: "Estado"
+  detected: "Detectado"
+  classification: "Clasificación"
+  confirmed: "Confirmado"
+  touches: "Afecta a"
+  no_commit: "sin commit"
+  overview: "Resumen general"
+  what_it_is: "Qué es"
+  principles: "Principios"
+  areas: "Áreas"
+  linked_prds: "PRD enlazados"
+  getting_started: "Primeros pasos"
+  snapshot_line: "Una instantánea del PRD en la versión {version}. El PRD del repositorio es la autoridad."
+  part_principles: "Principios"
+  part_getting_started: "Primeros pasos"
+  overview_line: "{version} · {status} · Responsable: {owner} · Actualizado {updated}"
+  overview_open_errors: "Errores abiertos"
+  overview_errors_many: "{n} errores abiertos; la pestaña Técnico los enumera"
+  overview_errors_one: "1 error abierto; la pestaña Técnico lo enumera"
+  overview_errors_none: "Sin errores abiertos."
+  overview_area: "Área"
+  overview_adoption: "Adopción"
+  overview_requirements: "Requisitos"
+  upstreams: "Ascendentes"
+  consumers: "Consumidores"

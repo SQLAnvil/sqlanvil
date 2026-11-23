@@ -40,3 +40,5 @@ tools/supabase/.supabase-stack/
 
 # Local secrets
 .env
+.prd-judge/
+.prd-review.json

@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decision inbox</title>
+<style>
+.ibar { max-width: 980px; margin: 0 auto; padding: 24px 24px 0; display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; }
+.ibar h1 { margin: 0; font-size: 1.4rem; }
+#inbox-root { max-width: 980px; margin: 0 auto; padding: 8px 24px 48px; }
+.gwt { margin: 28px 0 10px; font-size: 1.05rem; overflow-wrap: anywhere; }
+.gwt .muted { margin-left: 8px; font-weight: 400; }
+.gcard { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin: 0 0 16px; min-width: 0; }
+.gcard.gone { opacity: .7; background: var(--bg); }
+.gcard.target { box-shadow: 0 0 0 3px var(--focus); }
+.ghead { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: 0.86rem; color: var(--muted); }
+.gkind { font-weight: 700; text-transform: uppercase; letter-spacing: .05em; font-size: 0.74rem; color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 99px; }
+.gid { color: var(--fg); font-weight: 600; overflow-wrap: anywhere; }
+.gwhere, .gsrc { overflow-wrap: anywhere; }
+.gtitle { font-size: 1.2rem; line-height: 1.3; margin: 8px 0; overflow-wrap: anywhere; }
+.gtitle:focus { outline: none; }
+.garea { margin: -4px 0 6px; overflow-wrap: anywhere; }
+.gurl { margin: 0 0 10px; overflow-wrap: anywhere; }
+.gq { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0 0 12px; }
+.gnowait { margin: -4px 0 12px; }
+.gev { margin: 0 0 12px; padding-left: 1.2em; }
+.gev li { margin: 4px 0; overflow-wrap: anywhere; }
+.gfacts { margin: 0 0 12px; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; }
+.gk { color: var(--muted); font-size: 0.88rem; }
+.gv { overflow-wrap: anywhere; white-space: pre-wrap; margin: 0; }
+.gv ul { margin: 0; padding-left: 1.2em; }
+.gnotice { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--warn-soft); border-left: 4px solid var(--warn); overflow-wrap: anywhere; }
+.gnotice .link { margin-left: 8px; }
+.ganswered { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); overflow-wrap: anywhere; }
+.gbox { margin-top: 12px; }
+.gbox select { font: inherit; padding: 8px 10px; margin: 0 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--fg); max-width: 100%; }
+.gdiff { margin: 8px 0 0; }
+.gdiff > summary { cursor: pointer; color: var(--accent); overflow-wrap: anywhere; }
+.gdiff pre.code { max-height: 360px; overflow: auto; }
+.dl-add { color: var(--accent); }
+.dl-del { color: var(--bad); }
+.dl-hunk { color: var(--muted); }
+.gslot { margin-top: 14px; border-top: 1px solid var(--border); }
+.gslot .shell { padding: 16px 0 0; max-width: none; }
+@media (max-width: 760px) {
+  .ibar { padding: 16px 16px 0; }
+  #inbox-root { padding: 8px 16px 40px; }
+  .gcard { padding: 16px; }
+  .gfacts { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+<header class="ibar" id="inbox-bar">
+  <h1>Decision inbox</h1>
+  <span class="muted" id="inbox-status">Loading…</span>
+</header>
+<div id="inbox-root"><p class="muted">Loading the gates…</p></div>
+<div class="end" id="inbox-end" role="alert" hidden></div>
+<script>
+'use strict';
+// The inbox builds its page from /gates every 5 seconds; every piece of gate text goes in through textContent.
+// It runs before the panel's script, which reads window.PANEL_HOST once; it uses the panel's helpers (h, TOKEN, openPanel)
+// and starts once the whole page is parsed.
+const KIND_LABEL = { approval: 'Approval', 'error-class': 'Error class', 'deploy-step': 'Deploy step', signoff: 'Sign-off', adoption: 'Adoption' };
+const CLASSES = ['code bug', 'spec gap', 'invalid requirement', 'environment', 'standard'];
+const FOLD = 5;
+const I = { doc: null, raw: '', seen: new Map(), seq: 0, first: true, drafts: new Map(), flags: new Set(), cards: new Map(),
+  panelKey: null, slot: null, scrollKey: null, targetKey: null, hashSeen: '', failures: 0, stopped: false, timer: null };
+
+// The decision inbox embeds the confirm panel for one adoption area at a time.
+window.PANEL_HOST = {
+  area: '', wt: '', question: '',
+  endpoint(path) { return `/adoption/${encodeURIComponent(this.area)}${path}?wt=${encodeURIComponent(this.wt)}`; },
+  active() { return I.panelKey !== null; },
+  // Done sends the gate's question, which counts the open items: list again first, so it is the current one.
+  beforeDone() { return refresh(); },
+  onEnd(kind) {
+    if (kind === 'done') { I.panelKey = null; I.raw = ''; refresh(); return; }
+    stop(kind);
+  },
+};
+
+const byId = (id) => document.getElementById(id);
+const fix = (v) => (typeof v === 'string' ? v : JSON.stringify(v, null, 2));
+
+function draftOf(entry) {
+  if (!I.drafts.has(entry.key)) I.drafts.set(entry.key, { words: '', cls: '', error: '', busy: false });
+  return I.drafts.get(entry.key);
+}
+
+async function ask(method, path, body) {
+  let res;
+  try {
+    res = await fetch(path, {
+      method, cache: 'no-store',
+      headers: { 'X-Prd-Token': TOKEN, 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch (err) {
+    return null;
+  }
+  let data = null;
+  try { data = await res.json(); } catch (err) { data = null; }
+  if (res.status === 403) { stop('forbidden'); return null; }
+  return { status: res.status, data };
+}
+
+function stop(kind) {
+  if (I.stopped) return;
+  I.stopped = true;
+  clearInterval(I.timer);
+  byId('inbox-root').hidden = true;
+  byId('inbox-bar').hidden = true;
+  byId('panel-host').hidden = true;
+  const box = byId('inbox-end');
+  box.hidden = false;
+  if (kind === 'forbidden') {
+    box.replaceChildren(h('h1', { text: 'This link is not valid' }),
+      h('p', { text: "The page's token is missing or wrong, so nothing can be read or answered." }),
+      h('p', { text: 'Open the exact link that serve printed. A new serve run prints a new link with a new token.' }));
+  } else {
+    box.replaceChildren(h('h1', { text: 'The inbox has stopped' }),
+      h('p', { text: 'Its server is no longer running: it was idle too long, or it was stopped. Nothing you answered is lost.' }),
+      h('p', { text: 'Ask the session to start the inbox again: it prints a new link.' }));
+  }
+}
+
+// --- listing ---------------------------------------------------------------------------------------------
+
+async function refresh() {
+  if (I.stopped) return;
+  const r = await ask('GET', '/gates');
+  if (I.stopped) return;
+  if (!r || r.status !== 200 || !r.data || !Array.isArray(r.data.worktrees)) {
+    if (++I.failures >= 3) stop('stopped');
+    return;
+  }
+  I.failures = 0;
+  const raw = JSON.stringify(r.data);
+  if (raw === I.raw) return;
+  I.raw = raw;
+  I.doc = r.data;
+  reconcile(r.data);
+  draw();
+  applyHash();
+}
+
+function latestAnswer(answers, entry) {
+  // a deploy step is repo-wide, as wait matches it: its answer from any worktree counts
+  const anywhere = entry.g.id.startsWith('deploy-step:');
+  const mine = (answers || []).filter((a) => a.gate === entry.g.id && (anywhere || a.worktree === entry.wt.path));
+  return mine.length ? mine[mine.length - 1] : null;
+}
+
+function reconcile(doc) {
+  const live = new Set();
+  const paths = new Set();
+  for (const wt of doc.worktrees) {
+    paths.add(wt.path);
+    (wt.gates || []).forEach((g, ord) => {
+      const key = `${wt.path}\n${g.id}`;
+      live.add(key);
+      const old = I.seen.get(key);
+      if (!old) {
+        I.seen.set(key, { key, g, wt, seq: I.first ? 0 : ++I.seq, ord, gone: false, answer: null });
+        return;
+      }
+      // an adoption's question counts its open items, so it changes with every answer: not a change of the gate
+      if (old.g.question !== g.question && g.kind !== 'adoption') I.flags.add(key);
+      Object.assign(old, { g, wt, ord, gone: false, answer: null });
+    });
+  }
+  for (const [key, entry] of I.seen) {
+    if (!paths.has(entry.wt.path)) { I.seen.delete(key); continue; }
+    if (!live.has(key)) { entry.gone = true; entry.answer = latestAnswer(doc.answers, entry); }
+  }
+  I.first = false;
+  const open = I.panelKey && I.seen.get(I.panelKey);
+  if (open && !open.gone) window.PANEL_HOST.question = open.g.question;
+  else if (I.panelKey) I.panelKey = null;
+}
+
+// --- drawing ---------------------------------------------------------------------------------------------
+
+// Put kids into parent, in order, without ever taking keep out of it: moving a node drops the focus inside it.
+function settle(parent, kids, keep) {
+  if (!keep || keep.parentNode !== parent || !kids.includes(keep)) { parent.replaceChildren(...kids); return; }
+  for (const old of [...parent.childNodes]) if (old !== keep) old.remove();
+  const at = kids.indexOf(keep);
+  keep.before(...kids.slice(0, at));
+  keep.after(...kids.slice(at + 1));
+}
+
+function draw() {
+  const root = byId('inbox-root');
+  const host = byId('panel-host');
+  const was = document.activeElement;
+  const focusKey = was && was.dataset ? was.dataset.fk : null;
+  const caret = focusKey && typeof was.selectionStart === 'number' ? was.selectionStart : null;
+  const inPanel = was && was !== host && host.contains(was) ? { el: was, start: was.selectionStart, end: was.selectionEnd } : null;
+  const before = I.cards;
+  I.cards = new Map();
+  const slots = new Map();
+  const pending = [...I.seen.values()].filter((e) => !e.gone).length;
+  const kids = [];
+  for (const wt of I.doc.worktrees) {
+    const entries = [...I.seen.values()].filter((e) => e.wt.path === wt.path)
+      .sort((a, b) => (b.seq - a.seq) || (Number(a.gone) - Number(b.gone)) || (a.ord - b.ord));
+    if (!entries.length && !wt.error) continue;
+    kids.push(h('h2', { class: 'gwt' }, wt.branch || 'HEAD', h('span', { class: 'muted', text: wt.path })));
+    if (wt.error) kids.push(h('p', { class: 'error', text: `This worktree could not be read: ${wt.error}` }));
+    for (const entry of entries) {
+      const card = gateCard(entry, slots);
+      I.cards.set(entry.key, card);
+      kids.push(card);
+    }
+  }
+  if (!kids.length) kids.push(h('p', { class: 'muted', text: 'Nothing is waiting for you.' }));
+  // The open panel stays in its slot, and its card in the page: the old card takes the new card's content around the slot.
+  const fresh = I.panelKey ? slots.get(I.panelKey) : null;
+  const old = fresh ? before.get(I.panelKey) : null;
+  let keep = null;
+  if (fresh && I.slot && I.slot.key === I.panelKey && host.parentNode === I.slot.el && old && old.parentNode === root && old.contains(I.slot.el)) {
+    const card = I.cards.get(I.panelKey);
+    settle(old, [...card.childNodes].map((n) => (n === fresh ? I.slot.el : n)), I.slot.el);
+    old.className = card.className;
+    kids[kids.indexOf(card)] = old;
+    I.cards.set(I.panelKey, old);
+    keep = old;
+  } else {
+    I.slot = fresh ? { key: I.panelKey, el: fresh } : null;
+  }
+  settle(root, kids, keep);
+  if (I.slot && host.parentNode !== I.slot.el) I.slot.el.append(host);
+  if (!I.slot && host.parentNode !== document.body) document.body.append(host); // keep the closed panel for the next one
+  host.hidden = !I.slot;
+  if (inPanel && document.activeElement !== inPanel.el && host.contains(inPanel.el) && !host.hidden) {
+    inPanel.el.focus({ preventScroll: true });
+    if (typeof inPanel.start === 'number' && typeof inPanel.el.setSelectionRange === 'function') inPanel.el.setSelectionRange(inPanel.start, inPanel.end);
+  }
+  byId('inbox-status').textContent = `${I.doc.prd}: ${pending} waiting, refreshed ${new Date().toLocaleTimeString()}`;
+  document.title = pending ? `(${pending}) Decision inbox` : 'Decision inbox';
+  if (focusKey) {
+    const again = [...root.querySelectorAll('[data-fk]')].find((el) => el.dataset.fk === focusKey);
+    if (again) {
+      again.focus({ preventScroll: true });
+      if (caret !== null && typeof again.setSelectionRange === 'function') again.setSelectionRange(caret, caret);
+    }
+  }
+  if (I.scrollKey && I.cards.has(I.scrollKey)) {
+    const card = I.cards.get(I.scrollKey);
+    I.scrollKey = null;
+    card.scrollIntoView({ block: 'start' });
+    const title = card.querySelector('.gtitle');
+    if (title) title.focus({ preventScroll: true });
+  }
+}
+
+function applyHash() {
+  const m = /^#gate=(.+)$/.exec(location.hash);
+  if (!m || I.hashSeen === location.hash) return;
+  let id = m[1];
+  try { id = decodeURIComponent(m[1]); } catch (err) { id = m[1]; }
+  const all = [...I.seen.values()].filter((e) => e.g.id === id);
+  const hit = all.find((e) => !e.gone) || all[0];
+  if (!hit) return;
+  I.hashSeen = location.hash;
+  I.targetKey = hit.key;
+  I.scrollKey = hit.key;
+  if (hit.g.kind === 'adoption' && !hit.gone) openAdoption(hit); else draw();
+}
+
+function gateCard(entry, slots) {
+  const g = entry.g;
+  const card = h('section', { class: `gcard${entry.gone ? ' gone' : ''}${entry.key === I.targetKey ? ' target' : ''}`, 'data-key': entry.key },
+    h('div', { class: 'ghead' },
+      h('span', { class: 'gkind', text: KIND_LABEL[g.kind] || g.kind }),
+      h('span', { class: 'gid', text: g.id }),
+      h('span', { class: 'gwhere', text: `${entry.wt.branch || 'HEAD'} · ${entry.wt.path}` }),
+      h('span', { class: 'gsrc', text: g.source ? `from ${g.source}` : '' })),
+    h('h3', { class: 'gtitle', tabindex: '-1', text: g.title }),
+    h('p', { class: 'muted garea', text: `Area: ${Array.isArray(g.areas) && g.areas.length ? g.areas.join(', ') : 'none'}` }),
+    typeof g.url === 'string' ? h('p', { class: 'gurl' }, urlLink(g.url)) : null);
+  if (I.flags.has(entry.key) && !entry.gone) {
+    card.append(h('p', { class: 'gnotice', role: 'status' }, h('strong', { text: 'changed' }),
+      ' This gate changed while you were reading. The card shows its new question; read it again before you answer. Your words are kept.',
+      h('button', { type: 'button', class: 'link', text: 'Dismiss', events: { click: () => { I.flags.delete(entry.key); draw(); } } })));
+  }
+  card.append(h('p', { class: 'gq', text: g.question }));
+  if (!entry.gone && g.waiting === false && !g.unreadable) card.append(h('p', { class: 'muted gnowait', text: 'No session is waiting on this gate. Answering it still records the answer.' }));
+  const evidence = g.evidence || [];
+  if (evidence.length) {
+    card.append(h('ul', { class: 'gev' }, evidence.slice(0, FOLD).map((line) => h('li', { text: line }))));
+    if (evidence.length > FOLD) {
+      card.append(h('details', { class: 'gdiff' }, h('summary', { text: `${evidence.length - FOLD} more lines` }),
+        h('ul', { class: 'gev' }, evidence.slice(FOLD).map((line) => h('li', { text: line })))));
+    }
+  }
+  if (entry.gone) {
+    const a = entry.answer;
+    card.append(a
+      ? h('p', { class: 'ganswered' }, h('strong', { text: 'answered' }), ` ${a.reply} (${a.by === 'form' ? 'in the inbox' : 'elsewhere'}, ${a.at})`)
+      : h('p', { class: 'ganswered', text: 'no longer pending' }));
+    return card;
+  }
+  const render = { approval: renderApproval, 'error-class': renderErrorClass, 'deploy-step': renderDeployStep, signoff: renderSignoff, adoption: renderAdoption }[g.kind];
+  if (!render) { card.append(h('p', { class: 'muted', text: `This inbox has no card for a ${g.kind} gate; answer it in the chat.` })); return card; }
+  card.append(...render(entry, slots));
+  return card;
+}
+
+// The card's URL as a link that opens in a new tab, its text the URL. The one href the page sets: only an http or
+// https address with no white space becomes one (gates pass over a malformed URL), so a link never runs code.
+function urlLink(url) {
+  const a = h('a', { target: '_blank', rel: 'noopener', text: url });
+  if (/^https?:\/\/\S+$/.test(url)) a.setAttribute('href', url);
+  return a;
+}
+
+function fact(label, ...value) {
+  return [h('span', { class: 'gk', text: label }), h('div', { class: 'gv' }, ...value)];
+}
+
+function list(items) {
+  return h('ul', {}, (items || []).map((x) => h('li', { text: fix(x) })));
+}
+
+// --- one renderer per kind ------------------------------------------------------------------------------
+
+function renderApproval(entry) {
+  const g = entry.g;
+  const v = g.version || {};
+  const bump = g.bump || {};
+  const decided = (bump.decided || []).map(fix);
+  const facts = [
+    fact('Restated', g.restate || ''),
+    fact('Touches', list(g.touches)),
+    fact('Version', `${v.from || '?'} → ${v.to || '?'}`, bump.level ? ` (${bump.level} bump${decided.length ? `, decided: ${decided.join('; ')}` : ''})` : ''),
+    fact('Impact', list((g.impact || {}).lines)),
+    fact('Dry run', (g.dry_run || {}).record || ''),
+  ].flat();
+  const out = [h('div', { class: 'gfacts' }, facts)];
+  out.push(...diffView(g.diff || '', g.diff_truncated));
+  out.push(answerBox(entry, {
+    prompt: 'Your words (needed to request changes)',
+    buttons: [{ key: 'approve', label: 'Approve', primary: true }, { key: 'changes', label: 'Request changes…', needs: true }],
+  }));
+  return out;
+}
+
+function diffView(text, truncated) {
+  if (!text.trim()) return [h('p', { class: 'muted', text: 'No changes against the base.' })];
+  const files = [];
+  for (const line of text.split('\n')) {
+    if (line.startsWith('diff --git ') || !files.length) files.push({ name: line.replace(/^diff --git a\/(.*) b\/.*$/, '$1'), lines: [] });
+    files[files.length - 1].lines.push(line);
+  }
+  const out = files.map((f) => h('details', { class: 'gdiff' }, h('summary', { text: f.name }),
+    h('pre', { class: 'code' }, f.lines.map((line) => h('span', {
+      class: line.startsWith('@@') ? 'dl-hunk' : (line.startsWith('+') && !line.startsWith('+++') ? 'dl-add' : (line.startsWith('-') && !line.startsWith('---') ? 'dl-del' : '')),
+      text: `${line}\n`,
+    })))));
+  if (truncated) out.push(h('p', { class: 'muted', text: 'The diff is cut at 200 KB; read the rest with git diff.' }));
+  return out;
+}
+
+function renderErrorClass(entry) {
+  const g = entry.g;
+  return [
+    h('div', { class: 'gfacts' }, [fact('Proposed class', g.class || ''), fact('Diagnosis', g.diagnosis || '')].flat()),
+    answerBox(entry, {
+      prompt: 'Your words (needed to correct the class)',
+      classes: true,
+      buttons: [{ key: 'confirm', label: 'Confirm the class', primary: true }, { key: 'correct', label: 'Correct it to…', needs: true, cls: true }],
+    }),
+  ];
+}
+
+function renderDeployStep(entry) {
+  const g = entry.g;
+  if (g.unreadable) {
+    // the run's log cannot be read, so the step it stopped at is unknown: the reason, and nothing to answer
+    return [
+      h('div', { class: 'gfacts' }, [fact('Run', g.run || ''), fact('Reason', g.question || '')].flat()),
+      h('p', { class: 'muted', text: 'This run log could not be read, so this card takes no reply. It leaves the inbox once the log reads again.' }),
+    ];
+  }
+  return [
+    h('div', { class: 'gfacts' }, [fact('Run', g.run || ''), fact('Environment', g.env || ''), fact('Actor', g.actor || ''),
+      fact('Do', g.do || ''), fact('Check', g.check || '')].flat()),
+    answerBox(entry, {
+      prompt: 'Your reply to this step',
+      hint: 'Type the words this step asks for. A reply is the go for the step, so it is never one click.',
+      buttons: [{ key: 'send', label: 'Send reply', needs: true, primary: true }],
+    }),
+  ];
+}
+
+function renderSignoff(entry) {
+  const g = entry.g;
+  const pre = (v) => h('pre', { class: 'code' }, fix(v === undefined || v === null ? '' : v));
+  return [
+    h('div', { class: 'gfacts' }, [fact('Case', g.tid || ''), fact('Signing as', g.owner || ''), fact('Input', pre(g.input)), fact('Expect', pre(g.expect))].flat()),
+    answerBox(entry, {
+      prompt: 'Your words (needed when it fails)',
+      buttons: [{ key: 'pass', label: 'Pass', primary: true }, { key: 'fail', label: 'Fail…', needs: true }],
+    }),
+  ];
+}
+
+function renderAdoption(entry, slots) {
+  const g = entry.g;
+  const m = /(\d+) of (\d+) items/.exec(g.question || '');
+  const total = m ? Number(m[2]) : null;
+  const answered = m ? total - Number(m[1]) : null;
+  const opened = I.panelKey === entry.key;
+  const out = [h('div', { class: 'gfacts' }, [fact('Area', g.area || ''), fact('Answered', m ? `${answered} of ${total}` : '')].flat()),
+    h('div', { class: 'actions' }, h('button', {
+      type: 'button', class: 'btn primary', 'aria-expanded': opened ? 'true' : 'false',
+      text: opened ? 'Close' : 'Open',
+      events: { click: () => (opened ? closeAdoption() : openAdoption(entry)) },
+    }))];
+  if (opened) {
+    const slot = h('div', { class: 'gslot' });
+    slots.set(entry.key, slot);
+    out.push(slot);
+  }
+  return out;
+}
+
+function openAdoption(entry) {
+  const host = window.PANEL_HOST;
+  host.area = entry.g.area || entry.g.id.replace(/^adoption:/, '');
+  host.wt = entry.wt.path;
+  host.question = entry.g.question;
+  I.panelKey = entry.key;
+  draw();
+  openPanel();
+}
+
+function closeAdoption() {
+  I.panelKey = null;
+  draw();
+}
+
+// --- answering -------------------------------------------------------------------------------------------
+
+function answerBox(entry, spec) {
+  const d = draftOf(entry);
+  const box = h('div', { class: 'gbox' });
+  const words = h('textarea', {
+    rows: 3, 'aria-label': spec.prompt, placeholder: spec.prompt, 'data-fk': `${entry.key}|words`,
+    value: d.words, disabled: d.busy,
+    events: { input: (e) => { d.words = e.target.value; if (d.error) { d.error = ''; const bad = box.querySelector('.error'); if (bad) bad.remove(); } } },
+  });
+  if (spec.hint) box.append(h('p', { class: 'hint', text: spec.hint }));
+  if (spec.classes) {
+    const pick = h('select', {
+      'aria-label': 'The class to correct it to', 'data-fk': `${entry.key}|class`, disabled: d.busy,
+      events: { change: (e) => { d.cls = e.target.value; } },
+    }, h('option', { value: '', text: 'Choose a class…' }), CLASSES.map((c) => h('option', { value: c, text: c })));
+    pick.value = d.cls;
+    box.append(pick);
+  }
+  box.append(words);
+  const row = h('div', { class: 'actions' });
+  for (const b of spec.buttons) {
+    row.append(h('button', {
+      type: 'button', class: `btn${b.primary ? ' primary' : ''}`, disabled: d.busy,
+      events: {
+        click: () => {
+          const name = b.label.replace(/…$/, '');
+          const need = b.needs && !d.words.trim() ? `${name} needs your words: say why in the box.`
+            : (b.cls && !d.cls ? `${name} needs a class: choose one first.` : '');
+          if (need) { d.error = need; draw(); return; }
+          send(entry, b.key);
+        },
+      },
+    }, b.label));
+  }
+  box.append(row);
+  if (d.busy) box.append(h('p', { class: 'muted', text: 'Sending…' }));
+  if (d.error) box.append(h('p', { class: 'error', role: 'alert', text: d.error }));
+  return box;
+}
+
+async function send(entry, key) {
+  const g = entry.g;
+  const wt = entry.wt;
+  const d = draftOf(entry);
+  const body = { worktree: wt.path, gate: g.id, question: g.question, words: d.words };
+  if (g.kind === 'signoff') body.result = key; else body.choice = key;
+  if (key === 'correct') body.class = d.cls;
+  d.busy = true; d.error = '';
+  draw();
+  const r = await ask('POST', '/answer', body);
+  d.busy = false;
+  if (!r) { d.error = 'The inbox could not be reached. Nothing was sent.'; draw(); return; }
+  if (r.status === 200) {
+    I.drafts.delete(entry.key); I.flags.delete(entry.key);
+  } else if (r.status === 409) {
+    I.flags.add(entry.key);
+    d.error = 'Not sent: the gate changed or is gone. The card is updated; read it, then answer again.';
+  } else {
+    const why = r.data && typeof r.data.error === 'string' ? r.data.error : `the server answered ${r.status}`;
+    d.error = `Not sent: ${why}`;
+  }
+  I.raw = '';
+  await refresh();
+  if (I.doc) draw();
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  if (!TOKEN) { stop('forbidden'); return; }
+  refresh();
+  I.timer = setInterval(refresh, 5000);
+  window.addEventListener('hashchange', () => { I.hashSeen = ''; applyHash(); });
+});
+</script>
+<div id="panel-host" hidden>
+<!-- include: panel.html -->
+</div>
+</body>
+</html>

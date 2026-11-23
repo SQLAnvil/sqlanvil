@@ -1,0 +1,7 @@
+#!/bin/sh
+# prd-toolkit hook: written by prd_hooks.py install; removed by prd_hooks.py uninstall
+top=$(git rev-parse --show-toplevel) || exit 1
+[ -f "$top/.prd-toolkit/prd_git_hook.py" ] && [ ! -f "$top/.prd-toolkit/prd" ] && { echo "prd-toolkit: .prd-toolkit/ on this branch predates 0.8.8 (no .prd-toolkit/prd); hook skipped" >&2; exit 0; }
+[ -f "$top/.prd-toolkit/prd_git_hook.py" ] && [ -f "$top/.prd-toolkit/prd" ] && [ -d "$top/{{prd}}" ] || { echo "prd-toolkit: no .prd-toolkit/ (or no PRD folder) on this branch; hook skipped" >&2; exit 0; }
+command -v uv >/dev/null 2>&1 || { echo "prd-toolkit: uv is not on PATH; install uv to run this hook" >&2; exit 1; }
+exec sh "$top/.prd-toolkit/prd" git-hook {{hook}} "$top/{{prd}}" "$@"
