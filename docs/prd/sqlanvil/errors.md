@@ -120,7 +120,7 @@ Evidence: PR #65, workflow prd-toolkit, run 45207610173 (2026-11-23), at d865b97
       at Object.<anonymous> (/home/runner/work/sqlanvil/sqlanvil/eslint.config.js:8:18)
   ##[error]Process completed with exit code 123.
 Diagnosis: The PRD's eslint standards row is incomplete for a fresh runner. prd.md section 5: "`scripts/bazel-ci run //:eslint -- '**/*.ts'`". eslint.config.js:8 requires `typescript-eslint` from the workspace node_modules, which a fresh checkout does not have. scripts/lint, where the row came from, prepares it first ("Type-aware lint rules need the npm types in node_modules and the generated sources in bazel-bin": `bazel run -- @pnpm//:pnpm --dir "$PWD" install --frozen-lockfile` and `bazel build //protos:ts //core:version`); the row copied only the eslint line, so the generated standards-1 job runs eslint with no node_modules. The code and its config are right; the CI command the PRD gives is not.
-Resolution: -
+Resolution: -, PRD 1.0.2, run 45211614726
 Recurrence of: -
 
 ### E-010 The CI prettier check finds 8 unformatted .ts files
@@ -142,7 +142,7 @@ Evidence: PR #65, workflow prd-toolkit, run 45207610173 (2026-11-23), at d865b97
   [warn] Code style issues found in 8 files. Run Prettier with --write to fix.
   ##[error]Process completed with exit code 123.
 Diagnosis: The code breaks an enforced standard of section 5: "`scripts/bazel-ci run //:prettier -- --ignore-path .prettierignore --check` (files changed on the branch, `scripts/lint`)" with rules in `.prettierrc`. 8 files are not prettier-formatted: common/protos/index.ts (existing code, outside every adopted area) and 7 files of the characterization suite under tests/prd/artifacts/ (cli.spec.ts, docs_model.spec.ts, duckdb_fail_child.ts, fixtures.ts, helpers.ts, known_failing.ts, writer.spec.ts), which prd-tester wrote. The row and the generated job also disagree on scope: the row says files changed on the branch, while the generated standards-2 job checks every tracked .ts file, which is why common/protos/index.ts shows. The owner chooses which side changes: the code (format the 8 files) or the row (its scope).
-Resolution: -
+Resolution: -, PRD 1.0.2, run 45211614726
 Recurrence of: -
 
 ### E-011 The CI README job passes `./cli/README.md` to `bazel test` as a target
@@ -158,7 +158,7 @@ Evidence: PR #65, workflow prd-toolkit, run 45207610173 (2026-11-23), at d865b97
   ERROR: Couldn't start the build. Unable to run tests
   ##[error]Process completed with exit code 123.
 Diagnosis: The code and the README test are right; the CI command built from the PRD row is wrong. prd.md section 5: Object `cli/README.md`, command "`scripts/bazel-ci test //cli:readme_generated_test`". The generator (prd-toolkit 0.8.14, prdlint/hooks.py ci_jobs) runs every standards row as `git ls-files -z --format='./%(path)' -- <the Object glob> | xargs -0 -r <command>`, so it appends `./cli/README.md` to `bazel test`, which reads it as a target and refuses it ("target names may not contain '.' as a path segment"). The row's command takes no file arguments, and the generator has no way to say so; that is also a prd-toolkit gap to report to its coordinator.
-Resolution: -
+Resolution: -, PRD 1.0.2, run 45211614726
 Recurrence of: -
 
 ### E-012 The CI unit and warehouse jobs fail to build without `test_credentials/bigquery.json`
@@ -177,5 +177,5 @@ Evidence: PR #65, workflow prd-toolkit, run 45207610173 (2026-11-23), at d865b97
     //tests/integration:bigquery.spec    FAILED TO BUILD
     ##[error]Process completed with exit code 1.
 Diagnosis: The CI runner has no BigQuery credential, which the build needs even at the unit level. testing.md, Harness, Lifecycle: "The BigQuery spec uses a real GCP project through `test_credentials/bigquery.json`"; operations.md, Secrets: "It is kept only on the owner's machine and held by the owner (Ivan Histand); it is in no CI system and no secret store". cli/BUILD:79 `ts_test_suite(name = "tests")` lists `//test_credentials:bigquery.json` in the `data` of every test in it, so `//cli:index_help_test` and `//cli:util_test`, untagged and so in the unit level, fail to build without the file; tests/integration/BUILD:20 does the same for bigquery.spec in the warehouse level. The file is git-ignored and absent on the runner (this worktree has only test_credentials/BUILD too). Not yet seen: whether the warehouse level's Docker specs pass on the runner once they build.
-Resolution: -
+Resolution: -, PRD 1.0.2, run 45211614726
 Recurrence of: -
