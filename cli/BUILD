@@ -87,7 +87,6 @@ ts_test_suite(
         "index_project_test.ts",
         "index_compile_test.ts",
         "index_connections_test.ts",
-        "index_run_e2e_test.ts",
         "tests/bin_test.ts",
         "util_test.ts"
     ],
@@ -96,8 +95,42 @@ ts_test_suite(
         "//packages/@sqlanvil/cli:json",
         "//packages/@sqlanvil/cli:worker_bundle",
         "//packages/@sqlanvil/core:package_tar",
+    ],
+    # index_test_base runs `npm` directly, and the CLI runs `npm i` when sqlanvilCoreVersion is set.
+    include_npm = True,
+    deps = [
+        ":index_test_base",
+        "//cli",
+        "//cli/api",
+        "//core",
+        "//protos:ts",
+        "//testing",
+        "//:node_modules/@types/chai",
+        "//:node_modules/@types/fs-extra",
+        "//:node_modules/@types/js-yaml",
+        "//:node_modules/@types/long",
+        "//:node_modules/@types/node",
+        "//:node_modules/chai",
+        "//:node_modules/fs-extra",
+        "//:node_modules/js-yaml",
+        "//:node_modules/long",
+        "//:node_modules/ts-mockito",
+    ],
+)
+
+# Runs the CLI against live BigQuery with test_credentials/bigquery.json: the warehouse level, at the
+# deploy gate (docs/prd/sqlanvil/testing.md, Levels; E-012).
+ts_test_suite(
+    name = "run_e2e_tests",
+    srcs = ["index_run_e2e_test.ts"],
+    data = [
+        "//packages/@sqlanvil/cli:bundle",
+        "//packages/@sqlanvil/cli:json",
+        "//packages/@sqlanvil/cli:worker_bundle",
+        "//packages/@sqlanvil/core:package_tar",
         "//test_credentials:bigquery.json",
     ],
+    tags = ["integration"],
     # index_test_base runs `npm` directly, and the CLI runs `npm i` when sqlanvilCoreVersion is set.
     include_npm = True,
     deps = [
