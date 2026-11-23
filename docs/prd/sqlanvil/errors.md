@@ -78,7 +78,7 @@ Recurrence of: -
 
 ### E-008 Every Bazel job of the prd-toolkit CI workflow fails: the runner has no `~/.npmrc`
 Detected: 2026-11-23, CI run 45205148047 on PR #65
-Classification: unclassified
+Classification: environment
 URL: https://github.com/SQLAnvil/sqlanvil/actions/runs/45205148047
 Evidence: PR #65, workflow prd-toolkit, run 45205148047 (2026-11-23), at fdc5ffa6
   Failed: standards-1, standards-2, standards-3, test-unit, test-integration, test-warehouse
@@ -95,6 +95,6 @@ Evidence: PR #65, workflow prd-toolkit, run 45205148047 (2026-11-23), at fdc5ffa
     Error in read: java.io.FileNotFoundException: /home/runner/.npmrc (No such file or directory)
     ERROR: Build failed. Not running target
     ##[error]Process completed with exit code 123.
-Diagnosis: -
+Diagnosis: The code and the PRD agree; the CI runner lacks what the PRD says a runner needs. testing.md, Harness, Tools on the runner: "a `~/.npmrc` file, empty if nothing else, because `MODULE.bazel` sets `use_home_npmrc = True` and rules_js fails when the file is missing". MODULE.bazel:34 sets `use_home_npmrc = True` (from upstream, 65341c8d). GitHub's ubuntu-latest runner has no `~/.npmrc`, and the workflow that `prd hooks ci --github` generated (prd-toolkit 0.8.14, prdlint/hooks.py render_github) runs each Levels or standards command straight after checkout and setup-uv, with no step that creates one; the generator has no way to add a setup step, and a Levels command must be one simple command. Every Bazel job therefore stops while loading the npm module extension, before any test or linter runs; prd-lint and prd-trace, which do not use Bazel, pass. Reproduced in this session: the same `FileNotFoundException` for /Users/ihistand/.npmrc stopped a local `bazel build` until an empty file was created. Nothing in the repository needs a home .npmrc since scripts/create_npmrc (Google's internal registry) was deleted in 95156a78. Not yet seen, because this error hides them: whether the warehouse job can reach BigQuery (its credential is only on the owner's machine) and whether eslint and prettier pass over every .ts file.
 Resolution: -
 Recurrence of: -
