@@ -157,3 +157,21 @@ Evidence: PR #65, workflow prd-toolkit, run 45207610173 (2026-11-23), at d865b97
 Diagnosis: -
 Resolution: -
 Recurrence of: -
+
+### E-012 The CI unit and warehouse jobs fail to build without `test_credentials/bigquery.json`
+Detected: 2026-11-23, CI run 45207610173 on PR #65, jobs test-unit and test-warehouse
+Classification: unclassified
+URL: https://github.com/SQLAnvil/sqlanvil/actions/runs/45207610173
+Evidence: PR #65, workflow prd-toolkit, run 45207610173 (2026-11-23), at d865b97e
+  test-unit, `scripts/bazel-ci test //... --test_tag_filters=-integration --build_tests_only`:
+    ERROR: cli/BUILD:79:14: Middleman _middlemen/cli_Sindex_Uhelp_Utest_U_Sindex_Uhelp_Utest-runfiles failed: missing input file '//test_credentials:bigquery.json'
+    ERROR: cli/BUILD:79:14: Middleman _middlemen/cli_Sutil_Utest_U_Sutil_Utest-runfiles failed: missing input file '//test_credentials:bigquery.json'
+    //cli:index_help_test    FAILED TO BUILD
+    ##[error]Process completed with exit code 1.
+  test-warehouse, `scripts/bazel-ci test //tests/integration/... //tests/api/... --test_tag_filters=integration --build_tests_only`:
+    ERROR: tests/integration/BUILD:20:14: Middleman _middlemen/tests_Sintegration_Sbigquery.spec_U_Sbigquery.spec-runfiles failed: missing input file '//test_credentials:bigquery.json'
+    //tests/integration:bigquery.spec    FAILED TO BUILD
+    ##[error]Process completed with exit code 1.
+Diagnosis: -
+Resolution: -
+Recurrence of: -
