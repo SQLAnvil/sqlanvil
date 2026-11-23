@@ -79,6 +79,7 @@ Recurrence of: -
 ### E-008 Every Bazel job of the prd-toolkit CI workflow fails: the runner has no `~/.npmrc`
 Detected: 2026-11-23, CI run 45205148047 on PR #65
 Classification: environment
+Confirmed: 2026-11-23, "Confirm the class (form)"
 URL: https://github.com/SQLAnvil/sqlanvil/actions/runs/45205148047
 Evidence: PR #65, workflow prd-toolkit, run 45205148047 (2026-11-23), at fdc5ffa6
   Failed: standards-1, standards-2, standards-3, test-unit, test-integration, test-warehouse
