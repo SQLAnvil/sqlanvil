@@ -69,6 +69,7 @@ Recurrence of: -
 ### E-007 inspect lists an arbitrary 20 of more than 20 failures
 Detected: 2026-11-22, confirmation of FR-018 (open question Q-10)
 Classification: code bug
+Confirmed: 2026-11-23, "Confirm the class (form)"
 Touches: FR-018, FR-019
 Evidence: characterization suite, 2026-11-22, at eeface71
   T-018.3 passes: with the case's 21 rows DuckDB returned the FAILED rows in readable_name order, so the case cannot show the missing ORDER BY; it stays a plain test, not known-failing (owner, 2026-11-22)
