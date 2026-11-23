@@ -6,6 +6,7 @@ Entry lines in order: Detected, Classification, Confirmed, Touches, Evidence (at
 ### E-001 inspect wall time counts skipped and disabled actions from epoch zero
 Detected: 2026-11-22, adoption extract of artifacts (cli/commands/inspect_command.ts:29 @f4b3f49e)
 Classification: code bug
+Confirmed: 2026-11-23, "Confirm the class (form)"
 Touches: FR-018, FR-019
 Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test_tag_filters=integration --build_tests_only --test_output=all` @984785d8
   T-018.5: line 10 is "Latest run (SUCCESSFUL): 1 succeeded, 0 failed, 1400ms" where 400ms is intended
