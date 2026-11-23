@@ -121,3 +121,24 @@ Evidence: PR #65, workflow prd-toolkit, run 45207610173 (2026-11-23), at d865b97
 Diagnosis: -
 Resolution: -
 Recurrence of: -
+
+### E-010 The CI prettier check finds 8 unformatted .ts files
+Detected: 2026-11-23, CI run 45207610173 on PR #65, job standards-2
+Classification: unclassified
+URL: https://github.com/SQLAnvil/sqlanvil/actions/runs/45207610173
+Evidence: PR #65, workflow prd-toolkit, run 45207610173 (2026-11-23), at d865b97e, job standards-2
+  INFO: Running command line: bazel-bin/prettier_/prettier --ignore-path .prettierignore --check ./cli/api/commands/agents_md.ts ...
+  Checking formatting...
+  [warn] common/protos/index.ts
+  [warn] tests/prd/artifacts/cli.spec.ts
+  [warn] tests/prd/artifacts/docs_model.spec.ts
+  [warn] tests/prd/artifacts/duckdb_fail_child.ts
+  [warn] tests/prd/artifacts/fixtures.ts
+  [warn] tests/prd/artifacts/helpers.ts
+  [warn] tests/prd/artifacts/known_failing.ts
+  [warn] tests/prd/artifacts/writer.spec.ts
+  [warn] Code style issues found in 8 files. Run Prettier with --write to fix.
+  ##[error]Process completed with exit code 123.
+Diagnosis: -
+Resolution: -
+Recurrence of: -
