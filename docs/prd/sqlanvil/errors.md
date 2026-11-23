@@ -147,6 +147,7 @@ Recurrence of: -
 ### E-011 The CI README job passes `./cli/README.md` to `bazel test` as a target
 Detected: 2026-11-23, CI run 45207610173 on PR #65, job standards-3
 Classification: environment
+Confirmed: 2026-11-23, "Confirm the class (form)"
 URL: https://github.com/SQLAnvil/sqlanvil/actions/runs/45207610173
 Evidence: PR #65, workflow prd-toolkit, run 45207610173 (2026-11-23), at d865b97e, job standards-3
   run: git ls-files -z --format='./%(path)' -- ':(glob)cli/README.md' ':(exclude).prd-toolkit' | xargs -0 -r scripts/bazel-ci test //cli:readme_generated_test
