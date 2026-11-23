@@ -7,6 +7,8 @@ bazel-*
 .history/
 
 bazel-*
+# the CI Bazel wrapper is a script, not a Bazel output symlink (E-008)
+!/scripts/bazel-ci
 
 **/.DS_Store
 
@@ -40,3 +42,5 @@ tools/supabase/.supabase-stack/
 
 # Local secrets
 .env
+.prd-judge/
+.prd-review.json

@@ -15,3 +15,6 @@ tests/integration/supabase_project/
 tests/integration/supabase_rls_project/
 tests/integration/mysql_options_project/
 tests/integration/postgres_options_project/
+
+# Characterization suites written by prd-tester from the PRD (docs/prd/sqlanvil, section 5; E-010)
+tests/prd/

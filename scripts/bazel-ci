@@ -1,0 +1,7 @@
+#!/bin/sh
+# Runs bazel with its own arguments after making sure ~/.npmrc exists. MODULE.bazel sets
+# use_home_npmrc = True, and rules_js fails when that file is missing, as it is on a fresh CI
+# runner (E-008; docs/prd/sqlanvil/testing.md, Harness, Tools on the runner).
+set -e
+[ -e "$HOME/.npmrc" ] || : > "$HOME/.npmrc"
+exec bazel "$@"

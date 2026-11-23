@@ -35,6 +35,7 @@ T-001.1:
 T-001.2:
   ac: AC-001.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -42,18 +43,19 @@ T-001.2:
   input:
     call: "writeArtifacts(G1, P)"
     graph: *G1
-    read_back: "queryParquet(\"select name from pragma_table_info('<view>') order by cid\") for each of the views actions, dependencies, columns over the three files"
+    read_back: "queryParquet(\"select name, type from pragma_table_info('<view>') order by cid\") for each of the views actions, dependencies, columns over the three files"
   expect:
     output:
-      actions: [target_key, database, schema, name, readable_name, type, tags, disabled, file_name, description]
-      dependencies: [from_target_key, to_target_key, from_readable, to_readable]
-      columns: [target_key, readable_name, column_name, description]
+      actions: [{name: target_key, type: VARCHAR}, {name: database, type: VARCHAR}, {name: schema, type: VARCHAR}, {name: name, type: VARCHAR}, {name: readable_name, type: VARCHAR}, {name: type, type: VARCHAR}, {name: tags, type: VARCHAR}, {name: disabled, type: BOOLEAN}, {name: file_name, type: VARCHAR}, {name: description, type: VARCHAR}]
+      dependencies: [{name: from_target_key, type: VARCHAR}, {name: to_target_key, type: VARCHAR}, {name: from_readable, type: VARCHAR}, {name: to_readable, type: VARCHAR}]
+      columns: [{name: target_key, type: VARCHAR}, {name: readable_name, type: VARCHAR}, {name: column_name, type: VARCHAR}, {name: description, type: VARCHAR}]
     effects: []
     errors: []
     leaks: none
 T-001.3:
   ac: AC-001.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -71,10 +73,13 @@ T-001.3:
 T-001.4:
   ac: AC-001.4
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
   preconditions: []
+  known-failing: E-006
+  symptom: "writeArtifacts rejects with `Parser Error: syntax error at or near \"<token>\"`, where <token> is the start of the text after the single quote in the directory name"
   input:
     project_dir: "Q, a new empty temporary directory whose name contains a single quote (for example o'brien)"
     graph: *G1
@@ -87,6 +92,7 @@ T-001.4:
 T-002.1:
   ac: AC-002.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -110,6 +116,7 @@ T-002.1:
 T-002.2:
   ac: AC-002.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -147,6 +154,7 @@ T-002.2:
 T-002.3:
   ac: AC-002.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -172,6 +180,7 @@ T-002.3:
 T-002.4:
   ac: AC-002.4
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -194,6 +203,7 @@ T-002.4:
 T-002.5:
   ac: AC-002.5
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -210,6 +220,7 @@ T-002.5:
 T-003.1:
   ac: AC-003.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -228,6 +239,7 @@ T-003.1:
 T-003.2:
   ac: AC-003.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -244,6 +256,7 @@ T-003.2:
 T-004.1:
   ac: AC-004.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -268,6 +281,7 @@ T-004.1:
 T-004.2:
   ac: AC-004.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -284,6 +298,7 @@ T-004.2:
 T-005.1:
   ac: AC-005.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -307,6 +322,7 @@ T-005.1:
 T-005.2:
   ac: AC-005.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -324,6 +340,7 @@ T-005.2:
 T-005.3:
   ac: AC-005.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -347,6 +364,7 @@ T-005.3:
 T-005.4:
   ac: AC-005.4
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -367,6 +385,7 @@ T-005.4:
 T-005.5:
   ac: AC-005.5
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -391,6 +410,7 @@ T-005.5:
 T-005.6:
   ac: AC-005.6
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -414,6 +434,7 @@ T-005.6:
 T-005.7:
   ac: AC-005.7
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -429,6 +450,7 @@ T-005.7:
 T-005.8:
   ac: AC-005.8
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -446,10 +468,13 @@ T-005.8:
 T-005.9:
   ac: AC-005.9
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
   preconditions: []
+  known-failing: E-002
+  symptom: "the runs view holds no row for run 300"
   input:
     graph: *G1
     call: "writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 300})"
@@ -462,6 +487,7 @@ T-005.9:
 T-005.10:
   ac: AC-005.10
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -474,13 +500,34 @@ T-005.10:
     effects: ["P/target/runs holds exactly run_1.parquet, run_2.parquet and run_3.parquet"]
     errors: []
     leaks: none
-T-006.1:
-  ac: AC-006.1
+T-005.11:
+  ac: AC-005.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
   preconditions: []
+  input:
+    graph: *G1
+    run_result: *R1
+    call: "writeArtifacts(G1, P, {runResult: R1, runId: 123})"
+    read_back: "queryParquet(\"select name, type from pragma_table_info('runs') order by cid\") over P/target/runs/*.parquet"
+  expect:
+    output: [{name: run_id, type: BIGINT}, {name: run_status, type: VARCHAR}, {name: target_key, type: VARCHAR}, {name: readable_name, type: VARCHAR}, {name: status, type: VARCHAR}, {name: start_millis, type: BIGINT}, {name: end_millis, type: BIGINT}, {name: duration_millis, type: BIGINT}, {name: error_message, type: VARCHAR}]
+    effects: []
+    errors: []
+    leaks: none
+T-006.1:
+  ac: AC-006.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  known-failing: E-003
+  symptom: "every column of the empty actions file over P has type JSON, where the actions file over P2 has VARCHAR, and BOOLEAN for disabled"
   input:
     graph: {tables: [], operations: [], assertions: [], exports: [], declarations: []}
     call: "writeArtifacts(graph, P)"
@@ -504,6 +551,7 @@ T-006.1:
 T-007.1:
   ac: AC-007.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -521,6 +569,7 @@ T-007.1:
 T-007.2:
   ac: AC-007.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.writeArtifacts
   environment: local
   identity: none
@@ -538,6 +587,7 @@ T-007.2:
 T-008.1:
   ac: AC-008.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.safeWriteArtifacts
   environment: local
   identity: none
@@ -554,6 +604,7 @@ T-008.1:
 T-008.2:
   ac: AC-008.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/artifacts.safeWriteArtifacts
   environment: local
   identity: none
@@ -570,6 +621,7 @@ T-008.2:
 T-009.1:
   ac: AC-009.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -589,6 +641,7 @@ T-009.1:
 T-009.2:
   ac: AC-009.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/inspect_command.inspectCommand
   environment: local
   identity: none
@@ -608,6 +661,7 @@ T-009.2:
 T-009.3:
   ac: AC-009.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/docs_command.docsCommand
   environment: local
   identity: none
@@ -627,6 +681,7 @@ T-009.3:
 T-009.4:
   ac: AC-009.4
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/inspect_command.inspectCommand
   environment: local
   identity: none
@@ -647,6 +702,7 @@ T-009.4:
 T-010.1:
   ac: AC-010.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -664,6 +720,7 @@ T-010.1:
 T-010.2:
   ac: AC-010.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -683,6 +740,7 @@ T-010.2:
 T-010.3:
   ac: AC-010.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/inspect_command.inspectCommand
   environment: local
   identity: none
@@ -702,6 +760,7 @@ T-010.3:
 T-010.4:
   ac: AC-010.4
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -719,10 +778,13 @@ T-010.4:
 T-010.5:
   ac: AC-010.5
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
   preconditions: []
+  known-failing: E-006
+  symptom: "writing the project's artifacts rejects with `Parser Error: syntax error at or near \"<token>\"`, where <token> is the start of the text after the single quote in the directory name, so the query does not run"
   input:
     project_dir: "Q, a temporary directory whose name contains a single quote, with target/ written by writeArtifacts(G1, Q)"
     graph: *G1
@@ -736,6 +798,7 @@ T-010.5:
 T-011.1:
   ac: AC-011.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -756,6 +819,7 @@ T-011.1:
 T-011.2:
   ac: AC-011.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -773,6 +837,7 @@ T-011.2:
 T-011.3:
   ac: AC-011.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -790,6 +855,7 @@ T-011.3:
 T-011.4:
   ac: AC-011.4
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -810,6 +876,7 @@ T-011.4:
 T-012.1:
   ac: AC-012.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -830,6 +897,7 @@ T-012.1:
 T-013.1:
   ac: AC-013.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -850,6 +918,7 @@ T-013.1:
 T-013.2:
   ac: AC-013.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -870,6 +939,7 @@ T-013.2:
 T-013.3:
   ac: AC-013.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -889,6 +959,7 @@ T-013.3:
 T-014.1:
   ac: AC-014.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -906,6 +977,7 @@ T-014.1:
 T-014.2:
   ac: AC-014.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -923,6 +995,7 @@ T-014.2:
 T-015.1:
   ac: AC-015.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -941,6 +1014,7 @@ T-015.1:
 T-015.2:
   ac: AC-015.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -959,6 +1033,7 @@ T-015.2:
 T-016.1:
   ac: AC-016.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/query_command.queryCommand
   environment: local
   identity: none
@@ -993,6 +1068,7 @@ T-017.1:
 T-018.1:
   ac: AC-018.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/inspect_command.inspectCommand
   environment: local
   identity: none
@@ -1013,6 +1089,7 @@ T-018.1:
 T-018.2:
   ac: AC-018.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/inspect_command.inspectCommand
   environment: local
   identity: none
@@ -1033,6 +1110,7 @@ T-018.2:
 T-018.3:
   ac: AC-018.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/inspect_command.inspectCommand
   environment: local
   identity: none
@@ -1057,6 +1135,7 @@ T-018.3:
 T-018.4:
   ac: AC-018.4
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/inspect_command.inspectCommand
   environment: local
   identity: none
@@ -1076,10 +1155,13 @@ T-018.4:
 T-018.5:
   ac: AC-018.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/inspect_command.inspectCommand
   environment: local
   identity: none
   preconditions: []
+  known-failing: E-001
+  symptom: "the wall time on line 10 is 1400ms, the latest end time counted from a start time of 0"
   input:
     project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: [{target: {schema: s, name: src}, status: SUCCESSFUL, timing: {startTimeMillis: 1000, endTimeMillis: 1400}, tasks: []}, {target: {schema: s, name: v}, status: SKIPPED, tasks: []}]}, runId: 124})"
     graph: *G1
@@ -1095,10 +1177,13 @@ T-018.5:
 T-018.6:
   ac: AC-018.5
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/inspect_command.inspectCommand
   environment: local
   identity: none
   preconditions: []
+  known-failing: E-002
+  symptom: "line 10 is \"Latest run (FAILED): 1 succeeded, 1 failed, 600ms\", the line of the previous run 123"
   input:
     project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123}) and then writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 200})"
     graph: *G1
@@ -1114,6 +1199,7 @@ T-018.6:
 T-019.1:
   ac: AC-019.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/inspect_command.inspectCommand
   environment: local
   identity: none
@@ -1137,6 +1223,7 @@ T-019.1:
 T-019.2:
   ac: AC-019.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/inspect_command.inspectCommand
   environment: local
   identity: none
@@ -1156,10 +1243,13 @@ T-019.2:
 T-019.3:
   ac: AC-019.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/inspect_command.inspectCommand
   environment: local
   identity: none
   preconditions: []
+  known-failing: E-001
+  symptom: "latestRun.wall_ms is 1400, the latest end time counted from a start time of 0"
   input:
     project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: [{target: {schema: s, name: src}, status: SUCCESSFUL, timing: {startTimeMillis: 1000, endTimeMillis: 1400}, tasks: []}, {target: {schema: s, name: v}, status: SKIPPED, tasks: []}]}, runId: 124})"
     graph: *G1
@@ -1178,10 +1268,13 @@ T-019.3:
 T-019.4:
   ac: AC-019.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/inspect_command.inspectCommand
   environment: local
   identity: none
   preconditions: []
+  known-failing: E-002
+  symptom: "latestRun is the previous run 123"
   input:
     project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123}) and then writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 200})"
     graph: *G1
@@ -1200,6 +1293,7 @@ T-019.4:
 T-020.1:
   ac: AC-020.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/docs_command.docsCommand
   environment: local
   identity: none
@@ -1224,23 +1318,25 @@ T-020.1:
 T-020.2:
   ac: AC-020.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/docs_command.docsCommand
   environment: local
   identity: none
   preconditions: []
   input:
-    project_dir: "P, with target/ written by writeArtifacts(G1, P) and a file P/target/docs/index.html holding the text old"
+    project_dir: "P, with target/ written by writeArtifacts(G1, P) and a file P/target/docs/index.html holding the text OLD-DOCS-PAGE-MARKER"
     graph: *G1
     env: {NO_COLOR: "1"}
     argv: [docs, P]
   expect:
     output: {exit_code: 0}
-    effects: ["P/target/docs/index.html no longer contains the text old and contains <title>SQLAnvil catalog</title>"]
+    effects: ["P/target/docs/index.html no longer contains the text OLD-DOCS-PAGE-MARKER and contains <title>SQLAnvil catalog</title>"]
     errors: []
     leaks: none
 T-020.3:
   ac: AC-020.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/commands/docs_command.docsCommand
   environment: local
   identity: none
@@ -1259,6 +1355,7 @@ T-020.3:
 T-021.1:
   ac: AC-021.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.buildDocsModel
   environment: local
   identity: none
@@ -1281,6 +1378,7 @@ T-021.1:
 T-021.2:
   ac: AC-021.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.buildDocsModel
   environment: local
   identity: none
@@ -1301,6 +1399,7 @@ T-021.2:
 T-021.3:
   ac: AC-021.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.buildDocsModel
   environment: local
   identity: none
@@ -1323,6 +1422,7 @@ T-021.3:
 T-021.4:
   ac: AC-021.4
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.buildDocsModel
   environment: local
   identity: none
@@ -1340,6 +1440,7 @@ T-021.4:
 T-021.5:
   ac: AC-021.5
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.buildDocsModel
   environment: local
   identity: none
@@ -1359,6 +1460,7 @@ T-021.5:
 T-021.6:
   ac: AC-021.6
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.buildDocsModel
   environment: local
   identity: none
@@ -1387,10 +1489,13 @@ T-021.6:
 T-021.7:
   ac: AC-021.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.buildDocsModel
   environment: local
   identity: none
   preconditions: []
+  known-failing: E-004
+  symptom: "the a.b.c table's model has the status of the other target that reads as a.b.c"
   input:
     graph:
       tables:
@@ -1419,10 +1524,13 @@ T-021.7:
 T-021.8:
   ac: AC-021.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.buildDocsModel
   environment: local
   identity: none
   preconditions: []
+  known-failing: E-002
+  symptom: "latestRun is the previous run 123"
   input:
     setup:
       - "writeArtifacts(G1, P, {runResult: R1, runId: 123})"
@@ -1441,6 +1549,7 @@ T-021.8:
 T-022.1:
   ac: AC-022.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.renderDocsHtml
   environment: local
   identity: none
@@ -1466,6 +1575,7 @@ T-022.1:
 T-022.2:
   ac: AC-022.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.renderDocsHtml
   environment: local
   identity: none
@@ -1482,6 +1592,7 @@ T-022.2:
 T-022.3:
   ac: AC-022.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.renderDocsHtml
   environment: local
   identity: none
@@ -1500,6 +1611,7 @@ T-022.3:
 T-022.4:
   ac: AC-022.4
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.renderDocsHtml
   environment: local
   identity: none
@@ -1523,6 +1635,7 @@ T-022.4:
 T-022.5:
   ac: AC-022.5
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.renderDocsHtml
   environment: local
   identity: none
@@ -1540,6 +1653,7 @@ T-022.5:
 T-022.6:
   ac: AC-022.6
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.renderDocsHtml
   environment: local
   identity: none
@@ -1556,6 +1670,7 @@ T-022.6:
 T-022.7:
   ac: AC-022.7
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/docs.renderDocsHtml
   environment: local
   identity: none
@@ -1572,6 +1687,7 @@ T-022.7:
 T-023.1:
   ac: AC-023.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/query.run
   environment: local
   identity: none
@@ -1587,6 +1703,7 @@ T-023.1:
 T-023.2:
   ac: AC-023.2
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/query.run
   environment: local
   identity: none
@@ -1602,6 +1719,7 @@ T-023.2:
 T-023.3:
   ac: AC-023.3
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/query.run
   environment: local
   identity: none
@@ -1617,6 +1735,7 @@ T-023.3:
 T-023.4:
   ac: AC-023.4
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/query.run
   environment: local
   identity: none
@@ -1632,6 +1751,7 @@ T-023.4:
 T-024.1:
   ac: AC-024.1
   level: integration
+  refs: ["testing.md#Harness"]
   target: code:sa/cli/api/commands/query.evaluate
   environment: local
   identity: none

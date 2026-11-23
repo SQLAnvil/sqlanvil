@@ -1,9 +1,9 @@
 ---
 prd: sqlanvil
-version: 0.1.0
-status: Draft
+version: 1.0.2
+status: Approved
 owner: Ivan Histand
-updated: 2026-11-22
+updated: 2026-11-23
 language: en
 ---
 
@@ -23,7 +23,7 @@ language: en
 - Entry points: the `sqlanvil` binary of `@sqlanvil/cli`; in this repository `./scripts/run` (`bazel run //packages/@sqlanvil/cli:bin`).
 - Install command: `npm install -g @sqlanvil/cli`
 - Repository: https://github.com/SQLAnvil/sqlanvil
-- Not used: npm `scripts` in `package.json` (everything runs through Bazel); [NEEDS CLARIFICATION: other technologies deliberately ruled out]
+- Not used: npm `scripts` in `package.json` (everything runs through Bazel)
 - Not applicable: `contracts/openapi.yaml` — sqlanvil has no HTTP API; its interface is the CLI and the `@sqlanvil/core` package
 - Not applicable: `contracts/schema.sql` — sqlanvil owns no database; the tables it writes belong to the user's project
 - Not applicable: `contracts/events.md` — sqlanvil publishes and consumes no events and runs no scheduled jobs of its own
@@ -36,11 +36,11 @@ sqlanvil is an open-source SQL workflow tool, a fork of Dataform OSS, that compi
 
 Goals:
 
-- [NEEDS CLARIFICATION: first measurable goal]
+- Every release passes the integration specs of all four adapters (BigQuery, PostgreSQL, Supabase, MySQL/MariaDB) against a real warehouse, and no BigQuery construct (`OPTIONS(...)`, `PARTITION BY`/`CLUSTER BY` in BigQuery's form, `NOT ENFORCED`, BigQuery's `MERGE`) appears in PostgreSQL, Supabase or MySQL output (owner, 2026-11-22).
 
-Personas: [ASSUMPTION A-01: data engineers who build SQL pipelines on PostgreSQL, Supabase or MySQL/MariaDB and may never have used BigQuery, and BigQuery users of Dataform OSS; CLAUDE.md, "Design Directive — Postgres Is First-Class"]
+Personas: data engineers who build SQL pipelines on PostgreSQL, Supabase or MySQL/MariaDB and may never have used BigQuery, and BigQuery users of Dataform OSS (A-01, confirmed by the owner 2026-11-22).
 
-Out of scope: [ASSUMPTION A-02: OpenLineage emission (a standing won't-build, `version.bzl`); the hosted runner, which lives in the separate sqlanvil-cloud repository; column-level lineage and a graph view in `sqlanvil docs` (CLAUDE.md, "Queryable artifacts")]
+Out of scope: OpenLineage emission (a standing won't-build, `version.bzl`); the hosted runner, which lives in the separate sqlanvil-cloud repository; column-level lineage and a graph view in `sqlanvil docs`; the VS Code extension under `vscode/` (A-02, confirmed by the owner 2026-11-22; `vscode/` added the same day).
 
 Principles:
 
@@ -63,6 +63,8 @@ Principles:
 | named connection | A source warehouse declared under `connections:`, read through the FDW bridge or by runner-extract | none |
 | shadow schema | The timestamped namespace `sqlanvil validate` builds empty stub tables in, dropped after the run | none |
 | artifacts | The Parquet catalog and run history sqlanvil writes under `target/` | none |
+| catalog | The three artifact files `target/catalog/actions.parquet`, `dependencies.parquet` and `columns.parquet`, rewritten by every compile and run that writes artifacts | none |
+| run history | The artifact files `target/runs/run_<run id>.parquet`, one per run, kept until the user deletes them | none |
 | named environment | A set of schema suffixes and variables chosen with `--environment` | none |
 
 ## 4. Architecture
@@ -87,19 +89,19 @@ flowchart LR
 
 | Object (glob) | Linter command | Rules live in | Applies to | Decision |
 |---|---|---|---|---|
-| `**/*.ts` | `bazel run //:eslint -- '**/*.ts'` | `eslint.config.js`, `eslint-rules/` | code | proposed |
-| `**/*.ts` | `bazel run //:prettier -- --ignore-path .prettierignore --check` (files changed on the branch, `scripts/lint`) | `.prettierrc`, `.prettierignore` | code | proposed |
-| `cli/README.md` | `bazel test //cli:readme_generated_test` | `cli/` command and option definitions | code | proposed |
+| `**/*.ts` | `scripts/bazel-ci run //:eslint -- '**/*.ts'` (run locally by `scripts/lint`, which first installs node_modules and builds the generated sources; not run in CI, E-009) | `eslint.config.js`, `eslint-rules/` | code | declined |
+| `**/*.ts` | `scripts/bazel-ci run //:prettier -- --ignore-path .prettierignore --check` (every tracked .ts file in CI; `scripts/lint` checks the files changed on the branch; `.prettierignore` leaves out the generated characterization suites under `tests/prd/`, E-010) | `.prettierrc`, `.prettierignore` | code | enforced |
+| `cli/README.md` | `scripts/bazel-ci test //cli:readme_generated_test` (a unit-level target, so the unit level already runs it; not a separate CI job, E-011) | `cli/` command and option definitions | code | declined |
 
 ## 6. Skills registry
 
 | Object or activity | Skill | Decision |
 |---|---|---|
-| planning a change | `superpowers:writing-plans` | proposed |
-| writing code | `superpowers:test-driven-development` | proposed |
-| diagnosing a failure | `superpowers:systematic-debugging` | proposed |
-| reviewing a change | `code-review` | proposed |
-| reviewing project-code evaluation and credential handling | `security-review` | proposed |
+| planning a change | `superpowers:writing-plans` | required |
+| writing code | `superpowers:test-driven-development` | required |
+| diagnosing a failure | `superpowers:systematic-debugging` | required |
+| reviewing a change | `code-review` | recommended |
+| reviewing project-code evaluation and credential handling | `security-review` | recommended |
 
 ## 7. Contract types
 
@@ -110,7 +112,7 @@ flowchart LR
 | dependencies | `contracts/dependencies/*.yaml` | built-in |
 | fixtures | `contracts/fixtures/**` | built-in |
 
-[NEEDS CLARIFICATION: which external services get a `contracts/dependencies/` file (candidates in the code: the BigQuery API, PostgreSQL, MySQL/MariaDB, the npm registry for the stateless core install, S3 and GCS for imports and exports), and whether `contracts/data-classification.yaml` stays, for the credentials in `.df-credentials.json`, or is declared Not applicable]
+Each external service gets its `contracts/dependencies/` file when the area that calls it is adopted: the BigQuery API (bigquery, sources), PostgreSQL (postgres), MySQL/MariaDB (mysql, sources), the npm registry for the stateless core install (packaging), S3 and GCS (files). None exists yet, because the artifacts area calls no external service. `contracts/data-classification.yaml` stays: it classifies the artifact columns now, and the credentials in `.df-credentials.json` when an area that reads them is adopted (owner, 2026-11-22).
 
 ## 8. Adoption map
 
@@ -119,21 +121,23 @@ See adoption.md.
 ## 9. Versioning
 
 - Version scheme: `SQLANVIL_VERSION` in `version.bzl` is sqlanvil's own SemVer line and the published `@sqlanvil/*` version; `DF_VERSION` is the upstream Dataform release the fork is synced to, shown as metadata (`sqlanvil --version`) only.
+- Upstream citations: behaviour inherited unchanged from Dataform OSS is recorded as requirements whose `Source:` cites the upstream file in `dataform-co/dataform` at the tag named by `DF_VERSION` (today `3.1.5`), the release the fork is synced to; an upstream sync moves the cited tag with it (decided on SQLAnvil/sqlanvil#63, tag chosen by the owner 2026-11-22).
 - Compatibility: the CLI requires a `@sqlanvil/core` with the same major version and at least the CLI's `major.minor.0`.
-- Breaking for the CLI: [NEEDS CLARIFICATION: what counts as breaking: a removed command or flag, a changed exit code, changed output]
-- Breaking for projects: [NEEDS CLARIFICATION: what counts as breaking: a `workflow_settings.yaml` key or an action config key removed or changed in meaning]
-- Breaking for compiled SQL: [NEEDS CLARIFICATION: whether a change in the SQL an adapter generates for an unchanged project is breaking]
-- Compatibility window: [NEEDS CLARIFICATION: how long old behaviour is kept]
-- Migration rule: [NEEDS CLARIFICATION: how changes roll out; `sqlanvil migrate-dataform` and `migrate-fix` exist for projects coming from Dataform]
+- Breaking for the CLI: a removed or renamed command or flag, a changed exit code, or a changed field in `--json` output. Human-readable text output may change in a minor release (owner, 2026-11-22).
+- Breaking for projects: a `workflow_settings.yaml` key, an action config key or an `actions.yaml` key that is removed or changes meaning, so a project that compiled before fails or behaves differently. A new optional key is not breaking (owner, 2026-11-22).
+- Breaking for compiled SQL: a change that leaves different tables, columns or rows in the warehouse for the same project and data. A rewrite with the same results (formatting, an equivalent statement) is not breaking (owner, 2026-11-22).
+- Compatibility window: a removed or changed behaviour first prints a deprecation warning for at least one minor release, and is removed no earlier than the next major (owner, 2026-11-22).
+- Migration rule: each deprecation and each breaking change is named in the release notes (`docs/whats-new.md` in sqlanvil-com); `sqlanvil migrate-fix` rewrites what it can, and `sqlanvil migrate-dataform` brings projects over from Dataform (owner, 2026-11-22).
 
 ## 10. Design & UI
 
-The CLI's interface is its commands, flags and output, documented in `cli/README.md` (generated from the definitions in `cli/`). `sqlanvil docs` renders a self-contained HTML catalog to `target/docs/index.html`. [NEEDS CLARIFICATION: is the VS Code extension under `vscode/` part of this PRD, and if so, what it shows]
+The CLI's interface is its commands, flags and output, documented in `cli/README.md` (generated from the definitions in `cli/`). `sqlanvil docs` renders a self-contained HTML catalog to `target/docs/index.html`. The VS Code extension under `vscode/` is upstream Dataform's, kept only for upstream syncs, and is not specified by this PRD; the maintained extension is the separate SQLAnvil/vscode-sqlanvil-tools repository (owner, 2026-11-22).
 
 ## 11. Requirement index
 
 | ID | Title | Status | File | Since |
 |---|---|---|---|---|
+| UJ-01 | Explore a project's catalog and last run | live | features/artifacts.md | 1.0.0 |
 | FR-001 | Write the catalog Parquet files | approved | features/artifacts.md |  |
 | FR-002 | Shape one catalog row per action | live | features/artifacts.md | 1.0.0 |
 | FR-003 | Shape one dependency row per dependency edge | live | features/artifacts.md | 1.0.0 |
@@ -163,17 +167,20 @@ The CLI's interface is its commands, flags and output, documented in `cli/README
 
 | ID | Assumption | Status |
 |---|---|---|
-| A-01 | Personas: data engineers on PostgreSQL, Supabase or MySQL/MariaDB who may never have used BigQuery, and BigQuery users of Dataform OSS | open |
-| A-02 | Out of scope: OpenLineage emission, the hosted runner (sqlanvil-cloud), column-level lineage and a graph view in `sqlanvil docs` | open |
-| A-03 | The characterization suite lives under `tests/prd/`, one directory per area, as `ts_test_suite` targets tagged `integration` | open |
-| A-04 | Artifact column classes: every column `internal`, except `runs.error_message`, which is `confidential` because warehouse error text can quote data values | open |
+| A-01 | Personas: data engineers on PostgreSQL, Supabase or MySQL/MariaDB who may never have used BigQuery, and BigQuery users of Dataform OSS | confirmed |
+| A-02 | Out of scope: OpenLineage emission, the hosted runner (sqlanvil-cloud), column-level lineage and a graph view in `sqlanvil docs` | confirmed |
+| A-03 | The characterization suite lives under `tests/prd/`, one directory per area, as `ts_test_suite` targets tagged `integration` | confirmed |
+| A-04 | Artifact column classes: every column `internal`, except `runs.error_message`, which is `confidential` because warehouse error text can quote data values | confirmed |
 
 ## 13. Open questions
 
-- Q-01 Behaviour inherited unchanged from Dataform OSS is recorded as requirements whose `Source:` cites the upstream file at the merge-base with `dataform-co/dataform` (decided on SQLAnvil/sqlanvil#63); which upstream commit is the merge-base to cite?
+None.
 
 ## 14. Changelog
 
 | Version | Date | Change | IDs |
 |---|---|---|---|
 | 0.1.0 | 2026-11-22 | Draft started | none |
+| 1.0.0 | 2026-11-23 | Approved; artifacts area adopted; suite all 85 T-ids: 75 pass, T-001.4 and T-010.5 known-failing E-006, T-005.9, T-018.6, T-019.4 and T-021.8 known-failing E-002, T-006.1 known-failing E-003, T-018.5 and T-019.3 known-failing E-001, T-021.7 known-failing E-004; dry run T-001.2, T-020.3, T-019.1, T-014.1, T-008.2: 0 open questions, 1 dismissed by quote | UJ-01, FR-001, FR-002, FR-003, FR-004, FR-005, FR-006, FR-007, FR-008, FR-009, FR-010, FR-011, FR-012, FR-013, FR-014, FR-015, FR-016, FR-017, FR-018, FR-019, FR-020, FR-021, FR-022, FR-023, FR-024 |
+| 1.0.1 | 2026-11-23 | Bazel commands in Levels and the standards rows run through scripts/bazel-ci, which creates a missing ~/.npmrc (E-008); no dry run (no T-id changed; harness and linter commands only) | - |
+| 1.0.2 | 2026-11-23 | eslint and README rows declined for CI (E-009, E-011), tests/prd left out of prettier (E-010), warehouse level at the deploy gate with the CLI live-BigQuery test (E-012); no dry run (no T-id changed; registry rows and levels only) | - |

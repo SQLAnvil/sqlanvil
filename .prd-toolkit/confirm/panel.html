@@ -1,0 +1,685 @@
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f5f4f0; --panel: #ffffff; --fg: #1f2328; --muted: #5d636c; --border: #dcd8cf;
+  --accent: #2c6b5a; --accent-fg: #ffffff; --accent-soft: #e2eee8;
+  --warn: #855600; --warn-soft: #fbf1dc; --bad: #9f2129; --bad-soft: #fbe7e7;
+  --code-bg: #f2f0ea; --focus: #2a62d6; --edited: #fff5cc;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171a; --panel: #1d2024; --fg: #e7e6e2; --muted: #a2a7ae; --border: #363a41;
+    --accent: #62b59c; --accent-fg: #0c1512; --accent-soft: #1f3830;
+    --warn: #efc164; --warn-soft: #362d1c; --bad: #f2898f; --bad-soft: #3b2124;
+    --code-bg: #121417; --focus: #8db6ff; --edited: #3a3420;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+[hidden] { display: none !important; }
+.shell {
+  display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 28px;
+  max-width: 1180px; margin: 0 auto; padding: 28px 24px 48px;
+}
+aside {
+  position: sticky; top: 28px; align-self: start; max-height: calc(100vh - 56px); overflow: auto;
+  padding-right: 6px; min-width: 0;
+}
+h1 { font-size: 1.15rem; margin: 0 0 10px; overflow-wrap: anywhere; }
+.progress-text { font-size: 0.9rem; color: var(--muted); }
+.bar { height: 8px; border-radius: 4px; background: var(--border); margin: 6px 0 18px; overflow: hidden; }
+.bar > div { height: 100%; background: var(--accent); border-radius: 4px; transition: width .25s ease; }
+.group { font-size: 0.78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 4px; }
+.group .count { font-weight: 400; }
+.rows { list-style: none; margin: 0; padding: 0; }
+.row {
+  display: flex; gap: 8px; align-items: baseline; width: 100%; text-align: left; font: inherit; font-size: 0.9rem;
+  color: inherit; background: none; border: 0; border-radius: 6px; padding: 5px 8px; cursor: pointer; min-width: 0;
+}
+.row:hover { background: var(--accent-soft); }
+.row[aria-current="true"] { background: var(--accent-soft); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); }
+.row .s { flex: none; width: 1.5em; text-align: center; }
+.row .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rid { font-variant-numeric: tabular-nums; }
+.s.open { color: var(--muted); }
+.s.changed { color: var(--warn); font-weight: 700; }
+.finish { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border); }
+.card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 28px 32px;
+  min-width: 0; box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+}
+.meta { font-size: 0.88rem; color: var(--muted); overflow-wrap: anywhere; }
+.meta .cid { color: var(--fg); font-weight: 600; }
+.title { font-size: 1.45rem; line-height: 1.3; margin: 6px 0 14px; overflow-wrap: anywhere; }
+.title:focus { outline: none; }
+.related { margin: -6px 0 14px; color: var(--warn); font-weight: 600; overflow-wrap: anywhere; }
+.summary { margin: 0 0 16px; padding: 12px 14px; border-radius: 8px; background: var(--accent-soft); overflow-wrap: anywhere; }
+.acs { margin: 0 0 16px; padding-left: 1.2em; }
+.acs li { margin: 6px 0; overflow-wrap: anywhere; }
+.acid { font-weight: 600; overflow-wrap: anywhere; }
+.text { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0 0 16px; }
+.mono, pre.code, textarea.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.86rem; }
+details.code { margin: 0 0 20px; }
+details.code > summary { cursor: pointer; color: var(--accent); width: fit-content; }
+pre.code {
+  margin: 8px 0 0; padding: 12px 14px; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+  max-height: 28rem; overflow: auto; white-space: pre; line-height: 1.45; tab-size: 4;
+}
+section { margin-top: 20px; }
+h3 { font-size: 1rem; margin: 0 0 10px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+.btn {
+  font: inherit; font-size: 0.95rem; padding: 0.55em 1em; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--panel); color: var(--fg);
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+kbd {
+  font: 0.72rem ui-monospace, Menlo, Consolas, monospace; margin-left: 8px; padding: 1px 5px;
+  border: 1px solid currentColor; border-radius: 4px; opacity: .6;
+}
+.link { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
+.box { margin-top: 16px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+label.prompt { display: block; font-weight: 600; margin-bottom: 6px; overflow-wrap: anywhere; }
+textarea {
+  display: block; width: 100%; font: inherit; line-height: 1.45; padding: 10px 12px; resize: vertical;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--fg);
+}
+textarea.edited { background: var(--edited); border-color: var(--warn); }
+.hint { font-size: 0.86rem; color: var(--muted); margin: 6px 0 0; }
+.criteria { margin-top: 12px; }
+.criteria label { display: block; margin: 14px 0 4px; font-size: 0.9rem; overflow-wrap: anywhere; }
+.tag { font-size: 0.78rem; color: var(--muted); margin-left: 6px; }
+.tag.on { color: var(--warn); font-weight: 700; }
+.saved { padding: 12px 14px; border-radius: 8px; background: var(--accent-soft); }
+.decision { font-weight: 600; }
+.said { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 0; }
+.notice { margin-top: 18px; padding: 12px 14px; border-radius: 8px; }
+.notice.warn { background: var(--warn-soft); color: var(--fg); border-left: 4px solid var(--warn); }
+.notice .saved { margin-top: 10px; background: var(--panel); }
+.error { margin: 14px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-weight: 600; overflow-wrap: anywhere; }
+.nav { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border); }
+.muted { color: var(--muted); font-size: 0.88rem; }
+.end { max-width: 640px; margin: 12vh auto; padding: 32px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; }
+.end h1 { font-size: 1.5rem; }
+@media (max-width: 760px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 16px 16px 40px; }
+  aside { position: static; max-height: 40vh; padding-right: 0; }
+  .card { padding: 20px 16px; }
+  .title { font-size: 1.25rem; }
+  kbd { display: none; }
+}
+</style>
+<div class="shell" id="shell">
+  <aside id="list" aria-label="Items"><p class="muted">Loading the items…</p></aside>
+  <main class="card" id="card"></main>
+</div>
+<div class="end" id="end" role="alert" hidden></div>
+<script>
+'use strict';
+const TOKEN = new URLSearchParams(location.search).get('token') || '';
+// The decision inbox embeds this panel: it sets window.PANEL_HOST before this script ({ endpoint, question, active, beforeDone, onEnd }).
+const HOST = window.PANEL_HOST || null;
+const GROUPS = [['requirement', 'Requirements'], ['bug', 'Bugs'], ['question', 'Questions'], ['marker', 'Settings']];
+const KIND_NAME = { requirement: 'Requirement', bug: 'Apparent bug', question: 'Open question', marker: 'Missing setting' };
+const WHO = 'A role or a name, and anything they should know.';
+const BUG_HINT = 'The behaviour you want, in plain words, not the code fix. The bug stays open until a later change fixes it.';
+// Every decision each kind allows, as the server checks them. `prompt` opens a text box; `note` uses the card's own box.
+const ACTIONS = {
+  requirement: [
+    { decision: 'confirm', label: 'Confirm', key: 'c', icon: '✓', saved: 'Confirmed', primary: true },
+    { decision: 'correct', label: 'Correct…', key: 'r', icon: '✎', saved: 'Corrected', criteria: true,
+      prompt: 'What should it do instead?', hint: 'Plain words are enough: the criteria and tests are rewritten from them.' },
+    { decision: 'bug', label: "It's a bug…", key: 'b', icon: '🐞', saved: 'A bug', needs: true,
+      prompt: 'What should it do? Describe the intended behaviour.', hint: BUG_HINT },
+    { decision: 'ask', label: 'Someone else decides…', key: 's', icon: '?', saved: 'Someone else decides', needs: true,
+      prompt: 'Who decides?', hint: WHO },
+  ],
+  bug: [
+    { decision: 'bug', label: 'Real bug — it should…', key: 'b', icon: '🐞', saved: 'Real bug', needs: true,
+      prompt: 'What should it do instead?', hint: BUG_HINT },
+    { decision: 'intended', label: 'Intended — keep it', key: 'c', icon: '✓', saved: 'Intended — keep it' },
+    { decision: 'ask', label: 'Someone else decides…', key: 's', icon: '?', saved: 'Someone else decides', needs: true,
+      prompt: 'Who decides?', hint: WHO },
+  ],
+  question: [
+    { decision: 'intended', label: 'Keep it as it is', key: 'c', icon: '✓', saved: 'Keep it as it is', note: true },
+    { decision: 'fix', label: 'Change it…', key: 'r', icon: '✎', saved: 'Change it', note: true, needs: true,
+      placeholder: 'What should it do instead?' },
+    { decision: 'answer', label: 'Answer in my own words', icon: '✎', saved: 'Answer in my own words', note: true, needs: true },
+  ],
+  marker: [
+    { decision: 'answer', label: 'Answer', icon: '✓', saved: 'Answered', note: true, needs: true, primary: true },
+  ],
+};
+const NOTE_PROMPT = {
+  question: 'Your answer in your own words, what it should do instead, or a note to go with Keep it as it is (optional there)',
+  marker: 'What should the value be?',
+};
+const NOTE_HINT = {
+  question: 'Keep it as it is needs no note. Change it needs what it should do instead. If the question asks two things, answer both.',
+  marker: 'The value as it should be written in the contract.',
+};
+const S = { data: null, order: [], cur: 0, drafts: new Map(), changing: new Set(), busy: false, ended: null, notice: '' };
+
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v === undefined || v === null || v === false) continue;
+    if (k === 'text') el.textContent = String(v);
+    else if (k === 'class') el.className = v;
+    else if (k === 'value') el.value = String(v);
+    else if (k === 'disabled') el.disabled = true;
+    else if (k === 'events') for (const [ev, fn] of Object.entries(v)) el.addEventListener(ev, fn);
+    else if (/^(?:on|href|src|srcdoc|action|formaction)/i.test(k)) throw new Error(`refused prop ${k}`);
+    else el.setAttribute(k, String(v));
+  }
+  for (const kid of kids.flat()) {
+    if (kid === null || kid === undefined || kid === false) continue;
+    el.append(typeof kid === 'string' ? document.createTextNode(kid) : kid);
+  }
+  return el;
+}
+
+const has = (obj, key) => !!obj && Object.prototype.hasOwnProperty.call(obj, key);
+const cur = () => S.order[S.cur];
+const isOpen = (id) => S.data.open.includes(id);
+const confirmedBy = (it) => (typeof it.confirmed === 'string' ? it.confirmed : null);
+const isChanged = (id) => S.data.changed.includes(id);
+const savedFor = (id) => (has(S.data.answers, id) ? S.data.answers[id] : null);
+const actionFor = (kind, decision) => (ACTIONS[kind] || []).find((a) => a.decision === decision);
+const deciding = (id) => isOpen(id) || S.changing.has(id);
+
+function draft(id) {
+  if (!S.drafts.has(id)) S.drafts.set(id, { decision: null, text: '', acs: new Map(), editAcs: false, error: '' });
+  return S.drafts.get(id);
+}
+
+function stateOf(it) {
+  if (confirmedBy(it) !== null) return { icon: '✓', cls: 'done', label: 'confirmed in errors.md' };
+  if (isChanged(it.id)) return { icon: '⟳', cls: 'changed', label: 'changed since you answered' };
+  if (isOpen(it.id)) return { icon: '·', cls: 'open', label: 'open' };
+  const a = savedFor(it.id);
+  const act = a && actionFor(it.kind, a.decision);
+  return { icon: act ? act.icon : '✓', cls: 'done', label: act ? act.saved : 'answered' };
+}
+
+async function call(method, path, body) {
+  let res;
+  try {
+    res = await fetch(HOST ? HOST.endpoint(path) : path, {
+      method, cache: 'no-store',
+      headers: { 'X-Prd-Token': TOKEN, 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch (err) {
+    if (S.ended !== 'done') end('stopped');
+    return null;
+  }
+  let data = null;
+  try { data = await res.json(); } catch (err) { data = null; }
+  if (res.status === 403) { end('forbidden'); return null; }
+  return { status: res.status, data };
+}
+
+function errorText(r) {
+  const why = r.data && typeof r.data.error === 'string' ? r.data.error : `the server answered ${r.status}`;
+  return `Not saved: ${why}.`;
+}
+
+async function load() {
+  const r = await call('GET', '/items');
+  if (!r) return false;
+  if (r.status !== 200 || !r.data || !Array.isArray(r.data.items)) {
+    S.notice = `The items could not be read (${r.data && r.data.error ? r.data.error : r.status}).`;
+    render();
+    return false;
+  }
+  const keep = cur() ? cur().id : null;
+  const rank = { requirement: 0, bug: 1, question: 2, marker: 3 };
+  S.data = r.data;
+  S.data.answers = S.data.answers || {};
+  S.order = r.data.items.map((it, i) => [it, i])
+    .sort((a, b) => (rank[a[0].kind] - rank[b[0].kind]) || (a[1] - b[1])).map((p) => p[0]);
+  const at = S.order.findIndex((it) => it.id === keep);
+  if (at >= 0) S.cur = at;
+  else { const first = S.order.findIndex((it) => isOpen(it.id)); S.cur = first >= 0 ? first : 0; }
+  if (!HOST) document.title = `Confirm ${S.data.area}`;
+  render();
+  return true;
+}
+
+function nextOpen(from) {
+  const n = S.order.length;
+  for (let k = 1; k <= n; k++) {
+    const i = (from + k) % n;
+    if (isOpen(S.order[i].id)) return i;
+  }
+  return -1;
+}
+
+function go(i, focusCard = true) {
+  if (i < 0 || i >= S.order.length) return;
+  S.cur = i;
+  S.notice = '';
+  render();
+  if (!focusCard) return;
+  const title = document.getElementById('card-title');
+  if (title) title.focus({ preventScroll: true });
+  if (window.matchMedia('(max-width: 760px)').matches) document.getElementById('card').scrollIntoView({ block: 'start' });
+}
+
+function end(kind) {
+  S.ended = kind;
+  if (HOST) { HOST.onEnd(kind); return; }
+  render();
+}
+
+// The inbox opens the panel on one area: start from nothing, then load that area's items.
+function openPanel() {
+  Object.assign(S, { data: null, order: [], cur: 0, busy: false, ended: null, notice: '' });
+  S.drafts.clear(); S.changing.clear();
+  document.getElementById('shell').hidden = false;
+  document.getElementById('end').hidden = true;
+  return load();
+}
+
+// --- answers ---------------------------------------------------------------------------------------------
+
+async function save(it, decision, text, acs) {
+  if (S.busy) return;
+  const d = draft(it.id);
+  const body = { id: it.id, decision };
+  if (text && text.trim()) body.text = text.trim();
+  if (acs && Object.keys(acs).length) body.acs = acs;
+  S.busy = true; d.error = '';
+  render();
+  const r = await call('POST', '/answer', body);
+  S.busy = false;
+  if (!r) return;
+  if (r.status !== 200) { d.error = errorText(r); render(); return; }
+  S.drafts.delete(it.id);
+  S.changing.delete(it.id);
+  if (!(await load())) return;
+  const next = nextOpen(S.cur);
+  if (next >= 0) go(next);
+}
+
+async function undo(it) {
+  if (S.busy) return;
+  S.busy = true; S.notice = ''; render();
+  const r = await call('POST', '/undo', { id: it.id });
+  S.busy = false;
+  if (!r) return;
+  if (r.status !== 200) { draft(it.id).error = errorText(r); render(); return; }
+  S.drafts.delete(it.id);
+  S.changing.delete(it.id);
+  await load();
+}
+
+function change(it) {
+  const a = savedFor(it.id);
+  const d = draft(it.id);
+  const act = a && actionFor(it.kind, a.decision);
+  d.decision = act && act.prompt ? act.decision : null;
+  d.text = (a && a.text) || '';
+  d.acs = new Map(Object.entries((a && a.acs) || {}));
+  d.editAcs = d.acs.size > 0;
+  d.error = '';
+  S.notice = '';
+  S.changing.add(it.id);
+  render();
+  focusId(act && act.prompt ? 'answer-text' : 'card-title');
+}
+
+function cancelChange(it) {
+  S.changing.delete(it.id);
+  S.drafts.delete(it.id);
+  render();
+}
+
+function editedAcs(it, d) {
+  const out = {};
+  if (!d.editAcs) return out;
+  for (const [id, orig] of it.acs) {
+    const v = d.acs.has(id) ? d.acs.get(id).trim() : '';
+    if (v && v !== orig.trim()) out[id] = v;
+  }
+  return out;
+}
+
+function pick(it, a) {
+  const d = draft(it.id);
+  d.error = '';
+  if (a.prompt) {
+    d.decision = a.decision;
+    render();
+    focusId('answer-text');
+    return;
+  }
+  if (a.note && a.needs && !d.text.trim()) {
+    d.error = it.kind === 'marker' ? 'Type the value first.'
+      : a.decision === 'fix' ? 'Say what it should do instead.' : 'Type your answer first, or choose Keep it as it is.';
+    render();
+    focusId('note');
+    return;
+  }
+  save(it, a.decision, a.note ? d.text : '', null);
+}
+
+function submitBox(it) {
+  const d = draft(it.id);
+  const a = actionFor(it.kind, d.decision);
+  if (!a || !a.prompt) return;
+  const text = d.text.trim();
+  const acs = a.criteria ? editedAcs(it, d) : {};
+  if (a.criteria && !text && !Object.keys(acs).length) {
+    d.error = 'Say what it should do instead, or edit a criterion.';
+  } else if (a.needs && !text) {
+    d.error = a.decision === 'ask' ? 'Say who decides.' : 'Say what it should do.';
+  } else {
+    save(it, a.decision, text, acs);
+    return;
+  }
+  render();
+  focusId('answer-text');
+}
+
+async function finish() {
+  if (S.busy) return;
+  S.busy = true; render();
+  if (HOST && typeof HOST.beforeDone === "function") await HOST.beforeDone(); // the host lists its gates again, so HOST.question is the current one
+  const r = await call('POST', '/done', HOST ? { question: HOST.question } : {});
+  S.busy = false;
+  if (!r) return;
+  if (r.status === 200) { end('done'); return; }
+  if (r.status === 409) {
+    await load();
+    const n = r.data && Array.isArray(r.data.open) ? r.data.open.length : 0;
+    S.notice = `Not done yet: ${n} ${n === 1 ? 'item is' : 'items are'} still open.`;
+  } else {
+    S.notice = errorText(r);
+  }
+  render();
+}
+
+function focusId(id) {
+  const el = document.getElementById(id);
+  if (el) el.focus({ preventScroll: id === 'card-title' });
+}
+
+// --- rendering -------------------------------------------------------------------------------------------
+
+function render() {
+  const shell = document.getElementById('shell');
+  const endBox = document.getElementById('end');
+  if (S.ended) {
+    shell.hidden = true;
+    endBox.hidden = false;
+    endBox.replaceChildren(...endView());
+    return;
+  }
+  if (!S.data) {
+    if (S.notice) document.getElementById('list').replaceChildren(h('p', { class: 'error', text: S.notice }));
+    return;
+  }
+  const list = document.getElementById('list');
+  const top = list.scrollTop;
+  list.replaceChildren(...listView());
+  list.scrollTop = top;
+  document.getElementById('card').replaceChildren(...cardView());
+  const row = list.querySelector('.row[aria-current="true"]');
+  if (row && (row.offsetTop < list.scrollTop || row.offsetTop + row.offsetHeight > list.scrollTop + list.clientHeight)) {
+    list.scrollTop = row.offsetTop - list.clientHeight / 3;
+  }
+}
+
+function endView() {
+  if (S.ended === 'done') {
+    const area = S.data ? S.data.area : '';
+    return [h('h1', { text: 'Done — you can close this tab.' }),
+      h('p', { text: `Every answer is saved in .prd-confirm-${area}.json at the repository root, and the form's server has stopped.` })];
+  }
+  if (S.ended === 'forbidden') {
+    return [h('h1', { text: 'This link is not valid' }),
+      h('p', { text: "The page's token is missing or wrong, so nothing can be read or saved." }),
+      h('p', { text: 'Open the exact link that serve printed. A new serve run prints a new link with a new token.' })];
+  }
+  return [h('h1', { text: 'The form has stopped' }),
+    h('p', { text: 'Its server is no longer running: it was idle too long, or it was stopped.' }),
+    h('p', { text: 'Every answer you saved is kept. Ask the session to start a new form: it comes with a new link, '
+      + 'and resumes where you left off.' })];
+}
+
+function listView() {
+  const total = S.order.length;
+  const open = S.data.open.length;
+  const answered = total - open;
+  const fill = h('div');
+  fill.style.width = `${total ? Math.round((answered * 100) / total) : 0}%`;
+  const out = [
+    h('h1', {}, 'Confirm ', S.data.area),
+    h('div', { class: 'progress-text', id: 'progress-label' }, `${answered} of ${total} answered`),
+    h('div', { class: 'bar', role: 'progressbar', 'aria-labelledby': 'progress-label', 'aria-valuemin': 0,
+      'aria-valuemax': total, 'aria-valuenow': answered }, fill),
+  ];
+  for (const [kind, name] of GROUPS) {
+    const group = S.order.filter((it) => it.kind === kind);
+    if (!group.length) continue;
+    const done = group.filter((it) => !isOpen(it.id)).length;
+    out.push(h('h2', { class: 'group' }, name, h('span', { class: 'count', text: ` · ${done} of ${group.length}` })));
+    out.push(h('ul', { class: 'rows' }, group.map((it) => {
+      const st = stateOf(it);
+      const i = S.order.indexOf(it);
+      return h('li', {}, h('button', {
+        type: 'button', class: 'row', title: `${it.id} ${it.title} (${st.label})`,
+        'aria-current': i === S.cur ? 'true' : 'false', events: { click: () => go(i) },
+      }, h('span', { class: `s ${st.cls}`, 'aria-hidden': 'true', text: st.icon }),
+      h('span', { class: 't' }, h('span', { class: 'rid', text: it.id }), it.kind === 'marker' ? '' : ` ${it.title}`)));
+    })));
+  }
+  out.push(h('div', { class: 'finish' },
+    h('button', { type: 'button', class: 'btn primary', disabled: open > 0 || S.busy, events: { click: finish } }, 'Done'),
+    h('p', { class: 'muted', text: open ? `${open} still open. Done unlocks when every item is answered.` : 'Everything is answered. Press Done when you are ready.' }),
+    S.notice ? h('p', { class: 'muted', role: 'status', text: S.notice }) : null));
+  return out;
+}
+
+function bodyText(it) {
+  let lines = it.text.split('\n');
+  if (lines[0].startsWith('### ')) lines = lines.slice(1);
+  let body = lines.join('\n').trim().replace(/^[-*]\s+/, '');
+  if (body.startsWith(it.id)) body = body.slice(it.id.length).trim();
+  if (it.kind === 'question') {
+    const [first, ...rest] = body.split('\n');
+    if (first.trim() === it.title.trim()) body = rest.map((s) => s.trim()).join('\n').trim();
+  }
+  return body === it.title.trim() ? '' : body;
+}
+
+function cardView() {
+  const it = cur();
+  if (!it) return [h('p', { text: 'There is nothing to confirm.' })];
+  const saved = savedFor(it.id);
+  const d = draft(it.id);
+  const out = [
+    h('div', { class: 'meta' }, h('span', { class: 'cid', text: it.id }), ` · ${KIND_NAME[it.kind] || it.kind}`,
+      it.where ? ` · ${it.where}` : ''),
+    h('h2', { class: 'title', id: 'card-title', tabindex: -1, text: it.title }),
+  ];
+  if (it.related && it.related.length) out.push(h('p', { class: 'related', text: `Touched by ${it.related.join(', ')}` }));
+  if (it.summary) out.push(h('p', { class: 'summary' }, h('strong', { text: 'In plain words: ' }), it.summary));
+  if (it.kind === 'requirement' && it.acs.length) {
+    out.push(h('ul', { class: 'acs' }, it.acs.map(([id, text]) => h('li', {}, h('span', { class: 'acid', text: id }), ' ', text))));
+  } else {
+    const body = bodyText(it);
+    if (body) out.push(h('div', { class: it.kind === 'marker' ? 'text mono' : 'text', text: body }));
+  }
+  if (it.excerpts.length) {
+    out.push(h('details', { class: 'code' },
+      h('summary', {}, 'Show the code', it.excerpts.length > 1 ? ` (${it.excerpts.length} places)` : ''),
+      it.excerpts.map((x) => h('pre', { class: 'code', text: x }))));
+  }
+  if (confirmedBy(it) !== null) {
+    out.push(h('section', { class: 'confirmed' }, h('h3', { text: 'Your answer' }),
+      h('div', { class: 'saved' }, h('div', { class: 'decision', text: '✓ Confirmed' }), h('p', { class: 'said', text: it.confirmed })),
+      h('p', { class: 'hint', text: 'Confirmed in errors.md; change it through /prd-toolkit:prd-error' })));
+  } else if (isChanged(it.id) && saved) {
+    out.push(h('div', { class: 'notice warn', role: 'status' },
+      h('strong', { text: '⟳ This item changed since you answered.' }), ' Your earlier answer is below; answer it again.',
+      savedView(it, saved)));
+  }
+  if (saved && !deciding(it.id) && confirmedBy(it) === null) {
+    out.push(h('section', {}, h('h3', { text: 'Your answer' }), savedView(it, saved),
+      h('div', { class: 'actions' },
+        h('button', { type: 'button', class: 'btn', disabled: S.busy, events: { click: () => change(it) } }, 'Change'),
+        h('button', { type: 'button', class: 'btn', disabled: S.busy, events: { click: () => undo(it) } }, 'Undo'))));
+  }
+  if (deciding(it.id)) out.push(decideView(it, d));
+  if (d.error) out.push(h('p', { class: 'error', id: 'card-error', role: 'alert', text: d.error }));
+  const nextI = nextOpen(S.cur);
+  out.push(h('div', { class: 'nav' },
+    h('button', { type: 'button', class: 'btn', disabled: S.cur === 0, events: { click: () => go(S.cur - 1) } }, '← Previous'),
+    nextI >= 0 && nextI !== S.cur ? h('button', { type: 'button', class: 'btn', events: { click: () => go(nextI) } }, 'Next open item') : null,
+    h('button', { type: 'button', class: 'btn', disabled: S.cur === S.order.length - 1, events: { click: () => go(S.cur + 1) } }, 'Next →')));
+  return out;
+}
+
+function savedView(it, a) {
+  const act = actionFor(it.kind, a.decision);
+  const box = h('div', { class: 'saved' }, h('div', { class: 'decision', text: act ? `${act.icon} ${act.saved}` : a.decision }));
+  if (a.text) box.append(h('p', { class: 'said', text: a.text }));
+  for (const [id, text] of Object.entries(a.acs || {})) box.append(h('p', { class: 'said' }, h('span', { class: 'acid', text: id }), ' ', text));
+  return box;
+}
+
+function textarea(id, value, onInput, rows, extra, placeholder) {
+  return h('textarea', { id, rows: rows || 3, class: extra, value, placeholder,
+    events: { input: (e) => { onInput(e.target.value); clearError(); } } });
+}
+
+function clearError() {
+  const it = cur();
+  if (it && S.drafts.has(it.id)) S.drafts.get(it.id).error = '';
+  const el = document.getElementById('card-error');
+  if (el) el.remove();
+}
+
+function decideView(it, d) {
+  const acts = ACTIONS[it.kind] || [];
+  const changing = S.changing.has(it.id) && !isOpen(it.id);
+  const out = h('section', { 'aria-label': 'Your decision' });
+  if (changing) out.append(h('h3', { text: 'Change your answer' }));
+  if (acts.some((a) => a.note)) {
+    out.append(h('label', { class: 'prompt', for: 'note', text: NOTE_PROMPT[it.kind] }),
+      textarea('note', d.text, (v) => { d.text = v; }, it.kind === 'marker' ? 2 : 3, undefined,
+        (acts.find((a) => a.placeholder) || {}).placeholder));
+    if (NOTE_HINT[it.kind]) out.append(h('p', { class: 'hint', text: NOTE_HINT[it.kind] }));
+  }
+  const row = h('div', { class: 'actions' });
+  for (const a of acts) {
+    row.append(h('button', {
+      type: 'button', class: a.primary ? 'btn primary' : 'btn', disabled: S.busy,
+      'aria-pressed': a.prompt ? (d.decision === a.decision ? 'true' : 'false') : null,
+      events: { click: () => pick(it, a) },
+    }, `${a.icon} ${a.label}`, a.key ? h('kbd', { text: a.key.toUpperCase() }) : null));
+  }
+  if (changing) row.append(h('button', { type: 'button', class: 'link', events: { click: () => cancelChange(it) } }, 'Keep my answer'));
+  out.append(row);
+  const open = acts.find((a) => a.prompt && a.decision === d.decision);
+  if (open) out.append(boxView(it, d, open));
+  return out;
+}
+
+function boxView(it, d, a) {
+  const box = h('div', { class: 'box' },
+    h('label', { class: 'prompt', for: 'answer-text', text: a.prompt }),
+    textarea('answer-text', d.text, (v) => { d.text = v; }, 4));
+  if (a.hint) box.append(h('p', { class: 'hint', text: a.hint }));
+  if (a.criteria && it.acs.length) {
+    if (!d.editAcs) {
+      box.append(h('p', { class: 'hint' }, 'Want to be exact? ',
+        h('button', { type: 'button', class: 'link',
+          events: { click: () => { d.editAcs = true; render(); focusId('ac-0'); } } }, 'edit the criteria'),
+        ' instead.'));
+    } else {
+      box.append(criteriaView(it, d));
+    }
+  }
+  box.append(h('div', { class: 'actions' },
+    h('button', { type: 'button', class: 'btn primary', disabled: S.busy, events: { click: () => submitBox(it) } }, 'Save'),
+    h('button', { type: 'button', class: 'btn', events: { click: () => { d.decision = null; d.error = ''; render(); } } }, 'Cancel'),
+    h('span', { class: 'hint', text: 'Ctrl+Enter or ⌘+Enter saves; Esc cancels.' })));
+  return box;
+}
+
+function criteriaView(it, d) {
+  const wrap = h('div', { class: 'criteria' }, h('h3', { text: 'Edit the criteria' }),
+    h('p', { class: 'hint', text: 'Change any criterion. Only the ones you change are saved, each as its full new text.' }));
+  it.acs.forEach(([id, orig], n) => {
+    const value = d.acs.has(id) ? d.acs.get(id) : orig;
+    const tag = h('span', { class: 'tag' });
+    const ta = textarea(`ac-${n}`, value, (v) => { d.acs.set(id, v); mark(); },
+      Math.min(10, Math.max(2, Math.ceil(orig.length / 70))), 'ac');
+    const mark = () => {
+      const edited = ta.value.trim() !== orig.trim();
+      ta.classList.toggle('edited', edited);
+      tag.className = edited ? 'tag on' : 'tag';
+      tag.textContent = edited ? 'changed' : 'unchanged';
+    };
+    mark();
+    wrap.append(h('label', { for: `ac-${n}` }, h('span', { class: 'acid', text: id }), tag), ta);
+  });
+  wrap.append(h('p', { class: 'hint' }, h('button', { type: 'button', class: 'link',
+    events: { click: () => { d.acs = new Map(); d.editAcs = false; render(); focusId('answer-text'); } } },
+  'Discard the criteria edits')));
+  return wrap;
+}
+
+// --- keys ------------------------------------------------------------------------------------------------
+
+document.addEventListener('keydown', (e) => {
+  if (S.ended || !S.data || !cur() || (HOST && !HOST.active())) return;
+  const it = cur();
+  const t = e.target;
+  const typing = t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable);
+  if (typing) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (t.id === 'note') {
+        const own = (ACTIONS[it.kind] || []).find((a) => a.decision === 'answer');
+        if (own) pick(it, own);
+      } else {
+        submitBox(it);
+      }
+    } else if (e.key === 'Escape') {
+      if (t.id === 'note') { t.blur(); return; }
+      const d = draft(it.id);
+      d.decision = null; d.error = '';
+      render();
+      focusId('card-title');
+    }
+    return;
+  }
+  if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+  if (e.key === 'ArrowLeft') { e.preventDefault(); go(Math.max(0, S.cur - 1)); return; }
+  if (e.key === 'ArrowRight') { e.preventDefault(); go(Math.min(S.order.length - 1, S.cur + 1)); return; }
+  if (!deciding(it.id) || S.busy) return;
+  const a = (ACTIONS[it.kind] || []).find((x) => x.key && x.key === e.key.toLowerCase());
+  if (!a) return;
+  e.preventDefault();
+  pick(it, a);
+});
+
+if (!HOST) {
+  // Only a request resets the server's idle clock, so an open page asks every minute while the owner reads.
+  setInterval(() => { if (TOKEN && !S.ended) call('GET', '/ping'); }, 60000);
+  if (TOKEN) load(); else end('forbidden');
+}
+</script>
