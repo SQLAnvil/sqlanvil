@@ -2,8 +2,7 @@ import { configure, util } from "protobufjs";
 
 import { google } from "sa/protos/ts";
 
-const CONFIGS_PROTO_DOCUMENTATION_URL =
-  "https://sqlanvil.com/docs/reference/configs/";
+const CONFIGS_PROTO_DOCUMENTATION_URL = "https://sqlanvil.com/docs/reference/configs/";
 const REPORT_ISSUE_URL = "https://github.com/sqlanvil/sqlanvil/issues";
 
 /**
