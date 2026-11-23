@@ -75,3 +75,26 @@ Evidence: characterization suite, 2026-11-22, at eeface71
 Diagnosis: inspect selects the latest run's FAILED rows with `limit 20` and no ORDER BY (cli/commands/inspect_command.ts:34-38 @f4b3f49e), so when there are more than 20 failures, which 20 it prints, and in what order, is up to DuckDB. The owner confirmed it a bug on 2026-11-22.
 Resolution: open, intended: inspect lists the first 20 failures in readable_name order, in the table and in the JSON (Ivan Histand, 2026-11-22)
 Recurrence of: -
+
+### E-008 Every Bazel job of the prd-toolkit CI workflow fails: the runner has no `~/.npmrc`
+Detected: 2026-11-23, CI run 45205148047 on PR #65
+Classification: unclassified
+URL: https://github.com/SQLAnvil/sqlanvil/actions/runs/45205148047
+Evidence: PR #65, workflow prd-toolkit, run 45205148047 (2026-11-23), at fdc5ffa6
+  Failed: standards-1, standards-2, standards-3, test-unit, test-integration, test-warehouse
+  Passed: prd-lint, prd-trace
+  test-unit, `bazel test //... --test_tag_filters=-integration --build_tests_only`:
+    Downloading https://releases.bazel.build/7.3.2/release/bazel-7.3.2-linux-x86_64...
+    File ".../external/aspect_rules_js~/npm/extensions.bzl", line 100, column 53, in _npm_lock_imports_bzlmod
+      home_npmrc = parse_npmrc(module_ctx.read(home_npmrc_path))
+    Error in read: java.io.FileNotFoundException: /home/runner/.npmrc (No such file or directory)
+    ERROR: error evaluating module extension npm in @@aspect_rules_js~//npm:extensions.bzl
+    ERROR: Couldn't start the build. Unable to run tests
+    ##[error]Process completed with exit code 48.
+  standards-1, eslint over the .ts files:
+    Error in read: java.io.FileNotFoundException: /home/runner/.npmrc (No such file or directory)
+    ERROR: Build failed. Not running target
+    ##[error]Process completed with exit code 123.
+Diagnosis: -
+Resolution: -
+Recurrence of: -
