@@ -18,6 +18,7 @@ Recurrence of: -
 ### E-002 A run with no action results does not show in inspect or docs
 Detected: 2026-11-22, adoption extract of artifacts (cli/api/commands/artifact_rows.ts:168 @f4b3f49e)
 Classification: code bug
+Confirmed: 2026-11-23, "Confirm the class (form)"
 Touches: FR-005, FR-018, FR-019, FR-021
 Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test_tag_filters=integration --build_tests_only --test_output=all` @984785d8
   T-005.9: `select distinct run_id, run_status from runs where run_id = 300` returns 0 rows
