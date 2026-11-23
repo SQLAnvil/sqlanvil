@@ -43,6 +43,7 @@ Recurrence of: -
 ### E-004 docs indexes models by their readable name
 Detected: 2026-11-22, adoption extract of artifacts (cli/api/commands/docs.ts:76 @f4b3f49e)
 Classification: code bug
+Confirmed: 2026-11-23, "Confirm the class (form)"
 Touches: FR-021
 Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test_tag_filters=integration --build_tests_only --test_output=all` @984785d8
   T-021.7: the a.b.c table's model has status FAILED, the status of the other target that reads as a.b.c, where its own SUCCESSFUL is intended
