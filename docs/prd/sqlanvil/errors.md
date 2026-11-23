@@ -32,6 +32,7 @@ Recurrence of: -
 ### E-003 An empty artifact file does not keep its columns' types
 Detected: 2026-11-22, adoption extract of artifacts (cli/api/dbadapters/duckdb_artifacts.ts:31 @f4b3f49e)
 Classification: code bug
+Confirmed: 2026-11-23, "Confirm the class (form)"
 Touches: FR-006
 Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test_tag_filters=integration --build_tests_only --test_output=all` @984785d8
   T-006.1: every column of the empty actions file has type JSON; the file written from rows has VARCHAR, and BOOLEAN for disabled
