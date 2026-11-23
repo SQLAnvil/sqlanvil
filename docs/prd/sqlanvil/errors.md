@@ -125,6 +125,7 @@ Recurrence of: -
 ### E-010 The CI prettier check finds 8 unformatted .ts files
 Detected: 2026-11-23, CI run 45207610173 on PR #65, job standards-2
 Classification: standard
+Confirmed: 2026-11-23, "Confirm the class (form)"
 URL: https://github.com/SQLAnvil/sqlanvil/actions/runs/45207610173
 Evidence: PR #65, workflow prd-toolkit, run 45207610173 (2026-11-23), at d865b97e, job standards-2
   INFO: Running command line: bazel-bin/prettier_/prettier --ignore-path .prettierignore --check ./cli/api/commands/agents_md.ts ...
