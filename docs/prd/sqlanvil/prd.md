@@ -1,6 +1,6 @@
 ---
 prd: sqlanvil
-version: 1.0.1
+version: 1.0.2
 status: Approved
 owner: Ivan Histand
 updated: 2026-11-23
@@ -89,9 +89,9 @@ flowchart LR
 
 | Object (glob) | Linter command | Rules live in | Applies to | Decision |
 |---|---|---|---|---|
-| `**/*.ts` | `scripts/bazel-ci run //:eslint -- '**/*.ts'` | `eslint.config.js`, `eslint-rules/` | code | enforced |
-| `**/*.ts` | `scripts/bazel-ci run //:prettier -- --ignore-path .prettierignore --check` (files changed on the branch, `scripts/lint`) | `.prettierrc`, `.prettierignore` | code | enforced |
-| `cli/README.md` | `scripts/bazel-ci test //cli:readme_generated_test` | `cli/` command and option definitions | code | enforced |
+| `**/*.ts` | `scripts/bazel-ci run //:eslint -- '**/*.ts'` (run locally by `scripts/lint`, which first installs node_modules and builds the generated sources; not run in CI, E-009) | `eslint.config.js`, `eslint-rules/` | code | declined |
+| `**/*.ts` | `scripts/bazel-ci run //:prettier -- --ignore-path .prettierignore --check` (every tracked .ts file in CI; `scripts/lint` checks the files changed on the branch; `.prettierignore` leaves out the generated characterization suites under `tests/prd/`, E-010) | `.prettierrc`, `.prettierignore` | code | enforced |
+| `cli/README.md` | `scripts/bazel-ci test //cli:readme_generated_test` (a unit-level target, so the unit level already runs it; not a separate CI job, E-011) | `cli/` command and option definitions | code | declined |
 
 ## 6. Skills registry
 
@@ -183,3 +183,4 @@ None.
 | 0.1.0 | 2026-11-22 | Draft started | none |
 | 1.0.0 | 2026-11-23 | Approved; artifacts area adopted; suite all 85 T-ids: 75 pass, T-001.4 and T-010.5 known-failing E-006, T-005.9, T-018.6, T-019.4 and T-021.8 known-failing E-002, T-006.1 known-failing E-003, T-018.5 and T-019.3 known-failing E-001, T-021.7 known-failing E-004; dry run T-001.2, T-020.3, T-019.1, T-014.1, T-008.2: 0 open questions, 1 dismissed by quote | UJ-01, FR-001, FR-002, FR-003, FR-004, FR-005, FR-006, FR-007, FR-008, FR-009, FR-010, FR-011, FR-012, FR-013, FR-014, FR-015, FR-016, FR-017, FR-018, FR-019, FR-020, FR-021, FR-022, FR-023, FR-024 |
 | 1.0.1 | 2026-11-23 | Bazel commands in Levels and the standards rows run through scripts/bazel-ci, which creates a missing ~/.npmrc (E-008); no dry run (no T-id changed; harness and linter commands only) | - |
+| 1.0.2 | 2026-11-23 | eslint and README rows declined for CI (E-009, E-011), tests/prd left out of prettier (E-010), warehouse level at the deploy gate with the CLI live-BigQuery test (E-012); no dry run (no T-id changed; registry rows and levels only) | - |
