@@ -21,6 +21,7 @@ ts_test_suite(
     ],
     data = [
         "//:node_modules/@duckdb/node-api",
+        "//:node_modules/long",
         "//packages/@sqlanvil/cli:bundle",
         "//packages/@sqlanvil/cli:json",
         "//packages/@sqlanvil/cli:worker_bundle",
@@ -34,6 +35,7 @@ ts_test_suite(
         "//:node_modules/@types/chai",
         "//:node_modules/@types/node",
         "//:node_modules/chai",
+        "//:node_modules/long",
         "//cli:index_test_base",
         "//cli/api",
         "//protos:ts",

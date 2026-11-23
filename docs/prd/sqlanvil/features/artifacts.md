@@ -2,6 +2,11 @@
 
 # Artifacts
 
+### UJ-01 Explore a project's catalog and last run
+Status: live (since 1.0.0)
+Flow: 1. A data engineer runs `sqlanvil compile` or `sqlanvil run` on a project, which writes the artifacts under `target/` → 2. runs `sqlanvil inspect` and sees the actions by type and the latest run's status, timing and failures → 3. runs `sqlanvil query "<sql>"` over the actions, dependencies, columns and runs views and sees the rows → 4. runs `sqlanvil docs` and opens `target/docs/index.html` to browse the models, their columns, dependencies and last-run status
+Traces: FR-001, FR-005, FR-011, FR-018, FR-020
+
 ### FR-001 Write the catalog Parquet files
 Status: approved
 Source: cli/api/commands/artifacts.ts:52 @f4b3f49e
@@ -10,13 +15,13 @@ Source: cli/api/commands/artifacts.ts:52 @f4b3f49e
 Flow: 1. writeArtifacts(graph, projectDir) → 2. shapes catalog rows → 3. writes actions, dependencies and columns Parquet under `<projectDir>/target/catalog/` → 4. resolves `{targetDir}`
 Acceptance (EARS):
 - AC-001.1 When writeArtifacts is called with a compiled graph and a project directory, the artifact writer shall write `target/catalog/actions.parquet`, `target/catalog/dependencies.parquet` and `target/catalog/columns.parquet` under that directory, creating the directories that are missing, and resolve with `targetDir` set to `<projectDir>/target`.
-- AC-001.2 The artifact writer shall write `actions.parquet` with the columns target_key, database, schema, name, readable_name, type, tags, disabled, file_name, description; `dependencies.parquet` with from_target_key, to_target_key, from_readable, to_readable; and `columns.parquet` with target_key, readable_name, column_name, description, in those orders.
+- AC-001.2 The artifact writer shall write `actions.parquet` with the columns target_key, database, schema, name, readable_name, type, tags, disabled, file_name, description; `dependencies.parquet` with from_target_key, to_target_key, from_readable, to_readable; and `columns.parquet` with target_key, readable_name, column_name, description, in those orders. Every column has type VARCHAR except actions.disabled, which is BOOLEAN, and no value is null.
 - AC-001.3 When writeArtifacts is called again for the same project directory, the artifact writer shall replace the three catalog files with the rows of the new graph.
 - AC-001.4 When the project directory's path contains a single quote, the artifact writer shall write the artifacts as it does for any other path.
 Errors: -
 Edge cases: no runResult → no run file (AC-005.7); empty graph → AC-006.1; a path with a single quote → AC-001.4 (E-006)
 Tests: T-001.1 [integration], T-001.2 [integration], T-001.3 [integration], T-001.4 [integration]  (test-cases/artifacts.yaml)
-Traces: `target/catalog/actions.parquet`, `target/catalog/dependencies.parquet`, `target/catalog/columns.parquet`
+Traces: UJ-01; `target/catalog/actions.parquet`, `target/catalog/dependencies.parquet`, `target/catalog/columns.parquet`
 
 ### FR-002 Shape one catalog row per action
 Status: live (since 1.0.0)
@@ -62,7 +67,7 @@ Source: cli/api/commands/artifacts.ts:64 @f4b3f49e
   cli/api/commands/artifact_rows.ts:59 @f4b3f49e
   cli/api/commands/artifact_rows.ts:78 @f4b3f49e
 Acceptance (EARS):
-- AC-005.1 When writeArtifacts is called with a run result and a run id, the artifact writer shall write `target/runs/run_<run id>.parquet` with one row per action result, in the columns run_id, run_status, target_key, readable_name, status, start_millis, end_millis, duration_millis, error_message.
+- AC-005.1 When writeArtifacts is called with a run result and a run id, the artifact writer shall write `target/runs/run_<run id>.parquet` with one row per action result, in the columns run_id, run_status, target_key, readable_name, status, start_millis, end_millis, duration_millis, error_message; run_id, start_millis, end_millis and duration_millis have type BIGINT, the other columns VARCHAR, and no value is null.
 - AC-005.2 When writeArtifacts is called with a run result and no run id, the artifact writer shall use the current time in epoch milliseconds as the run id.
 - AC-005.3 The artifact writer shall set run_status to the name of the run result's execution status and status to the name of the action result's execution status.
 - AC-005.4 If the run result or an action result has no status, the artifact writer shall write `UNKNOWN` for that status.
@@ -74,8 +79,8 @@ Acceptance (EARS):
 - AC-005.10 The artifact writer shall keep every run-history file under `target/runs/` until the user deletes it.
 Errors: -
 Edge cases: a run result with no action results → AC-005.9 (E-002)
-Tests: T-005.1 [integration], T-005.2 [integration], T-005.3 [integration], T-005.4 [integration], T-005.5 [integration], T-005.6 [integration], T-005.7 [integration], T-005.8 [integration], T-005.9 [integration], T-005.10 [integration]  (test-cases/artifacts.yaml)
-Traces: `target/runs/run_<run id>.parquet`
+Tests: T-005.1 [integration], T-005.2 [integration], T-005.3 [integration], T-005.4 [integration], T-005.5 [integration], T-005.6 [integration], T-005.7 [integration], T-005.8 [integration], T-005.9 [integration], T-005.10 [integration], T-005.11 [integration]  (test-cases/artifacts.yaml)
+Traces: UJ-01; `target/runs/run_<run id>.parquet`
 
 ### FR-006 Keep the columns of an empty artifact file
 Status: approved
@@ -152,7 +157,7 @@ Acceptance (EARS):
 Errors: QUERY_SQL_REJECTED (contracts/errors.yaml)
 Edge cases: SQL that DuckDB rejects → AC-011.4 (owner, 2026-11-22); one positional argument → AC-013.3
 Tests: T-011.1 [integration], T-011.2 [integration], T-011.3 [integration], T-011.4 [integration]  (test-cases/artifacts.yaml)
-Traces: -
+Traces: UJ-01
 
 ### FR-012 Print query results as JSON
 Status: live (since 1.0.0)
@@ -228,7 +233,7 @@ Acceptance (EARS):
 Errors: -
 Edge cases: a latest run with a skipped or disabled action → AC-018.2 (E-001); a run with no action results → AC-018.5 (E-002); more than 20 failures → AC-018.3 (E-007)
 Tests: T-018.1 [integration], T-018.2 [integration], T-018.3 [integration], T-018.4 [integration], T-018.5 [integration], T-018.6 [integration]  (test-cases/artifacts.yaml)
-Traces: -
+Traces: UJ-01
 
 ### FR-019 Print the inspect summary as JSON
 Status: approved
@@ -252,7 +257,7 @@ Acceptance (EARS):
 - AC-020.3 The docs command shall stamp the page with the time it ran, as an ISO 8601 UTC timestamp, in its `generated <timestamp>` text.
 Errors: -
 Tests: T-020.1 [integration], T-020.2 [integration], T-020.3 [integration]  (test-cases/artifacts.yaml)
-Traces: `target/docs/index.html`
+Traces: UJ-01; `target/docs/index.html`
 
 ### FR-021 Build the docs catalog model from the artifacts
 Status: approved

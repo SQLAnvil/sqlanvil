@@ -10,11 +10,11 @@ import { suite, test } from "sa/testing";
 import { g1, r1, runWithSkipped, successfulEmptyRun } from "sa/tests/prd/artifacts/fixtures";
 import {
   cliEnv,
+  entriesUnder,
   expectFields,
   lines,
   runCli,
   snapshot,
-  sortedEntries,
   withTmpDir,
   withTmpDirs,
 } from "sa/tests/prd/artifacts/helpers";
@@ -319,8 +319,7 @@ suite("prd artifacts: commands", () => {
   test("@prd T-015.1 each query runs in a fresh in-memory DuckDB", async () => {
     await withTmpDir(async (P) => {
       await write(g1(), P);
-      const beforeP = sortedEntries(P);
-      const beforeTarget = sortedEntries(path.join(P, "target"));
+      const before = entriesUnder(P);
       const first = await runCli(["query", "create table t as select 1 as x", P]);
       expect(first.exitCode).to.equal(0);
       const second = await runCli([
@@ -331,8 +330,8 @@ suite("prd artifacts: commands", () => {
       ]);
       expect(second.exitCode).to.equal(0);
       expectFields(json(second.stdout), [{ n: 0 }]);
-      expect(sortedEntries(P)).to.deep.equal(beforeP);
-      expect(sortedEntries(path.join(P, "target"))).to.deep.equal(beforeTarget);
+      const gained = entriesUnder(P).filter((entry) => !before.includes(entry));
+      expect(gained, "new files or directories under P and P/target").to.deep.equal([]);
     });
   });
 

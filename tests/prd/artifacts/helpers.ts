@@ -132,6 +132,24 @@ export function filesUnder(dir: string): string[] {
   return out.sort();
 }
 
+// Every file and directory under `dir`, as paths relative to it (directories end in "/").
+export function entriesUnder(dir: string): string[] {
+  const out: string[] = [];
+  const walk = (rel: string) => {
+    for (const entry of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
+      const child = rel ? path.join(rel, entry.name) : entry.name;
+      if (entry.isDirectory()) {
+        out.push(`${child}/`);
+        walk(child);
+      } else {
+        out.push(child);
+      }
+    }
+  };
+  walk("");
+  return out.sort();
+}
+
 // Every file under `dir` with its bytes, for an "unchanged" check.
 export function snapshot(dir: string): { [rel: string]: string } {
   const snap: { [rel: string]: string } = {};

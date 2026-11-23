@@ -32,7 +32,7 @@ a version number is never reused.
    Check: the owner reports that `npm view @sqlanvil/cli@X.Y.Z version --prefer-online` prints the version
 5. Tag and create the GitHub release (actor: agent) (env: npm)
    Run: `./scripts/release_github`
-   Check: [NEEDS CLARIFICATION: a backticked command that shows the GitHub release for the version is the latest, then prints or matches its expected output]
+   Check: `gh release view vX.Y.Z --repo SQLAnvil/sqlanvil --json isLatest --jq .isLatest` prints `true`
 6. Release sync (actor: human) (env: npm)
    Do: update the five places that move with every release (sqlanvil-com docs, `AGENTS.md` version pins, SQLAnvil/agent-skills, the sqlanvil-toolkit plugin, SQLAnvil Cloud's pins), per `npm_publishing.md` §3.6
    Check: the owner reports each of the five is done
@@ -40,4 +40,4 @@ a version number is never reused.
 ## Secrets
 
 - The npm publish credential: the maintainer's own `npm login` session with two-factor authentication; never stored in the repository.
-- `test_credentials/bigquery.json`: the BigQuery test project's credentials for the integration level; git-ignored, never committed. [NEEDS CLARIFICATION: where the BigQuery test credential is stored and who holds it]
+- `test_credentials/bigquery.json`: the BigQuery test project's credentials for the integration level; git-ignored, never committed. It is kept only on the owner's machine and held by the owner (Ivan Histand); it is in no CI system and no secret store (owner, 2026-11-22).
