@@ -14,6 +14,7 @@ ts_test_suite(
         "duckdb_load.spec.ts",
         "fixtures.ts",
         "helpers.ts",
+        "inspect_e007.spec.ts",
         "known_failing.ts",
         "query_api.spec.ts",
         "render.spec.ts",
