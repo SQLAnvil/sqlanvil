@@ -32,7 +32,7 @@ below before authoring a `warehouse: mysql` project.
 warehouse: postgres            # flat string ("postgres" or "supabase") — NOT nested
 defaultDataset: public         # the Postgres SCHEMA
 defaultAssertionDataset: sqlanvil_assertions
-sqlanvilCoreVersion: 1.39.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
+sqlanvilCoreVersion: 1.40.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
 vars:
   someVar: value
 ```
@@ -196,7 +196,7 @@ delta #10.)
 
 ### 12. CLI: `sqlanvil <verb>` (the installed CLI — no global `dataform`, no `npm run`)
 ```bash
-sqlanvil init      <projectDir> --warehouse postgres   # or supabase/mysql — scaffolds workflow_settings.yaml + a .df-credentials.json template (BigQuery is the default; it needs a GCP project, and the location is optional since 1.38. With no location, >=1.40 creates a new dataset in the location of the data its first action reads; older releases create it in US). --bare skips the sample project (>=1.23); --interactive (>=1.23) is a guided Q&A (fresh OR convert-a-Dataform-project) incl. the credentials file — for humans at a terminal; agents should use the flags
+sqlanvil init      <projectDir> --warehouse postgres   # or supabase/mysql — scaffolds workflow_settings.yaml + a .df-credentials.json template (BigQuery is the default; it needs a GCP project, and the location is optional since 1.38. With no location, >=1.40 creates a new dataset in the location of the data its first action reads; older releases create it in US. From 1.40 `run` creates a missing BigQuery dataset when the first action writing to it runs; an operation creates one only with `hasOutput: true`, otherwise put `CREATE SCHEMA IF NOT EXISTS` in it). --bare skips the sample project (>=1.23); --interactive (>=1.23) is a guided Q&A (fresh OR convert-a-Dataform-project) incl. the credentials file — for humans at a terminal; agents should use the flags
 sqlanvil compile   <projectDir>                         # --json for the graph; --mermaid (>=1.39) or --dot draws it
 sqlanvil run       <projectDir> --credentials <projectDir>/.df-credentials.json
 sqlanvil run       <projectDir> --credentials ... --full-refresh
@@ -222,7 +222,7 @@ still apply. The release-artifact pattern: compile once, run the identical graph
 
 **Queryable artifacts (>=1.10):** `compile`/`run` write Parquet artifacts under `<projectDir>/target/`
 (gitignore it). `sqlanvil query "<sql>"` runs SQL over them (views: `actions`, `dependencies`,
-`columns`, `runs`); `sqlanvil inspect` prints a summary; `sqlanvil docs` renders an HTML catalog to
+`columns`, `runs`, and `run_summary` (>=1.40) with one row per run); `sqlanvil inspect` prints a summary; `sqlanvil docs` renders an HTML catalog to
 `target/docs/index.html`. Warehouse-agnostic — no connection needed.
 
 **Named environments (`--environment <name>`):** define dev/staging/prod in an `environments:`
