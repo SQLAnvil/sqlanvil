@@ -1,5 +1,11 @@
 import { configure, util } from "protobufjs";
 
+import {
+  isPlainObject,
+  isProtoMessageInstance,
+  Structs,
+  UnsupportedStructValueError,
+} from "sa/common/protos/structs";
 import { google } from "sa/protos/ts";
 
 const CONFIGS_PROTO_DOCUMENTATION_URL = "https://sqlanvil.com/docs/reference/configs/";
@@ -72,40 +78,7 @@ export enum VerifyProtoErrorBehaviour {
   SHOW_DOCS_LINK,
 }
 
-const Struct = google.protobuf.Struct;
-
-// Save references to the original generated methods
-const originalVerify = Struct.verify;
-const originalFromObject = Struct.fromObject;
-
-// Monkey Patching Methods
-Struct.verify = function (object: any) {
-  if (object && typeof object === "object" && !("fields" in object)) {
-    const fields: { [key: string]: any } = {};
-    for (const [k, v] of Object.entries(object)) {
-      fields[k] = unknownToValueShallow(v);
-    }
-    Object.keys(object).forEach((key) => delete object[key]);
-    object.fields = fields;
-  }
-  return originalVerify.call(this, object);
-};
-
-// Same normalization on the fromObject path. verify() alone is not enough: protobufjs's verify
-// returns at the FIRST error, so a message with an earlier enum-typed field given as a string
-// (e.g. onSchemaChange: "IGNORE") never reaches a nested Struct, which then stays a plain object
-// and trips checkFields below ("Unexpected property ..."). Upstream #2236.
-Struct.fromObject = function (object: any) {
-  if (object && typeof object === "object" && !("fields" in object)) {
-    const fields: { [key: string]: any } = {};
-    for (const [k, v] of Object.entries(object)) {
-      fields[k] = unknownToValueShallow(v);
-    }
-    Object.keys(object).forEach((key) => delete object[key]);
-    object.fields = fields;
-  }
-  return originalFromObject.call(this, object);
-};
+Structs.installNonMutatingProtoHandlers();
 
 // This is a minimalist Typescript equivalent for the validation part of Profobuf's JsonFormat's
 // mergeMessage method:
@@ -115,6 +88,16 @@ Struct.fromObject = function (object: any) {
 // * Other protobuf libraries, such as ProtobufTS, incur significant performance hits.
 // A key downside of using ProtobufJS is that it does not record the expected types of fields,
 // meaning that the type of fields cannot be verified; an int can be confused with a string.
+function isVerifiableObject(value: unknown): boolean {
+  return (
+    Array.isArray(value) ||
+    isPlainObject(value) ||
+    isProtoMessageInstance(value) ||
+    value instanceof Uint8Array ||
+    Boolean(util.Long && value instanceof util.Long)
+  );
+}
+
 export function verifyObjectMatchesProto<Proto>(
   protoType: IProtoClass<any, Proto>,
   object: object,
@@ -145,24 +128,38 @@ export function verifyObjectMatchesProto<Proto>(
         maybeGetDocsLinkPrefix(errorBehaviour, protoType),
     );
   }
-  // Walk the object through fromObject so every nested google.protobuf.Struct gets its plain-object
-  // form normalized (Struct.fromObject above), regardless of whether verify() bailed out earlier.
+  let normalizedObject: object;
   try {
-    protoType.fromObject(object);
-  } catch {
-    // fromObject can throw a TypeError on invalid field types; checkFields below reports those
-    // as a formatted ReferenceError instead.
+    normalizedObject = Structs.normalizeForProtoVerification(protoType, object);
+  } catch (err) {
+    if (err instanceof UnsupportedStructValueError) {
+      throw formatUnexpectedPropertyError(protoType, err.key ?? "", err.valueType, errorBehaviour);
+    }
+    throw err;
   }
-  // Calling toObject on the object/JSON creates a version only contains the valid proto fields.
-  const proto = protoType.create(object);
+  const proto = protoType.create(normalizedObject);
   const protoCastObject = protoType.toObject(proto);
 
   function checkFields(present: { [k: string]: any }, desired: { [k: string]: any }) {
     // Only the entries of `present` need to be iterated through as `desired` is guaranteed to be a
     // strict subset of `present`.
     Object.entries(present).forEach(([presentKey, presentValue]) => {
+      if (presentValue instanceof google.protobuf.Struct) {
+        return;
+      }
+      if (presentValue && typeof presentValue === "object" && !isVerifiableObject(presentValue)) {
+        throw formatUnexpectedPropertyError(
+          protoType,
+          presentKey,
+          typeof presentValue,
+          errorBehaviour,
+        );
+      }
       const desiredValue = desired[presentKey];
-      if (typeof desiredValue !== typeof presentValue) {
+      if (
+        typeof desiredValue !== typeof presentValue ||
+        Array.isArray(desiredValue) !== Array.isArray(presentValue)
+      ) {
         if (Array.isArray(presentValue) && presentValue.length === 0) {
           // Empty arrays are assigned to empty proto array fields by ProtobufJS.
           return;
@@ -173,22 +170,20 @@ export function verifyObjectMatchesProto<Proto>(
               maybeGetDocsLinkPrefix(errorBehaviour, protoType),
           );
         }
-        if (typeof presentValue === "object" && Object.keys(presentValue).length === 0) {
+        if (
+          typeof presentValue === "object" &&
+          !Array.isArray(presentValue) &&
+          (isPlainObject(presentValue) || isProtoMessageInstance(presentValue)) &&
+          Object.keys(presentValue).length === 0
+        ) {
           // Empty objects are assigned to empty object fields by ProtobufJS.
           return;
         }
-        if (errorBehaviour === VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM) {
-          throw ReferenceError(
-            `Unexpected property "${presentKey}" for "${protoType
-              .getTypeUrl("")
-              .replace("/", "")}", please report this to the sqlanvil team at ` +
-              `${REPORT_ISSUE_URL}.`,
-          );
-        }
-        throw ReferenceError(
-          `Unexpected property "${presentKey}", or property value type of ` +
-            `"${typeof presentValue}" is incorrect.` +
-            maybeGetDocsLinkPrefix(errorBehaviour, protoType),
+        throw formatUnexpectedPropertyError(
+          protoType,
+          presentKey,
+          typeof presentValue,
+          errorBehaviour,
         );
       }
       if (typeof presentValue === "object") {
@@ -197,7 +192,7 @@ export function verifyObjectMatchesProto<Proto>(
     });
   }
 
-  checkFields(object, protoCastObject);
+  checkFields(normalizedObject, protoCastObject);
   return proto;
 }
 
@@ -226,6 +221,26 @@ function verifyErrorIsNonPrimitiveInScalarField(message: string, root: object): 
     value = value[segment];
   }
   return value !== null && typeof value === "object";
+}
+
+function formatUnexpectedPropertyError<Proto>(
+  protoType: IProtoClass<any, Proto>,
+  propertyName: string,
+  propertyType: string,
+  errorBehaviour: VerifyProtoErrorBehaviour,
+): ReferenceError {
+  if (errorBehaviour === VerifyProtoErrorBehaviour.SUGGEST_REPORTING_TO_DATAFORM_TEAM) {
+    return ReferenceError(
+      `Unexpected property "${propertyName}" for "${protoType
+        .getTypeUrl("")
+        .replace("/", "")}", please report this to the sqlanvil team at ` + `${REPORT_ISSUE_URL}.`,
+    );
+  }
+  return ReferenceError(
+    `Unexpected property "${propertyName}", or property value type of ` +
+      `"${propertyType}" is incorrect.` +
+      maybeGetDocsLinkPrefix(errorBehaviour, protoType),
+  );
 }
 
 function maybeGetDocsLinkPrefix<Proto>(
@@ -278,28 +293,6 @@ function fromBase64(value: string): Uint8Array {
   const buf = new Uint8Array(util.base64.length(value));
   util.base64.decode(value, buf, 0);
   return buf;
-}
-
-function unknownToValueShallow(raw: unknown): google.protobuf.IValue {
-  if (raw === null || typeof raw === "undefined") {
-    return { nullValue: 0 };
-  }
-  if (typeof raw === "string") {
-    return { stringValue: raw };
-  }
-  if (typeof raw === "number") {
-    return { numberValue: raw };
-  }
-  if (typeof raw === "boolean") {
-    return { boolValue: raw };
-  }
-  if (Array.isArray(raw)) {
-    return { listValue: { values: raw.map(unknownToValueShallow) } };
-  }
-  if (typeof raw === "object") {
-    return { structValue: raw as any };
-  }
-  throw new Error(`Unsupported value: ${raw}`);
 }
 
 export function unknownToValue(raw: unknown): google.protobuf.IValue {

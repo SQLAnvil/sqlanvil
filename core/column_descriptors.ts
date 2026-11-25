@@ -1,3 +1,4 @@
+import { isPlainObject } from "sa/common/protos/structs";
 import * as utils from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -88,6 +89,18 @@ export class ColumnDescriptors {
     return Object.keys(columns)
       .map((column) => ColumnDescriptors.mapColumnDescriptionToProto([column], columns[column]))
       .flat();
+  }
+
+  public static normalizeConfigColumns(
+    columns: sqlanvil.ActionConfig.IColumnDescriptor[] | IColumnsDescriptor,
+  ): sqlanvil.ActionConfig.IColumnDescriptor[] {
+    if (Array.isArray(columns)) {
+      return columns.slice();
+    }
+    if (isPlainObject(columns)) {
+      return ColumnDescriptors.mapLegacyObjectToConfigProto(columns);
+    }
+    return columns;
   }
 
   public static mapColumnDescriptionToProto(

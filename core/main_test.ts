@@ -3172,3 +3172,85 @@ suite("action targets need a dataset", ({ afterEach }) => {
     ]);
   });
 });
+
+// Upstream #2463 (3.1.8): actions.yaml enums and declaration column paths survive the
+// non-mutating Struct handling.
+suite("actions.yaml enum and declaration column handling", ({ afterEach }) => {
+  const tmpDirFixture = new TmpDirFixture(afterEach);
+
+  const setUpProject = (definitions: { [file: string]: string }) => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(projectDir, "workflow_settings.yaml"),
+      VALID_WORKFLOW_SETTINGS_YAML,
+    );
+    fs.mkdirSync(path.join(projectDir, "definitions"));
+    Object.entries(definitions).forEach(([file, contents]) =>
+      fs.writeFileSync(path.join(projectDir, "definitions", file), contents),
+    );
+    return projectDir;
+  };
+
+  test("compiles table and incrementalTable with iceberg fileFormat PARQUET", () => {
+    const projectDir = setUpProject({
+      "actions.yaml": `
+actions:
+- table:
+    filename: tbl.sql
+    iceberg:
+      bucketName: my-bucket
+      fileFormat: PARQUET
+- incrementalTable:
+    filename: inc.sql
+    iceberg:
+      bucketName: my-bucket
+      fileFormat: PARQUET`,
+      "tbl.sql": "SELECT 1",
+      "inc.sql": "SELECT 1",
+    });
+
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+    expect(
+      result.compile.compiledGraph.tables.map((table) => [
+        table.target.name,
+        asPlainObject(table.bigquery).fileFormat,
+        asPlainObject(table.bigquery).tableFormat,
+      ]),
+    ).deep.equals([
+      ["tbl", "PARQUET", "ICEBERG"],
+      ["inc", "PARQUET", "ICEBERG"],
+    ]);
+  });
+
+  test("preserves declaration column paths", () => {
+    const projectDir = setUpProject({
+      "actions.yaml": `
+actions:
+- declaration:
+    name: raw_users
+    dataset: raw
+    columns:
+      - path:
+          - user_id
+        description: Primary user key
+      - path:
+          - profile
+          - email
+        description: Nested email`,
+    });
+
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+    expect(
+      asPlainObject(result.compile.compiledGraph.declarations[0].actionDescriptor),
+    ).deep.equals({
+      columns: [
+        { path: ["user_id"], description: "Primary user key" },
+        { path: ["profile", "email"], description: "Nested email" },
+      ],
+    });
+  });
+});

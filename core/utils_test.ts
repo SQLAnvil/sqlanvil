@@ -296,6 +296,19 @@ suite("sqlanvil Utility Validations", () => {
       expect(getFileFormatValueForIcebergTable("pArQuEt")).to.equal(sqlanvil.FileFormat.PARQUET);
     });
 
+    test("accepts numeric ActionConfig Iceberg FileFormat enum values", () => {
+      expect(
+        getFileFormatValueForIcebergTable(
+          sqlanvil.ActionConfig.IcebergTableConfig.FileFormat.PARQUET,
+        ),
+      ).to.equal(sqlanvil.FileFormat.PARQUET);
+      expect(
+        getFileFormatValueForIcebergTable(
+          sqlanvil.ActionConfig.IcebergTableConfig.FileFormat.FILE_FORMAT_UNSPECIFIED,
+        ),
+      ).to.equal(sqlanvil.FileFormat.PARQUET);
+    });
+
     test("throws an error for an unsupported file format string", () => {
       assertThrowsWithMessage(
         () => getFileFormatValueForIcebergTable("CSV"),

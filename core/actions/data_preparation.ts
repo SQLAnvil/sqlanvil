@@ -406,20 +406,26 @@ export class DataPreparation extends ActionBuilder<sqlanvil.DataPreparation> {
       return sqlanvil.LoadConfiguration.create({ replace: {} });
     }
 
-    switch (loadMode.toString().toUpperCase()) {
+    const normalizedLoadMode = typeof loadMode === "string" ? loadMode.toUpperCase() : loadMode;
+    switch (normalizedLoadMode) {
       case "REPLACE_TABLE":
+      case sqlanvil.ActionConfig.LoadMode.REPLACE_TABLE:
         return sqlanvil.LoadConfiguration.create({ replace: {} });
       case "APPEND":
+      case sqlanvil.ActionConfig.LoadMode.APPEND:
         return sqlanvil.LoadConfiguration.create({ append: {} });
       case "MAXIMUM":
+      case sqlanvil.ActionConfig.LoadMode.MAXIMUM:
         return sqlanvil.LoadConfiguration.create({
           maximum: { columnName: this.validateLoadModeColumnName(incrementalColumn) },
         });
       case "UNIQUE":
+      case sqlanvil.ActionConfig.LoadMode.UNIQUE:
         return sqlanvil.LoadConfiguration.create({
           unique: { columnName: this.validateLoadModeColumnName(incrementalColumn) },
         });
       case "MERGE":
+      case sqlanvil.ActionConfig.LoadMode.MERGE:
         return sqlanvil.LoadConfiguration.create({
           merge: { uniqueKey: this.validateUniqueKey(uniqueKey) },
         });

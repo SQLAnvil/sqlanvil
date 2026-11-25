@@ -1,6 +1,6 @@
 import { verifyObjectMatchesProto, VerifyProtoErrorBehaviour } from "sa/common/protos";
 import { ActionBuilder } from "sa/core/actions";
-import { ColumnDescriptors } from "sa/core/column_descriptors";
+import { ColumnDescriptors, IColumnsDescriptor } from "sa/core/column_descriptors";
 import { Session } from "sa/core/session";
 import { actionConfigToCompiledGraphTarget } from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
@@ -11,11 +11,15 @@ import { sqlanvil } from "sa/protos/ts";
  * This maintains backwards compatability with older versions.
  * Consider breaking backwards compatability of these in v4.
  */
-interface ILegacyDeclarationConfig extends sqlanvil.ActionConfig.DeclarationConfig {
-  database: string;
-  schema: string;
-  fileName: string;
-  type: string;
+interface ILegacyDeclarationConfig extends Omit<
+  sqlanvil.ActionConfig.IDeclarationConfig,
+  "columns"
+> {
+  columns?: sqlanvil.ActionConfig.IColumnDescriptor[] | IColumnsDescriptor;
+  database?: string;
+  schema?: string;
+  fileName?: string;
+  type?: string;
 }
 
 /**
@@ -180,27 +184,28 @@ export class Declaration extends ActionBuilder<sqlanvil.Declaration> {
   private verifyConfig(
     unverifiedConfig: ILegacyDeclarationConfig,
   ): sqlanvil.ActionConfig.DeclarationConfig {
-    if (unverifiedConfig.database) {
-      unverifiedConfig.project = unverifiedConfig.database;
-      delete unverifiedConfig.database;
+    const configToVerify: ILegacyDeclarationConfig = {
+      ...unverifiedConfig,
+      ...(unverifiedConfig.columns !== undefined
+        ? { columns: ColumnDescriptors.normalizeConfigColumns(unverifiedConfig.columns) }
+        : {}),
+    };
+    if (configToVerify.database) {
+      configToVerify.project = configToVerify.database;
+      delete configToVerify.database;
     }
-    if (unverifiedConfig.schema) {
-      unverifiedConfig.dataset = unverifiedConfig.schema;
-      delete unverifiedConfig.schema;
-    }
-    if (unverifiedConfig.columns) {
-      unverifiedConfig.columns = ColumnDescriptors.mapLegacyObjectToConfigProto(
-        unverifiedConfig.columns as any,
-      );
+    if (configToVerify.schema) {
+      configToVerify.dataset = configToVerify.schema;
+      delete configToVerify.schema;
     }
 
-    if (unverifiedConfig.type) {
-      delete unverifiedConfig.type;
+    if (configToVerify.type) {
+      delete configToVerify.type;
     }
 
     return verifyObjectMatchesProto(
       sqlanvil.ActionConfig.DeclarationConfig,
-      unverifiedConfig,
+      configToVerify,
       VerifyProtoErrorBehaviour.SHOW_DOCS_LINK,
     );
   }

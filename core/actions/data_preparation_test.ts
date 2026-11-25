@@ -4,6 +4,8 @@ import * as fs from "fs-extra";
 import { dump as dumpYaml, load as loadYaml } from "js-yaml";
 import * as path from "path";
 
+import { DataPreparation } from "sa/core/actions/data_preparation";
+import { Session } from "sa/core/session";
 import { sqlanvil } from "sa/protos/ts";
 import { asPlainObject, suite, test } from "sa/testing";
 import { TmpDirFixture } from "sa/testing/fixtures";
@@ -881,6 +883,113 @@ FROM x
               name: "errorTable",
             },
             errorTableRetentionDays: 0,
+          },
+        ]),
+      );
+    });
+
+    // actions.yaml rejects .sqlx filenames (actionConfigFilenameIsInvalidSqlx), so test fromObject directly.
+    test(`data preparation supports numeric LoadMode enum values from DataPreparationConfig.fromObject`, () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      const appendSqlxPath = path.join(projectDir, "append_dp.sqlx");
+      const mergeSqlxPath = path.join(projectDir, "merge_dp.sqlx");
+      fs.writeFileSync(appendSqlxPath, 'module.exports = { query: "FROM x\\n|> SELECT *" };');
+      fs.writeFileSync(mergeSqlxPath, 'module.exports = { query: "FROM x\\n|> SELECT *" };');
+
+      const session = new Session(
+        projectDir,
+        sqlanvil.ProjectConfig.create({
+          defaultDatabase: "defaultProject",
+          defaultSchema: "defaultDataset",
+        }),
+      );
+      const appendDp = new DataPreparation(
+        session,
+        sqlanvil.ActionConfig.DataPreparationConfig.fromObject({
+          name: "append_dest",
+          filename: appendSqlxPath,
+          loadMode: {
+            mode: "APPEND",
+          },
+        }),
+      );
+      const mergeDp = new DataPreparation(
+        session,
+        sqlanvil.ActionConfig.DataPreparationConfig.fromObject({
+          name: "merge_dest",
+          filename: mergeSqlxPath,
+          loadMode: {
+            mode: "MERGE",
+            uniqueKey: ["id"],
+          },
+        }),
+      );
+
+      expect(asPlainObject([appendDp.compile(), mergeDp.compile()])).deep.equals(
+        asPlainObject([
+          {
+            target: {
+              database: "defaultProject",
+              schema: "defaultDataset",
+              name: "append_dest",
+            },
+            canonicalTarget: {
+              database: "defaultProject",
+              schema: "defaultDataset",
+              name: "append_dest",
+            },
+            targets: [
+              {
+                database: "defaultProject",
+                schema: "defaultDataset",
+                name: "append_dest",
+              },
+            ],
+            canonicalTargets: [
+              {
+                database: "defaultProject",
+                schema: "defaultDataset",
+                name: "append_dest",
+              },
+            ],
+            fileName: appendSqlxPath,
+            load: {
+              append: {},
+            },
+            query: "FROM x\n|> SELECT *",
+          },
+          {
+            target: {
+              database: "defaultProject",
+              schema: "defaultDataset",
+              name: "merge_dest",
+            },
+            canonicalTarget: {
+              database: "defaultProject",
+              schema: "defaultDataset",
+              name: "merge_dest",
+            },
+            targets: [
+              {
+                database: "defaultProject",
+                schema: "defaultDataset",
+                name: "merge_dest",
+              },
+            ],
+            canonicalTargets: [
+              {
+                database: "defaultProject",
+                schema: "defaultDataset",
+                name: "merge_dest",
+              },
+            ],
+            fileName: mergeSqlxPath,
+            load: {
+              merge: {
+                uniqueKey: ["id"],
+              },
+            },
+            query: "FROM x\n|> SELECT *",
           },
         ]),
       );
