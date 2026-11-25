@@ -773,7 +773,8 @@ SQLANVIL_VERSION = "1.39.0"
 #     an empty answer. init-creds gains an "auto" location choice, and an "other" region left
 #     blank (or whitespace) also means unset. Help text gives our real fallback rather than
 #     upstream's "BigQuery chooses dynamically": jobs infer their location from the tables they
-#     read, but #2408 is still deferred, so a missing dataset is created eagerly in US.
+#     read, but #2408 is still deferred, so a missing dataset is created eagerly in US (until
+#     #2408 was taken for 1.41.0, below).
 #
 #   * #2421 warn when SET @@dataset_id is used without any location. TAKEN, BigQuery only:
 #     setsDatasetId plus its GoogleSQL comment/quote lexer, in a new
@@ -909,5 +910,32 @@ SQLANVIL_VERSION = "1.39.0"
 #   * #2467, #2478, #2485 version bumps.
 #
 #   * #2408 lazy schema creation STAYS DEFERRED (no change upstream this round).
+#
+# #2408 create schemas lazily (deferred in 3.1.4, 3.1.5 and 3.1.8) TAKEN 2026-11-25, BigQuery only,
+# for 1.41.0. Tracking issue: SQLAnvil/sqlanvil#69.
+#
+#   * On BigQuery, `run` no longer creates missing target datasets up front (in a job that reads
+#     nothing, so in US when no location is set). It lists the existing datasets, and the first
+#     task writing to a missing one runs as `create schema if not exists `db.ds`; begin <task>;
+#     end;`, so BigQuery creates the dataset in the location of the data that task reads.
+#     Upstream's lock (one creator per dataset; the next one retries if it fails), dry runs that
+#     create nothing (every task writing to a missing dataset is wrapped, and the SELECT is
+#     dry-run on its own via dryRunValidationQueries, with error positions mapped to the wrapped
+#     SQL), the tables() 404 guard and the Timer move are taken. Live tests are in
+#     cli/index_location_test.ts, and the e2e set-up operations now create their own dataset.
+#   * sqlanvil differences:
+#     - The Runner picks the strategy from the warehouse. Postgres, Supabase and MySQL keep
+#       prepareAllSchemas() unchanged (`begin` opens a transaction there).
+#     - ExecutionAction.has_output is field 17 (upstream's 13 is our `export`).
+#     - Only tables, assertions, imports and operations with hasOutput create their dataset.
+#       Exports, scripts and extracts never do, and runner-side tasks are never wrapped.
+#     - compiledSql is filled only for a wrapped task, not for every dry-run task (as decided for
+#       #2418). The console prints it for a failed task.
+#     - concatenateQueries moves to cli/api/utils/query_transforms.ts (upstream's home for it)
+#       with its behaviour unchanged: #2413 and #2414 stay declined. The wrapper terminates the
+#       statement with upstream's codeEndIndex lexer instead.
+#     - JiT parts not taken.
+#     BREAKING (BigQuery): an operation without hasOutput no longer gets a missing target dataset
+#     created for it.
 #
 DF_VERSION = "3.1.8"

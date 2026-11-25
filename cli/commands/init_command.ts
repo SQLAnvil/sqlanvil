@@ -79,8 +79,9 @@ export const initCommand: ICommand = {
       describe:
         "BigQuery only, optional, e.g. US or europe-west2. If omitted, defaultLocation is not " +
         "written to workflow_settings.yaml and the credentials file's location is used; if that " +
-        "is also unset, BigQuery infers each job's location from the tables it reads, and new " +
-        "datasets are created in US.",
+        "is also unset, BigQuery infers each job's location from the tables it reads, and a new " +
+        "dataset is created in the location of the data read by the first action writing to it " +
+        "(US if that action reads no tables).",
     }),
   ],
   options: [warehouseOption, icebergOption, bareOption, interactiveOption],

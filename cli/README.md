@@ -96,7 +96,7 @@ MySQL/MariaDB it also writes a starter `.df-credentials.json` for you to fill in
 |---|---|---|
 | `project-dir` | No (default `.`) | The sqlanvil project directory. |
 | `default-database` | No | BigQuery: the Google Cloud project ID models build in. Required for BigQuery; ignored for the other warehouses. |
-| `default-location` | No | BigQuery only, optional, e.g. US or europe-west2. If omitted, defaultLocation is not written to workflow_settings.yaml and the credentials file's location is used; if that is also unset, BigQuery infers each job's location from the tables it reads, and new datasets are created in US. |
+| `default-location` | No | BigQuery only, optional, e.g. US or europe-west2. If omitted, defaultLocation is not written to workflow_settings.yaml and the credentials file's location is used; if that is also unset, BigQuery infers each job's location from the tables it reads, and a new dataset is created in the location of the data read by the first action writing to it (US if that action reads no tables). |
 <!-- END GENERATED: positionals init -->
 
 **Options**
