@@ -148,7 +148,7 @@ Tests: T-010.1 [integration], T-010.2 [integration], T-010.3 [integration], T-01
 Traces: views `actions`, `dependencies`, `columns`, `runs`, `run_summary`
 
 ### FR-011 Run SQL over the artifacts with the query command
-Status: approved
+Status: verified
 Source: cli/commands/query_command.ts:18 @f4b3f49e
   cli/commands/artifact_views.ts:43 @1b21ebd2
 Acceptance (EARS):

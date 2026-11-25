@@ -149,7 +149,7 @@ The CLI's interface is its commands, flags and output, documented in `cli/README
 | FR-008 | Never fail the caller when artifacts cannot be written | live | features/artifacts.md | 1.0.0 |
 | FR-009 | Read the project's artifacts, and refuse without a catalog | live | features/artifacts.md | 1.0.0 |
 | FR-010 | Expose the artifacts as DuckDB views | verified | features/artifacts.md |  |
-| FR-011 | Run SQL over the artifacts with the query command | approved | features/artifacts.md |  |
+| FR-011 | Run SQL over the artifacts with the query command | verified | features/artifacts.md |  |
 | FR-012 | Print query results as JSON | live | features/artifacts.md | 1.0.0 |
 | FR-013 | Require SQL for the query command | live | features/artifacts.md | 1.0.0 |
 | FR-014 | Return 64-bit integers as JSON-safe values | live | features/artifacts.md | 1.0.0 |
