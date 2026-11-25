@@ -14,6 +14,7 @@ from ..markdown import sections, tables
 from ..model import DRIFT_CHECKS, Prd, gate_of, production_envs, repo_root
 from ..packs import installed_plugins
 from ..registry import rule
+from ..standardsrun import MODES, files_mode
 
 STANDARDS_DECISIONS = {"enforced", "declined", "proposed"}
 SKILLS_DECISIONS = {"required", "recommended", "declined", "proposed"}
@@ -59,6 +60,7 @@ class StandardsRow:
     command: str
     decision: str
     line: int
+    mode: str = "appended"  # the files mode as written in the cell (AC-264.1); standardsrun.run_mode says how it runs
 
 
 def standards_rows(prd: Prd) -> list[StandardsRow]:
@@ -68,7 +70,7 @@ def standards_rows(prd: Prd) -> list[StandardsRow]:
         cells = [c.strip() for c in r.cells] + [""] * 5
         m = re.search(r"`([^`]*)`", cells[1])
         rows.append(StandardsRow(cells[0].replace("`", "").strip(), m.group(1).strip() if m else "",
-                                 cells[4].strip("`").strip(), r.line))
+                                 cells[4].strip("`").strip(), r.line, files_mode(cells[1])))
     return rows
 
 
@@ -90,6 +92,9 @@ def registries(prd: Prd) -> Iterator[Finding]:
                 yield Finding("prd.md", r.line, "registries", f"enforced standards row has no linter command ('{cells[1]}'); put it in backticks")
             elif not ci and shutil.which(cmd) is None:  # --ci skips only the on-PATH lookup
                 yield Finding("prd.md", r.line, "registries", f"enforced linter command '{cmd}' is not on PATH")
+            mode = files_mode(cells[1])
+            if mode not in MODES:  # a CI run as well as outside one (AC-133.5)
+                yield Finding("prd.md", r.line, "registries", f"standards files mode '{mode}' is not one of {', '.join(MODES)}")
     root = None
     for r in _registry_rows(prd, 6):
         cells = [c.strip() for c in r.cells] + [""] * 3

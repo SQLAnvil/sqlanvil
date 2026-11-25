@@ -93,7 +93,8 @@ export function lines(text: string): string[] {
 export const ABSENT = Symbol("absent");
 
 // Assertions: only the fields a case lists are compared; a list compares element by element in
-// the case's order; ABSENT means the field must not be there.
+// the case's order; ABSENT means the object has no such key at all, not a key that holds
+// undefined or null (testing.md, Assertions).
 export function expectFields(actual: any, expected: any, where = "value"): void {
   if (Array.isArray(expected)) {
     expect(Array.isArray(actual), `${where} is a list`).to.equal(true);
@@ -105,7 +106,7 @@ export function expectFields(actual: any, expected: any, where = "value"): void 
     expect(actual !== null && typeof actual === "object", `${where} is an object`).to.equal(true);
     for (const key of Object.keys(expected)) {
       if (expected[key] === ABSENT) {
-        expect(actual[key], `${where}.${key} is absent`).to.equal(undefined);
+        expect(key in actual, `${where} has no key ${key}`).to.equal(false);
       } else {
         expectFields(actual[key], expected[key], `${where}.${key}`);
       }

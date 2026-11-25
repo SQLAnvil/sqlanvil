@@ -30,6 +30,13 @@ export function resolveArtifactViews(projectDir: string): {
   if (hasRuns) {
     views.push({ name: "runs", glob: path.join(runsDir, "*.parquet") });
   }
+  const runSummaryDir = path.join(projectDir, TARGET_DIR, "run_summary");
+  if (
+    fs.existsSync(runSummaryDir) &&
+    fs.readdirSync(runSummaryDir).some((f) => f.endsWith(".parquet"))
+  ) {
+    views.push({ name: "run_summary", glob: path.join(runSummaryDir, "*.parquet") });
+  }
   return { views, hasCatalog: views.some((v) => v.name === "actions"), hasRuns };
 }
 

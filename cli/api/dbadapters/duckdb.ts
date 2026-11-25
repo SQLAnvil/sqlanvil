@@ -19,6 +19,11 @@ export function loadDuckdb(): any {
   }
 }
 
+/** Quote `value` as a DuckDB SQL string literal, doubling any single quote inside it. */
+export function sqlStringLiteral(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
 /** Run a statement (or `;`-separated statements); the result, if any, is discarded. */
 export async function runAsync(conn: any, sql: string): Promise<void> {
   await conn.run(sql);
@@ -56,7 +61,7 @@ export async function withDuckdb<T>(
   };
   try {
     if (!process.env.HOME) {
-      await runAsync(conn, `SET home_directory='${os.tmpdir()}'`);
+      await runAsync(conn, `SET home_directory=${sqlStringLiteral(os.tmpdir())}`);
     }
     const result = await fn(conn);
     done();

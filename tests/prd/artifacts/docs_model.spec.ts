@@ -10,7 +10,6 @@ import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";
 import { g1, r1, successfulEmptyRun } from "sa/tests/prd/artifacts/fixtures";
 import { ABSENT, expectFields, withTmpDir } from "sa/tests/prd/artifacts/helpers";
-import { expectKnownFailure, knownFailure } from "sa/tests/prd/artifacts/known_failing";
 
 const write: any = writeArtifacts;
 const build: any = buildDocsModel;
@@ -35,14 +34,22 @@ const DEPENDENCIES_COLUMNS = ["from_target_key", "to_target_key", "from_readable
 const COLUMNS_COLUMNS = ["target_key", "readable_name", "column_name", "description"];
 
 // The views of T-021.1 over P (testing.md, Harness, Layout): actions, dependencies and columns
-// over P/target/catalog/<name>.parquet and, when asked, runs over P/target/runs/*.parquet.
-function views(P: string, withRuns: boolean): Array<{ name: string; glob: string }> {
+// over P/target/catalog/<name>.parquet and, when asked, runs over P/target/runs/*.parquet and
+// run_summary over P/target/run_summary/*.parquet (T-021.8).
+function views(
+  P: string,
+  withRuns: boolean,
+  withRunSummary = false,
+): Array<{ name: string; glob: string }> {
   const out = ["actions", "dependencies", "columns"].map((name) => ({
     name,
     glob: path.join(P, "target/catalog", `${name}.parquet`),
   }));
   if (withRuns) {
     out.push({ name: "runs", glob: path.join(P, "target/runs/*.parquet") });
+  }
+  if (withRunSummary) {
+    out.push({ name: "run_summary", glob: path.join(P, "target/run_summary/*.parquet") });
   }
   return out;
 }
@@ -195,9 +202,10 @@ suite("prd artifacts: docs builder", () => {
     });
   });
 
-  test("@prd T-021.7 known-failing E-004 keys dependencies and statuses by target, not readable name", async () => {
+  test("@prd T-021.7 two targets that read as one name keep their own status and dependsOn", async () => {
     await withTmpDir(async (P) => {
-      await expectKnownFailure("E-004", async () => {
+      // The graph and run result of T-021.7: database a, schema b, name c and schema a.b, name c
+      // both read as a.b.c; every list the case does not name is empty.
       const graph = {
         tables: [
           {
@@ -230,17 +238,9 @@ suite("prd artifacts: docs builder", () => {
         ],
       };
       await write(graph, P, { runResult, runId: 10 });
+      // The four views of T-021.1, over P.
       const model = await build(views(P, true), GENERATED_AT);
-      const table = (model.models || []).find(
-        (m: any) => m.readable === "a.b.c" && m.type === "table",
-      );
-      // The other target that reads as a.b.c is the view, whose own status is FAILED.
-      if (table && table.status === "FAILED") {
-        knownFailure(
-          "the a.b.c table's model has the status of the other target that reads as a.b.c",
-          JSON.stringify(table),
-        );
-      }
+      // Ordered by type, then readable name (AC-021.1): the table, then the view.
       expectFields(model, {
         models: [
           {
@@ -261,24 +261,19 @@ suite("prd artifacts: docs builder", () => {
           },
         ],
       }, "model");
-      });
     });
   });
 
-  test("@prd T-021.8 known-failing E-002 a latest run with no action results gives no model a status", async () => {
+  test("@prd T-021.8 a latest run with no action results gives no model a status", async () => {
     await withTmpDir(async (P) => {
-      await expectKnownFailure("E-002", async () => {
-        await write(g1(), P, { runResult: r1(), runId: 123 });
-        await write(g1(), P, { runResult: successfulEmptyRun(), runId: 200 });
-        const model = await build(views(P, true), GENERATED_AT);
-        if (model && model.latestRun && model.latestRun.runId === 123) {
-          knownFailure("latestRun is the previous run 123", JSON.stringify(model.latestRun));
-        }
-        expectFields(model, { latestRun: { runId: 200, status: "SUCCESSFUL" } }, "model");
-        expectFields(byReadable(model, "s.v"), { status: ABSENT }, "s.v");
-        expectFields(byReadable(model, "s.src"), { status: ABSENT }, "s.src");
-        expectFields(byReadable(model, "s.a"), { status: ABSENT }, "s.a");
-      });
+      await write(g1(), P, { runResult: r1(), runId: 123 });
+      await write(g1(), P, { runResult: successfulEmptyRun(), runId: 200 });
+      // The four views of T-021.1 and the run_summary view, over P.
+      const model = await build(views(P, true, true), GENERATED_AT);
+      expectFields(model, { latestRun: { runId: 200, status: "SUCCESSFUL" } }, "model");
+      expectFields(byReadable(model, "s.v"), { status: ABSENT }, "s.v");
+      expectFields(byReadable(model, "s.src"), { status: ABSENT }, "s.src");
+      expectFields(byReadable(model, "s.a"), { status: ABSENT }, "s.a");
     });
   });
 });

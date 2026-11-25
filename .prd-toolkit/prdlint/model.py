@@ -100,6 +100,8 @@ class ErrorEntry:
     touches_line: int = 0  # the last `Touches:` line, `Touches: -` included; 0 when absent
     url: str | None = None  # the trimmed value of the entry's first column-0 `URL:` line; None when it has none
     url_line: int = 0
+    explanation: str | None = None  # FR-254: the trimmed text of the entry's first `Explanation:` line; None when it has none
+    reopened: list[tuple[str, int]] = field(default_factory=list)  # FR-252: (line, line number) of each `Reopened:` line
 
     @property
     def state(self) -> str:
@@ -309,7 +311,8 @@ _EVIDENCE = re.compile(r"^Evidence:\s*(.*?)\s*$")
 _DIAGNOSIS = re.compile(r"^Diagnosis:\s*(.*?)\s*$")
 _RECURRENCE = re.compile(r"^Recurrence of:\s*(.*?)\s*$")
 _URL = re.compile(r"^URL:(.*)$")
-CLASSES = ("code bug", "spec gap", "invalid requirement", "environment", "standard", "unclassified")
+_EXPLANATION = re.compile(r"^Explanation:(.*)$")
+CLASSES = ("code bug", "spec gap", "invalid requirement", "environment", "standard", "not a defect", "unclassified")
 DRIFT_CHECKS = ("version", "config")
 _TOUCH_ID = re.compile(r"\b(?:UJ|FR|NFR)-\d+\b")
 _SLOT = re.compile(r"^- \*\*([^*]+?)\.\*\*")
@@ -464,6 +467,11 @@ def _errors_ledger(text: str) -> dict[str, ErrorEntry]:
         um = _URL.match(orig) if cur and cur.url is None else None
         if um:  # FR-063: the first column-0 URL: line of the entry, wherever it stands
             cur.url, cur.url_line = um.group(1).strip(), n
+        xm = _EXPLANATION.match(orig) if cur and cur.explanation is None else None
+        if xm:  # FR-254: the first line that starts with Explanation:
+            cur.explanation = xm.group(1).strip()
+        if cur and orig.startswith("Reopened:"):  # FR-252: every line that starts with Reopened:, in file order
+            cur.reopened.append((orig, n))
     for e in ledger.values():
         e.end = e.end or last
     return ledger

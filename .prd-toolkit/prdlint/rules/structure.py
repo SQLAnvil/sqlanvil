@@ -36,7 +36,7 @@ STATUSES = ("Draft", "In review", "Approved")
 def prose(prd: Prd) -> Iterator[tuple[str, int, str]]:
     """Every markdown line of the PRD as (file, line, text), with code blocks and spans blanked.
 
-    errors.md's `Evidence:` and `Confirmed:` lines are quoted material, not PRD prose, so they are
+    errors.md's `Evidence:`, `Confirmed:` and `Reopened:` lines are quoted material, not PRD prose, so they are
     blanked too."""
     for rel, text in prd.docs.items():
         stripped = strip_code(text)

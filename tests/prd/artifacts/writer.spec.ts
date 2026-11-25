@@ -18,11 +18,6 @@ import {
   withTmpDirs,
   withTmpdirEnv,
 } from "sa/tests/prd/artifacts/helpers";
-import {
-  expectKnownFailure,
-  isParserErrorAfterQuote,
-  knownFailure,
-} from "sa/tests/prd/artifacts/known_failing";
 
 // A protobufjs Long value is Long.fromNumber(n) from the `long` package (testing.md, Layout).
 const LongModule: any = require("long");
@@ -33,16 +28,17 @@ const safeWrite: any = safeWriteArtifacts;
 const query: (sql: string, views: Array<{ name: string; glob: string }>) => Promise<any[]> =
   queryParquet as any;
 
-type ViewName = "actions" | "dependencies" | "columns" | "runs";
+type ViewName = "actions" | "dependencies" | "columns" | "runs" | "run_summary";
 
 // The case's views over a project directory (testing.md, Layout): actions, dependencies and
-// columns over <P>/target/catalog/<name>.parquet, runs over <P>/target/runs/*.parquet.
+// columns over <P>/target/catalog/<name>.parquet, runs over <P>/target/runs/*.parquet, and
+// run_summary over <P>/target/run_summary/*.parquet (T-005.9, T-005.12).
 function views(dir: string, ...names: ViewName[]): Array<{ name: string; glob: string }> {
   return names.map((name) => ({
     name,
     glob:
-      name === "runs"
-        ? path.join(dir, "target", "runs", "*.parquet")
+      name === "runs" || name === "run_summary"
+        ? path.join(dir, "target", name, "*.parquet")
         : path.join(dir, "target", "catalog", `${name}.parquet`),
   }));
 }
@@ -139,32 +135,19 @@ suite("prd artifacts: writer", () => {
     });
   });
 
-  test("@prd T-001.4 known-failing E-006 writes the artifacts under a path holding a single quote", async () => {
+  test("@prd T-001.4 writes the artifacts under a path holding a single quote", async () => {
     // Q: a new empty temporary directory whose name contains a single quote (o'brien-…).
     await withTmpDir(async (Q) => {
       expect(path.basename(Q), "precondition: Q's name holds a single quote").to.contain("'");
       expect(sortedEntries(Q), "precondition: Q is empty").to.deep.equal([]);
-      await expectKnownFailure("E-006", async () => {
-        let result: any;
-        try {
-          result = await write(g1(), Q, { runResult: r1(), runId: 123 });
-        } catch (e) {
-          if (isParserErrorAfterQuote(e, path.basename(Q))) {
-            knownFailure(
-              'writeArtifacts rejects with `Parser Error: syntax error at or near "<token>"`, where <token> is the start of the text after the single quote in the directory name',
-              e instanceof Error ? e.message : String(e),
-            );
-          }
-          throw e;
-        }
-        expect(result.targetDir).to.equal(path.join(Q, "target"));
-        expect(sortedEntries(path.join(Q, "target/catalog"))).to.include.members([
-          "actions.parquet",
-          "dependencies.parquet",
-          "columns.parquet",
-        ]);
-        expect(sortedEntries(path.join(Q, "target/runs"))).to.include("run_123.parquet");
-      });
+      const result: any = await write(g1(), Q, { runResult: r1(), runId: 123 });
+      expect(result.targetDir).to.equal(path.join(Q, "target"));
+      expect(sortedEntries(path.join(Q, "target/catalog"))).to.include.members([
+        "actions.parquet",
+        "dependencies.parquet",
+        "columns.parquet",
+      ]);
+      expect(sortedEntries(path.join(Q, "target/runs"))).to.include("run_123.parquet");
     }, "o'brien-");
   });
 
@@ -572,22 +555,36 @@ suite("prd artifacts: writer", () => {
     });
   });
 
-  test("@prd T-005.7 writes nothing under target/runs without a run result", async () => {
+  test("@prd T-005.7 writes nothing under target/runs or target/run_summary without a run result", async () => {
     await withTmpDir(async (P) => {
       const result = await write(g1(), P);
       expect(result.targetDir).to.equal(path.join(P, "target"));
       expect(fs.existsSync(path.join(P, "target/runs")), "P/target/runs exists").to.equal(false);
+      expect(
+        fs.existsSync(path.join(P, "target/run_summary")),
+        "P/target/run_summary exists",
+      ).to.equal(false);
     });
   });
 
-  test("@prd T-005.8 leaves the other run files unchanged", async () => {
+  test("@prd T-005.8 leaves the other run and run-summary files unchanged", async () => {
     await withTmpDir(async (P) => {
       await write(g1(), P, { runResult: r1(), runId: 1 });
       const before = fs.readFileSync(path.join(P, "target/runs/run_1.parquet"));
+      const summaryBefore = fs.readFileSync(path.join(P, "target/run_summary/run_1.parquet"));
       await write(g1(), P, { runResult: r1(), runId: 2 });
       const after = fs.readFileSync(path.join(P, "target/runs/run_1.parquet"));
-      expect(after.equals(before), "run_1.parquet's bytes are unchanged").to.equal(true);
+      const summaryAfter = fs.readFileSync(path.join(P, "target/run_summary/run_1.parquet"));
+      expect(after.equals(before), "runs/run_1.parquet's bytes are unchanged").to.equal(true);
       expect(sortedEntries(path.join(P, "target/runs"))).to.deep.equal([
+        "run_1.parquet",
+        "run_2.parquet",
+      ]);
+      expect(
+        summaryAfter.equals(summaryBefore),
+        "run_summary/run_1.parquet's bytes are unchanged",
+      ).to.equal(true);
+      expect(sortedEntries(path.join(P, "target/run_summary"))).to.deep.equal([
         "run_1.parquet",
         "run_2.parquet",
       ]);
@@ -604,23 +601,28 @@ suite("prd artifacts: writer", () => {
     });
   });
 
-  test("@prd T-005.9 known-failing E-002 records the run id and status of a run with no action results", async () => {
+  test("@prd T-005.9 records the run id and status of a run with no action results", async () => {
     await withTmpDir(async (P) => {
-      await expectKnownFailure("E-002", async () => {
-        await write(g1(), P, { runResult: successfulEmptyRun(), runId: 300 });
-        const rows = await query(
-          "select distinct run_id, run_status from runs where run_id = 300",
-          views(P, "runs"),
-        );
-        if (Array.isArray(rows) && rows.length === 0) {
-          knownFailure("the runs view holds no row for run 300", "0 rows");
-        }
-        expectFields(rows, [{ run_id: 300, run_status: "SUCCESSFUL" }]);
-      });
+      await write(g1(), P, { runResult: successfulEmptyRun(), runId: 300 });
+      // Effect: P/target/runs/run_300.parquet exists and holds zero rows.
+      const runFile = path.join(P, "target/runs/run_300.parquet");
+      expect(fs.existsSync(runFile), "P/target/runs/run_300.parquet exists").to.equal(true);
+      expectFields(
+        await query("select count(*) as n from runs", [{ name: "runs", glob: runFile }]),
+        [{ n: 0 }],
+        "rows of run_300.parquet",
+      );
+      expectFields(
+        await query(
+          "select run_id, run_status from run_summary where run_id = 300",
+          views(P, "run_summary"),
+        ),
+        [{ run_id: 300, run_status: "SUCCESSFUL" }],
+      );
     });
   });
 
-  test("@prd T-005.10 keeps every run-history file", async () => {
+  test("@prd T-005.10 keeps every run-history and run-summary file", async () => {
     await withTmpDir(async (P) => {
       const calls: Array<() => Promise<any>> = [
         () => write(g1(), P, { runResult: r1(), runId: 1 }),
@@ -633,6 +635,11 @@ suite("prd artifacts: writer", () => {
         expectFields(result, { targetDir: path.join(P, "target") }, "resolved value");
       }
       expect(sortedEntries(path.join(P, "target/runs"))).to.deep.equal([
+        "run_1.parquet",
+        "run_2.parquet",
+        "run_3.parquet",
+      ]);
+      expect(sortedEntries(path.join(P, "target/run_summary"))).to.deep.equal([
         "run_1.parquet",
         "run_2.parquet",
         "run_3.parquet",
@@ -657,47 +664,52 @@ suite("prd artifacts: writer", () => {
     });
   });
 
-  test("@prd T-006.1 known-failing E-003 an empty rowset keeps its file's column names and types", async () => {
+  test("@prd T-005.12 writes run_summary/run_<run id>.parquet with one row of run_id and run_status", async () => {
+    await withTmpDir(async (P) => {
+      await write(g1(), P, { runResult: r1(), runId: 123 });
+      expectFields(
+        await query("select run_id, run_status from run_summary", views(P, "run_summary")),
+        [{ run_id: 123, run_status: "FAILED" }],
+        "read_back",
+      );
+      expect(
+        nameType(await query(pragmaTypes("run_summary"), views(P, "run_summary"))),
+        "read_back_types",
+      ).to.deep.equal([
+        { name: "run_id", type: "BIGINT" },
+        { name: "run_status", type: "VARCHAR" },
+      ]);
+      expect(sortedEntries(path.join(P, "target/run_summary"))).to.deep.equal(["run_123.parquet"]);
+    });
+  });
+
+  test("@prd T-006.1 an empty rowset keeps its file's column names and types", async () => {
     await withTmpDirs(2, async (P, P2) => {
-      await expectKnownFailure("E-003", async () => {
-        await write(emptyGraph(), P);
-        await write(g1(), P2);
-        const viewsP = views(P, ...CATALOG);
-        const viewsP2 = views(P2, ...CATALOG);
-        const expectedColumns: { [view: string]: string[] } = {
-          actions: ACTIONS_COLUMNS,
-          dependencies: DEPENDENCIES_COLUMNS,
-          columns: COLUMNS_COLUMNS,
-        };
-        // The count and the column names of each file over P.
-        for (const view of CATALOG) {
-          expectFields(await query(`select count(*) as n from ${view}`, viewsP), [{ n: 0 }], `${view} count`);
-          expect(
-            (await query(`select name from pragma_table_info('${view}') order by cid`, viewsP)).map(
-              (row: any) => row.name,
-            ),
-            `${view} columns`,
-          ).to.deep.equal(expectedColumns[view]);
-        }
-        // The (name, type) list of each file over P against the one over P2.
-        for (const view of CATALOG) {
-          const overP = nameType(await query(pragmaTypes(view), viewsP));
-          const overP2 = nameType(await query(pragmaTypes(view), viewsP2));
-          if (
-            view === "actions" &&
-            overP.length > 0 &&
-            overP.every((r) => r.type === "JSON") &&
-            overP2.length > 0 &&
-            overP2.every((r) => r.type === (r.name === "disabled" ? "BOOLEAN" : "VARCHAR"))
-          ) {
-            knownFailure(
-              "every column of the empty actions file over P has type JSON, where the actions file over P2 has VARCHAR, and BOOLEAN for disabled",
-              `over P ${JSON.stringify(overP)}; over P2 ${JSON.stringify(overP2)}`,
-            );
-          }
-          expect(overP, `${view} (name, type) over P equals the one over P2`).to.deep.equal(overP2);
-        }
-      });
+      await write(emptyGraph(), P);
+      await write(g1(), P2);
+      const viewsP = views(P, ...CATALOG);
+      const viewsP2 = views(P2, ...CATALOG);
+      const expectedColumns: { [view: string]: string[] } = {
+        actions: ACTIONS_COLUMNS,
+        dependencies: DEPENDENCIES_COLUMNS,
+        columns: COLUMNS_COLUMNS,
+      };
+      // The count and the column names of each file over P.
+      for (const view of CATALOG) {
+        expectFields(await query(`select count(*) as n from ${view}`, viewsP), [{ n: 0 }], `${view} count`);
+        expect(
+          (await query(`select name from pragma_table_info('${view}') order by cid`, viewsP)).map(
+            (row: any) => row.name,
+          ),
+          `${view} columns`,
+        ).to.deep.equal(expectedColumns[view]);
+      }
+      // The (name, type) list of each file over P against the one over P2.
+      for (const view of CATALOG) {
+        const overP = nameType(await query(pragmaTypes(view), viewsP));
+        const overP2 = nameType(await query(pragmaTypes(view), viewsP2));
+        expect(overP, `${view} (name, type) over P equals the one over P2`).to.deep.equal(overP2);
+      }
     });
   });
 

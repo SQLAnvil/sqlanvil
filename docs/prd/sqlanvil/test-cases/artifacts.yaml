@@ -78,8 +78,6 @@ T-001.4:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-006
-  symptom: "writeArtifacts rejects with `Parser Error: syntax error at or near \"<token>\"`, where <token> is the start of the text after the single quote in the directory name"
   input:
     project_dir: "Q, a new empty temporary directory whose name contains a single quote (for example o'brien)"
     graph: *G1
@@ -444,7 +442,7 @@ T-005.7:
     call: "writeArtifacts(G1, P)"
   expect:
     output: {targetDir: "P/target"}
-    effects: ["no path P/target/runs exists"]
+    effects: ["no path P/target/runs exists", "no path P/target/run_summary exists"]
     errors: []
     leaks: none
 T-005.8:
@@ -462,7 +460,7 @@ T-005.8:
     read_back: "queryParquet('select run_id, count(*) as n from runs group by run_id order by run_id') over P/target/runs/*.parquet"
   expect:
     output: [{run_id: 1, n: 2}, {run_id: 2, n: 2}]
-    effects: ["P/target/runs holds exactly run_1.parquet and run_2.parquet; run_1.parquet's bytes are unchanged by the second call"]
+    effects: ["P/target/runs holds exactly run_1.parquet and run_2.parquet; run_1.parquet's bytes are unchanged by the second call", "P/target/run_summary holds exactly run_1.parquet and run_2.parquet; run_1.parquet's bytes are unchanged by the second call"]
     errors: []
     leaks: none
 T-005.9:
@@ -473,15 +471,13 @@ T-005.9:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-002
-  symptom: "the runs view holds no row for run 300"
   input:
     graph: *G1
     call: "writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 300})"
-    read_back: "queryParquet('select distinct run_id, run_status from runs where run_id = 300') over P/target/runs/*.parquet"
+    read_back: "queryParquet('select run_id, run_status from run_summary where run_id = 300') over P/target/run_summary/*.parquet"
   expect:
     output: [{run_id: 300, run_status: SUCCESSFUL}]
-    effects: []
+    effects: ["P/target/runs/run_300.parquet exists and holds zero rows"]
     errors: []
     leaks: none
 T-005.10:
@@ -497,7 +493,7 @@ T-005.10:
     calls: ["writeArtifacts(G1, P, {runResult: R1, runId: 1})", "writeArtifacts(G1, P, {runResult: R1, runId: 2})", "writeArtifacts(G1, P, {runResult: R1, runId: 3})", "writeArtifacts(G1, P)"]
   expect:
     output: "each call resolves {targetDir: P/target}"
-    effects: ["P/target/runs holds exactly run_1.parquet, run_2.parquet and run_3.parquet"]
+    effects: ["P/target/runs holds exactly run_1.parquet, run_2.parquet and run_3.parquet", "P/target/run_summary holds exactly run_1.parquet, run_2.parquet and run_3.parquet"]
     errors: []
     leaks: none
 T-005.11:
@@ -518,6 +514,25 @@ T-005.11:
     effects: []
     errors: []
     leaks: none
+T-005.12:
+  ac: AC-005.11
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    run_result: *R1
+    call: "writeArtifacts(G1, P, {runResult: R1, runId: 123})"
+    read_back: "queryParquet(\"select run_id, run_status from run_summary\") over P/target/run_summary/*.parquet"
+    read_back_types: "queryParquet(\"select name, type from pragma_table_info('run_summary') order by cid\") over P/target/run_summary/*.parquet"
+  expect:
+    output: {read_back: [{run_id: 123, run_status: FAILED}], read_back_types: [{name: run_id, type: BIGINT}, {name: run_status, type: VARCHAR}]}
+    effects: ["P/target/run_summary holds exactly run_123.parquet"]
+    errors: []
+    leaks: none
 T-006.1:
   ac: AC-006.1
   level: integration
@@ -526,8 +541,6 @@ T-006.1:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-003
-  symptom: "every column of the empty actions file over P has type JSON, where the actions file over P2 has VARCHAR, and BOOLEAN for disabled"
   input:
     graph: {tables: [], operations: [], assertions: [], exports: [], declarations: []}
     call: "writeArtifacts(graph, P)"
@@ -783,8 +796,6 @@ T-010.5:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-006
-  symptom: "writing the project's artifacts rejects with `Parser Error: syntax error at or near \"<token>\"`, where <token> is the start of the text after the single quote in the directory name, so the query does not run"
   input:
     project_dir: "Q, a temporary directory whose name contains a single quote, with target/ written by writeArtifacts(G1, Q)"
     graph: *G1
@@ -792,6 +803,50 @@ T-010.5:
     argv: [query, "select count(*) as n from actions", Q, --json]
   expect:
     output: {exit_code: 0, stdout_json: [{n: 3}]}
+    effects: []
+    errors: []
+    leaks: none
+T-010.6:
+  ac: AC-010.6
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, written by writeArtifacts(G1, P, {runResult: R1, runId: 100}) and then writeArtifacts(G1, P, {runResult: R_one, runId: 200})"
+    graph: *G1
+    run_result: *R1
+    run_result_R_one: {status: SUCCESSFUL, actions: [{target: {schema: s, name: src}, status: SUCCESSFUL, timing: {startTimeMillis: 1, endTimeMillis: 2}, tasks: []}]}
+    env: {NO_COLOR: "1"}
+    argv: [query, "select run_id, run_status from run_summary order by run_id", P, --json]
+  expect:
+    output: {exit_code: 0, stdout_json: [{run_id: 100, run_status: FAILED}, {run_id: 200, run_status: SUCCESSFUL}]}
+    effects: []
+    errors: []
+    leaks: none
+T-010.7:
+  ac: AC-010.6
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123}), then every file under P/target/run_summary removed and a file P/target/run_summary/notes.txt added, so P/target/run_summary holds no .parquet file"
+    graph: *G1
+    run_result: *R1
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P, --json]
+  expect:
+    output:
+      exit_code: 0
+      stdout_json:
+        actionsByType: [{type: assertion, n: 1}, {type: table, n: 1}, {type: view, n: 1}]
+        latestRun: {run_id: 123, run_status: FAILED, succeeded: 1, failed: 1, wall_ms: 600}
+        failures: [{readable_name: s.v, error_message: boom}]
     effects: []
     errors: []
     leaks: none
@@ -1160,8 +1215,6 @@ T-018.5:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-001
-  symptom: "the wall time on line 10 is 1400ms, the latest end time counted from a start time of 0"
   input:
     project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: [{target: {schema: s, name: src}, status: SUCCESSFUL, timing: {startTimeMillis: 1000, endTimeMillis: 1400}, tasks: []}, {target: {schema: s, name: v}, status: SKIPPED, tasks: []}]}, runId: 124})"
     graph: *G1
@@ -1182,8 +1235,6 @@ T-018.6:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-002
-  symptom: "line 10 is \"Latest run (FAILED): 1 succeeded, 1 failed, 600ms\", the line of the previous run 123"
   input:
     project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123}) and then writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 200})"
     graph: *G1
@@ -1193,6 +1244,46 @@ T-018.6:
     output:
       exit_code: 0
       stdout_lines_9_to_10: ["", "Latest run (SUCCESSFUL): 0 succeeded, 0 failed, 0ms"]
+    effects: []
+    errors: []
+    leaks: none
+T-018.7:
+  ac: AC-018.3
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G21, P, {runResult: R21R, runId: 5}), where G21 has 21 tables s.f01 to s.f21 and R21R has status FAILED and one FAILED action result per table, listed in reverse readable_name order (s.f21 first, s.f01 last), each with timing {startTimeMillis: 10, endTimeMillis: 20} and tasks [{errorMessage: e}]"
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P]
+  expect:
+    output:
+      exit_code: 0
+      stdout: "after `Failures:`, a table of exactly 20 rows, readable_name s.f01 to s.f20 in that order and each error_message e, ending with `(20 rows)`"
+    effects: []
+    errors: []
+    leaks: none
+T-018.8:
+  ac: AC-018.2
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123}) and then the directory P/target/run_summary removed, as in artifacts written before run-summary files existed"
+    graph: *G1
+    run_result: *R1
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P]
+  expect:
+    output:
+      exit_code: 0
+      stdout_lines_9_to_10: ["", "Latest run (FAILED): 1 succeeded, 1 failed, 600ms"]
     effects: []
     errors: []
     leaks: none
@@ -1248,8 +1339,6 @@ T-019.3:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-001
-  symptom: "latestRun.wall_ms is 1400, the latest end time counted from a start time of 0"
   input:
     project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: [{target: {schema: s, name: src}, status: SUCCESSFUL, timing: {startTimeMillis: 1000, endTimeMillis: 1400}, tasks: []}, {target: {schema: s, name: v}, status: SKIPPED, tasks: []}]}, runId: 124})"
     graph: *G1
@@ -1273,8 +1362,6 @@ T-019.4:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-002
-  symptom: "latestRun is the previous run 123"
   input:
     project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123}) and then writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 200})"
     graph: *G1
@@ -1287,6 +1374,26 @@ T-019.4:
         actionsByType: [{type: assertion, n: 1}, {type: table, n: 1}, {type: view, n: 1}]
         latestRun: {run_id: 200, run_status: SUCCESSFUL, succeeded: 0, failed: 0, wall_ms: 0}
         failures: []
+    effects: []
+    errors: []
+    leaks: none
+T-019.5:
+  ac: AC-019.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G21, P, {runResult: R21R, runId: 5}), where G21 has 21 tables s.f01 to s.f21 and R21R has status FAILED and one FAILED action result per table, listed in reverse readable_name order (s.f21 first, s.f01 last), each with timing {startTimeMillis: 10, endTimeMillis: 20} and tasks [{errorMessage: e}]"
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P, --json]
+  expect:
+    output:
+      exit_code: 0
+      stdout_json:
+        failures: [{readable_name: s.f01, error_message: e}, {readable_name: s.f02, error_message: e}, {readable_name: s.f03, error_message: e}, {readable_name: s.f04, error_message: e}, {readable_name: s.f05, error_message: e}, {readable_name: s.f06, error_message: e}, {readable_name: s.f07, error_message: e}, {readable_name: s.f08, error_message: e}, {readable_name: s.f09, error_message: e}, {readable_name: s.f10, error_message: e}, {readable_name: s.f11, error_message: e}, {readable_name: s.f12, error_message: e}, {readable_name: s.f13, error_message: e}, {readable_name: s.f14, error_message: e}, {readable_name: s.f15, error_message: e}, {readable_name: s.f16, error_message: e}, {readable_name: s.f17, error_message: e}, {readable_name: s.f18, error_message: e}, {readable_name: s.f19, error_message: e}, {readable_name: s.f20, error_message: e}]
     effects: []
     errors: []
     leaks: none
@@ -1494,8 +1601,6 @@ T-021.7:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-004
-  symptom: "the a.b.c table's model has the status of the other target that reads as a.b.c"
   input:
     graph:
       tables:
@@ -1529,15 +1634,13 @@ T-021.8:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-002
-  symptom: "latestRun is the previous run 123"
   input:
     setup:
       - "writeArtifacts(G1, P, {runResult: R1, runId: 123})"
       - "writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 200})"
     graph: *G1
     run_result: *R1
-    views: "the four views of T-021.1, over P"
+    views: "the four views of T-021.1 and the run_summary view, over P"
     call: "buildDocsModel(views, '2026-06-24T00:00:00Z')"
   expect:
     output:

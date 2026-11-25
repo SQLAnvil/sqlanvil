@@ -4,14 +4,14 @@
 
 ### UJ-01 Explore a project's catalog and last run
 Status: live (since 1.0.0)
-Flow: 1. A data engineer runs `sqlanvil compile` or `sqlanvil run` on a project, which writes the artifacts under `target/` → 2. runs `sqlanvil inspect` and sees the actions by type and the latest run's status, timing and failures → 3. runs `sqlanvil query "<sql>"` over the actions, dependencies, columns and runs views and sees the rows → 4. runs `sqlanvil docs` and opens `target/docs/index.html` to browse the models, their columns, dependencies and last-run status
+Flow: 1. A data engineer runs `sqlanvil compile` or `sqlanvil run` on a project, which writes the artifacts under `target/` → 2. runs `sqlanvil inspect` and sees the actions by type and the latest run's status, timing and failures → 3. runs `sqlanvil query "<sql>"` over the actions, dependencies, columns, runs and run_summary views and sees the rows → 4. runs `sqlanvil docs` and opens `target/docs/index.html` to browse the models, their columns, dependencies and last-run status
 Traces: FR-001, FR-005, FR-011, FR-018, FR-020
 
 ### FR-001 Write the catalog Parquet files
-Status: approved
-Source: cli/api/commands/artifacts.ts:52 @f4b3f49e
-  cli/api/dbadapters/duckdb_artifacts.ts:25 @f4b3f49e
-  cli/api/dbadapters/duckdb_artifacts.ts:38 @f4b3f49e
+Status: verified
+Source: cli/api/commands/artifacts.ts:89 @d6eab0db
+  cli/api/dbadapters/duckdb_artifacts.ts:28 @d6eab0db
+  cli/api/dbadapters/duckdb_artifacts.ts:44 @81a1434f
 Flow: 1. writeArtifacts(graph, projectDir) → 2. shapes catalog rows → 3. writes actions, dependencies and columns Parquet under `<projectDir>/target/catalog/` → 4. resolves `{targetDir}`
 Acceptance (EARS):
 - AC-001.1 When writeArtifacts is called with a compiled graph and a project directory, the artifact writer shall write `target/catalog/actions.parquet`, `target/catalog/dependencies.parquet` and `target/catalog/columns.parquet` under that directory, creating the directories that are missing, and resolve with `targetDir` set to `<projectDir>/target`.
@@ -61,11 +61,11 @@ Tests: T-004.1 [integration], T-004.2 [integration]  (test-cases/artifacts.yaml)
 Traces: `target/catalog/columns.parquet`
 
 ### FR-005 Write a run-history Parquet file per run
-Status: approved
-Source: cli/api/commands/artifacts.ts:64 @f4b3f49e
-  cli/api/commands/artifact_rows.ts:168 @f4b3f49e
-  cli/api/commands/artifact_rows.ts:59 @f4b3f49e
-  cli/api/commands/artifact_rows.ts:78 @f4b3f49e
+Status: verified
+Source: cli/api/commands/artifacts.ts:84 @d6310e44
+  cli/api/commands/artifact_rows.ts:181 @d6310e44
+  cli/api/commands/artifact_rows.ts:64 @d6310e44
+  cli/api/commands/artifact_rows.ts:83 @d6310e44
 Acceptance (EARS):
 - AC-005.1 When writeArtifacts is called with a run result and a run id, the artifact writer shall write `target/runs/run_<run id>.parquet` with one row per action result, in the columns run_id, run_status, target_key, readable_name, status, start_millis, end_millis, duration_millis, error_message; run_id, start_millis, end_millis and duration_millis have type BIGINT, the other columns VARCHAR, and no value is null.
 - AC-005.2 When writeArtifacts is called with a run result and no run id, the artifact writer shall use the current time in epoch milliseconds as the run id.
@@ -73,18 +73,19 @@ Acceptance (EARS):
 - AC-005.4 If the run result or an action result has no status, the artifact writer shall write `UNKNOWN` for that status.
 - AC-005.5 The artifact writer shall set start_millis and end_millis from the action result's timing, 0 when absent, and duration_millis to end_millis minus start_millis when both are non-zero and 0 otherwise.
 - AC-005.6 The artifact writer shall set error_message to the error message of the first task of the action result that has one, and an empty string when no task has one.
-- AC-005.7 When writeArtifacts is called without a run result, the artifact writer shall write no file under `target/runs/`.
-- AC-005.8 When a run-history file is written, the artifact writer shall leave the other files under `target/runs/` unchanged.
-- AC-005.9 When writeArtifacts is called with a run result that has no action results, the artifact writer shall still record that run's run_id and run_status under `target/runs/`, so that inspect and docs list the run.
-- AC-005.10 The artifact writer shall keep every run-history file under `target/runs/` until the user deletes it.
+- AC-005.7 When writeArtifacts is called without a run result, the artifact writer shall write no file under `target/runs/` or `target/run_summary/`.
+- AC-005.8 When a run-history or run-summary file is written, the artifact writer shall leave the other files under `target/runs/` and `target/run_summary/` unchanged.
+- AC-005.9 When writeArtifacts is called with a run result that has no action results, the artifact writer shall write that run's `target/runs/run_<run id>.parquet` with zero rows and still record the run in its run-summary file (AC-005.11), so that inspect and docs list the run.
+- AC-005.10 The artifact writer shall keep every run-history file under `target/runs/` and every run-summary file under `target/run_summary/` until the user deletes it.
+- AC-005.11 When writeArtifacts is called with a run result, the artifact writer shall write `target/run_summary/run_<run id>.parquet` with exactly one row, in the columns run_id (BIGINT) and run_status (VARCHAR, set as AC-005.3 and AC-005.4 say), whether or not the run result has action results, and no value is null.
 Errors: -
-Edge cases: a run result with no action results → AC-005.9 (E-002)
-Tests: T-005.1 [integration], T-005.2 [integration], T-005.3 [integration], T-005.4 [integration], T-005.5 [integration], T-005.6 [integration], T-005.7 [integration], T-005.8 [integration], T-005.9 [integration], T-005.10 [integration], T-005.11 [integration]  (test-cases/artifacts.yaml)
-Traces: UJ-01; `target/runs/run_<run id>.parquet`
+Edge cases: a run result with no action results → AC-005.9, AC-005.11 (E-002)
+Tests: T-005.1 [integration], T-005.2 [integration], T-005.3 [integration], T-005.4 [integration], T-005.5 [integration], T-005.6 [integration], T-005.7 [integration], T-005.8 [integration], T-005.9 [integration], T-005.10 [integration], T-005.11 [integration], T-005.12 [integration]  (test-cases/artifacts.yaml)
+Traces: UJ-01; `target/runs/run_<run id>.parquet`; `target/run_summary/run_<run id>.parquet`
 
 ### FR-006 Keep the columns of an empty artifact file
-Status: approved
-Source: cli/api/dbadapters/duckdb_artifacts.ts:30 @f4b3f49e
+Status: verified
+Source: cli/api/dbadapters/duckdb_artifacts.ts:33 @0ac7a311
 Acceptance (EARS):
 - AC-006.1 When a rowset is empty, the artifact writer shall write a Parquet file with zero rows whose column names are that file's column list, in order, and whose column types are the types the same columns have in a file written from rows.
 Errors: -
@@ -130,20 +131,21 @@ Tests: T-009.1 [integration], T-009.2 [integration], T-009.3 [integration], T-00
 Traces: -
 
 ### FR-010 Expose the artifacts as DuckDB views
-Status: approved
-Source: cli/commands/artifact_views.ts:22 @f4b3f49e
+Status: verified
+Source: cli/commands/artifact_views.ts:33 @d6310e44
   cli/commands/artifact_views.ts:28 @f4b3f49e
-  cli/api/dbadapters/duckdb_artifacts.ts:67 @f4b3f49e
+  cli/api/dbadapters/duckdb_artifacts.ts:74 @d6eab0db
 Acceptance (EARS):
 - AC-010.1 When an artifact command runs, the command shall expose `target/catalog/actions.parquet`, `dependencies.parquet` and `columns.parquet` as the views `actions`, `dependencies` and `columns`.
 - AC-010.2 While `target/runs/` holds at least one `.parquet` file, the artifact commands shall expose every `target/runs/*.parquet` file together as one view named `runs`.
 - AC-010.3 If `target/runs/` is missing or holds no `.parquet` file, the artifact commands shall create no `runs` view.
 - AC-010.4 If `dependencies.parquet` or `columns.parquet` is missing while `actions.parquet` exists, the query command shall still run SQL that reads only the views that exist.
 - AC-010.5 When the project directory's path contains a single quote, the artifact commands shall read the artifacts as they do for any other path.
+- AC-010.6 While `target/run_summary/` holds at least one `.parquet` file, the artifact commands shall expose every `target/run_summary/*.parquet` file together as one view named `run_summary`; if `target/run_summary/` is missing or holds no `.parquet` file, they shall create no `run_summary` view.
 Errors: -
-Edge cases: a path with a single quote → AC-010.5 (E-006)
-Tests: T-010.1 [integration], T-010.2 [integration], T-010.3 [integration], T-010.4 [integration], T-010.5 [integration]  (test-cases/artifacts.yaml)
-Traces: views `actions`, `dependencies`, `columns`, `runs`
+Edge cases: a path with a single quote → AC-010.5 (E-006); artifacts written before run-summary files existed → AC-010.6 (no `run_summary` view)
+Tests: T-010.1 [integration], T-010.2 [integration], T-010.3 [integration], T-010.4 [integration], T-010.5 [integration], T-010.6 [integration], T-010.7 [integration]  (test-cases/artifacts.yaml)
+Traces: views `actions`, `dependencies`, `columns`, `runs`, `run_summary`
 
 ### FR-011 Run SQL over the artifacts with the query command
 Status: live (since 1.0.0)
@@ -220,31 +222,31 @@ Tests: T-017.1 [integration]  (test-cases/artifacts.yaml)
 Traces: -
 
 ### FR-018 Summarize the artifacts with the inspect command
-Status: approved
-Source: cli/commands/inspect_command.ts:18 @f4b3f49e
-  cli/commands/inspect_command.ts:25 @f4b3f49e
-  cli/commands/inspect_command.ts:45 @f4b3f49e
+Status: verified
+Source: cli/commands/inspect_command.ts:23 @d6310e44
+  cli/commands/inspect_command.ts:26 @d6310e44
+  cli/commands/inspect_command.ts:38 @d6310e44
 Acceptance (EARS):
 - AC-018.1 When `sqlanvil inspect <project-dir>` runs on a project with a catalog, the inspect command shall print `Actions by type:` and then, in the table format of AC-011.1, the columns type and n (the number of actions of that type) ordered by type, and exit with code 0.
-- AC-018.2 While a run is recorded, the inspect command shall then print an empty line and `Latest run (<run_status>): <s> succeeded, <f> failed, <w>ms` for the run with the highest run_id, where s is the number of that run's rows with status SUCCESSFUL, f the number with status FAILED, and w the latest end_millis minus the earliest start_millis over that run's rows with non-zero start and end times, and 0 when no row has both.
+- AC-018.2 While a run is recorded, the inspect command shall then print an empty line and `Latest run (<run_status>): <s> succeeded, <f> failed, <w>ms` for the latest run, which is the run with the highest run_id in the `run_summary` view, with that view's run_status, or, when there is no `run_summary` view, the run with the highest run_id in the `runs` view, and where s is the number of that run's rows with status SUCCESSFUL, f the number with status FAILED, and w the latest end_millis minus the earliest start_millis over that run's rows with non-zero start and end times, and 0 when no row has both.
 - AC-018.3 When the latest run has rows with status FAILED, the inspect command shall then print an empty line, `Failures:` and, in the table format of AC-011.1, the readable_name and error_message of the first 20 of them in readable_name order.
-- AC-018.4 If no run is recorded, the inspect command shall print an empty line and `No runs recorded yet.` after the actions table.
+- AC-018.4 If no run is recorded (there is neither a `run_summary` nor a `runs` view), the inspect command shall print an empty line and `No runs recorded yet.` after the actions table.
 - AC-018.5 When the latest run has no action results, the inspect command shall report it as the latest run with 0 succeeded, 0 failed and 0ms.
 Errors: -
 Edge cases: a latest run with a skipped or disabled action → AC-018.2 (E-001); a run with no action results → AC-018.5 (E-002); more than 20 failures → AC-018.3 (E-007)
-Tests: T-018.1 [integration], T-018.2 [integration], T-018.3 [integration], T-018.4 [integration], T-018.5 [integration], T-018.6 [integration]  (test-cases/artifacts.yaml)
+Tests: T-018.1 [integration], T-018.2 [integration], T-018.3 [integration], T-018.4 [integration], T-018.5 [integration], T-018.6 [integration], T-018.7 [integration], T-018.8 [integration]  (test-cases/artifacts.yaml)
 Traces: UJ-01
 
 ### FR-019 Print the inspect summary as JSON
-Status: approved
-Source: cli/commands/inspect_command.ts:41 @f4b3f49e
+Status: verified
+Source: cli/commands/inspect_command.ts:34 @d6310e44
 Acceptance (EARS):
-- AC-019.1 When `sqlanvil inspect <project-dir> --json` runs on a project with a catalog and a recorded run, the inspect command shall print on stdout one JSON object, indented four spaces, with `actionsByType` (type and n per type, ordered by type), `latestRun` (run_id, run_status, succeeded, failed and wall_ms of the run with the highest run_id, wall_ms computed as in AC-018.2) and `failures` (readable_name and error_message of the first 20 FAILED rows of that run in readable_name order), and exit with code 0.
-- AC-019.2 If no run is recorded, the inspect command shall print `latestRun` as null and `failures` as an empty array.
+- AC-019.1 When `sqlanvil inspect <project-dir> --json` runs on a project with a catalog and a recorded run, the inspect command shall print on stdout one JSON object, indented four spaces, with `actionsByType` (type and n per type, ordered by type), `latestRun` (run_id, run_status, succeeded, failed and wall_ms of the latest run as AC-018.2 defines it, wall_ms computed as in AC-018.2) and `failures` (readable_name and error_message of the first 20 FAILED rows of that run in readable_name order), and exit with code 0.
+- AC-019.2 If no run is recorded (AC-018.4), the inspect command shall print `latestRun` as null and `failures` as an empty array.
 - AC-019.3 When the latest run has no action results, the inspect command shall print it as `latestRun` with succeeded 0, failed 0 and wall_ms 0, and `failures` as an empty array.
 Errors: -
-Edge cases: a latest run with a skipped or disabled action → AC-019.1 (E-001); a run with no action results → AC-019.3 (E-002)
-Tests: T-019.1 [integration], T-019.2 [integration], T-019.3 [integration], T-019.4 [integration]  (test-cases/artifacts.yaml)
+Edge cases: a latest run with a skipped or disabled action → AC-019.1 (E-001); a run with no action results → AC-019.3 (E-002); more than 20 failures → AC-019.1 (E-007)
+Tests: T-019.1 [integration], T-019.2 [integration], T-019.3 [integration], T-019.4 [integration], T-019.5 [integration]  (test-cases/artifacts.yaml)
 Traces: -
 
 ### FR-020 Write the HTML catalog with the docs command
@@ -260,13 +262,13 @@ Tests: T-020.1 [integration], T-020.2 [integration], T-020.3 [integration]  (tes
 Traces: UJ-01; `target/docs/index.html`
 
 ### FR-021 Build the docs catalog model from the artifacts
-Status: approved
-Source: cli/api/commands/docs.ts:41 @f4b3f49e
+Status: verified
+Source: cli/api/commands/docs.ts:42 @d6310e44
 Acceptance (EARS):
 - AC-021.1 When buildDocsModel is called with the artifact views, the docs builder shall return one model per actions row, ordered by type and then readable_name, each with its readable name, type, tags parsed from the tags JSON, description, and `dependsOn`: the to_readable of every dependencies row whose from_target_key is the model's target_key, in the order of the dependencies file.
 - AC-021.2 The docs builder shall return a summary with the number of models and, per type, the number of models of that type, sorted by type, and `generatedAt` set to the timestamp it was given.
-- AC-021.3 While a `runs` view is given, the docs builder shall set `latestRun` to the highest run_id and that run's run_status, a run with no action results included, set each model's status to the status of the row of that run whose target_key is the model's target_key, and give a model with no row in that run no status.
-- AC-021.4 If no `runs` view is given, the docs builder shall return no `latestRun` and no model status.
+- AC-021.3 While a `run_summary` or a `runs` view is given, the docs builder shall set `latestRun` to the run_id and run_status of the latest run as AC-018.2 defines it, a run with no action results included, set each model's status to the status of the `runs` row of that run whose target_key is the model's target_key, and give a model with no row in that run no status.
+- AC-021.4 If neither a `run_summary` nor a `runs` view is given, the docs builder shall return no `latestRun` and no model status.
 - AC-021.5 If an action's tags value is not valid JSON, the docs builder shall give that model an empty tag list.
 - AC-021.6 The docs builder shall return one column entry per columns row, ordered by readable_name and then column_name, with its readable name, column name and description.
 Errors: -

@@ -23,7 +23,8 @@ def strip_code(text: str) -> str:
 
 def mask_quoted(text: str) -> str:
     """Blank errors.md's quoted material: `Evidence:` lines with their two-space continuations, and
-    `Confirmed:` lines (the user's reply, verbatim); line numbers survive."""
+    `Confirmed:` and `Reopened:` lines (the user's reply, verbatim, and the reason it was taken back); line numbers
+    survive."""
     out: list[str] = []
     on = False
     for line in text.split("\n"):
@@ -31,7 +32,7 @@ def mask_quoted(text: str) -> str:
             on = True
         elif not (on and line.startswith("  ")):
             on = False
-        out.append(" " * len(line) if on or line.startswith("Confirmed:") else line)
+        out.append(" " * len(line) if on or line.startswith(("Confirmed:", "Reopened:")) else line)
     return "\n".join(out)
 
 

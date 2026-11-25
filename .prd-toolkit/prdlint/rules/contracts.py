@@ -211,7 +211,7 @@ def _check_events(rel: str, text: str) -> Iterator[Finding]:
             heading, seen = ((orig[4:].strip().strip("`"), n) if m else None), set()
             continue
         for f in _EVENT_FIELDS:
-            if heading and orig.startswith(f + ":"):
+            if heading and st.startswith(f + ":"):  # a fenced field line is blank in st: it counts for no event
                 seen.add(f)
     yield from close()
 
@@ -290,6 +290,8 @@ def _check_permissions(rel: str, data: dict) -> Iterator[Finding]:
     for r, spec in roles.items():
         if not isinstance(spec, dict) or not spec.get("identity"):
             yield bad(_kl(roles, r), f"role {r}: missing identity")
+        if isinstance(spec, dict) and spec.get("secret") in (None, ""):
+            yield bad(_kl(roles, r), f"role {r}: missing secret")
     ops = data.get("operations")
     if not isinstance(ops, dict):
         yield bad(_kl(data, "operations"), "operations must be a mapping of operation to {allow, deny}")
@@ -364,7 +366,7 @@ def _check_classification(rel: str, data: dict) -> Iterator[Finding]:
             yield Finding(rel, _kl(spec, "columns", line), "contracts-valid", f"table {t}: columns must be a mapping of column to class")
         elif isinstance(cols, dict):
             for c, kind in cols.items():
-                if kind not in _KINDS:
+                if not (isinstance(kind, str) and kind in _KINDS):  # a list or mapping class is unhashable
                     yield Finding(rel, _kl(cols, c, line), "contracts-valid", f"{t}.{c}: class {kind!r} must be public, internal, confidential or pii")
     masking = data.get("masking")
     if not isinstance(masking, dict):
@@ -434,7 +436,20 @@ def pack_kinds(prd: Prd) -> dict[str, str]:
 
 def custom_types(prd: Prd) -> Iterator[tuple[str, str, list[str], int]]:
     """(type, validator command, matching files, row line) for each section-7 row with a validator other than built-in.
-    A `pack` row yields the command of the pack that declares its type, or `pack` itself when none does."""
+    A `pack` row yields the command of the pack that declares its type, or `pack` itself when none does. A match
+    outside the PRD folder is no file of the type."""
+    for kind, validator, files, _, line in _custom_rows(prd):
+        yield kind, validator, files, line
+
+
+def _outside(root, f: str) -> bool:
+    """True when glob match `f`, made absolute against `root` with `..` resolved, lies outside `root`."""
+    base = os.path.abspath(root)
+    return os.path.commonpath([base, os.path.abspath(os.path.join(base, f))]) != base
+
+
+def _custom_rows(prd: Prd) -> Iterator[tuple[str, str, list[str], list[str], int]]:
+    """custom_types' rows, each with the matches outside the PRD folder (as the glob gives them) before the line."""
     sec = next((s for s in prd.sections if s.number == 7), None)
     for t in tables(sec.body) if sec else []:
         for r in t.rows:
@@ -447,8 +462,10 @@ def custom_types(prd: Prd) -> Iterator[tuple[str, str, list[str], int]]:
             if validator == PACK_VALIDATOR:
                 validator = pack_validator(prd, kind) or PACK_VALIDATOR
             globs = [g for g in re.split(r"[,\s]+", r.cells[1].replace("`", "")) if g]
-            files = sorted({f for g in globs for f in glob.glob(g, root_dir=prd.root, recursive=True) if (prd.root / f).is_file() and not (prd.links is not None and f.startswith(UPSTREAM_DIR + "/"))})
-            yield kind, validator, files, r.line
+            matched = {f for g in globs for f in glob.glob(g, root_dir=prd.root, recursive=True) if (prd.root / f).is_file()}
+            outside = sorted(f for f in matched if _outside(prd.root, f))
+            files = sorted(f for f in matched if f not in outside and not (prd.links is not None and f.startswith(UPSTREAM_DIR + "/")))
+            yield kind, validator, files, outside, r.line
 
 
 _custom_types = custom_types
@@ -478,10 +495,12 @@ def _validator_timeout() -> int:
 
 def _check_custom(prd: Prd) -> Iterator[Finding]:
     timeout = _validator_timeout()
-    for kind, validator, files, line in custom_types(prd):
+    for kind, validator, files, outside, line in _custom_rows(prd):
         def bad(msg):
             return Finding("prd.md", line, "contracts-valid", f"custom type {kind}: {msg}")
 
+        for f in outside:
+            yield bad(f"file {f} is outside the PRD folder")
         if validator == PACK_VALIDATOR:
             yield bad(f"no named pack declares contract type {kind}")
             continue
@@ -505,6 +524,8 @@ def _check_custom(prd: Prd) -> Iterator[Finding]:
             yield bad(f"validator not executable: {argv[0]}")
         except subprocess.TimeoutExpired:
             yield bad(f"validator timed out after {timeout}s")
+        except OSError as e:  # e.g. an execute bit but no #! line, or an argument list too long
+            yield bad(f"validator cannot run: {argv[0]}: {e.strerror or e}")
         else:
             if done.returncode != 0:
                 # the first non-blank stderr line, else the first non-blank stdout line, else the exit
@@ -598,7 +619,9 @@ def error_citations(prd: Prd) -> list[tuple[str, str, int]]:
                 if isinstance(op, dict):
                     out += [(c, "contracts/openapi.yaml", _kl(op, "x-error-codes")) for c in _strs(op.get("x-error-codes"))]
     for rel, data in prd.yaml.items():
-        fails = _map(data, "failures") if rel.startswith("contracts/dependencies/") else None
+        # a dependency file is a .yaml file directly in contracts/dependencies/, never one in a subfolder
+        dependency = rel.startswith("contracts/dependencies/") and rel.count("/") == 2 and rel.endswith(".yaml")
+        fails = _map(data, "failures") if dependency else None
         for key, value in (fails or {}).items():
             out += [(c, rel, _kl(fails, key)) for c in _strs(value)]
     return out

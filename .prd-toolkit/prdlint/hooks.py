@@ -6,7 +6,7 @@ import re
 import shlex
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from . import change_approve, hookshims, standardsrun
@@ -451,11 +451,13 @@ def check(repo_root: Path, plugin_root: Path, prd=None, prd_rel: str = "") -> li
             problems.append(f"{VENDOR_DIR}/{rel} is missing")
         elif target.read_bytes() != src.read_bytes():
             problems.append(f"{VENDOR_DIR}/{rel} differs from the plugin copy")
-    for sub in ("prdlint", VENDORED_TEMPLATES, "confirm", "gates", JUDGE_DIR, LANGUAGES_DIR):
-        for f in sorted((dest / sub).rglob("*")) if (dest / sub).is_dir() else []:
-            rel = f.relative_to(dest).as_posix()
-            if f.is_file() and "__pycache__" not in f.parts and rel not in sources:
-                problems.append(f"{VENDOR_DIR}/{rel} is not in the plugin")
+    generated = {"VERSION", HOMEPAGE_FILE, PACK_SOURCES, ".gitignore"}  # install writes these; packs/ is FR-110's
+    for f in sorted(dest.rglob("*")):
+        parts = f.relative_to(dest).parts
+        rel = "/".join(parts)
+        if not f.is_file() or "__pycache__" in parts or parts[0] == PACKS_DIR or rel in generated or rel in sources:
+            continue
+        problems.append(f"{VENDOR_DIR}/{rel} is not in the plugin")
     problems += _stale_shims(repo_root, plugin_root, prd_rel)
     if prd is not None:
         problems += _stale_packs(repo_root, prd)
@@ -490,10 +492,7 @@ def _stale_shims(repo_root: Path, plugin_root: Path, prd_rel: str) -> list[str]:
 
 
 def uninstall(repo_root: Path) -> list[str]:
-    configured = _hooks_path_config(Path(repo_root))
-    if configured:
-        return [f"core.hooksPath is set to {configured}; removed nothing"]
-    hooks_dir, shown = _hooks_dir(Path(repo_root))
+    hooks_dir, shown = _hooks_dir(Path(repo_root))  # where core.hooksPath is set, the folder it names (AC-112.2)
     lines: list[str] = []
     for hook in HOOKS:
         path = hooks_dir / hook
@@ -508,6 +507,11 @@ RANGE = "@RANGE@"  # the merge-base range, filled in by each renderer
 GITLAB_IMAGE = "python:3.12"
 GITLAB_RANGE = "$CI_MERGE_REQUEST_DIFF_BASE_SHA..HEAD"
 GITHUB_RANGE = "${{ github.event.pull_request.base.sha }}..HEAD"
+GITLAB_BASE = "$CI_MERGE_REQUEST_DIFF_BASE_SHA"  # the base GITLAB_RANGE starts from, for a `changed` row's job (AC-264.3)
+GITHUB_BASE = "${{ github.event.pull_request.base.sha }}"  # the base GITHUB_RANGE starts from (AC-264.3)
+
+
+RUNNER_SETUP = re.compile(r"^- \*\*Runner setup\.\*\*")  # the testing.md Harness slot bullet (AC-114.3)
 
 
 @dataclass(frozen=True)
@@ -515,6 +519,29 @@ class CiJob:
     name: str
     script: list[str]
     manual: bool = False  # a manual job: never part of the merge gate, started by hand
+    setup: tuple[str, ...] = ()  # the runner setup commands, run before the job's own (AC-114.3)
+    full_history: bool = False  # a job that reads history back to the base: GIT_DEPTH "0" on GitLab (AC-264.3)
+
+
+def runner_setup(prd) -> tuple[str, ...]:
+    """Each backticked text of every `- **Runner setup.**` bullet of testing.md's Harness, its first line and the lines
+    indented under it, in bullet order (AC-114.3); () when there is no such bullet or it holds no backticked text."""
+    from .markdown import sections
+
+    text = prd.docs.get("testing.md")
+    if text is None:
+        return ()
+    hs = next((x for x in sections(text) if x.title.strip().lower() == "harness"), None)
+    out: list[str] = []
+    inside = False
+    for _, line in hs.body if hs else ():
+        if RUNNER_SETUP.match(line):
+            inside = True
+        elif not inside or not (line[:1].isspace() or not line.strip()):
+            inside = False
+            continue
+        out += re.findall(r"`([^`]+)`", line)
+    return tuple(out)
 
 
 def job_id(name: str) -> str:
@@ -534,7 +561,7 @@ def _dedupe(jobs: list[CiJob]) -> list[CiJob]:
             n += 1
             name = f"{base}-{n}"
         taken.add(name)
-        out.append(CiJob(name, j.script, j.manual))
+        out.append(replace(j, name=name))
     return out
 
 
@@ -545,18 +572,20 @@ def ci_jobs(prd, prd_rel: str) -> list[CiJob]:
 
     q = shlex.quote(prd_rel)
     out = [CiJob("prd-lint", [f"sh {VENDOR_DIR}/prd lint --ci {q}", f"sh {VENDOR_DIR}/prd hooks check --ci {q}"]),
-           CiJob("prd-trace", [f"sh {VENDOR_DIR}/prd trace {q} --range {RANGE}"])]
+           CiJob("prd-trace", [f"sh {VENDOR_DIR}/prd trace {q} --range {RANGE}"], full_history=True)]
     if prd.links is not None:
         out[0].script.append(f"sh {VENDOR_DIR}/prd links check --ci {q}")
     n = 0
     for row in standards_rows(prd):
         if row.decision == "enforced" and row.command:
             n += 1
-            out.append(CiJob(f"standards-{n}", [standardsrun.ci_command(row.glob, row.command)]))
+            mode = standardsrun.run_mode(row.mode)
+            out.append(CiJob(f"standards-{n}", [standardsrun.ci_command(row.glob, row.command, mode)], full_history=mode == "changed"))
     for level in prd.testing.levels:
         if gate_of(prd, level) == "build" and level in prd.testing.commands:
             out.append(CiJob(f"test-{level}", [prd.testing.commands[level]]))
-    return _dedupe(out)
+    setup = runner_setup(prd)
+    return _dedupe([replace(j, setup=setup) for j in out])
 
 
 def deploy_jobs(prd, prd_rel: str) -> list[CiJob]:
@@ -574,8 +603,9 @@ def deploy_jobs(prd, prd_rel: str) -> list[CiJob]:
         script = [f"export PRD_ENV={shlex.quote(env)} TEST_ENV={shlex.quote(env)}; {prd.testing.commands[lv]}" for lv in levels if lv in prd.testing.commands]
         if script:  # an empty job is invalid CI
             raw.append(CiJob(f"test-deploy-{env}", script, True))
+    setup = runner_setup(prd)
     base = ci_jobs(prd, prd_rel)
-    return _dedupe(base + raw)[len(base):]
+    return _dedupe(base + [replace(j, setup=setup) for j in raw])[len(base):]
 
 
 def _secrets_line(jobs: list[CiJob], secrets) -> list[str]:
@@ -597,10 +627,10 @@ def render_gitlab(jobs: list[CiJob], secrets=()) -> str:
             lines += ["    - when: manual", "  allow_failure: true"]
         else:
             lines.append('    - if: \'$CI_PIPELINE_SOURCE == "merge_request_event"\'')
-        if j.name == "prd-trace":
+        if j.full_history:
             lines += ["  variables:", '    GIT_DEPTH: "0"']
-        lines += ["  before_script:", f"    - {_q('pip install uv')}", "  script:"]
-        lines += [f"    - {_q(s.replace(RANGE, GITLAB_RANGE))}" for s in j.script]
+        lines += ["  before_script:", f"    - {_q('pip install uv')}", *(f"    - {_q(s)}" for s in j.setup), "  script:"]
+        lines += [f"    - {_q(s.replace(RANGE, GITLAB_RANGE).replace(standardsrun.BASE, GITLAB_BASE))}" for s in j.script]
         lines.append("")
     return "\n".join(lines)
 
@@ -617,8 +647,9 @@ def render_github(jobs: list[CiJob], secrets=()) -> str:
             lines.append(f"    if: {_q('github.event_name == ' + chr(39) + ('workflow_dispatch' if j.manual else 'pull_request') + chr(39))}")
         lines += ["    runs-on: ubuntu-latest", "    steps:", "      - uses: actions/checkout@v4", "        with:", "          fetch-depth: 0",
                   "      - uses: astral-sh/setup-uv@v5"]
+        lines += [f"      - run: {_q(s)}" for s in j.setup]
         for s in j.script:
-            lines.append(f"      - run: {_q(s.replace(RANGE, GITHUB_RANGE))}")
+            lines.append(f"      - run: {_q(s.replace(RANGE, GITHUB_RANGE).replace(standardsrun.BASE, GITHUB_BASE))}")
         lines.append("")
     return "\n".join(lines)
 

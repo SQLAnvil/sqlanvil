@@ -18,7 +18,7 @@ _REQ_ID = re.compile(r"(?:UJ|FR|NFR)-\d+")
 _ERR_ID = re.compile(r"E-\d+")
 UNCONFIRMED = "{} is not confirmed; a commit that changes code may cite it only after prd_error.py confirm"
 REFS_NONE = "none (no behaviour change)"
-_SHA = re.compile(r"[0-9a-f]{40}")
+_SHA = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 DEFAULT_TEST_ROOTS = ["tests"]
 DRY_RUN_PREFIX = ".prd-dry-run-"
 

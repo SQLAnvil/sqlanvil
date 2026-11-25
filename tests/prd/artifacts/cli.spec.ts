@@ -18,11 +18,6 @@ import {
   withTmpDir,
   withTmpDirs,
 } from "sa/tests/prd/artifacts/helpers";
-import {
-  expectKnownFailure,
-  isParserErrorAfterQuote,
-  knownFailure,
-} from "sa/tests/prd/artifacts/known_failing";
 
 const write: any = writeArtifacts;
 
@@ -164,28 +159,69 @@ suite("prd artifacts: commands", () => {
     });
   });
 
-  test("@prd T-010.5 known-failing E-006 query reads a project whose path holds a single quote", async () => {
+  test("@prd T-010.5 query reads a project whose path holds a single quote", async () => {
     // Q: a temporary directory whose name contains a single quote (o'brien-…).
     await withTmpDir(async (Q) => {
       expect(path.basename(Q), "precondition: Q's name holds a single quote").to.contain("'");
-      await expectKnownFailure("E-006", async () => {
-        // Setup: target/ written by writeArtifacts(G1, Q).
-        try {
-          await write(g1(), Q);
-        } catch (e) {
-          if (isParserErrorAfterQuote(e, path.basename(Q))) {
-            knownFailure(
-              'writing the project\'s artifacts rejects with `Parser Error: syntax error at or near "<token>"`, where <token> is the start of the text after the single quote in the directory name, so the query does not run',
-              e instanceof Error ? e.message : String(e),
-            );
-          }
-          throw e;
-        }
-        const r = await runCli(["query", "select count(*) as n from actions", Q, "--json"]);
-        expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
-        expectFields(json(r.stdout), [{ n: 3 }]);
-      });
+      // Setup: target/ written by writeArtifacts(G1, Q).
+      await write(g1(), Q);
+      const r = await runCli(["query", "select count(*) as n from actions", Q, "--json"]);
+      expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
+      expectFields(json(r.stdout), [{ n: 3 }]);
     }, "o'brien-");
+  });
+
+  test("@prd T-010.6 exposes every run-summary file together as the run_summary view", async () => {
+    await withTmpDir(async (P) => {
+      await write(g1(), P, { runResult: r1(), runId: 100 });
+      await write(g1(), P, {
+        runResult: {
+          status: sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL,
+          actions: [
+            {
+              target: { schema: "s", name: "src" },
+              status: sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL,
+              timing: { startTimeMillis: 1, endTimeMillis: 2 },
+              tasks: [],
+            },
+          ],
+        },
+        runId: 200,
+      });
+      const r = await runCli([
+        "query",
+        "select run_id, run_status from run_summary order by run_id",
+        P,
+        "--json",
+      ]);
+      expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
+      expectFields(json(r.stdout), [
+        { run_id: 100, run_status: "FAILED" },
+        { run_id: 200, run_status: "SUCCESSFUL" },
+      ]);
+    });
+  });
+
+  test("@prd T-010.7 creates no run_summary view when target/run_summary holds no parquet file", async () => {
+    await withTmpDir(async (P) => {
+      await write(g1(), P, { runResult: r1(), runId: 123 });
+      // Every file under P/target/run_summary removed, then P/target/run_summary/notes.txt added.
+      const summaryDir = path.join(P, "target/run_summary");
+      for (const entry of fs.readdirSync(summaryDir)) {
+        fs.rmSync(path.join(summaryDir, entry), { recursive: true, force: true });
+      }
+      fs.writeFileSync(path.join(summaryDir, "notes.txt"), "notes");
+      expect(fs.readdirSync(summaryDir), "precondition: no .parquet file").to.deep.equal([
+        "notes.txt",
+      ]);
+      const r = await runCli(["inspect", P, "--json"]);
+      expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
+      expectFields(json(r.stdout), {
+        actionsByType: ACTIONS_BY_TYPE_JSON,
+        latestRun: { run_id: 123, run_status: "FAILED", succeeded: 1, failed: 1, wall_ms: 600 },
+        failures: [{ readable_name: "s.v", error_message: "boom" }],
+      });
+    });
   });
 
   test("@prd T-011.1 query prints a padded table and leaves target unchanged", async () => {
@@ -444,48 +480,44 @@ suite("prd artifacts: commands", () => {
     });
   });
 
-  test("@prd T-018.5 known-failing E-001 inspect's wall time skips rows with no timing", async () => {
+  test("@prd T-018.5 inspect's wall time skips rows with no timing", async () => {
     await withTmpDir(async (P) => {
-      await expectKnownFailure("E-001", async () => {
-        await write(g1(), P, { runResult: runWithSkipped(), runId: 124 });
-        const r = await runCli(["inspect", P]);
-        expect(r.exitCode).to.equal(0);
-        const line10 = lines(r.stdout)[9];
-        if (typeof line10 === "string" && / 1400ms$/.test(line10)) {
-          knownFailure(
-            "the wall time on line 10 is 1400ms, the latest end time counted from a start time of 0",
-            line10,
-          );
-        }
-        expect(lines(r.stdout).slice(8, 10)).to.deep.equal([
-          "",
-          "Latest run (SUCCESSFUL): 1 succeeded, 0 failed, 400ms",
-        ]);
-      });
+      await write(g1(), P, { runResult: runWithSkipped(), runId: 124 });
+      const r = await runCli(["inspect", P]);
+      expect(r.exitCode).to.equal(0);
+      expect(lines(r.stdout).slice(8, 10)).to.deep.equal([
+        "",
+        "Latest run (SUCCESSFUL): 1 succeeded, 0 failed, 400ms",
+      ]);
     });
   });
 
-  test("@prd T-018.6 known-failing E-002 inspect reports a latest run with no action results", async () => {
+  test("@prd T-018.6 inspect reports a latest run with no action results", async () => {
     await withTmpDir(async (P) => {
-      await expectKnownFailure("E-002", async () => {
-        // Setup: run 123 (R1), then run 200 with no action results.
-        await write(g1(), P, { runResult: r1(), runId: 123 });
-        await write(g1(), P, { runResult: successfulEmptyRun(), runId: 200 });
-        const r = await runCli(["inspect", P]);
-        expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
-        const out = lines(r.stdout);
-        const line10 = out[9];
-        if (line10 === "Latest run (FAILED): 1 succeeded, 1 failed, 600ms") {
-          knownFailure(
-            'line 10 is "Latest run (FAILED): 1 succeeded, 1 failed, 600ms", the line of the previous run 123',
-            line10,
-          );
-        }
-        expect(out.slice(8, 10)).to.deep.equal([
-          "",
-          "Latest run (SUCCESSFUL): 0 succeeded, 0 failed, 0ms",
-        ]);
-      });
+      // Setup: run 123 (R1), then run 200 with no action results.
+      await write(g1(), P, { runResult: r1(), runId: 123 });
+      await write(g1(), P, { runResult: successfulEmptyRun(), runId: 200 });
+      const r = await runCli(["inspect", P]);
+      expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
+      expect(lines(r.stdout).slice(8, 10)).to.deep.equal([
+        "",
+        "Latest run (SUCCESSFUL): 0 succeeded, 0 failed, 0ms",
+      ]);
+    });
+  });
+
+  test("@prd T-018.8 inspect falls back to the runs view when target/run_summary is missing", async () => {
+    await withTmpDir(async (P) => {
+      await write(g1(), P, { runResult: r1(), runId: 123 });
+      // As in artifacts written before run-summary files existed.
+      fs.rmSync(path.join(P, "target/run_summary"), { recursive: true, force: true });
+      expect(fs.existsSync(path.join(P, "target/run_summary"))).to.equal(false);
+      const r = await runCli(["inspect", P]);
+      expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
+      expect(lines(r.stdout).slice(8, 10)).to.deep.equal([
+        "",
+        "Latest run (FAILED): 1 succeeded, 1 failed, 600ms",
+      ]);
     });
   });
 
@@ -515,44 +547,29 @@ suite("prd artifacts: commands", () => {
     });
   });
 
-  test("@prd T-019.3 known-failing E-001 inspect --json wall time skips rows with no timing", async () => {
+  test("@prd T-019.3 inspect --json wall time skips rows with no timing", async () => {
     await withTmpDir(async (P) => {
-      await expectKnownFailure("E-001", async () => {
-        await write(g1(), P, { runResult: runWithSkipped(), runId: 124 });
-        const r = await runCli(["inspect", P, "--json"]);
-        expect(r.exitCode).to.equal(0);
-        const out = json(r.stdout);
-        if (out && out.latestRun && out.latestRun.wall_ms === 1400) {
-          knownFailure(
-            "latestRun.wall_ms is 1400, the latest end time counted from a start time of 0",
-            JSON.stringify(out.latestRun),
-          );
-        }
-        expectFields(out, {
-          actionsByType: ACTIONS_BY_TYPE_JSON,
-          latestRun: { run_id: 124, run_status: "SUCCESSFUL", succeeded: 1, failed: 0, wall_ms: 400 },
-          failures: [],
-        });
+      await write(g1(), P, { runResult: runWithSkipped(), runId: 124 });
+      const r = await runCli(["inspect", P, "--json"]);
+      expect(r.exitCode).to.equal(0);
+      expectFields(json(r.stdout), {
+        actionsByType: ACTIONS_BY_TYPE_JSON,
+        latestRun: { run_id: 124, run_status: "SUCCESSFUL", succeeded: 1, failed: 0, wall_ms: 400 },
+        failures: [],
       });
     });
   });
 
-  test("@prd T-019.4 known-failing E-002 inspect --json reports a latest run with no action results", async () => {
+  test("@prd T-019.4 inspect --json reports a latest run with no action results", async () => {
     await withTmpDir(async (P) => {
-      await expectKnownFailure("E-002", async () => {
-        await write(g1(), P, { runResult: r1(), runId: 123 });
-        await write(g1(), P, { runResult: successfulEmptyRun(), runId: 200 });
-        const r = await runCli(["inspect", P, "--json"]);
-        expect(r.exitCode).to.equal(0);
-        const out = json(r.stdout);
-        if (out && out.latestRun && out.latestRun.run_id === 123) {
-          knownFailure("latestRun is the previous run 123", JSON.stringify(out.latestRun));
-        }
-        expectFields(out, {
-          actionsByType: ACTIONS_BY_TYPE_JSON,
-          latestRun: { run_id: 200, run_status: "SUCCESSFUL", succeeded: 0, failed: 0, wall_ms: 0 },
-          failures: [],
-        });
+      await write(g1(), P, { runResult: r1(), runId: 123 });
+      await write(g1(), P, { runResult: successfulEmptyRun(), runId: 200 });
+      const r = await runCli(["inspect", P, "--json"]);
+      expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
+      expectFields(json(r.stdout), {
+        actionsByType: ACTIONS_BY_TYPE_JSON,
+        latestRun: { run_id: 200, run_status: "SUCCESSFUL", succeeded: 0, failed: 0, wall_ms: 0 },
+        failures: [],
       });
     });
   });

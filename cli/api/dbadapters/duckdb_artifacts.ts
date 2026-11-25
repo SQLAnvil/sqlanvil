@@ -2,7 +2,7 @@ import * as fs from "fs-extra";
 import * as os from "os";
 import * as path from "path";
 
-import { allAsync, runAsync, withDuckdb } from "sa/cli/api/dbadapters/duckdb";
+import { allAsync, runAsync, sqlStringLiteral, withDuckdb } from "sa/cli/api/dbadapters/duckdb";
 
 /**
  * Parquet I/O for the queryable artifacts, via the bundled DuckDB (`@duckdb/node-api`).
@@ -15,12 +15,15 @@ let tmpCounter = 0;
 /**
  * Write `rows` to a Parquet file at `outPath`. `columns` is the full ordered column list — used to
  * produce a correctly-typed 0-row Parquet when `rows` is empty (so downstream `SELECT *` still
- * works). Parent directories are created.
+ * works). When `types` is given (a DuckDB type per column, e.g. `BIGINT`), every column is cast to
+ * its type, so a 0-row file has the same column types as a file with rows. Parent directories are
+ * created.
  */
 export async function writeParquet(
   rows: object[],
   outPath: string,
   columns: string[],
+  types?: { [column: string]: string },
 ): Promise<void> {
   await fs.ensureDir(path.dirname(outPath));
   const tmp = path.join(
@@ -30,12 +33,16 @@ export async function writeParquet(
   // For an empty rowset, emit one all-null row and filter it out, so the Parquet keeps its columns.
   const payload = rows.length > 0 ? rows : [columns.reduce((o: any, c) => ((o[c] = null), o), {})];
   const whereFalse = rows.length > 0 ? "" : " WHERE false";
+  const selectList = types
+    ? columns.map((c) => `CAST("${c}" AS ${types[c]}) AS "${c}"`).join(", ")
+    : "*";
   await fs.writeFile(tmp, JSON.stringify(payload));
   try {
     await withDuckdb(async (conn) => {
       await runAsync(
         conn,
-        `COPY (SELECT * FROM read_json_auto('${tmp}')${whereFalse}) TO '${outPath}' (FORMAT parquet)`,
+        `COPY (SELECT ${selectList} FROM read_json_auto(${sqlStringLiteral(tmp)})${whereFalse}) ` +
+          `TO ${sqlStringLiteral(outPath)} (FORMAT parquet)`,
       );
     });
   } finally {
@@ -67,7 +74,7 @@ export async function queryParquet(sql: string, views: ArtifactView[]): Promise<
     for (const view of views) {
       await runAsync(
         conn,
-        `create view ${view.name} as select * from read_parquet('${view.glob}')`,
+        `create view ${view.name} as select * from read_parquet(${sqlStringLiteral(view.glob)})`,
       );
     }
     const rows = await allAsync(conn, sql);

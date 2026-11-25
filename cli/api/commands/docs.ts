@@ -1,3 +1,4 @@
+import { findLatestRun } from "sa/cli/api/commands/artifacts";
 import { ArtifactView, queryParquet } from "sa/cli/api/dbadapters/duckdb_artifacts";
 
 /**
@@ -45,11 +46,11 @@ export async function buildDocsModel(
   const hasRuns = views.some((v) => v.name === "runs");
 
   const actions = await queryParquet(
-    "select readable_name, type, tags, description from actions order by type, readable_name",
+    "select target_key, readable_name, type, tags, description from actions order by type, readable_name",
     views,
   );
   const dependencies = await queryParquet(
-    "select from_readable, to_readable from dependencies",
+    "select from_target_key, to_readable from dependencies",
     views,
   );
   const columns = await queryParquet(
@@ -59,21 +60,17 @@ export async function buildDocsModel(
 
   let latestRun: { runId: number; status: string } | undefined;
   const statusByModel = new Map<string, string>();
-  if (hasRuns) {
-    const head = await queryParquet("select max(run_id) as run_id from runs", views);
-    const runId = head[0] && head[0].run_id !== null ? Number(head[0].run_id) : undefined;
-    if (runId !== undefined) {
-      const overall = await queryParquet(
-        `select run_status from runs where run_id = ${runId} limit 1`,
-        views,
-      );
-      latestRun = { runId, status: overall[0] ? overall[0].run_status : "UNKNOWN" };
+  const latest = await findLatestRun(views);
+  if (latest) {
+    const runId = latest.run_id;
+    latestRun = { runId, status: latest.run_status };
+    if (hasRuns) {
       const statuses = await queryParquet(
-        `select readable_name, status from runs where run_id = ${runId}`,
+        `select target_key, status from runs where run_id = ${runId}`,
         views,
       );
       for (const row of statuses) {
-        statusByModel.set(row.readable_name, row.status);
+        statusByModel.set(row.target_key, row.status);
       }
     }
   }
@@ -81,8 +78,8 @@ export async function buildDocsModel(
   const dependsOn = new Map<string, string[]>();
   for (const dep of dependencies) {
     dependsOn.set(
-      dep.from_readable,
-      (dependsOn.get(dep.from_readable) || []).concat(dep.to_readable),
+      dep.from_target_key,
+      (dependsOn.get(dep.from_target_key) || []).concat(dep.to_readable),
     );
   }
 
@@ -95,17 +92,22 @@ export async function buildDocsModel(
     } catch (e) {
       tags = [];
     }
-    return {
+    const entry: DocsModelEntry = {
       readable: a.readable_name,
       type: a.type,
       tags,
       description: a.description || "",
-      status: statusByModel.get(a.readable_name),
-      dependsOn: dependsOn.get(a.readable_name) || [],
+      dependsOn: dependsOn.get(a.target_key) || [],
     };
+    // A model with no row in the latest run has no status key at all (AC-021.3, AC-021.4).
+    const status = statusByModel.get(a.target_key);
+    if (status !== undefined) {
+      entry.status = status;
+    }
+    return entry;
   });
 
-  return {
+  const model: DocsModel = {
     generatedAt,
     summary: {
       total: models.length,
@@ -113,7 +115,6 @@ export async function buildDocsModel(
         .map(([type, n]) => ({ type, n }))
         .sort((x, y) => x.type.localeCompare(y.type)),
     },
-    latestRun,
     models,
     columns: columns.map((c) => ({
       readable: c.readable_name,
@@ -121,6 +122,11 @@ export async function buildDocsModel(
       description: c.description || "",
     })),
   };
+  // No run recorded: no latestRun key at all (AC-021.4).
+  if (latestRun) {
+    model.latestRun = latestRun;
+  }
+  return model;
 }
 
 /** Render the catalog model as a single self-contained HTML page. Pure. */
