@@ -4,7 +4,10 @@ import { dump as dumpYaml, load as loadYaml } from "js-yaml";
 import * as path from "path";
 
 import { init } from "sa/cli/api";
-import { CREDENTIALS_FILENAME } from "sa/cli/api/commands/credentials";
+import {
+  CREDENTIALS_FILENAME,
+  writeFile as writeCredentialsFile,
+} from "sa/cli/api/commands/credentials";
 import { defaultSchemaFor } from "sa/cli/api/commands/init";
 import { migrateDataform, MigrationReport } from "sa/cli/api/commands/migrate_dataform";
 import {
@@ -259,7 +262,7 @@ function runBigQueryAuthStep(projectDir: string) {
           ? (JSON.parse(fs.readFileSync(credentialsPath, "utf8")) as Record<string, string>)
           : {};
         ensureGitignoreCoversCredentials(projectDir);
-        fs.writeFileSync(
+        writeCredentialsFile(
           credentialsPath,
           `${JSON.stringify({ ...existing, credentials: keyContents }, null, 2)}\n`,
         );
@@ -381,7 +384,7 @@ async function runConvertFlow(): Promise<number> {
   if (askYesNo(INIT_CONFIGURE_CREDS_QUESTION, true)) {
     const credentialsPath = path.join(outDir, CREDENTIALS_FILENAME);
     ensureGitignoreCoversCredentials(outDir);
-    fs.writeFileSync(credentialsPath, collectCredentials(targetWarehouse));
+    writeCredentialsFile(credentialsPath, collectCredentials(targetWarehouse));
     printSuccess(`Credentials written to ${credentialsPath}`);
   }
 
@@ -440,7 +443,7 @@ async function runFreshFlow(defaultProjectDir: string): Promise<number> {
     const credentialsPath = path.join(projectDir, CREDENTIALS_FILENAME);
     if (!fs.existsSync(credentialsPath)) {
       ensureGitignoreCoversCredentials(projectDir);
-      fs.writeFileSync(
+      writeCredentialsFile(
         credentialsPath,
         `${JSON.stringify(
           {

@@ -6,9 +6,27 @@ import * as path from "path";
 // `.sqlanvilignore`, `dataformCoreVersion` is `sqlanvilCoreVersion`, and there is no legacy
 // `dataform.json` among the compilation inputs.
 
+// Credentials files: the default `.df-credentials.json` and the per-environment
+// `.df-credentials.<env>.json` (the same family `sqlanvil init` gitignores as
+// `.df-credentials*.json`). Upstream #2454 (3.1.6) excludes only the default name; sqlanvil
+// documents one file per environment, so the whole family is matched. A credentials file
+// under another name, passed with `--credentials`, is filtered like any other file.
+const CREDENTIALS_FILE_NAME_PATTERN = /^\.df-credentials.*\.json$/;
+
+/**
+ * Whether an entry by this (case-normalized) name is left out of the copy everywhere,
+ * including under compilation inputs and through symbolic links (upstream #2454's
+ * NEVER_COPIED_NAMES). `.git` holds no sqlanvil project files. A credentials file can hold a
+ * password or a service account key, and compilation never connects to the warehouse, so
+ * the copy has no use for it.
+ */
+function isNeverCopied(name: string): boolean {
+  return name === ".git" || CREDENTIALS_FILE_NAME_PATTERN.test(name);
+}
+
 // Excluded whatever the project's ignore files say, unless a compilation input is
-// reached through one (see COMPILATION_INPUT_ROOT_NAMES). `.git` holds no sqlanvil
-// project files. A top-level `node_modules` can't be present at all here -- `compile()`
+// reached through one (see COMPILATION_INPUT_ROOT_NAMES), on top of what isNeverCopied
+// excludes. A top-level `node_modules` can't be present at all here -- `compile()`
 // rejects the project before copying if it finds one -- so that entry covers nested ones
 // outside the compilation inputs.
 //
@@ -16,15 +34,19 @@ import * as path from "path";
 // that neither ignore file can override this floor: `ignore` lets later patterns
 // override earlier ones by design, so a `!node_modules` negation would otherwise
 // un-ignore it.
-const ALWAYS_IGNORED_NAMES = new Set([".git", "node_modules"]);
+const ALWAYS_IGNORED_NAMES = new Set(["node_modules"]);
+
+function isAlwaysIgnored(name: string): boolean {
+  return isNeverCopied(name) || ALWAYS_IGNORED_NAMES.has(name);
+}
 
 // Project-root entries that compilation reads, and that are therefore copied with
 // everything reachable from them, whatever the project's ignore files say.
 //
 // - `definitions` and `includes` are the directories core compiles from. Compilation
 //   lists their files with a glob that follows symbolic links and descends into nested
-//   `node_modules`, so both are followed here too. `.git` directories are still skipped:
-//   the glob skips dot-directories, so nothing in them is compiled.
+//   `node_modules`, so both are followed here too. isNeverCopied entries are still
+//   skipped: the glob skips dot-files and dot-directories, so nothing in them is compiled.
 // - `workflow_settings.yaml` has already been read from
 //   the original project to decide on a stateless install, and compilation in the copy
 //   reads it again, so a broad pattern like `*.yaml` must not drop it.
@@ -138,7 +160,7 @@ function resolveSymlink(
 
 /**
  * Whether the filter copies the project-relative path `segments` by its location alone:
- * anything under one of the COMPILATION_INPUT_ROOT_NAMES, apart from `.git` directories.
+ * anything under one of the COMPILATION_INPUT_ROOT_NAMES, apart from isNeverCopied entries.
  */
 function isUnderCompilationInputRoot(
   segments: string[],
@@ -146,7 +168,7 @@ function isUnderCompilationInputRoot(
 ): boolean {
   return (
     COMPILATION_INPUT_ROOT_NAMES.has(normalizeCase(segments[0])) &&
-    !segments.slice(1).some((segment) => normalizeCase(segment) === ".git")
+    !segments.slice(1).some((segment) => isNeverCopied(normalizeCase(segment)))
   );
 }
 
@@ -165,7 +187,7 @@ function isUnderCompilationInputRoot(
  *
  * A link that resolves to the project root makes the whole project reachable, since
  * compilation's glob follows it (`definitions -> .` compiles `definitions/generated/*`),
- * so everything apart from `.git` directories is then required. A link that resolves
+ * so everything apart from isNeverCopied entries is then required. A link that resolves
  * outside the project is copied as a link, and not followed: the filter only decides
  * what is copied from inside the project.
  */
@@ -183,6 +205,9 @@ function collectCompilationInputs(
       return;
     }
     const segments = relative.split(path.sep);
+    if (segments.some((segment) => isNeverCopied(normalizeCase(segment)))) {
+      return;
+    }
     for (let i = 1; i <= segments.length; i++) {
       required.add(normalizeCase(segments.slice(0, i).join("/")));
     }
@@ -200,8 +225,11 @@ function collectCompilationInputs(
       if (relative !== "" && !isInsideDirectory(relative)) {
         return;
       }
-      covered =
-        relative !== "" && isUnderCompilationInputRoot(relative.split(path.sep), normalizeCase);
+      const segments = relative === "" ? [] : relative.split(path.sep);
+      if (segments.some((segment) => isNeverCopied(normalizeCase(segment)))) {
+        return;
+      }
+      covered = segments.length > 0 && isUnderCompilationInputRoot(segments, normalizeCase);
     }
     entry = entry ?? lstatIfExists(entryPath);
     if (!entry) {
@@ -218,7 +246,7 @@ function collectCompilationInputs(
     } else if (entry.isDirectory() && !visitedDirectories.has(entryPath)) {
       visitedDirectories.add(entryPath);
       for (const child of fs.readdirSync(entryPath, { withFileTypes: true })) {
-        if (normalizeCase(child.name) !== ".git") {
+        if (!isNeverCopied(normalizeCase(child.name))) {
           // Under a covered directory, so is the child; otherwise, as for the project
           // root's own children, it has to be checked.
           visit(path.join(entryPath, child.name), child, covered || undefined);
@@ -253,8 +281,8 @@ function collectCompilationInputs(
  * is excluded, since the copy never descends into that directory.
  *
  * Neither ignore file nor ALWAYS_IGNORED_NAMES applies to compilation inputs: the
- * COMPILATION_INPUT_ROOT_NAMES and everything reachable from them apart from `.git`
- * directories, including through symbolic links into otherwise-ignored paths inside the
+ * COMPILATION_INPUT_ROOT_NAMES and everything reachable from them apart from isNeverCopied
+ * entries, including through symbolic links into otherwise-ignored paths inside the
  * project. Other files are filtered, including ones project code loads with `require()`;
  * if one of those is excluded, compilation in the copy fails where the original
  * project's would succeed, or, if the code catches the error, behaves differently.
@@ -295,6 +323,10 @@ export function buildProjectCopyFilter(
     }
 
     const relativeSegments = relative.split(path.sep);
+    if (relativeSegments.some((segment) => isNeverCopied(normalizeCase(segment)))) {
+      return false;
+    }
+
     if (
       isUnderCompilationInputRoot(relativeSegments, normalizeCase) ||
       compilationInputs.has(normalizeCase(relativeSegments.join("/")))
@@ -302,7 +334,7 @@ export function buildProjectCopyFilter(
       return true;
     }
 
-    if (relativeSegments.some((segment) => ALWAYS_IGNORED_NAMES.has(normalizeCase(segment)))) {
+    if (relativeSegments.some((segment) => isAlwaysIgnored(normalizeCase(segment)))) {
       return false;
     }
 
@@ -388,7 +420,7 @@ export function explainExcludedModule(
     const name = segments[i - 1];
     if (
       !lstatIfExists(path.join(resolvedProjectPath, ...excluded)) ||
-      ALWAYS_IGNORED_NAMES.has(caseInsensitive ? name.toLowerCase() : name)
+      isAlwaysIgnored(caseInsensitive ? name.toLowerCase() : name)
     ) {
       // Missing from the project too, or excluded by the floor no ignore file overrides.
       return undefined;

@@ -3,7 +3,10 @@ import { dump as dumpYaml } from "js-yaml";
 import * as path from "path";
 
 import { agentsMdContents, claudeMdBridgeContents } from "sa/cli/api/commands/agents_md";
-import { CREDENTIALS_FILENAME } from "sa/cli/api/commands/credentials";
+import {
+  CREDENTIALS_FILENAME,
+  writeFile as writeCredentialsFile,
+} from "sa/cli/api/commands/credentials";
 import { version } from "sa/core/version";
 import { sqlanvil } from "sa/protos/ts";
 
@@ -201,7 +204,7 @@ export async function init(
   // gitignored file — not in workflow_settings.yaml). BigQuery credentials come from gcloud / a
   // BigQuery key, so no template is written for it.
   if (!isBigQuery) {
-    fs.writeFileSync(
+    writeCredentialsFile(
       path.join(projectDir, CREDENTIALS_FILENAME),
       options.credentialsJson ??
         (warehouse === "mysql"

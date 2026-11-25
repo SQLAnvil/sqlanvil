@@ -40,6 +40,15 @@ suite("init", ({ afterEach }) => {
     ]);
   });
 
+  // Upstream #2454. Permission bits are POSIX-only.
+  if (process.platform !== "win32") {
+    test("writes the credentials template with owner-only permissions", async () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      await init(projectDir, { warehouse: "postgres" });
+      expect(fs.statSync(credentialsPath(projectDir)).mode & 0o777).equals(0o600);
+    });
+  }
+
   test("supabase project sets warehouse supabase and a require-ssl creds template", async () => {
     const projectDir = tmpDirFixture.createNewTmpDir();
 

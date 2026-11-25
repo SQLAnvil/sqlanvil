@@ -1,4 +1,3 @@
-import * as fs from "fs";
 import * as path from "path";
 
 import { credentials } from "sa/cli/api";
@@ -55,7 +54,7 @@ export const initCredsCommand: ICommand = {
       argv[projectDirMustExistOption.name],
       credentials.CREDENTIALS_FILENAME,
     );
-    fs.writeFileSync(filePath, prettyJsonStringify(finalCredentials));
+    credentials.writeFile(filePath, prettyJsonStringify(finalCredentials));
     printInitCredsResult(filePath);
     return 0;
   },

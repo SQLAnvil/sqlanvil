@@ -6,6 +6,28 @@ import { sqlanvil } from "sa/protos/ts";
 
 export const CREDENTIALS_FILENAME = ".df-credentials.json";
 
+// The file can hold a password or a service account key, so only its owner may read or write
+// it (upstream #2454).
+const CREDENTIALS_FILE_MODE = 0o600;
+
+/**
+ * Writes a credentials file with owner-only permissions. The contents go into a new file that
+ * then replaces the target in one step, so a failed write leaves the previous file as it was,
+ * an existing file with wider permissions is replaced, and a symbolic link at the target is
+ * replaced rather than written through. On Windows the mode has no effect beyond the
+ * read-only bit.
+ */
+export function writeFile(credentialsPath: string, contents: string): void {
+  const temporaryPath = `${credentialsPath}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(temporaryPath, contents, { mode: CREDENTIALS_FILE_MODE, flag: "wx" });
+    fs.renameSync(temporaryPath, credentialsPath);
+  } catch (e) {
+    fs.rmSync(temporaryPath, { force: true });
+    throw e;
+  }
+}
+
 export function read(credentialsPath: string, warehouse: string = "bigquery"): any {
   if (!fs.existsSync(credentialsPath)) {
     throw new Error(`Missing credentials JSON file; not found at path '${credentialsPath}'.`);

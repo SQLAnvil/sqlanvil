@@ -683,6 +683,13 @@ Two optional sections can sit alongside the warehouse fields:
 To keep one file per environment, name them `.df-credentials.<env>.json` (also gitignored) and
 point each environment's `credentials:` at its file.
 
+On Linux and macOS, `init`, `init-creds` and interactive `init` write the file so that only your
+user can read it (mode `0600`), and tighten the permissions of an existing file they rewrite.
+`.df-credentials.json` and `.df-credentials.<env>.json` are also left out of the temporary project
+copy that is compiled when `sqlanvilCoreVersion` is set. A credentials file kept under another name
+(passed with `--credentials`) is not excluded this way, so list it in `.gitignore` or
+`.sqlanvilignore`.
+
 ## Examples
 
 ### First-time project setup
