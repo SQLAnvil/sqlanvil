@@ -12,7 +12,7 @@ Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test
   T-018.5: line 10 is "Latest run (SUCCESSFUL): 1 succeeded, 0 failed, 1400ms" where 400ms is intended
   T-019.3: latestRun.wall_ms is 1400 where 400 is intended
 Diagnosis: inspect computes wall_ms as `max(end_millis) - min(start_millis)` over every row of the latest run. runRows writes 0 for start_millis and end_millis when an action result has no timing (artifact_rows.ts:78-81, 171-172). The runner records SKIPPED and DISABLED action results with no timing (cli/api/commands/run.ts:350-354, 396-401, 428-431). So one such action makes min(start_millis) 0, and inspect prints the latest end time in epoch milliseconds (about 1.7e12 ms) as the run's wall time. Two things say it should not. The sibling code treats 0 as missing: duration_millis is set only when both times are non-zero (artifact_rows.ts:182). And the command describes this figure as "the latest run's status, timing" (inspect_command.ts:65; cli/README.md:402 "wall time").
-Resolution: open, intended: the wall time is the latest end_millis minus the earliest start_millis over the latest run's rows that have non-zero start and end times, and 0 when no row has both (confirmed a bug by Ivan Histand, 2026-11-22)
+Resolution: T-018.5 [integration], PRD 1.0.4, fixed in a75ad89b
 Recurrence of: -
 
 ### E-002 A run with no action results does not show in inspect or docs
