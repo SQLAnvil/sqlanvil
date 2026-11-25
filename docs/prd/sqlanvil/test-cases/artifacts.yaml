@@ -1204,8 +1204,6 @@ T-018.7:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-007
-  symptom: "the first row after `Failures:` is s.f21, and s.f01 is missing"
   input:
     project_dir: "P, with target/ written by writeArtifacts(G21, P, {runResult: R21R, runId: 5}), where G21 has 21 tables s.f01 to s.f21 and R21R has status FAILED and one FAILED action result per table, listed in reverse readable_name order (s.f21 first, s.f01 last), each with timing {startTimeMillis: 10, endTimeMillis: 20} and tasks [{errorMessage: e}]"
     env: {NO_COLOR: "1"}
@@ -1319,8 +1317,6 @@ T-019.5:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-007
-  symptom: "failures[0].readable_name is s.f21, and s.f01 is missing"
   input:
     project_dir: "P, with target/ written by writeArtifacts(G21, P, {runResult: R21R, runId: 5}), where G21 has 21 tables s.f01 to s.f21 and R21R has status FAILED and one FAILED action result per table, listed in reverse readable_name order (s.f21 first, s.f01 last), each with timing {startTimeMillis: 10, endTimeMillis: 20} and tasks [{errorMessage: e}]"
     env: {NO_COLOR: "1"}
