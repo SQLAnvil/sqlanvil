@@ -869,6 +869,106 @@ DROP SCHEMA IF EXISTS \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.p
         }
       },
     );
+
+    // Upstream #2320: the DML runs inside the schema-change procedure, after its ALTERs, so it uses
+    // the new column list. These run the real thing against BigQuery and check the data.
+    const runActions = (...actions: string[]) =>
+      getProcessResult(
+        execFile(nodePath, [
+          cliEntryPointPath,
+          "run",
+          projectDir,
+          "--credentials",
+          CREDENTIALS_PATH,
+          `--actions=${actions.join(",")}`,
+        ]),
+      );
+    const writeDefinition = (name: string, contents: string) =>
+      fs.writeFileSync(path.join(projectDir, "definitions", name), contents);
+    const qualified = (name: string) =>
+      `\`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.projectConfig.defaultSchema}.${name}\``;
+
+    test(
+      "EXTEND fills the added column on the run that adds it",
+      { timeout: 240000 },
+      async () => {
+        try {
+          expect((await runActions("setup_table")).exitCode).equals(0);
+          // No row of this run may have field2 left NULL by a stale column list.
+          writeDefinition(
+            "check_extend.sqlx",
+            `config { type: "assertion", schema: "${uniqueDataset}", dependencies: ["example_incremental"] }
+SELECT * FROM ${qualified("example_incremental")} WHERE field1 = 'new' AND field2 IS NULL
+UNION ALL
+SELECT * FROM ${qualified("example_incremental")} WHERE (SELECT COUNT(*) FROM ${qualified("example_incremental")} WHERE field2 = 'new2') = 0`,
+          );
+          const result = await runActions("example_incremental", "check_extend");
+          expect(result.exitCode, result.stdout + result.stderr).equals(0);
+        } finally {
+          await runActions("teardown_schema");
+        }
+      },
+    );
+
+    test(
+      "SYNCHRONIZE that drops a column succeeds on the run that drops it",
+      { timeout: 240000 },
+      async () => {
+        try {
+          writeDefinition(
+            "setup_table.sqlx",
+            `config { type: "operations" }
+CREATE OR REPLACE TABLE ${qualified("example_incremental")} AS SELECT 1 AS id, 'old' AS field1, 'gone' AS dropme`,
+          );
+          writeDefinition(
+            "example_incremental.sqlx",
+            `config { type: "incremental", uniqueKey: ["id"], onSchemaChange: "SYNCHRONIZE" }
+SELECT 2 AS id, 'new' AS field1`,
+          );
+          expect((await runActions("setup_table")).exitCode).equals(0);
+          const result = await runActions("example_incremental");
+          expect(result.exitCode, result.stdout + result.stderr).equals(0);
+        } finally {
+          await runActions("teardown_schema");
+        }
+      },
+    );
+
+    test(
+      "insert_overwrite with EXTEND replaces partitions and fills the added column",
+      { timeout: 240000 },
+      async () => {
+        try {
+          writeDefinition(
+            "setup_table.sqlx",
+            `config { type: "operations" }
+CREATE OR REPLACE TABLE ${qualified("example_incremental")} PARTITION BY d AS
+SELECT DATE '2024-01-01' AS d, 1 AS id, 'old' AS field1`,
+          );
+          writeDefinition(
+            "example_incremental.sqlx",
+            `config {
+  type: "incremental",
+  incrementalStrategy: "insert_overwrite",
+  bigquery: { partitionBy: "d" },
+  onSchemaChange: "EXTEND"
+}
+SELECT DATE '2024-01-01' AS d, 2 AS id, 'new' AS field1, 'new2' AS field2`,
+          );
+          // The replaced partition holds only this run's row, with field2 filled.
+          writeDefinition(
+            "check_overwrite.sqlx",
+            `config { type: "assertion", schema: "${uniqueDataset}", dependencies: ["example_incremental"] }
+SELECT * FROM ${qualified("example_incremental")} WHERE id = 1 OR field2 IS NULL`,
+          );
+          expect((await runActions("setup_table")).exitCode).equals(0);
+          const result = await runActions("example_incremental", "check_overwrite");
+          expect(result.exitCode, result.stdout + result.stderr).equals(0);
+        } finally {
+          await runActions("teardown_schema");
+        }
+      },
+    );
   });
 
   suite("json output", ({ beforeEach, after }) => {

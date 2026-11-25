@@ -4,14 +4,16 @@ BEGIN
 
 -- Declare variables for schema comparison and strategy execution.
 DECLARE sqlanvil_columns ARRAY<STRING>;
-DECLARE temp_table_columns ARRAY<STRUCT<column_name STRING, data_type STRING>>;
-DECLARE columns_added ARRAY<STRUCT<column_name STRING, data_type STRING>>;
-DECLARE columns_removed ARRAY<STRING>;
+DECLARE sqlanvil_columns_list STRING;
+DECLARE sqlanvil_temp_table_columns ARRAY<STRUCT<column_name STRING, data_type STRING>>;
+DECLARE sqlanvil_columns_added ARRAY<STRUCT<column_name STRING, data_type STRING>>;
+DECLARE sqlanvil_columns_removed ARRAY<STRING>;
 
 
 -- Create empty table to extract schema of new query.
 CREATE OR REPLACE TABLE `project-id.dataset-id.incremental_on_schema_change_sa_temp_test_uuid_empty` AS (
-  SELECT * FROM (select 1 as id, 'a' as field1, 'new' as field2) AS insertions LIMIT 0
+  SELECT * FROM (select 1 as id, 'a' as field1, 'new' as field2
+) AS insertions LIMIT 0
 );
 
 
@@ -22,38 +24,58 @@ SET sqlanvil_columns = (
   WHERE table_name = 'incremental_on_schema_change'
 );
 
-SET temp_table_columns = (
+SET sqlanvil_temp_table_columns = (
   SELECT IFNULL(ARRAY_AGG(STRUCT(column_name, data_type)), [])
   FROM `project-id.dataset-id.INFORMATION_SCHEMA.COLUMNS`
   WHERE table_name = 'incremental_on_schema_change_sa_temp_test_uuid_empty'
 );
 
-SET columns_added = (
+SET sqlanvil_columns_added = (
   SELECT IFNULL(ARRAY_AGG(column_info), [])
-  FROM UNNEST(temp_table_columns) AS column_info
+  FROM UNNEST(sqlanvil_temp_table_columns) AS column_info
   WHERE column_info.column_name NOT IN UNNEST(sqlanvil_columns)
 );
-SET columns_removed = (
+SET sqlanvil_columns_removed = (
   SELECT IFNULL(ARRAY_AGG(column_name), [])
   FROM UNNEST(sqlanvil_columns) AS column_name
-  WHERE column_name NOT IN (SELECT col.column_name FROM UNNEST(temp_table_columns) AS col)
+  WHERE column_name NOT IN (SELECT col.column_name FROM UNNEST(sqlanvil_temp_table_columns) AS col)
 );
+
+
+-- Cleanup empty temp table
+DROP TABLE IF EXISTS `project-id.dataset-id.incremental_on_schema_change_sa_temp_test_uuid_empty`;
+    
 
 
 -- Apply schema change strategy (FAIL).
-IF ARRAY_LENGTH(columns_added) > 0 OR ARRAY_LENGTH(columns_removed) > 0 THEN
+IF ARRAY_LENGTH(sqlanvil_columns_added) > 0 OR ARRAY_LENGTH(sqlanvil_columns_removed) > 0 THEN
   RAISE USING MESSAGE = FORMAT(
     "Schema mismatch defined by on_schema_change = 'FAIL'. Added columns: %T, removed columns: %T",
-    columns_added,
-    columns_removed
+    sqlanvil_columns_added,
+    sqlanvil_columns_removed
   );
 END IF;
 
 
 
--- Cleanup temporary tables.
-DROP TABLE IF EXISTS `project-id.dataset-id.incremental_on_schema_change_sa_temp_test_uuid_empty`;
-    
+-- Prepare dynamic column lists for DML.
+SET sqlanvil_columns_list = (
+  SELECT STRING_AGG(FORMAT("`%s`", column_info.column_name), ", ")
+  FROM UNNEST(sqlanvil_temp_table_columns) AS column_info
+);
+
+CREATE OR REPLACE TEMP TABLE `staging_table_temp_test_uuid` AS (
+  select 1 as id, 'a' as field1, 'new' as field2
+);
+
+EXECUTE IMMEDIATE ("""	
+insert into `project-id.dataset-id.incremental_on_schema_change`
+(""" || sqlanvil_columns_list || """)
+select """ || sqlanvil_columns_list || """
+from `staging_table_temp_test_uuid`""");
+
+-- Cleanup staging table
+DROP TABLE IF EXISTS `staging_table_temp_test_uuid`;
 END;
 BEGIN
   CALL `project-id.dataset-id.sa_osc_test_uuid`();
@@ -63,7 +85,3 @@ EXCEPTION WHEN ERROR THEN
   RAISE;
 END;
 DROP PROCEDURE IF EXISTS `project-id.dataset-id.sa_osc_test_uuid`;
-insert into `project-id.dataset-id.incremental_on_schema_change`	
-(`id`,`field1`)	
-select `id`,`field1`	
-from (select 1 as id, 'a' as field1, 'new' as field2) as insertions

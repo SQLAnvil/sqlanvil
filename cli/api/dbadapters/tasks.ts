@@ -46,6 +46,20 @@ export function concatenateQueries(statements: string[], modifier?: (mod: string
   return formattedStatements.join("\n");
 }
 
+/**
+ * Terminates each statement with a semicolon (placed before a trailing comment) and joins the
+ * non-empty ones with newlines. Unlike concatenateQueries, the last statement is terminated too,
+ * for statements that are followed by more code in the same script (upstream #2320).
+ */
+export function terminateStatements(statements: string[]): string {
+  return statements
+    .filter((statement) => !!statement)
+    .map((statement) => statement.trim())
+    .filter((statement) => statement.length > 0)
+    .map((statement) => formatStatement(statement, false))
+    .join("\n");
+}
+
 export class Tasks {
   private tasks: Task[] = [];
 

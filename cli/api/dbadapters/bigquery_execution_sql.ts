@@ -2,7 +2,7 @@ import * as semver from "semver";
 
 import { IExecutionSql } from "sa/cli/api/dbadapters/execution_sql";
 import { resolveExportUri } from "sa/cli/api/dbadapters/export_uri";
-import { concatenateQueries, Task, Tasks } from "sa/cli/api/dbadapters/tasks";
+import { concatenateQueries, Task, Tasks, terminateStatements } from "sa/cli/api/dbadapters/tasks";
 import { ErrorWithCause } from "sa/common/errors/errors";
 import { CompilationSql } from "sa/core/compilation_sql";
 import { tableTypeEnumToString } from "sa/core/utils";
@@ -43,12 +43,20 @@ export class BigQueryExecutionSql implements IExecutionSql {
     }
   }
 
-  public insertInto(target: sqlanvil.ITarget, columns: string[], query: string) {
-    return `	
-insert into ${this.resolveTarget(target)}	
-(${columns.join(",")})	
-select ${columns.join(",")}	
-from (${query}) as insertions`;
+  /**
+   * With `columns`, a static INSERT. Without, the column list is only known inside the
+   * onSchemaChange procedure (after its ALTERs), so the statement is built there and run with
+   * EXECUTE IMMEDIATE (upstream #2320).
+   */
+  private insertInto(target: sqlanvil.ITarget, columns: string[] | undefined, source: string) {
+    const cols = this.colsList(columns);
+    const resolvedTarget = this.resolveDmlTarget(target, columns);
+    const dml = `	
+insert into ${resolvedTarget}
+(${cols})
+select ${cols}
+from ${source}`;
+    return columns ? dml : `EXECUTE IMMEDIATE ("""${dml}""");`;
   }
 
   public oppositeTableType(type: sqlanvil.TableMetadata.Type) {
@@ -127,9 +135,61 @@ from (${query}) as insertions`;
     runConfig: sqlanvil.IRunConfig,
     tableMetadata?: sqlanvil.ITableMetadata,
   ): Tasks {
+    const preOpTasks = this.preOps(table, runConfig, tableMetadata);
+    const postOpTasks = this.postOps(table, runConfig, tableMetadata);
+    const tasks =
+      table.enumType === sqlanvil.TableType.INCREMENTAL
+        ? this.buildIncrementalTasks(table, runConfig, preOpTasks, postOpTasks, tableMetadata)
+        : this.buildNonIncrementalTasks(table, preOpTasks, postOpTasks, tableMetadata);
+    return tasks.concatenate();
+  }
+
+  private buildNonIncrementalTasks(
+    table: sqlanvil.ITable,
+    preOpTasks: Task[],
+    postOpTasks: Task[],
+    tableMetadata?: sqlanvil.ITableMetadata,
+  ): Tasks {
     const tasks = new Tasks();
 
-    this.preOps(table, runConfig, tableMetadata).forEach((statement) => tasks.add(statement));
+    preOpTasks.forEach((statement) => tasks.add(statement));
+
+    const baseTableType = this.baseTableType(table.enumType);
+    if (tableMetadata && tableMetadata.type !== baseTableType) {
+      tasks.add(
+        Task.statement(this.dropIfExists(table.target, this.oppositeTableType(baseTableType))),
+      );
+    }
+    tasks.add(Task.statement(this.createOrReplace(table)));
+    postOpTasks.forEach((statement) => tasks.add(statement));
+
+    return tasks;
+  }
+
+  /**
+   * An incremental append with onSchemaChange FAIL / EXTEND / SYNCHRONIZE runs entirely inside a
+   * stored procedure (upstream #2320): pre-operations, the schema comparison and ALTERs, the DML
+   * (built from the column list as it is after the ALTERs) and post-operations. Before, the DML ran
+   * after the procedure with the column list read before the run, so added columns stayed NULL
+   * for the rows of that run and a SYNCHRONIZE that dropped a column failed it.
+   */
+  private buildIncrementalTasks(
+    table: sqlanvil.ITable,
+    runConfig: sqlanvil.IRunConfig,
+    preOpTasks: Task[],
+    postOpTasks: Task[],
+    tableMetadata?: sqlanvil.ITableMetadata,
+  ): Tasks {
+    const tasks = new Tasks();
+
+    const writesIncrementally = this.shouldWriteIncrementally(table, runConfig, tableMetadata);
+    const usesSchemaChangeProcedure =
+      writesIncrementally &&
+      (table.onSchemaChange ?? sqlanvil.OnSchemaChange.IGNORE) !== sqlanvil.OnSchemaChange.IGNORE;
+
+    if (!usesSchemaChangeProcedure) {
+      preOpTasks.forEach((statement) => tasks.add(statement));
+    }
 
     const baseTableType = this.baseTableType(table.enumType);
     if (tableMetadata && tableMetadata.type !== baseTableType) {
@@ -138,37 +198,38 @@ from (${query}) as insertions`;
       );
     }
 
-    if (table.enumType === sqlanvil.TableType.INCREMENTAL) {
-      if (!this.shouldWriteIncrementally(table, runConfig, tableMetadata)) {
-        tasks.add(Task.statement(this.createOrReplace(table)));
-      } else {
-        const onSchemaChange = table.onSchemaChange ?? sqlanvil.OnSchemaChange.IGNORE;
-        switch (onSchemaChange) {
-          case sqlanvil.OnSchemaChange.FAIL:
-          case sqlanvil.OnSchemaChange.EXTEND:
-          case sqlanvil.OnSchemaChange.SYNCHRONIZE:
-            this.buildIncrementalSchemaChangeTasks(tasks, table);
-          // Fall through to run the static DML after the procedure alters the schema
-          case sqlanvil.OnSchemaChange.IGNORE:
-          default:
-            tasks.add(
-              Task.statement(
-                this.getIncrementalDmlStatement(
-                  table,
-                  tableMetadata?.fields.map((f) => f.name) || [],
-                ),
-              ),
-            );
-            break;
-        }
-      }
-    } else {
+    if (!writesIncrementally) {
       tasks.add(Task.statement(this.createOrReplace(table)));
+    } else {
+      const onSchemaChange = table.onSchemaChange ?? sqlanvil.OnSchemaChange.IGNORE;
+      switch (onSchemaChange) {
+        case sqlanvil.OnSchemaChange.FAIL:
+        case sqlanvil.OnSchemaChange.EXTEND:
+        case sqlanvil.OnSchemaChange.SYNCHRONIZE:
+          this.buildIncrementalSchemaChangeTasks(tasks, table, preOpTasks, postOpTasks);
+          break;
+        case sqlanvil.OnSchemaChange.IGNORE:
+          tasks.add(
+            Task.statement(
+              this.getIncrementalDmlStatement(
+                table,
+                tableMetadata?.fields.map((f) => f.name) || [],
+              ),
+            ),
+          );
+          break;
+        default:
+          throw new Error(
+            `Unexpected onSchemaChange policy: ${sqlanvil.OnSchemaChange[onSchemaChange]?.toLowerCase()}`,
+          );
+      }
     }
 
-    this.postOps(table, runConfig, tableMetadata).forEach((statement) => tasks.add(statement));
+    if (!usesSchemaChangeProcedure) {
+      postOpTasks.forEach((statement) => tasks.add(statement));
+    }
 
-    return tasks.concatenate();
+    return tasks;
   }
 
   public assertTasks(
@@ -243,7 +304,23 @@ from (${query}) as insertions`;
       : `\`${schema}\``;
   }
 
-  private buildIncrementalSchemaChangeTasks(tasks: Tasks, table: sqlanvil.ITable) {
+  private isMergeStrategy(table: sqlanvil.ITable): boolean {
+    return (
+      (table.incrementalStrategy === undefined ||
+        table.incrementalStrategy === null ||
+        table.incrementalStrategy === sqlanvil.IncrementalStrategy.MERGE ||
+        table.incrementalStrategy ===
+          sqlanvil.IncrementalStrategy.INCREMENTAL_STRATEGY_UNSPECIFIED) &&
+      Boolean(table.uniqueKey && table.uniqueKey.length > 0)
+    );
+  }
+
+  private buildIncrementalSchemaChangeTasks(
+    tasks: Tasks,
+    table: sqlanvil.ITable,
+    preOpTasks: Task[] = [],
+    postOpTasks: Task[] = [],
+  ) {
     const uniqueId = this.uniqueIdGenerator();
 
     const emptyTempTableTarget = {
@@ -256,6 +333,8 @@ from (${query}) as insertions`;
       table,
       this.resolveTarget(table.target),
       emptyTempTableTarget,
+      preOpTasks,
+      postOpTasks,
     );
 
     const createProcedureSql = `CREATE OR REPLACE PROCEDURE ${procedureName}()
@@ -295,22 +374,34 @@ DROP PROCEDURE IF EXISTS ${procedureName};`;
     return `
 -- Create empty table to extract schema of new query.
 CREATE OR REPLACE TABLE ${emptyTempTableName} AS (
-  SELECT * FROM (${query}) AS insertions LIMIT 0
+  SELECT * FROM (${query}
+) AS insertions LIMIT 0
 );`;
   }
 
   // BigQuery only allows DECLARE at the start of a block, so every variable the procedure uses is
   // declared here, ahead of the temp-table CREATE (upstream dataform-co/dataform#2307).
-  private declareSchemaChangeVariablesSql(onSchemaChange: sqlanvil.OnSchemaChange): string {
+  // Every variable is prefixed sqlanvil_, so it can't collide with one a pre- or post-operation
+  // declares in the same procedure (upstream #2320).
+  private declareSchemaChangeVariablesSql(table: sqlanvil.ITable): string {
+    const onSchemaChange = table.onSchemaChange || sqlanvil.OnSchemaChange.IGNORE;
+
     let sql = `
 -- Declare variables for schema comparison and strategy execution.
 DECLARE sqlanvil_columns ARRAY<STRING>;
-DECLARE temp_table_columns ARRAY<STRUCT<column_name STRING, data_type STRING>>;
-DECLARE columns_added ARRAY<STRUCT<column_name STRING, data_type STRING>>;
-DECLARE columns_removed ARRAY<STRING>;`;
+DECLARE sqlanvil_columns_list STRING;`;
+
+    if (this.isMergeStrategy(table)) {
+      sql += `\nDECLARE sqlanvil_columns_merge STRING;`;
+    }
+
+    sql += `
+DECLARE sqlanvil_temp_table_columns ARRAY<STRUCT<column_name STRING, data_type STRING>>;
+DECLARE sqlanvil_columns_added ARRAY<STRUCT<column_name STRING, data_type STRING>>;
+DECLARE sqlanvil_columns_removed ARRAY<STRING>;`;
 
     if (onSchemaChange === sqlanvil.OnSchemaChange.SYNCHRONIZE) {
-      sql += `\nDECLARE invalid_removed_columns ARRAY<STRING>;`;
+      sql += `\nDECLARE sqlanvil_invalid_removed_columns ARRAY<STRING>;`;
     }
     return sql;
   }
@@ -327,21 +418,21 @@ SET sqlanvil_columns = (
   WHERE table_name = '${target.name}'
 );
 
-SET temp_table_columns = (
+SET sqlanvil_temp_table_columns = (
   SELECT IFNULL(ARRAY_AGG(STRUCT(column_name, data_type)), [])
   FROM \`${emptyTempTableTarget.database}.${emptyTempTableTarget.schema}.INFORMATION_SCHEMA.COLUMNS\`
   WHERE table_name = '${emptyTempTableTarget.name}'
 );
 
-SET columns_added = (
+SET sqlanvil_columns_added = (
   SELECT IFNULL(ARRAY_AGG(column_info), [])
-  FROM UNNEST(temp_table_columns) AS column_info
+  FROM UNNEST(sqlanvil_temp_table_columns) AS column_info
   WHERE column_info.column_name NOT IN UNNEST(sqlanvil_columns)
 );
-SET columns_removed = (
+SET sqlanvil_columns_removed = (
   SELECT IFNULL(ARRAY_AGG(column_name), [])
   FROM UNNEST(sqlanvil_columns) AS column_name
-  WHERE column_name NOT IN (SELECT col.column_name FROM UNNEST(temp_table_columns) AS col)
+  WHERE column_name NOT IN (SELECT col.column_name FROM UNNEST(sqlanvil_temp_table_columns) AS col)
 );`;
   }
 
@@ -356,21 +447,21 @@ SET columns_removed = (
     switch (onSchemaChange) {
       case sqlanvil.OnSchemaChange.FAIL:
         sql += `
-IF ARRAY_LENGTH(columns_added) > 0 OR ARRAY_LENGTH(columns_removed) > 0 THEN
+IF ARRAY_LENGTH(sqlanvil_columns_added) > 0 OR ARRAY_LENGTH(sqlanvil_columns_removed) > 0 THEN
   RAISE USING MESSAGE = FORMAT(
     "Schema mismatch defined by on_schema_change = 'FAIL'. Added columns: %T, removed columns: %T",
-    columns_added,
-    columns_removed
+    sqlanvil_columns_added,
+    sqlanvil_columns_removed
   );
 END IF;
 `;
         break;
       case sqlanvil.OnSchemaChange.EXTEND:
         sql += `
-IF ARRAY_LENGTH(columns_removed) > 0 THEN
+IF ARRAY_LENGTH(sqlanvil_columns_removed) > 0 THEN
   RAISE USING MESSAGE = FORMAT(
     "Column removals are not allowed when on_schema_change = 'EXTEND'. Removed columns: %T",
-    columns_removed
+    sqlanvil_columns_removed
   );
 END IF;
 
@@ -380,23 +471,23 @@ ${this.alterTableAddColumnsSql(qualifiedTargetTableName)}
       case sqlanvil.OnSchemaChange.SYNCHRONIZE:
         const uniqueKeys = table.uniqueKey || [];
         sql += `
-SET invalid_removed_columns = (
-  SELECT IFNULL(ARRAY_AGG(col), []) FROM UNNEST(columns_removed) AS col WHERE col IN UNNEST(${JSON.stringify(uniqueKeys)})
+SET sqlanvil_invalid_removed_columns = (
+  SELECT IFNULL(ARRAY_AGG(col), []) FROM UNNEST(sqlanvil_columns_removed) AS col WHERE col IN UNNEST(${JSON.stringify(uniqueKeys)})
 );
 
-IF ARRAY_LENGTH(invalid_removed_columns) > 0 THEN
+IF ARRAY_LENGTH(sqlanvil_invalid_removed_columns) > 0 THEN
   RAISE USING MESSAGE = FORMAT(
     "Cannot drop columns %T as they are part of the unique key for table ${qualifiedTargetTableName}",
-    invalid_removed_columns
+    sqlanvil_invalid_removed_columns
   );
 END IF;
 
-IF ARRAY_LENGTH(columns_removed) > 0 THEN
+IF ARRAY_LENGTH(sqlanvil_columns_removed) > 0 THEN
   EXECUTE IMMEDIATE (
     "ALTER TABLE ${qualifiedTargetTableName} " ||
     (
       SELECT STRING_AGG(FORMAT("DROP COLUMN IF EXISTS %s", col), ", ")
-      FROM UNNEST(columns_removed) AS col
+      FROM UNNEST(sqlanvil_columns_removed) AS col
     )
   );
 END IF;
@@ -409,20 +500,39 @@ ${this.alterTableAddColumnsSql(qualifiedTargetTableName)}
   }
 
   private alterTableAddColumnsSql(qualifiedTargetTableName: string): string {
-    return `IF ARRAY_LENGTH(columns_added) > 0 THEN
+    return `IF ARRAY_LENGTH(sqlanvil_columns_added) > 0 THEN
   EXECUTE IMMEDIATE (
     "ALTER TABLE ${qualifiedTargetTableName} " ||
     (
       SELECT STRING_AGG(FORMAT("ADD COLUMN IF NOT EXISTS %s %s", column_info.column_name, column_info.data_type), ", ")
-      FROM UNNEST(columns_added) AS column_info
+      FROM UNNEST(sqlanvil_columns_added) AS column_info
     )
   );
 END IF;`;
   }
 
+  private prepareDynamicColumnsSql(table: sqlanvil.ITable): string {
+    let sql = `
+-- Prepare dynamic column lists for DML.
+SET sqlanvil_columns_list = (
+  SELECT STRING_AGG(FORMAT("\`%s\`", column_info.column_name), ", ")
+  FROM UNNEST(sqlanvil_temp_table_columns) AS column_info
+);`;
+
+    if (this.isMergeStrategy(table)) {
+      sql += `
+SET sqlanvil_columns_merge = (
+  SELECT STRING_AGG(FORMAT("\`%s\` = S.\`%s\`", column_info.column_name, column_info.column_name), ", ")
+  FROM UNNEST(sqlanvil_temp_table_columns) AS column_info
+);`;
+    }
+
+    return sql;
+  }
+
   private cleanupSql(emptyTempTableName: string): string {
     return `
--- Cleanup temporary tables.
+-- Cleanup empty temp table
 DROP TABLE IF EXISTS ${emptyTempTableName};
     `;
   }
@@ -431,19 +541,39 @@ DROP TABLE IF EXISTS ${emptyTempTableName};
     table: sqlanvil.ITable,
     qualifiedTargetTableName: string,
     emptyTempTableTarget: sqlanvil.ITarget,
+    preOpTasks: Task[] = [],
+    postOpTasks: Task[] = [],
   ): string {
     const emptyTempTableName = this.resolveTarget(emptyTempTableTarget);
     const query = this.getIncrementalQuery(table);
-    const onSchemaChange = table.onSchemaChange || sqlanvil.OnSchemaChange.IGNORE;
-    const statements: string[] = [
-      this.declareSchemaChangeVariablesSql(onSchemaChange),
+    const coreBody = [
+      this.declareSchemaChangeVariablesSql(table),
       this.createEmptyTempTableSql(emptyTempTableName, query),
       this.compareSchemasSql(table.target, emptyTempTableTarget),
-      this.applySchemaChangeStrategySql(table, qualifiedTargetTableName),
       this.cleanupSql(emptyTempTableName),
-    ];
+      this.applySchemaChangeStrategySql(table, qualifiedTargetTableName),
+      this.prepareDynamicColumnsSql(table),
+      this.getIncrementalDmlStatement(table),
+    ].join("\n\n");
 
-    return statements.join("\n\n");
+    const preOpsSql = terminateStatements(preOpTasks.map((t) => t.getStatement()));
+    const postOpsSql = terminateStatements(postOpTasks.map((t) => t.getStatement()));
+
+    // Whenever user-provided operations share the procedure scope, the core body is wrapped in its
+    // own block. This places its DECLARE statements at the start of a block when they follow
+    // pre-operations, and takes the internal variables out of scope before post-operations run.
+    // Post-operations are left unwrapped so that comment-only operations don't produce an empty
+    // (invalid) BEGIN...END block.
+    const bodyParts: string[] = [];
+    if (preOpsSql) {
+      bodyParts.push(preOpsSql);
+    }
+    bodyParts.push(preOpsSql || postOpsSql ? `BEGIN\n${coreBody}\nEND;` : coreBody);
+    if (postOpsSql) {
+      bodyParts.push(postOpsSql);
+    }
+
+    return bodyParts.join("\n\n");
   }
 
   private createOrReplace(table: sqlanvil.ITable) {
@@ -484,30 +614,80 @@ DROP TABLE IF EXISTS ${emptyTempTableName};
    * MERGE (and the unspecified default) is what sqlanvil has always done: match on uniqueKey, or
    * plain INSERT when there is no key. INSERT_OVERWRITE replaces whole partitions instead — the
    * right shape when a run recomputes a date range rather than upserting rows.
+   *
+   * Without `columns` the statement runs inside the onSchemaChange procedure: the incremental
+   * query is staged in a temp table, and the DML is built from the post-ALTER column list
+   * (sqlanvil_columns_list / sqlanvil_columns_merge) and run with EXECUTE IMMEDIATE.
    */
-  private getIncrementalDmlStatement(table: sqlanvil.ITable, columns: string[]): string {
-    const incrementalQuery = this.getIncrementalQuery(table);
-
+  private getIncrementalDmlStatement(table: sqlanvil.ITable, columns?: string[]): string {
     switch (table.incrementalStrategy) {
       case sqlanvil.IncrementalStrategy.INSERT_OVERWRITE:
-        return this.insertOverwrite(table.target, columns, incrementalQuery, table.bigquery);
+        return this.withTempStagingTable(this.getIncrementalQuery(table), (stagingTable) =>
+          this.insertOverwrite(table.target, columns, stagingTable, table.bigquery),
+        );
       case sqlanvil.IncrementalStrategy.MERGE:
       default:
-        if (table.uniqueKey && table.uniqueKey.length > 0) {
-          return this.mergeInto(
-            table.target,
-            columns,
-            incrementalQuery,
-            table.uniqueKey,
-            table.bigquery,
-          );
-        }
-        return this.insertInto(
-          table.target,
-          columns.map((column) => `\`${column}\``),
-          incrementalQuery,
-        );
+        return this.isMergeStrategy(table)
+          ? this.getMergeIncrementalDmlStatement(table, columns)
+          : this.getInsertIncrementalDmlStatement(table, columns);
     }
+  }
+
+  private getMergeIncrementalDmlStatement(table: sqlanvil.ITable, columns?: string[]): string {
+    const incrementalQuery = this.getIncrementalQuery(table);
+    if (!columns) {
+      return this.withTempStagingTable(incrementalQuery, (stagingTable) =>
+        this.mergeInto(table.target, undefined, stagingTable, table.uniqueKey, table.bigquery),
+      );
+    }
+    return this.mergeInto(
+      table.target,
+      columns,
+      `(${incrementalQuery}\n)`,
+      table.uniqueKey,
+      table.bigquery,
+    );
+  }
+
+  private getInsertIncrementalDmlStatement(table: sqlanvil.ITable, columns?: string[]): string {
+    const incrementalQuery = this.getIncrementalQuery(table);
+    if (!columns) {
+      return this.withTempStagingTable(incrementalQuery, (stagingTable) =>
+        this.insertInto(table.target, undefined, stagingTable),
+      );
+    }
+    return this.insertInto(table.target, columns, `(${incrementalQuery}\n) as insertions`);
+  }
+
+  private escapeSqlString(str: string): string {
+    return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  }
+
+  private withTempStagingTable(query: string, buildBody: (stagingTable: string) => string): string {
+    const stagingTable = `\`staging_table_temp_${this.uniqueIdGenerator()}\``;
+    return `CREATE OR REPLACE TEMP TABLE ${stagingTable} AS (
+  ${query}
+);
+
+${buildBody(stagingTable)}
+
+-- Cleanup staging table
+DROP TABLE IF EXISTS ${stagingTable};`;
+  }
+
+  private colsList(columns: string[] | undefined): string {
+    return columns
+      ? columns.map((column) => `\`${column}\``).join(",")
+      : '""" || sqlanvil_columns_list || """';
+  }
+
+  /**
+   * Resolves the target for use in a DML statement. When `columns` is undefined the statement is
+   * built dynamically inside an EXECUTE IMMEDIATE string literal, so the target is escaped.
+   */
+  private resolveDmlTarget(target: sqlanvil.ITarget, columns: string[] | undefined): string {
+    const resolvedTarget = this.resolveTarget(target);
+    return columns ? resolvedTarget : this.escapeSqlString(resolvedTarget);
   }
 
   private buildIncrementalPredicatesString(incrementalPredicates?: string[] | null): string {
@@ -530,69 +710,83 @@ DROP TABLE IF EXISTS ${emptyTempTableName};
    */
   private insertOverwrite(
     target: sqlanvil.ITarget,
-    columns: string[],
-    query: string,
+    columns: string[] | undefined,
+    stagingTable: string,
     bigquery?: sqlanvil.IBigQueryOptions,
   ): string {
+    const cols = this.colsList(columns);
     const partitionBy = bigquery?.partitionBy;
     const updatePartitionFilter = bigquery?.updatePartitionFilter;
     const incrementalPredicatesString = this.buildIncrementalPredicatesString(
       bigquery?.incrementalPredicates,
     );
-    const stagingTableUnqualified = `staging_table_temp_${this.uniqueIdGenerator()}`;
-    const backtickedColumns = columns.map((column) => `\`${column}\``);
+    const resolvedTarget = this.resolveDmlTarget(target, columns);
+    // Inside EXECUTE IMMEDIATE the partition list is a query parameter (upstream #2328 was this
+    // name failing to resolve in the dynamic statement).
+    const partitionsVar = columns
+      ? "sqlanvil_partitions_for_replacement"
+      : "@sqlanvil_partitions_for_replacement";
+    const notMatchedBySourceCondition = `${partitionBy} IN UNNEST(${partitionsVar})${
+      updatePartitionFilter ? ` and T.${updatePartitionFilter}` : ""
+    }${incrementalPredicatesString ? ` ${incrementalPredicatesString}` : ""}`;
 
-    return `CREATE OR REPLACE TEMP TABLE \`${stagingTableUnqualified}\` AS (
-  ${query}
-);
+    const mergeSql = `MERGE ${resolvedTarget} T
+  USING ${stagingTable} S
+  ON FALSE
+  WHEN NOT MATCHED BY SOURCE AND ${
+    columns ? notMatchedBySourceCondition : this.escapeSqlString(notMatchedBySourceCondition)
+  }
+  THEN
+    DELETE
+  WHEN NOT MATCHED BY TARGET THEN
+    INSERT (${cols}) VALUES (${cols})`;
 
-BEGIN
-  DECLARE partitions_for_replacement DEFAULT (
+    return `BEGIN
+  DECLARE sqlanvil_partitions_for_replacement DEFAULT (
     ARRAY(
       SELECT DISTINCT ${partitionBy}
-      FROM \`${stagingTableUnqualified}\`
+      FROM ${stagingTable}
       WHERE ${partitionBy} IS NOT NULL
     )
   );
 
-  MERGE ${this.resolveTarget(target)} T
-  USING \`${stagingTableUnqualified}\` S
-  ON FALSE
-  WHEN NOT MATCHED BY SOURCE AND ${partitionBy} IN UNNEST(partitions_for_replacement)${
-    updatePartitionFilter ? ` and T.${updatePartitionFilter}` : ""
-  }${incrementalPredicatesString ? ` ${incrementalPredicatesString}` : ""}
-  THEN
-    DELETE
-  WHEN NOT MATCHED BY TARGET THEN
-    INSERT (${backtickedColumns.join(",")}) VALUES (${backtickedColumns.join(",")});
-END;
-
-DROP TABLE IF EXISTS \`${stagingTableUnqualified}\`;`;
+  ${
+    columns
+      ? mergeSql
+      : `EXECUTE IMMEDIATE ("""${mergeSql}""")\n  USING sqlanvil_partitions_for_replacement AS sqlanvil_partitions_for_replacement`
+  };
+END;`;
   }
 
   private mergeInto(
     target: sqlanvil.ITarget,
-    columns: string[],
-    query: string,
+    columns: string[] | undefined,
+    source: string,
     uniqueKey: string[],
     bigquery?: sqlanvil.IBigQueryOptions,
   ) {
+    const cols = this.colsList(columns);
+    const updateSet = columns
+      ? columns.map((column) => `\`${column}\` = S.\`${column}\``).join(",")
+      : '""" || sqlanvil_columns_merge || """';
     const updatePartitionFilter = bigquery?.updatePartitionFilter;
     const incrementalPredicatesString = this.buildIncrementalPredicatesString(
       bigquery?.incrementalPredicates,
     );
-    const backtickedColumns = columns.map((column) => `\`${column}\``);
-    return `
-merge ${this.resolveTarget(target)} T
-using (${query}
-) S
-on ${uniqueKey.map((uniqueKeyCol) => `T.${uniqueKeyCol} = S.${uniqueKeyCol}`).join(` and `)}
+    const resolvedTarget = this.resolveDmlTarget(target, columns);
+    const onCondition = `${uniqueKey.map((uniqueKeyCol) => `T.${uniqueKeyCol} = S.${uniqueKeyCol}`).join(` and `)}
   ${updatePartitionFilter ? `and T.${updatePartitionFilter}` : ""}${
     incrementalPredicatesString ? `\n  ${incrementalPredicatesString}` : ""
-  }
+  }`;
+    const dml = `
+merge ${resolvedTarget} T
+using ${source} S
+on ${columns ? onCondition : this.escapeSqlString(onCondition)}
 when matched then
-  update set ${columns.map((column) => `\`${column}\` = S.${column}`).join(",")}
+  update set ${updateSet}
 when not matched then
-  insert (${backtickedColumns.join(",")}) values (${backtickedColumns.join(",")})`;
+  insert (${cols}) values (${cols})`;
+
+    return columns ? dml : `EXECUTE IMMEDIATE ("""${dml}""");`;
   }
 }

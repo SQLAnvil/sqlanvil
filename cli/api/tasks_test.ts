@@ -1,6 +1,6 @@
 import { expect } from "chai";
 
-import { concatenateQueries } from "sa/cli/api/dbadapters/tasks";
+import { concatenateQueries, terminateStatements } from "sa/cli/api/dbadapters/tasks";
 import { suite, test } from "sa/testing";
 
 suite("concatenateQueries", () => {
@@ -77,5 +77,22 @@ suite("concatenateQueries", () => {
     expect(
       concatenateQueries(["SELECT 1 --comment", "SELECT 2"], (stmt) => `(${stmt})`),
     ).deep.equals("(SELECT 1); --comment\n(SELECT 2)");
+  });
+});
+
+// Upstream #2320.
+suite("terminateStatements", () => {
+  test("terminates every statement including the last one", () => {
+    expect(terminateStatements(["SELECT 1", "SELECT 2"])).equals("SELECT 1;\nSELECT 2;");
+  });
+
+  test("places semicolons before trailing comments and skips empty statements", () => {
+    expect(terminateStatements(["  SELECT 1 -- comment  ", "", "SELECT 2;"])).equals(
+      "SELECT 1; -- comment\nSELECT 2;",
+    );
+  });
+
+  test("returns empty string for empty input", () => {
+    expect(terminateStatements([])).equals("");
   });
 });

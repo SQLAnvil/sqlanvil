@@ -3,7 +3,7 @@ CREATE OR REPLACE TEMP TABLE `staging_table_temp_test_uuid` AS (
 );
 
 BEGIN
-  DECLARE partitions_for_replacement DEFAULT (
+  DECLARE sqlanvil_partitions_for_replacement DEFAULT (
     ARRAY(
       SELECT DISTINCT date_col
       FROM `staging_table_temp_test_uuid`
@@ -14,11 +14,12 @@ BEGIN
   MERGE `project-id.dataset-id.incremental_on_schema_change` T
   USING `staging_table_temp_test_uuid` S
   ON FALSE
-  WHEN NOT MATCHED BY SOURCE AND date_col IN UNNEST(partitions_for_replacement)
+  WHEN NOT MATCHED BY SOURCE AND date_col IN UNNEST(sqlanvil_partitions_for_replacement)
   THEN
     DELETE
   WHEN NOT MATCHED BY TARGET THEN
     INSERT (`id`,`field1`) VALUES (`id`,`field1`);
 END;
 
+-- Cleanup staging table
 DROP TABLE IF EXISTS `staging_table_temp_test_uuid`;

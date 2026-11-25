@@ -4,6 +4,6 @@ using (select 1 as id, 'a' as field1, 'new' as field2
 on T.id = S.id
   
 when matched then
-  update set `id` = S.id,`field1` = S.field1
+  update set `id` = S.`id`,`field1` = S.`field1`
 when not matched then
   insert (`id`,`field1`) values (`id`,`field1`)
