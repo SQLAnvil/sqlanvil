@@ -79,7 +79,7 @@ Touches: FR-018, FR-019
 Evidence: characterization suite, 2026-11-22, at eeface71
   T-018.3 passes: with the case's 21 rows DuckDB returned the FAILED rows in readable_name order, so the case cannot show the missing ORDER BY; it stays a plain test, not known-failing (owner, 2026-11-22)
 Diagnosis: inspect selects the latest run's FAILED rows with `limit 20` and no ORDER BY (cli/commands/inspect_command.ts:34-38 @f4b3f49e), so when there are more than 20 failures, which 20 it prints, and in what order, is up to DuckDB. The owner confirmed it a bug on 2026-11-22.
-Resolution: open, intended: inspect lists the first 20 failures in readable_name order, in the table and in the JSON (Ivan Histand, 2026-11-22)
+Resolution: T-018.7 [integration], PRD 1.0.4, fixed in 98141606
 Recurrence of: -
 
 ### E-008 Every Bazel job of the prd-toolkit CI workflow fails: the runner has no `~/.npmrc`
