@@ -543,8 +543,6 @@ T-006.1:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-003
-  symptom: "every column of the empty actions file over P has type JSON, where the actions file over P2 has VARCHAR, and BOOLEAN for disabled"
   input:
     graph: {tables: [], operations: [], assertions: [], exports: [], declarations: []}
     call: "writeArtifacts(graph, P)"
