@@ -1,3 +1,4 @@
+import { findLatestRun } from "sa/cli/api/commands/artifacts";
 import { ArtifactView, queryParquet } from "sa/cli/api/dbadapters/duckdb_artifacts";
 
 /**
@@ -59,15 +60,11 @@ export async function buildDocsModel(
 
   let latestRun: { runId: number; status: string } | undefined;
   const statusByModel = new Map<string, string>();
-  if (hasRuns) {
-    const head = await queryParquet("select max(run_id) as run_id from runs", views);
-    const runId = head[0] && head[0].run_id !== null ? Number(head[0].run_id) : undefined;
-    if (runId !== undefined) {
-      const overall = await queryParquet(
-        `select run_status from runs where run_id = ${runId} limit 1`,
-        views,
-      );
-      latestRun = { runId, status: overall[0] ? overall[0].run_status : "UNKNOWN" };
+  const latest = await findLatestRun(views);
+  if (latest) {
+    const runId = latest.run_id;
+    latestRun = { runId, status: latest.run_status };
+    if (hasRuns) {
       const statuses = await queryParquet(
         `select target_key, status from runs where run_id = ${runId}`,
         views,

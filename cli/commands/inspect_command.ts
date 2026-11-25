@@ -1,3 +1,4 @@
+import { findLatestRun, LatestRun } from "sa/cli/api/commands/artifacts";
 import { queryParquet } from "sa/cli/api/dbadapters/duckdb_artifacts";
 import { prettyJsonStringify } from "sa/cli/api/utils";
 import {
@@ -19,22 +20,12 @@ async function runInspect(projectDir: string, json: boolean): Promise<number> {
     "select type, count(*) as n from actions group by type order by type",
     views,
   );
-  let latestRun: any = null;
+  const latestRun: LatestRun | null = (await findLatestRun(views)) || null;
   let failures: any[] = [];
-  if (hasRuns) {
-    const latest = await queryParquet(
-      "select run_id, run_status, " +
-        "count(*) filter (where status = 'SUCCESSFUL') as succeeded, " +
-        "count(*) filter (where status = 'FAILED') as failed, " +
-        "coalesce(max(end_millis) filter (where start_millis <> 0 and end_millis <> 0) - " +
-        "min(start_millis) filter (where start_millis <> 0 and end_millis <> 0), 0) as wall_ms " +
-        "from runs where run_id = (select max(run_id) from runs) group by run_id, run_status",
-      views,
-    );
-    latestRun = latest[0] || null;
+  if (latestRun && hasRuns) {
     failures = await queryParquet(
       "select readable_name, error_message from runs " +
-        "where run_id = (select max(run_id) from runs) and status = 'FAILED' " +
+        `where run_id = ${latestRun.run_id} and status = 'FAILED' ` +
         "order by readable_name limit 20",
       views,
     );
@@ -46,7 +37,7 @@ async function runInspect(projectDir: string, json: boolean): Promise<number> {
   }
   print("Actions by type:");
   printArtifactRows(actionsByType);
-  if (!hasRuns || !latestRun) {
+  if (!latestRun) {
     print("\nNo runs recorded yet.");
   } else {
     print(

@@ -51,6 +51,11 @@ export interface RunRow {
   error_message: string;
 }
 
+export interface RunSummaryRow {
+  run_id: number;
+  run_status: string;
+}
+
 function key(target: sqlanvil.ITarget): string {
   return targetStringifier.stringify(target);
 }
@@ -162,6 +167,14 @@ export function catalogRows(compiledGraph: sqlanvil.ICompiledGraph): CatalogRows
   }
 
   return { actions, dependencies, columns };
+}
+
+/** The run's own row: its run id and run status, whether or not it has action results. */
+export function runSummaryRow(runResult: sqlanvil.IRunResult, runId: number): RunSummaryRow {
+  return {
+    run_id: runId,
+    run_status: enumName(sqlanvil.RunResult.ExecutionStatus as any, runResult.status as any),
+  };
 }
 
 /** Flatten a run result into one row per action result. */

@@ -1,7 +1,7 @@
 import * as path from "path";
 
-import { catalogRows, runRows } from "sa/cli/api/commands/artifact_rows";
-import { writeParquet } from "sa/cli/api/dbadapters/duckdb_artifacts";
+import { catalogRows, runRows, runSummaryRow } from "sa/cli/api/commands/artifact_rows";
+import { ArtifactView, queryParquet, writeParquet } from "sa/cli/api/dbadapters/duckdb_artifacts";
 import { sqlanvil } from "sa/protos/ts";
 
 /**
@@ -37,6 +37,19 @@ const RUN_COLUMNS = [
   "duration_millis",
   "error_message",
 ];
+const RUN_TYPES = {
+  run_id: "BIGINT",
+  run_status: "VARCHAR",
+  target_key: "VARCHAR",
+  readable_name: "VARCHAR",
+  status: "VARCHAR",
+  start_millis: "BIGINT",
+  end_millis: "BIGINT",
+  duration_millis: "BIGINT",
+  error_message: "VARCHAR",
+};
+const RUN_SUMMARY_COLUMNS = ["run_id", "run_status"];
+const RUN_SUMMARY_TYPES = { run_id: "BIGINT", run_status: "VARCHAR" };
 
 export interface WriteArtifactsOptions {
   runResult?: sqlanvil.IRunResult;
@@ -67,10 +80,63 @@ export async function writeArtifacts(
       runRows(options.runResult, runId),
       path.join(targetDir, "runs", `run_${runId}.parquet`),
       RUN_COLUMNS,
+      RUN_TYPES,
+    );
+    await writeParquet(
+      [runSummaryRow(options.runResult, runId)],
+      path.join(targetDir, "run_summary", `run_${runId}.parquet`),
+      RUN_SUMMARY_COLUMNS,
+      RUN_SUMMARY_TYPES,
     );
   }
 
   return { targetDir };
+}
+
+export interface LatestRun {
+  run_id: number;
+  run_status: string;
+  succeeded: number;
+  failed: number;
+  wall_ms: number;
+}
+
+/**
+ * The latest recorded run: the highest run_id in the `run_summary` view, or, when there is no
+ * `run_summary` view, in the `runs` view; with its counts and wall time from its `runs` rows.
+ * Undefined when neither view is given.
+ */
+export async function findLatestRun(views: ArtifactView[]): Promise<LatestRun | undefined> {
+  const has = (name: string) => views.some((v) => v.name === name);
+  const headView = has("run_summary") ? "run_summary" : has("runs") ? "runs" : undefined;
+  if (!headView) {
+    return undefined;
+  }
+  const head = await queryParquet(
+    `select run_id, run_status from ${headView} order by run_id desc limit 1`,
+    views,
+  );
+  if (!head[0]) {
+    return undefined;
+  }
+  const runId = Number(head[0].run_id);
+  let counts = { succeeded: 0, failed: 0, wall_ms: 0 };
+  if (has("runs")) {
+    const rows = await queryParquet(
+      "select count(*) filter (where status = 'SUCCESSFUL') as succeeded, " +
+        "count(*) filter (where status = 'FAILED') as failed, " +
+        "coalesce(max(end_millis) filter (where start_millis <> 0 and end_millis <> 0) - " +
+        "min(start_millis) filter (where start_millis <> 0 and end_millis <> 0), 0) as wall_ms " +
+        `from runs where run_id = ${runId}`,
+      views,
+    );
+    counts = {
+      succeeded: Number(rows[0].succeeded),
+      failed: Number(rows[0].failed),
+      wall_ms: Number(rows[0].wall_ms),
+    };
+  }
+  return { run_id: runId, run_status: head[0].run_status, ...counts };
 }
 
 /**
