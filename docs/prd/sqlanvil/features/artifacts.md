@@ -223,7 +223,7 @@ Traces: -
 Status: built
 Source: cli/commands/inspect_command.ts:18 @f4b3f49e
   cli/commands/inspect_command.ts:25 @f4b3f49e
-  cli/commands/inspect_command.ts:46 @457f6e3d
+  cli/commands/inspect_command.ts:47 @4bd7610e
 Acceptance (EARS):
 - AC-018.1 When `sqlanvil inspect <project-dir>` runs on a project with a catalog, the inspect command shall print `Actions by type:` and then, in the table format of AC-011.1, the columns type and n (the number of actions of that type) ordered by type, and exit with code 0.
 - AC-018.2 While a run is recorded, the inspect command shall then print an empty line and `Latest run (<run_status>): <s> succeeded, <f> failed, <w>ms` for the run with the highest run_id, where s is the number of that run's rows with status SUCCESSFUL, f the number with status FAILED, and w the latest end_millis minus the earliest start_millis over that run's rows with non-zero start and end times, and 0 when no row has both.
@@ -237,7 +237,7 @@ Traces: UJ-01
 
 ### FR-019 Print the inspect summary as JSON
 Status: built
-Source: cli/commands/inspect_command.ts:42 @457f6e3d
+Source: cli/commands/inspect_command.ts:43 @4bd7610e
 Acceptance (EARS):
 - AC-019.1 When `sqlanvil inspect <project-dir> --json` runs on a project with a catalog and a recorded run, the inspect command shall print on stdout one JSON object, indented four spaces, with `actionsByType` (type and n per type, ordered by type), `latestRun` (run_id, run_status, succeeded, failed and wall_ms of the run with the highest run_id, wall_ms computed as in AC-018.2) and `failures` (readable_name and error_message of the first 20 FAILED rows of that run in readable_name order), and exit with code 0.
 - AC-019.2 If no run is recorded, the inspect command shall print `latestRun` as null and `failures` as an empty array.
