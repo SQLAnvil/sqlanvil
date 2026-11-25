@@ -50,8 +50,8 @@ sqlanvil <command> [positional arguments] [flags]
   unformatted files. This makes every command usable as a CI gate.
 - **Ctrl-C** during `run` cancels in-flight actions; during `validate` it drops the temporary shadow
   schemas before exiting.
-- **Artifacts**: `compile` writes a queryable catalog, and `run` adds a run-history entry, as Parquet
-  under `target/` in the project directory. They are best-effort (a write failure never fails the
+- **Artifacts**: `compile` writes a queryable catalog, and `run` adds a run-history entry and a
+  one-row run summary, as Parquet under `target/` in the project directory. They are best-effort (a write failure never fails the
   command) and read by `query`, `inspect` and `docs`. Add `target/` to your `.gitignore`. See
   [Artifacts & Catalog](https://sqlanvil.com/docs/guides/artifacts/).
 
@@ -379,8 +379,9 @@ sqlanvil query [sql] [project-dir]
 <!-- END GENERATED: usage query -->
 
 Runs SQL over the project's artifacts with the bundled DuckDB. No warehouse is involved. The
-available views are `actions`, `dependencies` and `columns` (written by `compile`) and `runs`
-(written by `run`). Run `compile` first.
+available views are `actions`, `dependencies` and `columns` (written by `compile`), and `runs`
+(one row per action) and `run_summary` (one row per run, including runs where no action ran),
+both written by `run`. `run_summary` needs 1.40.0 or newer. Run `compile` first.
 
 **Positional arguments**
 
