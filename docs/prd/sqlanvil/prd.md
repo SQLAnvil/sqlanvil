@@ -138,7 +138,7 @@ The CLI's interface is its commands, flags and output, documented in `cli/README
 | ID | Title | Status | File | Since |
 |---|---|---|---|---|
 | UJ-01 | Explore a project's catalog and last run | live | features/artifacts.md | 1.0.0 |
-| FR-001 | Write the catalog Parquet files | approved | features/artifacts.md |  |
+| FR-001 | Write the catalog Parquet files | verified | features/artifacts.md |  |
 | FR-002 | Shape one catalog row per action | live | features/artifacts.md | 1.0.0 |
 | FR-003 | Shape one dependency row per dependency edge | live | features/artifacts.md | 1.0.0 |
 | FR-004 | Shape one column row per documented column | live | features/artifacts.md | 1.0.0 |
@@ -147,7 +147,7 @@ The CLI's interface is its commands, flags and output, documented in `cli/README
 | FR-007 | Remove the staging file after a Parquet write | live | features/artifacts.md | 1.0.0 |
 | FR-008 | Never fail the caller when artifacts cannot be written | live | features/artifacts.md | 1.0.0 |
 | FR-009 | Read the project's artifacts, and refuse without a catalog | live | features/artifacts.md | 1.0.0 |
-| FR-010 | Expose the artifacts as DuckDB views | built | features/artifacts.md |  |
+| FR-010 | Expose the artifacts as DuckDB views | verified | features/artifacts.md |  |
 | FR-011 | Run SQL over the artifacts with the query command | live | features/artifacts.md | 1.0.0 |
 | FR-012 | Print query results as JSON | live | features/artifacts.md | 1.0.0 |
 | FR-013 | Require SQL for the query command | live | features/artifacts.md | 1.0.0 |

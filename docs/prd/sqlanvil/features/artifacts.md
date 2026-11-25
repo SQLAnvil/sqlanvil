@@ -8,10 +8,10 @@ Flow: 1. A data engineer runs `sqlanvil compile` or `sqlanvil run` on a project,
 Traces: FR-001, FR-005, FR-011, FR-018, FR-020
 
 ### FR-001 Write the catalog Parquet files
-Status: approved
-Source: cli/api/commands/artifacts.ts:52 @f4b3f49e
-  cli/api/dbadapters/duckdb_artifacts.ts:25 @f4b3f49e
-  cli/api/dbadapters/duckdb_artifacts.ts:38 @f4b3f49e
+Status: verified
+Source: cli/api/commands/artifacts.ts:89 @d6eab0db
+  cli/api/dbadapters/duckdb_artifacts.ts:28 @d6eab0db
+  cli/api/dbadapters/duckdb_artifacts.ts:44 @81a1434f
 Flow: 1. writeArtifacts(graph, projectDir) → 2. shapes catalog rows → 3. writes actions, dependencies and columns Parquet under `<projectDir>/target/catalog/` → 4. resolves `{targetDir}`
 Acceptance (EARS):
 - AC-001.1 When writeArtifacts is called with a compiled graph and a project directory, the artifact writer shall write `target/catalog/actions.parquet`, `target/catalog/dependencies.parquet` and `target/catalog/columns.parquet` under that directory, creating the directories that are missing, and resolve with `targetDir` set to `<projectDir>/target`.
@@ -131,10 +131,10 @@ Tests: T-009.1 [integration], T-009.2 [integration], T-009.3 [integration], T-00
 Traces: -
 
 ### FR-010 Expose the artifacts as DuckDB views
-Status: built
+Status: verified
 Source: cli/commands/artifact_views.ts:33 @d6310e44
   cli/commands/artifact_views.ts:28 @f4b3f49e
-  cli/api/dbadapters/duckdb_artifacts.ts:73 @d6310e44
+  cli/api/dbadapters/duckdb_artifacts.ts:74 @d6eab0db
 Acceptance (EARS):
 - AC-010.1 When an artifact command runs, the command shall expose `target/catalog/actions.parquet`, `dependencies.parquet` and `columns.parquet` as the views `actions`, `dependencies` and `columns`.
 - AC-010.2 While `target/runs/` holds at least one `.parquet` file, the artifact commands shall expose every `target/runs/*.parquet` file together as one view named `runs`.
