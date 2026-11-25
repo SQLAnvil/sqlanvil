@@ -25,7 +25,6 @@ import {
 } from "sa/tests/prd/artifacts/known_failing";
 
 // A protobufjs Long value is Long.fromNumber(n) from the `long` package (testing.md, Layout).
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const LongModule: any = require("long");
 const Long: any = LongModule.fromNumber ? LongModule : LongModule.default;
 
