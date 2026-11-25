@@ -158,7 +158,7 @@ The CLI's interface is its commands, flags and output, documented in `cli/README
 | FR-018 | Summarize the artifacts with the inspect command | built | features/artifacts.md |  |
 | FR-019 | Print the inspect summary as JSON | built | features/artifacts.md |  |
 | FR-020 | Write the HTML catalog with the docs command | live | features/artifacts.md | 1.0.0 |
-| FR-021 | Build the docs catalog model from the artifacts | approved | features/artifacts.md |  |
+| FR-021 | Build the docs catalog model from the artifacts | built | features/artifacts.md |  |
 | FR-022 | Render the docs catalog as one self-contained HTML page | live | features/artifacts.md | 1.0.0 |
 | FR-023 | Run a warehouse query through an adapter | live | features/artifacts.md | 1.0.0 |
 | FR-024 | Evaluate a query through an adapter | live | features/artifacts.md | 1.0.0 |
