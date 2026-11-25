@@ -14,6 +14,8 @@ ts_library(
         "//protos:ts",
         "//:node_modules/@types/node",
         "//:node_modules/@types/pg",
+        "//:node_modules/@types/long",
+        "//:node_modules/long",
         "//:node_modules/mysql2",
         "//:node_modules/object-sizeof",
         "//:node_modules/pg",
