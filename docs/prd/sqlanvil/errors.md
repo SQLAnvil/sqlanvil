@@ -37,7 +37,7 @@ Touches: FR-006
 Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test_tag_filters=integration --build_tests_only --test_output=all` @984785d8
   T-006.1: every column of the empty actions file has type JSON; the file written from rows has VARCHAR, and BOOLEAN for disabled
 Diagnosis: The comments say an empty rowset produces a "correctly-typed 0-row Parquet" (artifacts.ts:14; duckdb_artifacts.ts:16-18). The writer only has column names, though. It writes one all-null JSON row and filters it out with `WHERE false`, so DuckDB's read_json_auto infers each column from nulls alone. Those columns cannot get the BOOLEAN, BIGINT and VARCHAR types the same columns get from real rows (disabled, run_id, start_millis and the rest). Two things need a run to confirm: the exact type DuckDB infers, and whether a `runs` glob that mixes such a file with typed files fails to read.
-Resolution: open, intended: an empty artifact file has the same column names and the same column types as a file written from rows, so a runs glob that mixes it with typed files reads cleanly (confirmed a bug by Ivan Histand, 2026-11-22)
+Resolution: T-006.1 [integration], PRD 2.0.1, fixed in 08deca28
 Recurrence of: -
 
 ### E-004 docs indexes models by their readable name
