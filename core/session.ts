@@ -342,8 +342,7 @@ export class Session {
         ...resolved.getTarget(),
         database:
           resolved.getTarget().database && this.finalizeDatabase(resolved.getTarget().database),
-        schema:
-          resolved.getTarget().schema && this.finalizeSchema(resolved.getTarget().schema),
+        schema: resolved.getTarget().schema && this.finalizeSchema(resolved.getTarget().schema),
         name: this.finalizeName(resolved.getTarget().name),
       });
     }

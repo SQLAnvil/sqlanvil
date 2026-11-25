@@ -267,9 +267,13 @@ defaultLocation: "${DEFAULT_LOCATION}"
       const missingTmpDir = path.join(tmpDirFixture.createNewTmpDir(), "must-not-be-used");
       const fakeBinDir = tmpDirFixture.createNewTmpDir();
       const npmCalledFile = path.join(tmpDirFixture.createNewTmpDir(), "npm-called");
-      fs.writeFileSync(path.join(fakeBinDir, "npm"), `#!/bin/sh\ntouch "${npmCalledFile}"\nexit 1\n`, {
-        mode: 0o755,
-      });
+      fs.writeFileSync(
+        path.join(fakeBinDir, "npm"),
+        `#!/bin/sh\ntouch "${npmCalledFile}"\nexit 1\n`,
+        {
+          mode: 0o755,
+        },
+      );
 
       const result = await getProcessResult(
         execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--verbose"], {
@@ -602,7 +606,13 @@ suite("compile node selection", ({ afterEach }) => {
 
   test("--mermaid prints a flowchart of the selected graph", async () => {
     const projectDir = await setupSelectionProject();
-    const result = await compileCli(projectDir, "--actions", "midstream", "--include-deps", "--mermaid");
+    const result = await compileCli(
+      projectDir,
+      "--actions",
+      "midstream",
+      "--include-deps",
+      "--mermaid",
+    );
     expect(result.exitCode, result.stderr).equals(0);
     const lines = result.stdout.trim().split("\n");
     expect(lines[0]).equals("graph LR");

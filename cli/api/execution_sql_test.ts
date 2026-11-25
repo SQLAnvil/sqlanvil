@@ -320,9 +320,7 @@ suite("ExecutionSql with 'onSchemaChange'", () => {
       const literal = dynamicDmlBlocks[1].split('"""')[0];
 
       expect(literal, name).to.include(String.raw`and T.region = \"EU\"`);
-      expect(literal, name).to.include(
-        String.raw`and (T.field1 != \"\"\"a\\\\b\"\"\")`,
-      );
+      expect(literal, name).to.include(String.raw`and (T.field1 != \"\"\"a\\\\b\"\"\")`);
 
       // Evaluating the escape sequences of the literal yields the original values back.
       const evaluatedLiteral = literal.replace(/\\(.)/g, "$1");

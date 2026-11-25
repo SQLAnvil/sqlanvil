@@ -888,27 +888,23 @@ DROP SCHEMA IF EXISTS \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.p
     const qualified = (name: string) =>
       `\`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.projectConfig.defaultSchema}.${name}\``;
 
-    test(
-      "EXTEND fills the added column on the run that adds it",
-      { timeout: 240000 },
-      async () => {
-        try {
-          expect((await runActions("setup_table")).exitCode).equals(0);
-          // No row of this run may have field2 left NULL by a stale column list.
-          writeDefinition(
-            "check_extend.sqlx",
-            `config { type: "assertion", schema: "${uniqueDataset}", dependencies: ["example_incremental"] }
+    test("EXTEND fills the added column on the run that adds it", { timeout: 240000 }, async () => {
+      try {
+        expect((await runActions("setup_table")).exitCode).equals(0);
+        // No row of this run may have field2 left NULL by a stale column list.
+        writeDefinition(
+          "check_extend.sqlx",
+          `config { type: "assertion", schema: "${uniqueDataset}", dependencies: ["example_incremental"] }
 SELECT * FROM ${qualified("example_incremental")} WHERE field1 = 'new' AND field2 IS NULL
 UNION ALL
 SELECT * FROM ${qualified("example_incremental")} WHERE (SELECT COUNT(*) FROM ${qualified("example_incremental")} WHERE field2 = 'new2') = 0`,
-          );
-          const result = await runActions("example_incremental", "check_extend");
-          expect(result.exitCode, result.stdout + result.stderr).equals(0);
-        } finally {
-          await runActions("teardown_schema");
-        }
-      },
-    );
+        );
+        const result = await runActions("example_incremental", "check_extend");
+        expect(result.exitCode, result.stdout + result.stderr).equals(0);
+      } finally {
+        await runActions("teardown_schema");
+      }
+    });
 
     test(
       "SYNCHRONIZE that drops a column succeeds on the run that drops it",

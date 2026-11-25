@@ -74,9 +74,9 @@ suite("buildProjectCopyFilter", ({ afterEach }) => {
     expect(fs.existsSync(path.join(destinationDir, ".df-credentials.staging.json"))).to.equal(
       false,
     );
-    expect(fs.existsSync(path.join(destinationDir, "includes", ".df-credentials.dev.json"))).to.equal(
-      false,
-    );
+    expect(
+      fs.existsSync(path.join(destinationDir, "includes", ".df-credentials.dev.json")),
+    ).to.equal(false);
     expect(fs.existsSync(path.join(destinationDir, "includes", "credentials.json"))).to.equal(true);
   });
 

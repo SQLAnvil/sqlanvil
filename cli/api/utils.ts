@@ -72,9 +72,7 @@ export function readConfigFromWorkflowSettings(
     if (rawCoreVersion !== undefined && rawCoreVersion !== null && rawCoreVersion !== "") {
       validateSqlanvilCoreVersion(rawCoreVersion);
     }
-    return sqlanvil.WorkflowSettings.create(
-      workflowSettingsAsJson as sqlanvil.IWorkflowSettings,
-    );
+    return sqlanvil.WorkflowSettings.create(workflowSettingsAsJson as sqlanvil.IWorkflowSettings);
   }
   return sqlanvil.WorkflowSettings.create({});
 }

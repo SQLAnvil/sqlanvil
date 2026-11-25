@@ -3151,17 +3151,18 @@ suite("action targets need a dataset", ({ afterEach }) => {
 
   test("fails when schema() is called in an operation without an output or a dataset", () => {
     const projectDir = setUpProject(NO_DEFAULT_DATASET, {
-      "sqlx_op.sqlx": "config { type: \"operations\" } SELECT * FROM `${schema()}.tbl`",
-      "js_op.js": "operate(\"js_op\").queries(ctx => `SELECT * FROM \\`${ctx.schema()}.tbl\\``)",
+      "sqlx_op.sqlx": 'config { type: "operations" } SELECT * FROM `${schema()}.tbl`',
+      "js_op.js": 'operate("js_op").queries(ctx => `SELECT * FROM \\`${ctx.schema()}.tbl\\``)',
     });
 
     const result = runMainInVm(
-      coreExecutionRequestFromPath(projectDir, sqlanvil.ProjectConfig.create({ schemaSuffix: "ds" })),
+      coreExecutionRequestFromPath(
+        projectDir,
+        sqlanvil.ProjectConfig.create({ schemaSuffix: "ds" }),
+      ),
     );
 
-    expect(
-      errorsOf(result).sort((a, b) => a.fileName.localeCompare(b.fileName)),
-    ).deep.equals([
+    expect(errorsOf(result).sort((a, b) => a.fileName.localeCompare(b.fileName))).deep.equals([
       {
         message: NO_DATASET_SCHEMA_CALL_ERROR,
         fileName: "definitions/js_op.js",
@@ -3183,10 +3184,7 @@ suite("actions.yaml enum and declaration column handling", ({ afterEach }) => {
 
   const setUpProject = (definitions: { [file: string]: string }) => {
     const projectDir = tmpDirFixture.createNewTmpDir();
-    fs.writeFileSync(
-      path.join(projectDir, "workflow_settings.yaml"),
-      VALID_WORKFLOW_SETTINGS_YAML,
-    );
+    fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), VALID_WORKFLOW_SETTINGS_YAML);
     fs.mkdirSync(path.join(projectDir, "definitions"));
     Object.entries(definitions).forEach(([file, contents]) =>
       fs.writeFileSync(path.join(projectDir, "definitions", file), contents),
