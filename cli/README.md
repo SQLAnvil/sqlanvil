@@ -67,7 +67,7 @@ sqlanvil <command> [positional arguments] [flags]
 | [`test`](#test) | Run the sqlanvil project's unit tests. |
 | [`validate`](#validate) | Check every model's SQL against the warehouse planner without running it: EXPLAIN on Postgres, Supabase and MySQL, a dry run on BigQuery. |
 | [`run`](#run) | Compile the project and run it against the warehouse named by warehouse: in workflow_settings.yaml. |
-| [`query`](#query) | Run SQL over the project's artifacts in target/ (views: actions, dependencies, columns, runs) with the bundled DuckDB. No warehouse is involved. |
+| [`query`](#query) | Run SQL over the project's artifacts in target/ (views: actions, dependencies, columns, runs, run_summary) with the bundled DuckDB. No warehouse is involved. |
 | [`inspect`](#inspect) | Summarize the artifacts: action counts by type, and the latest run's status, timing and failures. |
 | [`docs`](#docs) | Generate a self-contained HTML catalog of the project at target/docs/index.html, from the artifacts. |
 | [`format`](#format) | Format the project's .sqlx and .js files in place. |
