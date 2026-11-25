@@ -150,7 +150,7 @@ Traces: views `actions`, `dependencies`, `columns`, `runs`, `run_summary`
 ### FR-011 Run SQL over the artifacts with the query command
 Status: verified
 Source: cli/commands/query_command.ts:18 @f4b3f49e
-  cli/commands/artifact_views.ts:43 @1b21ebd2
+  cli/commands/artifact_views.ts:43 @b3206484
 Acceptance (EARS):
 - AC-011.1 When `sqlanvil query "<sql>" <project-dir>` runs on a project with a catalog, the query command shall run the SQL over the artifact views with the bundled DuckDB and print on stdout a header line of the column names, a line of dashes per column, and one line per row, each value padded with spaces to its column's width (the longest of the column name and its values) and the columns separated by two spaces, then an empty line and `(<n> rows)`, or `(1 row)` for one row, and exit with code 0.
 - AC-011.2 When the SQL returns no rows, the query command shall print `(0 rows)` alone and exit with code 0.
