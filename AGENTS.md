@@ -196,7 +196,7 @@ delta #10.)
 
 ### 12. CLI: `sqlanvil <verb>` (the installed CLI — no global `dataform`, no `npm run`)
 ```bash
-sqlanvil init      <projectDir> --warehouse postgres   # or supabase/mysql — scaffolds workflow_settings.yaml + a .df-credentials.json template (BigQuery is the default; it needs a GCP project, and the location is optional since 1.38. With no location, >=1.41 creates a new dataset in the location of the data its first action reads; older releases create it in US). --bare skips the sample project (>=1.23); --interactive (>=1.23) is a guided Q&A (fresh OR convert-a-Dataform-project) incl. the credentials file — for humans at a terminal; agents should use the flags
+sqlanvil init      <projectDir> --warehouse postgres   # or supabase/mysql — scaffolds workflow_settings.yaml + a .df-credentials.json template (BigQuery is the default; it needs a GCP project, and the location is optional since 1.38. With no location, >=1.40 creates a new dataset in the location of the data its first action reads; older releases create it in US). --bare skips the sample project (>=1.23); --interactive (>=1.23) is a guided Q&A (fresh OR convert-a-Dataform-project) incl. the credentials file — for humans at a terminal; agents should use the flags
 sqlanvil compile   <projectDir>                         # --json for the graph; --mermaid (>=1.39) or --dot draws it
 sqlanvil run       <projectDir> --credentials <projectDir>/.df-credentials.json
 sqlanvil run       <projectDir> --credentials ... --full-refresh

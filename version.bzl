@@ -774,7 +774,7 @@ SQLANVIL_VERSION = "1.39.0"
 #     blank (or whitespace) also means unset. Help text gives our real fallback rather than
 #     upstream's "BigQuery chooses dynamically": jobs infer their location from the tables they
 #     read, but #2408 is still deferred, so a missing dataset is created eagerly in US (until
-#     #2408 was taken for 1.41.0, below).
+#     #2408 was taken for 1.40.0, below).
 #
 #   * #2421 warn when SET @@dataset_id is used without any location. TAKEN, BigQuery only:
 #     setsDatasetId plus its GoogleSQL comment/quote lexer, in a new
@@ -912,7 +912,7 @@ SQLANVIL_VERSION = "1.39.0"
 #   * #2408 lazy schema creation STAYS DEFERRED (no change upstream this round).
 #
 # #2408 create schemas lazily (deferred in 3.1.4, 3.1.5 and 3.1.8) TAKEN 2026-11-25, BigQuery only,
-# for 1.41.0. Tracking issue: SQLAnvil/sqlanvil#69.
+# for 1.40.0. Tracking issue: SQLAnvil/sqlanvil#69.
 #
 #   * On BigQuery, `run` no longer creates missing target datasets up front (in a job that reads
 #     nothing, so in US when no location is set). It lists the existing datasets, and the first
