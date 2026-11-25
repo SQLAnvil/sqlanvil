@@ -678,14 +678,11 @@ function convertFieldType(type: string) {
     case "INT64":
       return sqlanvil.Field.Primitive.INTEGER;
     case "NUMERIC":
-    case "BIGNUMERIC":
       return sqlanvil.Field.Primitive.NUMERIC;
     case "BOOL":
     case "BOOLEAN":
       return sqlanvil.Field.Primitive.BOOLEAN;
     case "STRING":
-    case "JSON":
-    case "INTERVAL":
       return sqlanvil.Field.Primitive.STRING;
     case "DATE":
       return sqlanvil.Field.Primitive.DATE;
@@ -710,6 +707,14 @@ function convertFieldType(type: string) {
   }
 }
 
+/**
+ * Whether two column paths have the same segments in the same order. Joining them with no
+ * separator conflated `["user", "id"]` with a flat `userid` column (upstream #2484).
+ */
+function isSameColumnPath(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((segment, index) => segment === right[index]);
+}
+
 function addDescriptionToMetadata(
   columnDescriptions: sqlanvil.IColumnDescriptor[],
   metadataArray: TableField[],
@@ -718,7 +723,7 @@ function addDescriptionToMetadata(
     return metadataArray;
   }
   const findDescription = (path: string[]) =>
-    columnDescriptions.find((column) => column.path.join("") === path.join(""));
+    columnDescriptions.find((column) => isSameColumnPath(column.path ?? [], path));
 
   const mapDescriptionToMetadata = (metadata: TableField, path: string[]) => {
     const description = findDescription(path);
