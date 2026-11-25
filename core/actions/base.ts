@@ -27,7 +27,8 @@ export abstract class ActionBuilder<T> {
       database: targetFromConfig.database || projectConfig.defaultDatabase || undefined,
     });
     if (options?.validateTarget) {
-      this.validateTarget(targetFromConfig, fileName);
+      // The resolved target, so a default from workflow_settings.yaml is checked too (upstream #2461).
+      this.validateTarget(target, fileName);
     }
     return target;
   }

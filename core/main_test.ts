@@ -906,6 +906,7 @@ defaultProject: project`,
         path.join(projectDir, "workflow_settings.yaml"),
         `
 defaultProject: defaultProject
+defaultDataset: defaultDataset
 defaultLocation: locationInWorkflowSettings
 vars:
   selectVar: selectVal
@@ -946,6 +947,7 @@ select 1 AS \${sqlanvil.projectConfig.vars.selectVar}`,
           jitData: {},
           projectConfig: {
             defaultDatabase: "defaultProject",
+            defaultSchema: "defaultDataset",
             defaultLocation: "locationInOverride",
             vars: {
               projectVar: "projectVal",
@@ -958,6 +960,7 @@ select 1 AS \${sqlanvil.projectConfig.vars.selectVar}`,
               canonicalTarget: {
                 database: "projectVal",
                 name: "file",
+                schema: "defaultDataset",
               },
               disabled: false,
               enumType: "TABLE",
@@ -967,6 +970,7 @@ select 1 AS \${sqlanvil.projectConfig.vars.selectVar}`,
               target: {
                 database: "projectVal",
                 name: "file",
+                schema: "defaultDataset",
               },
               type: "table",
             },
@@ -975,6 +979,7 @@ select 1 AS \${sqlanvil.projectConfig.vars.selectVar}`,
             {
               database: "projectVal",
               name: "file",
+              schema: "defaultDataset",
             },
           ],
         }),
@@ -1040,6 +1045,7 @@ vars:
         fs.writeFileSync(
           path.join(projectDir, "workflow_settings.yaml"),
           `
+defaultDataset: "defaultDataset"
 defaultLocation: "us"
 vars:
   descriptionVar: descriptionValue
@@ -1085,6 +1091,7 @@ select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`,
               {
                 canonicalTarget: {
                   name: "tableSchema_file_assertions_rowConditions",
+                  schema: "defaultDataset",
                 },
                 dependencyTargets: [
                   {
@@ -1103,6 +1110,7 @@ select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`,
                   "\nSELECT\n  'columnValue IS NOT NULL' AS failing_row_condition,\n  *\nFROM `databaseVal.tableSchema.file`\nWHERE NOT (columnValue IS NOT NULL)\n",
                 target: {
                   name: "tableSchema_file_assertions_rowConditions",
+                  schema: "defaultDataset",
                 },
               },
             ],
@@ -1110,6 +1118,7 @@ select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`,
             graphErrors: {},
             jitData: {},
             projectConfig: {
+              defaultSchema: "defaultDataset",
               defaultLocation: "us",
               vars: {
                 databaseVar: "databaseVal",
@@ -1144,6 +1153,7 @@ select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`,
             targets: [
               {
                 name: "tableSchema_file_assertions_rowConditions",
+                schema: "defaultDataset",
               },
               {
                 database: "databaseVal",
@@ -2785,7 +2795,10 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       fs.writeFileSync(path.join(projectDir, "definitions/e.sqlx"), `config {type: "view"}`);
       fs.writeFileSync(path.join(projectDir, "definitions/file.sqlx"), "${resolve('e')}");
 
-      const request = coreExecutionRequestFromPath(projectDir);
+      const request = coreExecutionRequestFromPath(
+        projectDir,
+        sqlanvil.ProjectConfig.create({ defaultSchema: "defaultDataset" }),
+      );
       request.compile.compileConfig.extension = {
         name: "@sqlanvil/sample-extension",
         compilationMode: sqlanvil.ExtensionCompilationMode.APPLICATION_CODE,
@@ -2805,7 +2818,10 @@ publish("name", {type: "${fromType}", schema: "schemaOverride"}).type("${toType}
       fs.writeFileSync(path.join(projectDir, "definitions/e.sqlx"), `config {type: "view"}`);
       fs.writeFileSync(path.join(projectDir, "definitions/file.sqlx"), "${resolve('e')}");
 
-      const request = coreExecutionRequestFromPath(projectDir);
+      const request = coreExecutionRequestFromPath(
+        projectDir,
+        sqlanvil.ProjectConfig.create({ defaultSchema: "defaultDataset" }),
+      );
       request.compile.compileConfig.extension = {
         name: "@sqlanvil/sample-extension",
         compilationMode: sqlanvil.ExtensionCompilationMode.PROLOGUE,
@@ -3008,5 +3024,151 @@ select 1 as a`,
         false,
       );
     });
+  });
+});
+
+// Upstream #2461 (3.1.6) and #2476 (3.1.7): every action that materializes something needs a
+// dataset (schema), from defaultDataset or its own config.
+suite("action targets need a dataset", ({ afterEach }) => {
+  const tmpDirFixture = new TmpDirFixture(afterEach);
+  const NO_DATASET_ERROR =
+    "Action targets must have a dataset (schema). Set defaultDataset in workflow_settings.yaml " +
+    "or dataset in the action config.";
+  const NO_DATASET_SCHEMA_CALL_ERROR =
+    "Action targets must have a dataset (schema) to call schema(). Set defaultDataset in " +
+    "workflow_settings.yaml or dataset in the action config.";
+
+  const setUpProject = (workflowSettings: string, definitions: { [file: string]: string }) => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), workflowSettings);
+    fs.mkdirSync(path.join(projectDir, "definitions"));
+    Object.entries(definitions).forEach(([file, contents]) =>
+      fs.writeFileSync(path.join(projectDir, "definitions", file), contents),
+    );
+    return projectDir;
+  };
+
+  const errorsOf = (result: sqlanvil.CoreExecutionResponse) =>
+    result.compile.compiledGraph.graphErrors.compilationErrors.map(
+      ({ message, fileName, actionTarget }) => ({
+        message,
+        fileName,
+        actionTarget: asPlainObject(actionTarget),
+      }),
+    );
+
+  const NO_DEFAULT_DATASET = "defaultProject: defaultProject\ndefaultLocation: US\n";
+
+  [
+    { filename: "action.sqlx", contents: `config { type: "table" } SELECT 1` },
+    { filename: "action.js", contents: `publish("action", { type: "table" }).query("SELECT 1")` },
+    {
+      filename: "operation.sqlx",
+      contents: `config { type: "operations", name: "action", hasOutput: true } SELECT 1`,
+    },
+    {
+      filename: "operation.js",
+      contents: `operate("action", { hasOutput: true }).queries("SELECT 1")`,
+    },
+  ].forEach(({ filename, contents }) => {
+    test(`fails when dataset is set neither in workflow settings nor in ${filename}`, () => {
+      const projectDir = setUpProject(NO_DEFAULT_DATASET, { [filename]: contents });
+
+      const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+      expect(errorsOf(result)).deep.equals([
+        {
+          message: NO_DATASET_ERROR,
+          fileName: `definitions/${filename}`,
+          actionTarget: { database: "defaultProject", name: "action" },
+        },
+      ]);
+    });
+  });
+
+  test("fails for an operation with hasOutput in actions.yaml", () => {
+    const projectDir = setUpProject(NO_DEFAULT_DATASET, {
+      "actions.yaml": "actions:\n- operation:\n    filename: action.sql\n    hasOutput: true\n",
+      "action.sql": "SELECT 1",
+    });
+
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+    expect(errorsOf(result)).deep.equals([
+      {
+        message: NO_DATASET_ERROR,
+        fileName: "definitions/action.sql",
+        actionTarget: { database: "defaultProject", name: "action" },
+      },
+    ]);
+  });
+
+  test("passes when the action sets its own dataset", () => {
+    const projectDir = setUpProject(NO_DEFAULT_DATASET, {
+      "action.sqlx": `config { type: "table", schema: "own" } SELECT 1`,
+    });
+
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors ?? []).deep.equals([]);
+    expect(result.compile.compiledGraph.tables[0].target.schema).equals("own");
+  });
+
+  test("succeeds for operations without an output and no dataset", () => {
+    const projectDir = setUpProject(`sqlanvilCoreVersion: ${version}`, {
+      "actions.yaml": "actions:\n- operation:\n    filename: staged.sql\n",
+      "staged.sql": "SELECT 1",
+      "sqlx_op.sqlx": `config { type: "operations", database: "opProject" } SELECT 2`,
+      "js_op.js": `operate("js_op").queries("SELECT 3")`,
+    });
+
+    const result = runMainInVm(
+      coreExecutionRequestFromPath(
+        projectDir,
+        sqlanvil.ProjectConfig.create({
+          databaseSuffix: "db",
+          schemaSuffix: "ds",
+          tablePrefix: "pre",
+        }),
+      ),
+    );
+
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors ?? []).deep.equals([]);
+    // No "undefined_ds" schema: a missing schema stays missing when suffixes apply.
+    expect(
+      result.compile.compiledGraph.operations
+        .map((operation) => asPlainObject(operation.target))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    ).deep.equals([
+      { name: "pre_js_op" },
+      { name: "pre_sqlx_op", database: "opProject_db" },
+      { name: "pre_staged" },
+    ]);
+  });
+
+  test("fails when schema() is called in an operation without an output or a dataset", () => {
+    const projectDir = setUpProject(NO_DEFAULT_DATASET, {
+      "sqlx_op.sqlx": "config { type: \"operations\" } SELECT * FROM `${schema()}.tbl`",
+      "js_op.js": "operate(\"js_op\").queries(ctx => `SELECT * FROM \\`${ctx.schema()}.tbl\\``)",
+    });
+
+    const result = runMainInVm(
+      coreExecutionRequestFromPath(projectDir, sqlanvil.ProjectConfig.create({ schemaSuffix: "ds" })),
+    );
+
+    expect(
+      errorsOf(result).sort((a, b) => a.fileName.localeCompare(b.fileName)),
+    ).deep.equals([
+      {
+        message: NO_DATASET_SCHEMA_CALL_ERROR,
+        fileName: "definitions/js_op.js",
+        actionTarget: { database: "defaultProject", name: "js_op" },
+      },
+      {
+        message: NO_DATASET_SCHEMA_CALL_ERROR,
+        fileName: "definitions/sqlx_op.sqlx",
+        actionTarget: { database: "defaultProject", name: "sqlx_op" },
+      },
+    ]);
   });
 });

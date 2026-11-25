@@ -342,7 +342,8 @@ export class Session {
         ...resolved.getTarget(),
         database:
           resolved.getTarget().database && this.finalizeDatabase(resolved.getTarget().database),
-        schema: this.finalizeSchema(resolved.getTarget().schema),
+        schema:
+          resolved.getTarget().schema && this.finalizeSchema(resolved.getTarget().schema),
         name: this.finalizeName(resolved.getTarget().name),
       });
     }
@@ -833,6 +834,20 @@ export class Session {
       this.addTestsToCompiledGraph(this.actions);
     }
 
+    // Upstream #2461 / #2476. Not checked: notebooks (they cannot set a dataset in their config),
+    // operations without `hasOutput: true` (they materialize nothing in a dataset), and exports,
+    // extracts and scripts (an export writes a file, an extract always names its own
+    // `<connection>_ext` schema, and a script runs a program). Imports load a table, so they are.
+    this.checkActionTargetsHaveDataset(
+      [].concat(
+        compiledGraph.tables,
+        compiledGraph.assertions,
+        compiledGraph.operations.filter((operation) => operation.hasOutput),
+        compiledGraph.dataPreparations,
+        compiledGraph.imports,
+      ),
+    );
+
     this.fullyQualifyDependencies(
       [].concat(
         compiledGraph.tables,
@@ -986,6 +1001,26 @@ export class Session {
     );
   }
 
+  private checkActionTargetsHaveDataset(actions: ActionProto[]) {
+    actions.forEach((action) => {
+      // Data preparations can have multiple outputs, all of which are listed in `targets`.
+      const dataPreparationTargets = (action as sqlanvil.IDataPreparation).targets;
+      const targets = dataPreparationTargets?.length ? dataPreparationTargets : [action.target];
+      targets.forEach((target) => {
+        if (!target?.schema) {
+          this.compileError(
+            new Error(
+              "Action targets must have a dataset (schema). Set defaultDataset in " +
+                "workflow_settings.yaml or dataset in the action config.",
+            ),
+            action.fileName,
+            target,
+          );
+        }
+      });
+    });
+  }
+
   private fullyQualifyDependencies(actions: ActionProto[]) {
     actions.forEach((action) => {
       const fullyQualifiedDependencies: { [name: string]: sqlanvil.ITarget } = {};
@@ -1051,11 +1086,11 @@ export class Session {
     actions.forEach((action) => {
       newTargetByOriginalTarget.set(targetStringifier.stringify(action.target), {
         ...action.target,
-        database:
-          action.target.database &&
-          `${action.target.database}${this.getDatabaseSuffixWithUnderscore()}`,
-        schema: `${action.target.schema}${this.getSchemaSuffixWithUnderscore()}`,
-        name: `${this.getTablePrefixWithUnderscore()}${action.target.name}`,
+        database: action.target.database
+          ? this.finalizeDatabase(action.target.database)
+          : undefined,
+        schema: action.target.schema ? this.finalizeSchema(action.target.schema) : undefined,
+        name: this.finalizeName(action.target.name),
       });
       action.target = newTargetByOriginalTarget.get(targetStringifier.stringify(action.target));
     });
