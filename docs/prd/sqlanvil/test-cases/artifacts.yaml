@@ -1160,8 +1160,6 @@ T-018.5:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-001
-  symptom: "the wall time on line 10 is 1400ms, the latest end time counted from a start time of 0"
   input:
     project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: [{target: {schema: s, name: src}, status: SUCCESSFUL, timing: {startTimeMillis: 1000, endTimeMillis: 1400}, tasks: []}, {target: {schema: s, name: v}, status: SKIPPED, tasks: []}]}, runId: 124})"
     graph: *G1
@@ -1267,8 +1265,6 @@ T-019.3:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-001
-  symptom: "latestRun.wall_ms is 1400, the latest end time counted from a start time of 0"
   input:
     project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: [{target: {schema: s, name: src}, status: SUCCESSFUL, timing: {startTimeMillis: 1000, endTimeMillis: 1400}, tasks: []}, {target: {schema: s, name: v}, status: SKIPPED, tasks: []}]}, runId: 124})"
     graph: *G1
