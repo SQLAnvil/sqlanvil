@@ -24,7 +24,7 @@ def commit_msg(prd: Prd, repo_root: Path, message: str, staged: list[str], mergi
 
 
 def pre_commit(prd: Prd, repo_root: Path, staged: list[str]) -> list[str]:
-    """Run each enforced standards row on the staged files its glob matches; one problem per failing row."""
+    """Run each enforced standards row on the staged files its glob matches, in its files mode; one problem per failing row."""
     problems = []
     for row in registries.standards_rows(prd):
         if row.decision != "enforced" or not row.command:
@@ -32,13 +32,15 @@ def pre_commit(prd: Prd, repo_root: Path, staged: list[str]) -> list[str]:
         files = standardsrun.hook_paths(staged, trace.glob_re(row.glob))
         if not files:
             continue
+        given = [] if standardsrun.run_mode(row.mode) == "none" else files  # `none`: once, with no path (AC-264.4)
         try:
-            argv = shlex.split(row.command) + files
+            argv = shlex.split(row.command) + given
             r = subprocess.run(argv, cwd=repo_root, capture_output=True, text=True, encoding="utf-8", errors="replace")
         except (OSError, ValueError) as e:
             problems.append(f"`{row.command}` could not run: {e}")
             continue
         if r.returncode != 0:
             out = (r.stdout + r.stderr).strip()
-            problems.append(f"`{row.command}` failed (exit {r.returncode}) on {', '.join(files)}" + (f":\n{out}" if out else ""))
+            on = f" on {', '.join(given)}" if given else ""  # no ` on <paths>` for a run with no path (AC-264.5)
+            problems.append(f"`{row.command}` failed (exit {r.returncode}){on}" + (f":\n{out}" if out else ""))
     return problems

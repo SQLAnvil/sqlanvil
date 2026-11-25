@@ -92,6 +92,47 @@ def verdict_shape_ok(verdict) -> bool:
     return record is None or isinstance(record, str)
 
 
+# --- a PRD loaded once per state of its folder: the inbox lists every worktree's PRD every few seconds, and a load takes
+# seconds, so a listing loads again only a PRD whose folder changed (E-068) ---
+
+_LOADED: dict[Path, tuple[str, Prd]] = {}
+_LOADED_LOCK = threading.Lock()
+
+
+def _fingerprint(prd_dir: Path) -> str:
+    """SHA-1 over every entry under the folder in sorted order: its relative path, and a file's bytes. Raises OSError."""
+    h = hashlib.sha1()
+    for p in sorted(prd_dir.rglob("*")):
+        h.update(p.relative_to(prd_dir).as_posix().encode("utf-8") + b"\0")
+        h.update(b"f" + p.read_bytes() + b"\0" if p.is_file() else b"-\0")
+    return h.hexdigest()
+
+
+def load_unchanged(prd_dir: Path) -> Prd:
+    """`model.load(prd_dir)`, returning the Prd loaded before while no file under the folder has changed since. The Prd is
+    shared, so callers only read it. A folder whose files cannot be read is loaded as `model.load` loads it."""
+    prd_dir = Path(prd_dir).resolve()
+    try:
+        mark = _fingerprint(prd_dir)
+    except OSError:
+        return model.load(prd_dir)
+    with _LOADED_LOCK:
+        hit = _LOADED.get(prd_dir)
+    if hit is not None and hit[0] == mark:
+        return hit[1]
+    prd = model.load(prd_dir)
+    with _LOADED_LOCK:
+        _LOADED[prd_dir] = (mark, prd)
+    return prd
+
+
+def forget_loaded(keep: set[Path]) -> None:
+    """Drop every loaded PRD whose folder is not in `keep` (a worktree removed while the inbox runs)."""
+    with _LOADED_LOCK:
+        for key in [k for k in _LOADED if k not in keep]:
+            del _LOADED[key]
+
+
 def approval_gate(prd_root: Path, branch: str, path: str | None = None) -> Gate | None:
     """Pending when a ready verdict of the right shape has the PRD's digest and the last §14 row ends `; pending`."""
     from .change import digest
@@ -101,9 +142,11 @@ def approval_gate(prd_root: Path, branch: str, path: str | None = None) -> Gate 
         verdict = json.loads(verdict_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    if not verdict_shape_ok(verdict) or verdict["ready"] is not True or verdict["digest"] != digest(prd_root):
+    if not verdict_shape_ok(verdict) or verdict["ready"] is not True:
         return None
-    prd = model.load(Path(prd_root))
+    prd = load_unchanged(Path(prd_root))
+    if verdict["digest"] != digest(prd_root, prd):
+        return None
     last = _last_row(prd)
     if last is None or len(last.cells) < 3 or not last.cells[2].endswith(PENDING):
         return None
@@ -142,7 +185,7 @@ def _approval(prd: Prd, repo_root: Path, worktrees: bool) -> list[Gate]:
 
 def _error_class(prd: Prd) -> list[Gate]:
     return [Gate(f"error-class:{e.id}", "error-class", e.title, f"Proposed class: {e.classification}. Confirm it, or correct it to another class.",
-                 [str(x) for x in e.evidence[:MAX_EVIDENCE]], ["confirm", "correct"], f"errors.md:{e.line}")
+                 [str(x) for x in e.evidence[:MAX_EVIDENCE]], ["confirm", "correct", "question"], f"errors.md:{e.line}")
             for e in prd.errors_ledger.values() if e.state == "proposed"]
 
 
@@ -378,8 +421,10 @@ def _answer_error_class(prd: Prd, gate: Gate, reply: str, choice: str | None, cl
     choice = _pick(gate, choice, "confirm")
     if choice == "correct" and not cls:
         raise Refused("--choice correct needs --class")
-    if choice == "confirm" and cls:
+    if choice in ("confirm", "question") and cls:
         raise Refused("--class goes with --choice correct")
+    if choice == "question":  # AC-254.3: a question is logged for `wait`; nothing is written or committed
+        return {"stdout": [f"recorded a question for {gate.id}"], "exit": 0}
     extra = [f"--class={cls}"] if choice == "correct" else []
     eid = gate.id.split(":", 1)[1]
     out = _run("prd_error.py", "confirm", str(prd.root), eid, f"--reply={reply}", *extra)
@@ -727,6 +772,7 @@ BUTTONS = {
     ("approval", "changes"): ("Request changes", True, {"choice": "changes"}),
     ("error-class", "confirm"): ("Confirm the class", False, {"choice": "confirm"}),
     ("error-class", "correct"): ("Correct it to {cls}", True, {"choice": "correct"}),
+    ("error-class", "question"): ("Ask a question", True, {"choice": "question"}),  # AC-254.3, AC-254.6
     ("deploy-step", "send"): (None, True, {}),
     ("signoff", "pass"): ("Pass", False, {"result": "pass"}),
     ("signoff", "fail"): ("Fail", True, {"result": "fail"}),
@@ -958,7 +1004,7 @@ def card(gate: Gate, prd: Prd, root: Path, rel: str) -> dict:
         out.update(_approval_card(prd, root, rel))
     elif gate.kind == "error-class":
         e = prd.errors_ledger.get(key)
-        out.update({"class": e.classification, "diagnosis": e.diagnosis} if e else {})
+        out.update({"class": e.classification, "diagnosis": e.diagnosis, "explanation": e.explanation} if e else {})
     elif gate.kind == "deploy-step" and unreadable_run(gate):
         out.update({"run": unreadable_run(gate), "unreadable": True})
     elif gate.kind == "deploy-step":
@@ -1001,10 +1047,12 @@ class _Inbox:
 
     def listing(self) -> dict:
         groups, shown, held = [], set(), set()
-        for wt in worktree_prds(self.root, self.rel):
+        listed = worktree_prds(self.root, self.rel)
+        forget_loaded({(Path(wt["path"]) / self.rel).resolve() for wt in listed})
+        for wt in listed:
             root = Path(wt["path"])
             try:
-                prd = model.load(root / self.rel)
+                prd = load_unchanged(root / self.rel)  # E-068: an unchanged worktree's PRD is not loaded again
                 found = [card(g, prd, root, self.rel) for g in list_gates(prd, root)
                          if not (g.kind == "deploy-step" and g.id in shown)  # a run is repo-wide: once, in the first group
                          and not inboxcards.held_earlier(g, prd, held)]  # an entry's card: in the first group holding it

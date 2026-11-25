@@ -6,6 +6,7 @@ import re
 import shlex
 import shutil
 import signal
+import stat
 import subprocess
 import tempfile
 import time
@@ -112,10 +113,15 @@ def _local_env_vars() -> frozenset[str]:
     return frozenset(out.decode().split())
 
 
-def _git_env() -> dict[str, str]:
-    """The command's environment less the variables that point git at a repository (FR-079)."""
+def _run_env() -> dict[str, str]:
+    """The command's environment less the variables that point git at a repository (FR-079, E-036)."""
     local = _local_env_vars()
-    return {**{k: v for k, v in os.environ.items() if k not in local}, "GIT_LITERAL_PATHSPECS": "1"}
+    return {k: v for k, v in os.environ.items() if k not in local}
+
+
+def _git_env() -> dict[str, str]:
+    """A run's environment, with git's pathspecs taken literally (FR-079, E-033)."""
+    return {**_run_env(), "GIT_LITERAL_PATHSPECS": "1"}
 
 
 def _git(repo_root: Path, *args: str, check: bool = True, stdin: bytes | None = None) -> subprocess.CompletedProcess:
@@ -239,10 +245,28 @@ class _Clones:
 
     def drop(self, path: Path) -> None:
         """Removing a clone is removing its folder."""
-        shutil.rmtree(path, ignore_errors=True)
+        _remove(path)
 
     def close(self) -> None:
-        shutil.rmtree(self.folder, ignore_errors=True)
+        _remove(self.folder)
+
+
+def _remove(path: Path) -> None:
+    """Remove a folder whatever a test left in it (FR-079, E-037): every folder under it, a symlink never followed,
+    is first given its owner's read, write and search permission, so a folder left at mode 0500 or 0000 goes too."""
+    stack = [str(path)]
+    while stack:
+        here = stack.pop()
+        try:
+            mode = os.lstat(here).st_mode
+            if not stat.S_ISDIR(mode):
+                continue
+            os.chmod(here, stat.S_IMODE(mode) | stat.S_IRWXU)
+            with os.scandir(here) as entries:
+                stack.extend(e.path for e in entries if e.is_dir(follow_symlinks=False))
+        except OSError:
+            continue
+    shutil.rmtree(path, ignore_errors=True)
 
 
 def _replace_roots(wt: Path, resolving: str, roots: list[str]) -> None:
@@ -270,7 +294,7 @@ def _execute(argv: list[str], cwd: Path, timeout: int) -> tuple[int | None, floa
     start = time.monotonic()
     try:
         proc = subprocess.Popen(argv, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL, start_new_session=True)
+                                stderr=subprocess.DEVNULL, start_new_session=True, env=_run_env())
     except OSError:  # AC-078.14: the operating system cannot start the program
         return None, round(time.monotonic() - start, 3), False, True
     try:
@@ -343,7 +367,7 @@ def _runs(repo_root: Path, rep: Replay, sha: str, commit: str, command: list[str
 def _replay_line(prd: Prd, repo_root: Path, eid: str, line: str, timeout: int | None) -> Replay:
     """Replay a resolved entry's Resolution line: the checks of AC-078.7 in order, then the runs."""
     fix, red = errors._FIX.fullmatch(line), RED_RUN.fullmatch(line)
-    if errors._ENV.fullmatch(line):
+    if errors._ENV.fullmatch(line) or errors.CI_RUN.fullmatch(line):  # a CI run is an environment run (AC-078.3)
         return Replay(eid, "skipped", reason="resolved by an environment run")
     if errors._NOT_A_DEFECT.fullmatch(line):
         return Replay(eid, "skipped", reason="resolved as not a defect")

@@ -114,10 +114,11 @@ def _normalized_prd_md(prd: model.Prd, drop_lines: re.Pattern = _FM_DROP) -> str
     return "\n".join(ln for n, ln in enumerate(lines, 1) if n not in drop)
 
 
-def digest(prd_root: Path) -> str:
-    """SHA-256 hex over the PRD folder's files in sorted relative-path order (`path\\0content\\0`), prd.md normalized."""
+def digest(prd_root: Path, prd: model.Prd | None = None) -> str:
+    """SHA-256 hex over the PRD folder's files in sorted relative-path order (`path\\0content\\0`), prd.md normalized.
+    `prd` is the folder's PRD when the caller has loaded it already; else it is loaded here."""
     root = Path(prd_root).resolve()
-    prd = model.load(root)
+    prd = model.load(root) if prd is None else prd
     h = hashlib.sha256()
     rels = {p.relative_to(root).as_posix(): p for p in _listed(root)}
     for rel in sorted(r for r in rels if not _skipped(r)):

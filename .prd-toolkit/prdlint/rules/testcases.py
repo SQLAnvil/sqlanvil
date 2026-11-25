@@ -19,7 +19,17 @@ from .contracts import custom_items, custom_types, event_names, operation_ids, p
 
 TARGET_KINDS = {"op", "table", "event", "job", "component", "page", "code"}
 
-_HEADING = re.compile(r"^#{1,6}\s+(.*?)\s*$", re.M)
+_HEADING = re.compile(r"^#{1,6}\s+(.*?)\s*$")
+
+
+def _headings(text: str) -> list[str]:
+    """Each heading's text as written, code spans included: a line is a heading only outside
+    fenced code blocks, which strip_code blanks, and its text comes from the original line."""
+    out: list[str] = []
+    for orig, stripped in zip(text.split("\n"), strip_code(text).split("\n")):
+        if _HEADING.match(stripped):
+            out.append(_HEADING.match(orig).group(1))
+    return out
 
 
 def _ref_problem(prd: Prd, ref: object) -> str | None:
@@ -32,8 +42,7 @@ def _ref_problem(prd: Prd, ref: object) -> str | None:
     if not target.is_relative_to(prd.root) or not target.is_file():
         return f"refs entry '{ref}': no file {path} in the PRD folder"
     if heading:
-        headings = _HEADING.findall(strip_code(target.read_text(encoding="utf-8")))
-        if heading not in headings:
+        if heading not in _headings(target.read_text(encoding="utf-8")):
             return f"refs entry '{ref}': {path} has no heading '{heading}'"
     return None
 
@@ -41,7 +50,7 @@ _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)+")
 _PHONE = re.compile(r"(?<!\d)\(?\d{3}\)?[-. ]?\d{3}[-. ]?\d{4}(?!\d)")  # not inside a longer digit run
 _SSN = re.compile(r"(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)")
 _SYNTHETIC_DOMAINS = {"example.com", "example.org", "example.net"}
-_SYNTHETIC_SUFFIXES = (".test", ".example", ".invalid")
+_SYNTHETIC_SUFFIXES = (".example.com", ".example.org", ".example.net", ".test", ".example", ".invalid")
 _AC_NUMBER = re.compile(r"AC-(\d+)\.\d+")
 _TID_NUMBER = re.compile(r"T-(\d+)\.\d+")
 
@@ -140,11 +149,11 @@ def test_cases_consistent(prd: Prd):
     entries = {(tc.file, tc.id): tc for tc in prd.test_cases}
     cited: set[tuple[str | None, str]] = set()
     for b in prd.blocks:
+        if b.tests and b.tests_file is None:  # once for the line, and none of its T-ids is cited
+            yield Finding(b.file, b.tests[0][2], "test-cases-consistent", f"the Tests line of {b.id} names no test-cases file; end it with (test-cases/<area>.yaml)")
+            continue
         for tid, level, line in b.tests:
             cited.add((b.tests_file, tid))
-            if b.tests_file is None:
-                yield Finding(b.file, line, "test-cases-consistent", f"the Tests line of {b.id} names no test-cases file; end it with (test-cases/<area>.yaml)")
-                continue
             if not (prd.root / b.tests_file).is_file():
                 yield Finding(b.file, line, "test-cases-consistent", f"{tid}: the named file {b.tests_file} does not exist")
                 continue
