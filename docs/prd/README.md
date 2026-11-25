@@ -6,7 +6,7 @@ step with its code. Code implements its PRD; a change in behaviour starts in the
 
 | PRD | Version | Status | Covers |
 |---|---|---|---|
-| [sqlanvil](sqlanvil/) | 2.2.0 | Approved | sqlanvil is an open-source SQL workflow tool, a fork of Dataform OSS, that compiles a project of SQLX, YAML and JavaScript into a dependency graph of actions and runs it against BigQuery, PostgreSQL, Supabase or MySQL/MariaDB, generating each warehouse's own idiomatic SQL. |
+| [sqlanvil](sqlanvil/) | 2.2.1 | Approved | sqlanvil is an open-source SQL workflow tool, a fork of Dataform OSS, that compiles a project of SQLX, YAML and JavaScript into a dependency graph of actions and runs it against BigQuery, PostgreSQL, Supabase or MySQL/MariaDB, generating each warehouse's own idiomatic SQL. |
 
 ## How it works
 

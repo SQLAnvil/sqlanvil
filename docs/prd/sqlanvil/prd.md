@@ -1,6 +1,6 @@
 ---
 prd: sqlanvil
-version: 2.2.0
+version: 2.2.1
 status: Approved
 owner: Ivan Histand
 updated: 2026-11-25
@@ -191,3 +191,4 @@ None.
 | 2.0.1 | 2026-11-25 | test case T-021.8 and the Harness view globs corrected to match AC-021.3 (run_summary view); dry run T-021.8, 0 open questions, 0 dismissed by quote | FR-021, T-021.8 |
 | 2.1.0 | 2026-11-25 | contracts/schema.sql (duckdb) declares the artifact views actions, dependencies, columns, runs and run_summary with the columns and types AC-001.2, AC-005.1 and AC-005.11 state, so a linked PRD can cite them; run_summary classified; catalog files named by full path in AC-001.2, AC-010.1, AC-010.4 and the glossary; no dry run (contract and wording only) | FR-001, FR-002, FR-003, FR-004, FR-005, FR-010, AC-001.2, AC-010.1, AC-010.4 |
 | 2.2.0 | 2026-11-25 | the query command help names all five views it runs SQL over, as (views: actions, dependencies, columns, runs, run_summary) (AC-011.5; sqlanvil-com E-001); dry run T-011.5, 0 open questions, 2 dismissed by quote | FR-011, AC-011.5, T-011.5 |
+| 2.2.1 | 2026-11-25 | format: links.md (prd-toolkit 0.7), consumer sqlanvil-com; no dry run (links.md only) | - |

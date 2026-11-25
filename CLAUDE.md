@@ -178,13 +178,14 @@ The same pattern runs `:supabase.spec` / `:supabase_rls.spec` with `SUPABASE_*` 
 <!-- prd-toolkit:start -->
 ## Product requirements (by prd_block.py; do not edit)
 
-The PRD at `docs/prd/sqlanvil` (version 2.2.0) is the authority.
+The PRD at `docs/prd/sqlanvil` (version 2.2.1) is the authority.
 
 - To learn what an area does, run `/prd-toolkit:prd-context <area>` and work from its pack; read
   whole PRD files only to edit them. Build an approved change with
   `/prd-toolkit:prd-build <area> <IDs>`. Code implements the PRD; it never defines behaviour the PRD
   lacks.
-- Every behaviour change in an adopted area starts with `/prd-toolkit:prd-change`, before code.
+- Every behaviour change in an adopted area starts with `/prd-toolkit:prd-change`, before code; one
+  to a cited item, with `/prd-toolkit:prd-change-set`.
 - Gap rule: if the PRD is silent on what you need, stop and raise it with
   `/prd-toolkit:prd-change`. Do not guess or read the code to fill the gap.
 - Deploy with `/prd-toolkit:prd-deploy`; never run a runbook command yourself.

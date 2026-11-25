@@ -5,7 +5,7 @@ This folder is the living PRD for **sqlanvil**: the requirements that say what i
 step with the code. The code implements this PRD, and a change in behaviour starts here, not in
 the code. It is maintained with prd-toolkit, a Claude Code plugin (see [../README.md](../README.md) to set it up).
 
-Version 2.2.0 · Approved · Owner: Ivan Histand · Updated 2026-11-25
+Version 2.2.1 · Approved · Owner: Ivan Histand · Updated 2026-11-25
 
 ## What this PRD covers
 
@@ -30,6 +30,17 @@ Version 2.2.0 · Approved · Owner: Ivan Histand · Updated 2026-11-25
 | `operations.md` | Environments and the deploy runbook |
 | `nfr.md` | Non-functional requirements (`NFR-nnn`) |
 | `adoption.md` | Which areas of the existing code are under this PRD, and their state |
+| `links.md` | The PRDs whose contracts this one uses or provides |
+
+## Linked PRDs
+
+**Upstreams**
+
+- none
+
+**Consumers**
+
+- [../sqlanvil-com](../sqlanvil-com)
 
 ## Reading and changing it
 
