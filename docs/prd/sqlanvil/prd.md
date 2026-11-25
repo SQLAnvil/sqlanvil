@@ -143,7 +143,7 @@ The CLI's interface is its commands, flags and output, documented in `cli/README
 | FR-003 | Shape one dependency row per dependency edge | live | features/artifacts.md | 1.0.0 |
 | FR-004 | Shape one column row per documented column | live | features/artifacts.md | 1.0.0 |
 | FR-005 | Write a run-history Parquet file per run | verified | features/artifacts.md |  |
-| FR-006 | Keep the columns of an empty artifact file | approved | features/artifacts.md |  |
+| FR-006 | Keep the columns of an empty artifact file | verified | features/artifacts.md |  |
 | FR-007 | Remove the staging file after a Parquet write | live | features/artifacts.md | 1.0.0 |
 | FR-008 | Never fail the caller when artifacts cannot be written | live | features/artifacts.md | 1.0.0 |
 | FR-009 | Read the project's artifacts, and refuse without a catalog | live | features/artifacts.md | 1.0.0 |

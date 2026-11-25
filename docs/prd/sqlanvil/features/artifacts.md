@@ -84,8 +84,8 @@ Tests: T-005.1 [integration], T-005.2 [integration], T-005.3 [integration], T-00
 Traces: UJ-01; `target/runs/run_<run id>.parquet`; `target/run_summary/run_<run id>.parquet`
 
 ### FR-006 Keep the columns of an empty artifact file
-Status: approved
-Source: cli/api/dbadapters/duckdb_artifacts.ts:30 @f4b3f49e
+Status: verified
+Source: cli/api/dbadapters/duckdb_artifacts.ts:33 @0ac7a311
 Acceptance (EARS):
 - AC-006.1 When a rowset is empty, the artifact writer shall write a Parquet file with zero rows whose column names are that file's column list, in order, and whose column types are the types the same columns have in a file written from rows.
 Errors: -
