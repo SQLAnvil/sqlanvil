@@ -928,6 +928,25 @@ T-011.4:
     effects: []
     errors: [QUERY_SQL_REJECTED]
     leaks: none
+T-011.5:
+  ac: AC-011.5
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    env: {NO_COLOR: "1"}
+    argv: [query, "--help"]
+    normalize: "stdout with every run of white space (help text may wrap) collapsed to one space"
+  expect:
+    output:
+      exit_code: 0
+      stdout_normalized_contains: "(views: actions, dependencies, columns, runs, run_summary)"
+    effects: []
+    errors: []
+    leaks: none
 T-012.1:
   ac: AC-012.1
   level: integration

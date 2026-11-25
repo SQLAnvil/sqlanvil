@@ -148,17 +148,18 @@ Tests: T-010.1 [integration], T-010.2 [integration], T-010.3 [integration], T-01
 Traces: views `actions`, `dependencies`, `columns`, `runs`, `run_summary`
 
 ### FR-011 Run SQL over the artifacts with the query command
-Status: live (since 1.0.0)
+Status: approved
 Source: cli/commands/query_command.ts:18 @f4b3f49e
-  cli/commands/artifact_views.ts:36 @f4b3f49e
+  cli/commands/artifact_views.ts:43 @1b21ebd2
 Acceptance (EARS):
 - AC-011.1 When `sqlanvil query "<sql>" <project-dir>` runs on a project with a catalog, the query command shall run the SQL over the artifact views with the bundled DuckDB and print on stdout a header line of the column names, a line of dashes per column, and one line per row, each value padded with spaces to its column's width (the longest of the column name and its values) and the columns separated by two spaces, then an empty line and `(<n> rows)`, or `(1 row)` for one row, and exit with code 0.
 - AC-011.2 When the SQL returns no rows, the query command shall print `(0 rows)` alone and exit with code 0.
 - AC-011.3 The query command shall print a null value as an empty string in the table.
 - AC-011.4 If DuckDB rejects the SQL, the query command shall print an error containing DuckDB's error message on stderr and exit with code 1.
+- AC-011.5 When `sqlanvil query --help` runs, the CLI shall print the query command's description, which names the views it runs SQL over as `(views: actions, dependencies, columns, runs, run_summary)`, and exit with code 0.
 Errors: QUERY_SQL_REJECTED (contracts/errors.yaml)
-Edge cases: SQL that DuckDB rejects → AC-011.4 (owner, 2026-11-22); one positional argument → AC-013.3
-Tests: T-011.1 [integration], T-011.2 [integration], T-011.3 [integration], T-011.4 [integration]  (test-cases/artifacts.yaml)
+Edge cases: SQL that DuckDB rejects → AC-011.4 (owner, 2026-11-22); one positional argument → AC-013.3; the views the help names → AC-011.5 (sqlanvil-com E-001)
+Tests: T-011.1 [integration], T-011.2 [integration], T-011.3 [integration], T-011.4 [integration], T-011.5 [integration]  (test-cases/artifacts.yaml)
 Traces: UJ-01
 
 ### FR-012 Print query results as JSON
