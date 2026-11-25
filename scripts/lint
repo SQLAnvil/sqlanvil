@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Type-aware lint rules need the npm types in node_modules and the generated sources in bazel-bin.
 bazel run -- @pnpm//:pnpm --dir "$PWD" install --frozen-lockfile
@@ -9,7 +9,5 @@ bazel build //protos:ts //core:version
 # rules that mattered, including ordered-imports and the core/ sandbox guard).
 bazel run //:eslint -- '**/*.ts'
 
-# Run prettier on .ts files changed since the branching point
-BASE_REF=$(git rev-parse --verify --quiet origin/main || echo main)
-git diff -z --name-only --diff-filter=ACMR "$(git merge-base $BASE_REF HEAD)" -- '*.ts' \
-  | xargs -0 -r bazel run //:prettier -- --ignore-path .prettierignore --check
+# Check formatting of all .ts files with prettier (upstream #2458: CI runs this on every PR).
+bazel run //:prettier -- --ignore-path .prettierignore --check '**/*.ts'

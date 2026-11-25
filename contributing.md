@@ -125,8 +125,9 @@ with `--test_env`; the fixture then skips Docker.
 
 - TypeScript throughout (no JavaScript in `core/` or `cli/`)
 - `eslint.config.js` and `.prettierrc` at the repo root: `./scripts/lint` runs eslint over every
-  `.ts` file (including the `core/` no-Node-built-ins guard and import ordering) and prettier
-  over the files your branch changed; `./scripts/format` rewrites those files with prettier.
+  `.ts` file (including the `core/` no-Node-built-ins guard and import ordering) and checks every
+  `.ts` file with prettier; `./scripts/format` rewrites them. The `lint` GitHub Actions workflow
+  runs `./scripts/lint` on every pull request.
 - Run `bazel build //...` and `bazel test //...` before submitting a PR
 
 ### Changing CLI commands or flags
