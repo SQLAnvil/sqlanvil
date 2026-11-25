@@ -819,8 +819,11 @@ sqlanvil format --check    # exits 1 if anything would change — use as a CI st
 
 ```bash
 sqlanvil inspect
-sqlanvil query "select readable_name, status from runs where run_id = (select max(run_id) from runs)"
+sqlanvil query "select readable_name, status from runs where run_id = (select max(run_id) from run_summary)"
 ```
+
+`run_summary` has a row for every run, including one where no action ran, so it names the same latest
+run `inspect` reports. It needs 1.40.0 or newer; artifacts written by older versions have only `runs`.
 
 ### Tracking and labeling BigQuery jobs from a run
 
