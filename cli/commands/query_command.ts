@@ -28,7 +28,7 @@ export const queryCommand: ICommand = {
   format: `query [sql] [${projectDirOption.name}]`,
   description:
     "Run SQL over the project's artifacts in target/ (views: actions, dependencies, columns, " +
-    "runs) with the bundled DuckDB. No warehouse is involved.",
+    "runs, run_summary) with the bundled DuckDB. No warehouse is involved.",
   positionalOptions: [
     positionalOption(
       "sql",

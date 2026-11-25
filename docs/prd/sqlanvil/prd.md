@@ -1,10 +1,11 @@
 ---
 prd: sqlanvil
-version: 2.0.1
+version: 2.2.0
 status: Approved
 owner: Ivan Histand
 updated: 2026-11-25
 language: en
+sql-dialect: duckdb
 ---
 
 <!-- Format: references/prd-format.md, "prd.md sections". -->
@@ -25,7 +26,6 @@ language: en
 - Repository: https://github.com/SQLAnvil/sqlanvil
 - Not used: npm `scripts` in `package.json` (everything runs through Bazel)
 - Not applicable: `contracts/openapi.yaml` — sqlanvil has no HTTP API; its interface is the CLI and the `@sqlanvil/core` package
-- Not applicable: `contracts/schema.sql` — sqlanvil owns no database; the tables it writes belong to the user's project
 - Not applicable: `contracts/events.md` — sqlanvil publishes and consumes no events and runs no scheduled jobs of its own
 - Not applicable: `contracts/permissions.yaml` — the CLI has no roles; it acts with the warehouse credentials the user gives it
 - Not applicable: `contracts/config.yaml` — sqlanvil has no deployed settings per environment; a project's `workflow_settings.yaml` is user input, described by requirements
@@ -63,7 +63,7 @@ Principles:
 | named connection | A source warehouse declared under `connections:`, read through the FDW bridge or by runner-extract | none |
 | shadow schema | The timestamped namespace `sqlanvil validate` builds empty stub tables in, dropped after the run | none |
 | artifacts | The Parquet catalog and run history sqlanvil writes under `target/` | none |
-| catalog | The three artifact files `target/catalog/actions.parquet`, `dependencies.parquet` and `columns.parquet`, rewritten by every compile and run that writes artifacts | none |
+| catalog | The three artifact files `target/catalog/actions.parquet`, `target/catalog/dependencies.parquet` and `target/catalog/columns.parquet`, rewritten by every compile and run that writes artifacts | none |
 | run history | The artifact files `target/runs/run_<run id>.parquet`, one per run, kept until the user deletes them | none |
 | named environment | A set of schema suffixes and variables chosen with `--environment` | none |
 
@@ -107,6 +107,7 @@ flowchart LR
 
 | Type | Files (glob) | Validator |
 |---|---|---|
+| schema | `contracts/schema.sql` | built-in |
 | errors | `contracts/errors.yaml` | built-in |
 | classification | `contracts/data-classification.yaml` | built-in |
 | dependencies | `contracts/dependencies/*.yaml` | built-in |
@@ -148,7 +149,7 @@ The CLI's interface is its commands, flags and output, documented in `cli/README
 | FR-008 | Never fail the caller when artifacts cannot be written | live | features/artifacts.md | 1.0.0 |
 | FR-009 | Read the project's artifacts, and refuse without a catalog | live | features/artifacts.md | 1.0.0 |
 | FR-010 | Expose the artifacts as DuckDB views | verified | features/artifacts.md |  |
-| FR-011 | Run SQL over the artifacts with the query command | live | features/artifacts.md | 1.0.0 |
+| FR-011 | Run SQL over the artifacts with the query command | verified | features/artifacts.md |  |
 | FR-012 | Print query results as JSON | live | features/artifacts.md | 1.0.0 |
 | FR-013 | Require SQL for the query command | live | features/artifacts.md | 1.0.0 |
 | FR-014 | Return 64-bit integers as JSON-safe values | live | features/artifacts.md | 1.0.0 |
@@ -188,3 +189,5 @@ None.
 | 1.0.4 | 2026-11-24 | regression test for E-007; dry run T-018.7, T-019.5, 0 open questions, 3 dismissed by quote | FR-018, FR-019, T-018.7, T-019.5 |
 | 2.0.0 | 2026-11-25 | run-summary files and run_summary view so a run with no action results is recorded (E-002); dry run T-005.7, T-005.8, T-005.9, T-005.10, T-005.12, T-010.6, T-010.7, T-018.8, 0 open questions, 1 dismissed by quote | UJ-01, FR-005, FR-010, FR-018, FR-019, FR-021, AC-005.7, AC-005.8, AC-005.9, AC-005.10, AC-005.11, AC-010.6, AC-018.2, AC-018.4, AC-019.1, AC-019.2, AC-021.3, AC-021.4, T-005.7, T-005.8, T-005.9, T-005.10, T-005.12, T-010.6, T-010.7, T-018.8 |
 | 2.0.1 | 2026-11-25 | test case T-021.8 and the Harness view globs corrected to match AC-021.3 (run_summary view); dry run T-021.8, 0 open questions, 0 dismissed by quote | FR-021, T-021.8 |
+| 2.1.0 | 2026-11-25 | contracts/schema.sql (duckdb) declares the artifact views actions, dependencies, columns, runs and run_summary with the columns and types AC-001.2, AC-005.1 and AC-005.11 state, so a linked PRD can cite them; run_summary classified; catalog files named by full path in AC-001.2, AC-010.1, AC-010.4 and the glossary; no dry run (contract and wording only) | FR-001, FR-002, FR-003, FR-004, FR-005, FR-010, AC-001.2, AC-010.1, AC-010.4 |
+| 2.2.0 | 2026-11-25 | the query command help names all five views it runs SQL over, as (views: actions, dependencies, columns, runs, run_summary) (AC-011.5; sqlanvil-com E-001); dry run T-011.5, 0 open questions, 2 dismissed by quote | FR-011, AC-011.5, T-011.5 |

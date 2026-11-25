@@ -15,7 +15,7 @@ Source: cli/api/commands/artifacts.ts:89 @d6eab0db
 Flow: 1. writeArtifacts(graph, projectDir) → 2. shapes catalog rows → 3. writes actions, dependencies and columns Parquet under `<projectDir>/target/catalog/` → 4. resolves `{targetDir}`
 Acceptance (EARS):
 - AC-001.1 When writeArtifacts is called with a compiled graph and a project directory, the artifact writer shall write `target/catalog/actions.parquet`, `target/catalog/dependencies.parquet` and `target/catalog/columns.parquet` under that directory, creating the directories that are missing, and resolve with `targetDir` set to `<projectDir>/target`.
-- AC-001.2 The artifact writer shall write `actions.parquet` with the columns target_key, database, schema, name, readable_name, type, tags, disabled, file_name, description; `dependencies.parquet` with from_target_key, to_target_key, from_readable, to_readable; and `columns.parquet` with target_key, readable_name, column_name, description, in those orders. Every column has type VARCHAR except actions.disabled, which is BOOLEAN, and no value is null.
+- AC-001.2 The artifact writer shall write `target/catalog/actions.parquet` with the columns target_key, database, schema, name, readable_name, type, tags, disabled, file_name, description; `target/catalog/dependencies.parquet` with from_target_key, to_target_key, from_readable, to_readable; and `target/catalog/columns.parquet` with target_key, readable_name, column_name, description, in those orders. Every column has type VARCHAR except actions.disabled, which is BOOLEAN, and no value is null.
 - AC-001.3 When writeArtifacts is called again for the same project directory, the artifact writer shall replace the three catalog files with the rows of the new graph.
 - AC-001.4 When the project directory's path contains a single quote, the artifact writer shall write the artifacts as it does for any other path.
 Errors: -
@@ -136,10 +136,10 @@ Source: cli/commands/artifact_views.ts:33 @d6310e44
   cli/commands/artifact_views.ts:28 @f4b3f49e
   cli/api/dbadapters/duckdb_artifacts.ts:74 @d6eab0db
 Acceptance (EARS):
-- AC-010.1 When an artifact command runs, the command shall expose `target/catalog/actions.parquet`, `dependencies.parquet` and `columns.parquet` as the views `actions`, `dependencies` and `columns`.
+- AC-010.1 When an artifact command runs, the command shall expose `target/catalog/actions.parquet`, `target/catalog/dependencies.parquet` and `target/catalog/columns.parquet` as the views `actions`, `dependencies` and `columns`.
 - AC-010.2 While `target/runs/` holds at least one `.parquet` file, the artifact commands shall expose every `target/runs/*.parquet` file together as one view named `runs`.
 - AC-010.3 If `target/runs/` is missing or holds no `.parquet` file, the artifact commands shall create no `runs` view.
-- AC-010.4 If `dependencies.parquet` or `columns.parquet` is missing while `actions.parquet` exists, the query command shall still run SQL that reads only the views that exist.
+- AC-010.4 If `target/catalog/dependencies.parquet` or `target/catalog/columns.parquet` is missing while `target/catalog/actions.parquet` exists, the query command shall still run SQL that reads only the views that exist.
 - AC-010.5 When the project directory's path contains a single quote, the artifact commands shall read the artifacts as they do for any other path.
 - AC-010.6 While `target/run_summary/` holds at least one `.parquet` file, the artifact commands shall expose every `target/run_summary/*.parquet` file together as one view named `run_summary`; if `target/run_summary/` is missing or holds no `.parquet` file, they shall create no `run_summary` view.
 Errors: -
@@ -148,17 +148,18 @@ Tests: T-010.1 [integration], T-010.2 [integration], T-010.3 [integration], T-01
 Traces: views `actions`, `dependencies`, `columns`, `runs`, `run_summary`
 
 ### FR-011 Run SQL over the artifacts with the query command
-Status: live (since 1.0.0)
+Status: verified
 Source: cli/commands/query_command.ts:18 @f4b3f49e
-  cli/commands/artifact_views.ts:36 @f4b3f49e
+  cli/commands/artifact_views.ts:43 @b3206484
 Acceptance (EARS):
 - AC-011.1 When `sqlanvil query "<sql>" <project-dir>` runs on a project with a catalog, the query command shall run the SQL over the artifact views with the bundled DuckDB and print on stdout a header line of the column names, a line of dashes per column, and one line per row, each value padded with spaces to its column's width (the longest of the column name and its values) and the columns separated by two spaces, then an empty line and `(<n> rows)`, or `(1 row)` for one row, and exit with code 0.
 - AC-011.2 When the SQL returns no rows, the query command shall print `(0 rows)` alone and exit with code 0.
 - AC-011.3 The query command shall print a null value as an empty string in the table.
 - AC-011.4 If DuckDB rejects the SQL, the query command shall print an error containing DuckDB's error message on stderr and exit with code 1.
+- AC-011.5 When `sqlanvil query --help` runs, the CLI shall print the query command's description, which names the views it runs SQL over as `(views: actions, dependencies, columns, runs, run_summary)`, and exit with code 0.
 Errors: QUERY_SQL_REJECTED (contracts/errors.yaml)
-Edge cases: SQL that DuckDB rejects → AC-011.4 (owner, 2026-11-22); one positional argument → AC-013.3
-Tests: T-011.1 [integration], T-011.2 [integration], T-011.3 [integration], T-011.4 [integration]  (test-cases/artifacts.yaml)
+Edge cases: SQL that DuckDB rejects → AC-011.4 (owner, 2026-11-22); one positional argument → AC-013.3; the views the help names → AC-011.5 (sqlanvil-com E-001)
+Tests: T-011.1 [integration], T-011.2 [integration], T-011.3 [integration], T-011.4 [integration], T-011.5 [integration]  (test-cases/artifacts.yaml)
 Traces: UJ-01
 
 ### FR-012 Print query results as JSON

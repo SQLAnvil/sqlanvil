@@ -21,6 +21,10 @@ tables:
     retention: one file per run (target/runs/run_<run id>.parquet), kept indefinitely
     deletion: sqlanvil never deletes it; the user deletes target/runs/
     columns: {run_id: internal, run_status: internal, target_key: internal, readable_name: internal, status: internal, start_millis: internal, end_millis: internal, duration_millis: internal, error_message: confidential}
+  run_summary:
+    retention: one file per run (target/run_summary/run_<run id>.parquet), kept indefinitely
+    deletion: sqlanvil never deletes it; the user deletes target/run_summary/
+    columns: {run_id: internal, run_status: internal}
 masking:
   logs: "connection passwords, tokens and keys from .df-credentials.json never appear in CLI stdout or stderr"
   errors: "warehouse error text may appear (it is confidential, as runs.error_message), but never a credential value"
