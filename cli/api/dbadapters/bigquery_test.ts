@@ -75,6 +75,46 @@ class FakeSourceClient extends AuthClient {
 }
 
 suite("BigQueryDbAdapter", () => {
+  test("tables() returns empty list when dataset does not exist yet", async () => {
+    const mockBigQuery = mock<any>();
+    const mockDataset = mock<Dataset>();
+
+    const adapter = new BigQueryDbAdapter(
+      sqlanvil.BigQuery.create({ projectId: "project1", location: "US" }),
+      { clientProvider: () => instance(mockBigQuery) },
+    );
+
+    when(mockBigQuery.dataset("missing_schema")).thenReturn(instance(mockDataset));
+    when(mockDataset.getTables(anything())).thenReturn(
+      Promise.reject({ errors: [{ reason: "notFound" }] }),
+    );
+
+    expect(await adapter.tables("project1", "missing_schema")).to.deep.equal([]);
+  });
+
+  test("tables() rethrows errors other than notFound", async () => {
+    const mockBigQuery = mock<any>();
+    const mockDataset = mock<Dataset>();
+
+    const adapter = new BigQueryDbAdapter(
+      sqlanvil.BigQuery.create({ projectId: "project1", location: "US" }),
+      { clientProvider: () => instance(mockBigQuery) },
+    );
+
+    when(mockBigQuery.dataset("restricted_schema")).thenReturn(instance(mockDataset));
+    when(mockDataset.getTables(anything())).thenReturn(
+      Promise.reject(new Error("Access Denied: Dataset project1:restricted_schema")),
+    );
+
+    let caughtError: Error | undefined;
+    try {
+      await adapter.tables("project1", "restricted_schema");
+    } catch (e) {
+      caughtError = e;
+    }
+    expect(caughtError?.message).to.equal("Access Denied: Dataset project1:restricted_schema");
+  });
+
   test("tables() with schema filters correctly", async () => {
     const mockBigQuery = mock<any>();
     const mockDataset = mock<Dataset>();

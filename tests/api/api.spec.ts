@@ -153,6 +153,27 @@ suite("@sqlanvil/api", () => {
       });
     });
 
+    test("operations carry hasOutput into the execution graph", () => {
+      const graph = sqlanvil.CompiledGraph.create({
+        projectConfig: { warehouse: "bigquery" },
+        operations: [
+          {
+            target: { schema: "schema", name: "with_output" },
+            queries: ["select 1"],
+            hasOutput: true,
+          },
+          { target: { schema: "schema", name: "without_output" }, queries: ["select 1"] },
+        ],
+      });
+
+      const executedGraph = new Builder(graph, {}, TEST_STATE).build();
+
+      const byName = (name: string) =>
+        executedGraph.actions.find((action) => action.target.name === name);
+      expect(byName("with_output").hasOutput).equals(true);
+      expect(!!byName("without_output").hasOutput).equals(false);
+    });
+
     test("table_enum_types", () => {
       const graph: sqlanvil.ICompiledGraph = sqlanvil.CompiledGraph.create({
         projectConfig: { warehouse: "bigquery" },
