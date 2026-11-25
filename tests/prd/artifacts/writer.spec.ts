@@ -18,11 +18,6 @@ import {
   withTmpDirs,
   withTmpdirEnv,
 } from "sa/tests/prd/artifacts/helpers";
-import {
-  expectKnownFailure,
-  isParserErrorAfterQuote,
-  knownFailure,
-} from "sa/tests/prd/artifacts/known_failing";
 
 // A protobufjs Long value is Long.fromNumber(n) from the `long` package (testing.md, Layout).
 const LongModule: any = require("long");
@@ -140,32 +135,19 @@ suite("prd artifacts: writer", () => {
     });
   });
 
-  test("@prd T-001.4 known-failing E-006 writes the artifacts under a path holding a single quote", async () => {
+  test("@prd T-001.4 writes the artifacts under a path holding a single quote", async () => {
     // Q: a new empty temporary directory whose name contains a single quote (o'brien-…).
     await withTmpDir(async (Q) => {
       expect(path.basename(Q), "precondition: Q's name holds a single quote").to.contain("'");
       expect(sortedEntries(Q), "precondition: Q is empty").to.deep.equal([]);
-      await expectKnownFailure("E-006", async () => {
-        let result: any;
-        try {
-          result = await write(g1(), Q, { runResult: r1(), runId: 123 });
-        } catch (e) {
-          if (isParserErrorAfterQuote(e, path.basename(Q))) {
-            knownFailure(
-              'writeArtifacts rejects with `Parser Error: syntax error at or near "<token>"`, where <token> is the start of the text after the single quote in the directory name',
-              e instanceof Error ? e.message : String(e),
-            );
-          }
-          throw e;
-        }
-        expect(result.targetDir).to.equal(path.join(Q, "target"));
-        expect(sortedEntries(path.join(Q, "target/catalog"))).to.include.members([
-          "actions.parquet",
-          "dependencies.parquet",
-          "columns.parquet",
-        ]);
-        expect(sortedEntries(path.join(Q, "target/runs"))).to.include("run_123.parquet");
-      });
+      const result: any = await write(g1(), Q, { runResult: r1(), runId: 123 });
+      expect(result.targetDir).to.equal(path.join(Q, "target"));
+      expect(sortedEntries(path.join(Q, "target/catalog"))).to.include.members([
+        "actions.parquet",
+        "dependencies.parquet",
+        "columns.parquet",
+      ]);
+      expect(sortedEntries(path.join(Q, "target/runs"))).to.include("run_123.parquet");
     }, "o'brien-");
   });
 

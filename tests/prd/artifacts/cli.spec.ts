@@ -18,11 +18,6 @@ import {
   withTmpDir,
   withTmpDirs,
 } from "sa/tests/prd/artifacts/helpers";
-import {
-  expectKnownFailure,
-  isParserErrorAfterQuote,
-  knownFailure,
-} from "sa/tests/prd/artifacts/known_failing";
 
 const write: any = writeArtifacts;
 
@@ -164,27 +159,15 @@ suite("prd artifacts: commands", () => {
     });
   });
 
-  test("@prd T-010.5 known-failing E-006 query reads a project whose path holds a single quote", async () => {
+  test("@prd T-010.5 query reads a project whose path holds a single quote", async () => {
     // Q: a temporary directory whose name contains a single quote (o'brien-…).
     await withTmpDir(async (Q) => {
       expect(path.basename(Q), "precondition: Q's name holds a single quote").to.contain("'");
-      await expectKnownFailure("E-006", async () => {
-        // Setup: target/ written by writeArtifacts(G1, Q).
-        try {
-          await write(g1(), Q);
-        } catch (e) {
-          if (isParserErrorAfterQuote(e, path.basename(Q))) {
-            knownFailure(
-              'writing the project\'s artifacts rejects with `Parser Error: syntax error at or near "<token>"`, where <token> is the start of the text after the single quote in the directory name, so the query does not run',
-              e instanceof Error ? e.message : String(e),
-            );
-          }
-          throw e;
-        }
-        const r = await runCli(["query", "select count(*) as n from actions", Q, "--json"]);
-        expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
-        expectFields(json(r.stdout), [{ n: 3 }]);
-      });
+      // Setup: target/ written by writeArtifacts(G1, Q).
+      await write(g1(), Q);
+      const r = await runCli(["query", "select count(*) as n from actions", Q, "--json"]);
+      expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
+      expectFields(json(r.stdout), [{ n: 3 }]);
     }, "o'brien-");
   });
 
