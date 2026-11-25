@@ -1,64 +1,9 @@
+import { concatenateQueries } from "sa/cli/api/utils/query_transforms";
 import { sqlanvil } from "sa/protos/ts";
 
-function formatStatement(statement: string, isLast: boolean, modifier?: (mod: string) => string) {
-  // Only treat a comment as trailing if it lives on the statement's last line.
-  // Searching from the last newline avoids misreading an interior comment (e.g.
-  // inside a multi-line procedure body) as a trailing comment.
-  const lastLineStart = statement.lastIndexOf("\n") + 1;
-  const commentIndex = statement.indexOf("--", lastLineStart);
-
-  let code: string;
-  let comment: string;
-
-  if (commentIndex === 0) {
-    code = "";
-    comment = statement;
-  } else if (commentIndex > 0) {
-    code = statement.substring(0, commentIndex).trimEnd();
-    comment = statement.substring(commentIndex);
-  } else {
-    code = statement;
-    comment = "";
-  }
-
-  if (modifier && code.length > 0) {
-    code = modifier(code);
-  }
-
-  if (!isLast && code.length > 0 && !code.endsWith(";")) {
-    code = code + ";";
-  }
-
-  if (code.length > 0 && comment.length > 0) {
-    return code + " " + comment;
-  }
-  return code || comment;
-}
-
-export function concatenateQueries(statements: string[], modifier?: (mod: string) => string) {
-  const processed = statements
-    .filter((statement) => !!statement)
-    .map((statement) => statement.trim())
-    .filter((statement) => statement.length > 0);
-  const formattedStatements = processed.map((statement, index) =>
-    formatStatement(statement, index === processed.length - 1, modifier),
-  );
-  return formattedStatements.join("\n");
-}
-
-/**
- * Terminates each statement with a semicolon (placed before a trailing comment) and joins the
- * non-empty ones with newlines. Unlike concatenateQueries, the last statement is terminated too,
- * for statements that are followed by more code in the same script (upstream #2320).
- */
-export function terminateStatements(statements: string[]): string {
-  return statements
-    .filter((statement) => !!statement)
-    .map((statement) => statement.trim())
-    .filter((statement) => statement.length > 0)
-    .map((statement) => formatStatement(statement, false))
-    .join("\n");
-}
+// concatenateQueries and terminateStatements live in cli/api/utils/query_transforms.ts (where
+// upstream #2408 moved concatenateQueries); re-exported for existing callers.
+export { concatenateQueries, terminateStatements } from "sa/cli/api/utils/query_transforms";
 
 export class Tasks {
   private tasks: Task[] = [];

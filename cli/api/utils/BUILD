@@ -23,7 +23,11 @@ ts_library(
 
 ts_test_suite(
     name = "tests",
-    srcs = ["query_transforms_test.ts"],
+    srcs = [
+        "dry_run_validation_test.ts",
+        "error_parsing_test.ts",
+        "query_transforms_test.ts",
+    ],
     deps = [
         ":utils",
         "//testing",

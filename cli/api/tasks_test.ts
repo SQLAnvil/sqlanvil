@@ -52,6 +52,12 @@ suite("concatenateQueries", () => {
     );
   });
 
+  test("keeps leading whitespace if trimLeadingWhitespace is false", () => {
+    expect(
+      concatenateQueries(["SELECT 1", "\n\n  SELECT 2  \n", "  \n  "], undefined, false),
+    ).deep.equals("SELECT 1;\n\n\n  SELECT 2");
+  });
+
   test("filters out empty and falsy statements", () => {
     expect(concatenateQueries(["SELECT 1", "", "SELECT 2"])).deep.equals("SELECT 1;\nSELECT 2");
     expect(concatenateQueries(["SELECT 1", undefined, "SELECT 2"])).deep.equals(
