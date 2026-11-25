@@ -444,24 +444,15 @@ suite("prd artifacts: commands", () => {
     });
   });
 
-  test("@prd T-018.5 known-failing E-001 inspect's wall time skips rows with no timing", async () => {
+  test("@prd T-018.5 inspect's wall time skips rows with no timing", async () => {
     await withTmpDir(async (P) => {
-      await expectKnownFailure("E-001", async () => {
-        await write(g1(), P, { runResult: runWithSkipped(), runId: 124 });
-        const r = await runCli(["inspect", P]);
-        expect(r.exitCode).to.equal(0);
-        const line10 = lines(r.stdout)[9];
-        if (typeof line10 === "string" && / 1400ms$/.test(line10)) {
-          knownFailure(
-            "the wall time on line 10 is 1400ms, the latest end time counted from a start time of 0",
-            line10,
-          );
-        }
-        expect(lines(r.stdout).slice(8, 10)).to.deep.equal([
-          "",
-          "Latest run (SUCCESSFUL): 1 succeeded, 0 failed, 400ms",
-        ]);
-      });
+      await write(g1(), P, { runResult: runWithSkipped(), runId: 124 });
+      const r = await runCli(["inspect", P]);
+      expect(r.exitCode).to.equal(0);
+      expect(lines(r.stdout).slice(8, 10)).to.deep.equal([
+        "",
+        "Latest run (SUCCESSFUL): 1 succeeded, 0 failed, 400ms",
+      ]);
     });
   });
 
@@ -515,24 +506,15 @@ suite("prd artifacts: commands", () => {
     });
   });
 
-  test("@prd T-019.3 known-failing E-001 inspect --json wall time skips rows with no timing", async () => {
+  test("@prd T-019.3 inspect --json wall time skips rows with no timing", async () => {
     await withTmpDir(async (P) => {
-      await expectKnownFailure("E-001", async () => {
-        await write(g1(), P, { runResult: runWithSkipped(), runId: 124 });
-        const r = await runCli(["inspect", P, "--json"]);
-        expect(r.exitCode).to.equal(0);
-        const out = json(r.stdout);
-        if (out && out.latestRun && out.latestRun.wall_ms === 1400) {
-          knownFailure(
-            "latestRun.wall_ms is 1400, the latest end time counted from a start time of 0",
-            JSON.stringify(out.latestRun),
-          );
-        }
-        expectFields(out, {
-          actionsByType: ACTIONS_BY_TYPE_JSON,
-          latestRun: { run_id: 124, run_status: "SUCCESSFUL", succeeded: 1, failed: 0, wall_ms: 400 },
-          failures: [],
-        });
+      await write(g1(), P, { runResult: runWithSkipped(), runId: 124 });
+      const r = await runCli(["inspect", P, "--json"]);
+      expect(r.exitCode).to.equal(0);
+      expectFields(json(r.stdout), {
+        actionsByType: ACTIONS_BY_TYPE_JSON,
+        latestRun: { run_id: 124, run_status: "SUCCESSFUL", succeeded: 1, failed: 0, wall_ms: 400 },
+        failures: [],
       });
     });
   });
