@@ -24,8 +24,32 @@ const ACTION_COLUMNS = [
   "file_name",
   "description",
 ];
+const ACTION_TYPES = {
+  target_key: "VARCHAR",
+  database: "VARCHAR",
+  schema: "VARCHAR",
+  name: "VARCHAR",
+  readable_name: "VARCHAR",
+  type: "VARCHAR",
+  tags: "VARCHAR",
+  disabled: "BOOLEAN",
+  file_name: "VARCHAR",
+  description: "VARCHAR",
+};
 const DEPENDENCY_COLUMNS = ["from_target_key", "to_target_key", "from_readable", "to_readable"];
+const DEPENDENCY_TYPES = {
+  from_target_key: "VARCHAR",
+  to_target_key: "VARCHAR",
+  from_readable: "VARCHAR",
+  to_readable: "VARCHAR",
+};
 const COLUMN_COLUMNS = ["target_key", "readable_name", "column_name", "description"];
+const COLUMN_TYPES = {
+  target_key: "VARCHAR",
+  readable_name: "VARCHAR",
+  column_name: "VARCHAR",
+  description: "VARCHAR",
+};
 const RUN_COLUMNS = [
   "run_id",
   "run_status",
@@ -66,13 +90,24 @@ export async function writeArtifacts(
   const catalogDir = path.join(targetDir, "catalog");
 
   const { actions, dependencies, columns } = catalogRows(compiledGraph);
-  await writeParquet(actions, path.join(catalogDir, "actions.parquet"), ACTION_COLUMNS);
+  await writeParquet(
+    actions,
+    path.join(catalogDir, "actions.parquet"),
+    ACTION_COLUMNS,
+    ACTION_TYPES,
+  );
   await writeParquet(
     dependencies,
     path.join(catalogDir, "dependencies.parquet"),
     DEPENDENCY_COLUMNS,
+    DEPENDENCY_TYPES,
   );
-  await writeParquet(columns, path.join(catalogDir, "columns.parquet"), COLUMN_COLUMNS);
+  await writeParquet(
+    columns,
+    path.join(catalogDir, "columns.parquet"),
+    COLUMN_COLUMNS,
+    COLUMN_TYPES,
+  );
 
   if (options.runResult) {
     const runId = options.runId !== undefined ? options.runId : Date.now();
