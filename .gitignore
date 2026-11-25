@@ -44,3 +44,6 @@ tools/supabase/.supabase-stack/
 .env
 .prd-judge/
 .prd-review.json
+
+# Local Claude Code skills and settings (per-machine, not part of the repo)
+.claude/
