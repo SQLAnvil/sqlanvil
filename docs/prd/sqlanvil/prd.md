@@ -155,8 +155,8 @@ The CLI's interface is its commands, flags and output, documented in `cli/README
 | FR-015 | Open a fresh in-memory DuckDB for each artifact query | live | features/artifacts.md | 1.0.0 |
 | FR-016 | Redirect DuckDB's home directory when HOME is unset | live | features/artifacts.md | 1.0.0 |
 | FR-017 | Report a DuckDB binding that fails to load | live | features/artifacts.md | 1.0.0 |
-| FR-018 | Summarize the artifacts with the inspect command | approved | features/artifacts.md |  |
-| FR-019 | Print the inspect summary as JSON | approved | features/artifacts.md |  |
+| FR-018 | Summarize the artifacts with the inspect command | built | features/artifacts.md |  |
+| FR-019 | Print the inspect summary as JSON | built | features/artifacts.md |  |
 | FR-020 | Write the HTML catalog with the docs command | live | features/artifacts.md | 1.0.0 |
 | FR-021 | Build the docs catalog model from the artifacts | approved | features/artifacts.md |  |
 | FR-022 | Render the docs catalog as one self-contained HTML page | live | features/artifacts.md | 1.0.0 |
