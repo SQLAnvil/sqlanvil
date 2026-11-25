@@ -2,7 +2,7 @@ import * as fs from "fs-extra";
 import * as os from "os";
 import * as path from "path";
 
-import { allAsync, runAsync, withDuckdb } from "sa/cli/api/dbadapters/duckdb";
+import { allAsync, runAsync, sqlStringLiteral, withDuckdb } from "sa/cli/api/dbadapters/duckdb";
 
 /**
  * Parquet I/O for the queryable artifacts, via the bundled DuckDB (`@duckdb/node-api`).
@@ -41,7 +41,8 @@ export async function writeParquet(
     await withDuckdb(async (conn) => {
       await runAsync(
         conn,
-        `COPY (SELECT ${selectList} FROM read_json_auto('${tmp}')${whereFalse}) TO '${outPath}' (FORMAT parquet)`,
+        `COPY (SELECT ${selectList} FROM read_json_auto(${sqlStringLiteral(tmp)})${whereFalse}) ` +
+          `TO ${sqlStringLiteral(outPath)} (FORMAT parquet)`,
       );
     });
   } finally {
@@ -73,7 +74,7 @@ export async function queryParquet(sql: string, views: ArtifactView[]): Promise<
     for (const view of views) {
       await runAsync(
         conn,
-        `create view ${view.name} as select * from read_parquet('${view.glob}')`,
+        `create view ${view.name} as select * from read_parquet(${sqlStringLiteral(view.glob)})`,
       );
     }
     const rows = await allAsync(conn, sql);
