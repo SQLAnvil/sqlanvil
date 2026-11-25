@@ -34,14 +34,22 @@ const DEPENDENCIES_COLUMNS = ["from_target_key", "to_target_key", "from_readable
 const COLUMNS_COLUMNS = ["target_key", "readable_name", "column_name", "description"];
 
 // The views of T-021.1 over P (testing.md, Harness, Layout): actions, dependencies and columns
-// over P/target/catalog/<name>.parquet and, when asked, runs over P/target/runs/*.parquet.
-function views(P: string, withRuns: boolean): Array<{ name: string; glob: string }> {
+// over P/target/catalog/<name>.parquet and, when asked, runs over P/target/runs/*.parquet and
+// run_summary over P/target/run_summary/*.parquet (T-021.8).
+function views(
+  P: string,
+  withRuns: boolean,
+  withRunSummary = false,
+): Array<{ name: string; glob: string }> {
   const out = ["actions", "dependencies", "columns"].map((name) => ({
     name,
     glob: path.join(P, "target/catalog", `${name}.parquet`),
   }));
   if (withRuns) {
     out.push({ name: "runs", glob: path.join(P, "target/runs/*.parquet") });
+  }
+  if (withRunSummary) {
+    out.push({ name: "run_summary", glob: path.join(P, "target/run_summary/*.parquet") });
   }
   return out;
 }
@@ -260,8 +268,8 @@ suite("prd artifacts: docs builder", () => {
     await withTmpDir(async (P) => {
       await write(g1(), P, { runResult: r1(), runId: 123 });
       await write(g1(), P, { runResult: successfulEmptyRun(), runId: 200 });
-      // The four views of T-021.1, over P.
-      const model = await build(views(P, true), GENERATED_AT);
+      // The four views of T-021.1 and the run_summary view, over P.
+      const model = await build(views(P, true, true), GENERATED_AT);
       expectFields(model, { latestRun: { runId: 200, status: "SUCCESSFUL" } }, "model");
       expectFields(byReadable(model, "s.v"), { status: ABSENT }, "s.v");
       expectFields(byReadable(model, "s.src"), { status: ABSENT }, "s.src");
