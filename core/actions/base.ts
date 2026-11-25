@@ -100,7 +100,9 @@ export abstract class ActionBuilder<T> {
         inlineAssertions.uniqueKeyAssertions.push(uniqueKeyAssertion);
       });
     }
-    const mergedRowConditions = tableAssertionsConfig.rowConditions || [];
+    // Copy, so nonNull conditions are not appended to an array the user may share across actions
+    // (upstream #2424).
+    const mergedRowConditions = [...(tableAssertionsConfig.rowConditions || [])];
     if (!!tableAssertionsConfig.nonNull) {
       const nonNullCols =
         typeof tableAssertionsConfig.nonNull === "string"

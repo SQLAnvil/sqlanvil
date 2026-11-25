@@ -83,15 +83,20 @@ WHERE index_row_count > 1
 
   public rowConditionsAssertion(dataset: string, rowConditions: string[]) {
     return rowConditions
-      .map(
-        (rowCondition: string) => `
+      .map((rowCondition: string) => {
+        // A condition ending in a line comment ("--" everywhere, "#" on BigQuery and MySQL) would
+        // comment out a closing parenthesis on the same line, so close on a new line when the
+        // condition has one or spans lines (upstream #2424). On Postgres "#" is an operator, and
+        // the extra line break is harmless.
+        const closingParenthesis = /\n|--|#/.test(rowCondition) ? "\n)" : ")";
+        return `
 SELECT
   ${this.sqlString(rowCondition)} AS failing_row_condition,
   *
 FROM ${dataset}
-WHERE NOT (${rowCondition})
-`,
-      )
+WHERE NOT (${rowCondition}${closingParenthesis}
+`;
+      })
       .join(`UNION ALL`);
   }
 }

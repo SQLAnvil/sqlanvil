@@ -1107,3 +1107,131 @@ actions:
 function prefixAdjustedName(prefix: string | undefined, name: string) {
   return prefix ? `${prefix}_${name}` : name;
 }
+
+// Upstream #2424 (3.1.7), which adopted the escaping fix sqlanvil carried for #42.
+suite("rowConditions SQL generation", ({ afterEach }) => {
+  const tmpDirFixture = new TmpDirFixture(afterEach);
+
+  const setUpProject = (definitions: { [file: string]: string }, workflowSettings?: string) => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(
+      path.join(projectDir, "workflow_settings.yaml"),
+      workflowSettings ?? VALID_WORKFLOW_SETTINGS_YAML,
+    );
+    fs.mkdirSync(path.join(projectDir, "definitions"));
+    Object.entries(definitions).forEach(([file, contents]) =>
+      fs.writeFileSync(path.join(projectDir, "definitions", file), contents),
+    );
+    return projectDir;
+  };
+
+  const rowConditionsQuery = (projectDir: string, tableName = "test") => {
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+    return result.compile.compiledGraph.assertions.find(
+      (assertion) =>
+        assertion.target.name === `defaultDataset_${tableName}_assertions_rowConditions`,
+    ).query;
+  };
+
+  const compileRowConditionsQuery = (rowConditionsSource: string, workflowSettings?: string) =>
+    rowConditionsQuery(
+      setUpProject(
+        {
+          "test.sqlx": `config {
+  type: "table",
+  assertions: {
+    rowConditions: [${rowConditionsSource}]
+  }
+}
+SELECT 1 AS a, 1 AS b`,
+        },
+        workflowSettings,
+      ),
+    );
+
+  test("multiline conditions produce single-line failing_row_condition literals", () => {
+    // BigQuery rejects single-quoted literals that span lines (#42, upstream #2201).
+    const query = compileRowConditionsQuery("`a > 0\n  AND b > 0`");
+
+    expect(query).contains("'a > 0\\n  AND b > 0' AS failing_row_condition");
+    // The WHERE clause keeps the condition exactly as authored.
+    expect(query).contains("WHERE NOT (a > 0\n  AND b > 0\n)");
+  });
+
+  test("carriage returns, quotes and backslashes are escaped in the literal", () => {
+    const condition = "CAST(a AS STRING) = r'x\\y'\r\nOR b > 0";
+    const query = compileRowConditionsQuery(JSON.stringify(condition));
+
+    expect(query).contains(
+      String.raw`'CAST(a AS STRING) = r\'x\\y\'\r\nOR b > 0' AS failing_row_condition`,
+    );
+    expect(query).contains(`WHERE NOT (${condition}\n)`);
+  });
+
+  test("trailing line comments do not swallow the closing parenthesis", () => {
+    const query = compileRowConditionsQuery(`"a > 0 -- must be positive", "b > 0 # hash comment"`);
+
+    expect(query).contains("WHERE NOT (a > 0 -- must be positive\n)");
+    expect(query).contains("WHERE NOT (b > 0 # hash comment\n)");
+  });
+
+  test("a one-line condition without a comment closes on the same line", () => {
+    expect(compileRowConditionsQuery(`"a > 0"`)).contains("WHERE NOT (a > 0)\n");
+  });
+
+  test("on Postgres a commented condition closes on a new line, and quotes double", () => {
+    const query = compileRowConditionsQuery(
+      `"a <> 'x' -- not x"`,
+      "warehouse: postgres\ndefaultDataset: defaultDataset\n",
+    );
+
+    expect(query).contains("'a <> ''x'' -- not x' AS failing_row_condition");
+    expect(query).contains("WHERE NOT (a <> 'x' -- not x\n)");
+  });
+
+  test("actions.yaml block scalar conditions compile to valid SQL", () => {
+    // Plain YAML "|" keeps the final newline, so even a one-line condition hit #42.
+    const projectDir = setUpProject({
+      "test.sql": "SELECT 1 AS a",
+      "actions.yaml": `
+actions:
+- table:
+    filename: test.sql
+    assertions:
+      rowConditions:
+        - |
+          a > 0 -- must be positive
+`,
+    });
+
+    const query = rowConditionsQuery(projectDir);
+
+    expect(query).contains("'a > 0 -- must be positive\\n' AS failing_row_condition");
+    expect(query).contains("WHERE NOT (a > 0 -- must be positive\n\n)");
+  });
+
+  test("nonNull does not modify a rowConditions array shared between actions", () => {
+    const projectDir = setUpProject({
+      "tables.js": `
+const sharedRowConditions = ["a > 0"];
+publish("t1", { type: "table", assertions: { rowConditions: sharedRowConditions, nonNull: ["id"] } })
+  .query("SELECT 1 AS a, 1 AS id");
+publish("t2", { type: "table", assertions: { rowConditions: sharedRowConditions, nonNull: ["id"] } })
+  .query("SELECT 1 AS a, 1 AS id");
+publish("t3", { type: "table", assertions: { rowConditions: sharedRowConditions } })
+  .query("SELECT 1 AS a");
+`,
+    });
+
+    const failingRowConditions = (tableName: string) =>
+      rowConditionsQuery(projectDir, tableName).match(/'[^']*' AS failing_row_condition/g);
+    const expectedWithNonNull = [
+      "'a > 0' AS failing_row_condition",
+      "'id IS NOT NULL' AS failing_row_condition",
+    ];
+    expect(failingRowConditions("t1")).deep.equals(expectedWithNonNull);
+    expect(failingRowConditions("t2")).deep.equals(expectedWithNonNull);
+    expect(failingRowConditions("t3")).deep.equals(["'a > 0' AS failing_row_condition"]);
+  });
+});

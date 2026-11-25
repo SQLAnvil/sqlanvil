@@ -153,8 +153,9 @@ suite("CompilationSql", () => {
 
       // The label literal is escaped to a single line so BigQuery accepts it...
       expect(result).to.contain("'a > 0\\n  AND b > 0' AS failing_row_condition");
-      // ...while the WHERE clause keeps the raw (newline-containing) expression.
-      expect(result).to.contain("WHERE NOT (a > 0\n  AND b > 0)");
+      // ...while the WHERE clause keeps the raw (newline-containing) expression, closed on a new
+      // line so a trailing line comment can't swallow the parenthesis (upstream #2424).
+      expect(result).to.contain("WHERE NOT (a > 0\n  AND b > 0\n)");
     });
 
     test("joins multiple conditions with UNION ALL", () => {
