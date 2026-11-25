@@ -1,9 +1,9 @@
 ---
 prd: sqlanvil
-version: 1.0.2
+version: 1.0.3
 status: Approved
 owner: Ivan Histand
-updated: 2026-11-23
+updated: 2026-11-24
 language: en
 ---
 
@@ -40,7 +40,7 @@ Goals:
 
 Personas: data engineers who build SQL pipelines on PostgreSQL, Supabase or MySQL/MariaDB and may never have used BigQuery, and BigQuery users of Dataform OSS (A-01, confirmed by the owner 2026-11-22).
 
-Out of scope: OpenLineage emission (a standing won't-build, `version.bzl`); the hosted runner, which lives in the separate sqlanvil-cloud repository; column-level lineage and a graph view in `sqlanvil docs`; the VS Code extension under `vscode/` (A-02, confirmed by the owner 2026-11-22; `vscode/` added the same day).
+Out of scope: OpenLineage emission (a standing won't-build, `version.bzl`); the hosted runner, which lives in the separate sqlanvil-cloud repository; column-level lineage and a graph view in `sqlanvil docs`; the VS Code extension, which lives in the separate SQLAnvil/vscode-sqlanvil-tools repository (A-02, confirmed by the owner 2026-11-22; upstream Dataform's copy under `vscode/` was removed in the 3.1.6–3.1.8 upstream sync, SQLAnvil/sqlanvil#67).
 
 Principles:
 
@@ -89,8 +89,8 @@ flowchart LR
 
 | Object (glob) | Linter command | Rules live in | Applies to | Decision |
 |---|---|---|---|---|
-| `**/*.ts` | `scripts/bazel-ci run //:eslint -- '**/*.ts'` (run locally by `scripts/lint`, which first installs node_modules and builds the generated sources; not run in CI, E-009) | `eslint.config.js`, `eslint-rules/` | code | declined |
-| `**/*.ts` | `scripts/bazel-ci run //:prettier -- --ignore-path .prettierignore --check` (every tracked .ts file in CI; `scripts/lint` checks the files changed on the branch; `.prettierignore` leaves out the generated characterization suites under `tests/prd/`, E-010) | `.prettierrc`, `.prettierignore` | code | enforced |
+| `**/*.ts` | `scripts/bazel-ci run //:eslint -- '**/*.ts'` (run by `scripts/lint`, which first installs node_modules and builds the generated sources, locally and in the repository's own `lint` GitHub Actions workflow, added in the 3.1.6–3.1.8 upstream sync; not a prd-toolkit CI job, E-009) | `eslint.config.js`, `eslint-rules/` | code | declined |
+| `**/*.ts` | `scripts/bazel-ci run //:prettier -- --ignore-path .prettierignore --check` (every tracked .ts file in CI; `scripts/lint` checks every .ts file too, since the 3.1.6–3.1.8 upstream sync; `.prettierignore` leaves out the generated characterization suites under `tests/prd/`, E-010) | `.prettierrc`, `.prettierignore` | code | enforced |
 | `cli/README.md` | `scripts/bazel-ci test //cli:readme_generated_test` (a unit-level target, so the unit level already runs it; not a separate CI job, E-011) | `cli/` command and option definitions | code | declined |
 
 ## 6. Skills registry
@@ -121,7 +121,7 @@ See adoption.md.
 ## 9. Versioning
 
 - Version scheme: `SQLANVIL_VERSION` in `version.bzl` is sqlanvil's own SemVer line and the published `@sqlanvil/*` version; `DF_VERSION` is the upstream Dataform release the fork is synced to, shown as metadata (`sqlanvil --version`) only.
-- Upstream citations: behaviour inherited unchanged from Dataform OSS is recorded as requirements whose `Source:` cites the upstream file in `dataform-co/dataform` at the tag named by `DF_VERSION` (today `3.1.5`), the release the fork is synced to; an upstream sync moves the cited tag with it (decided on SQLAnvil/sqlanvil#63, tag chosen by the owner 2026-11-22).
+- Upstream citations: behaviour inherited unchanged from Dataform OSS is recorded as requirements whose `Source:` cites the upstream file in `dataform-co/dataform` at the tag named by `DF_VERSION` (today `3.1.8`), the release the fork is synced to; an upstream sync moves the cited tag with it (decided on SQLAnvil/sqlanvil#63, tag chosen by the owner 2026-11-22; moved from `3.1.5` to `3.1.8` by the sync on SQLAnvil/sqlanvil#67).
 - Compatibility: the CLI requires a `@sqlanvil/core` with the same major version and at least the CLI's `major.minor.0`.
 - Breaking for the CLI: a removed or renamed command or flag, a changed exit code, or a changed field in `--json` output. Human-readable text output may change in a minor release (owner, 2026-11-22).
 - Breaking for projects: a `workflow_settings.yaml` key, an action config key or an `actions.yaml` key that is removed or changes meaning, so a project that compiled before fails or behaves differently. A new optional key is not breaking (owner, 2026-11-22).
@@ -131,7 +131,7 @@ See adoption.md.
 
 ## 10. Design & UI
 
-The CLI's interface is its commands, flags and output, documented in `cli/README.md` (generated from the definitions in `cli/`). `sqlanvil docs` renders a self-contained HTML catalog to `target/docs/index.html`. The VS Code extension under `vscode/` is upstream Dataform's, kept only for upstream syncs, and is not specified by this PRD; the maintained extension is the separate SQLAnvil/vscode-sqlanvil-tools repository (owner, 2026-11-22).
+The CLI's interface is its commands, flags and output, documented in `cli/README.md` (generated from the definitions in `cli/`). `sqlanvil docs` renders a self-contained HTML catalog to `target/docs/index.html`. The VS Code extension is not specified by this PRD: the maintained extension is the separate SQLAnvil/vscode-sqlanvil-tools repository (owner, 2026-11-22). Upstream Dataform's extension under `vscode/`, once kept for upstream syncs, was removed in the 3.1.6–3.1.8 upstream sync (SQLAnvil/sqlanvil#67).
 
 ## 11. Requirement index
 
@@ -184,3 +184,4 @@ None.
 | 1.0.0 | 2026-11-23 | Approved; artifacts area adopted; suite all 85 T-ids: 75 pass, T-001.4 and T-010.5 known-failing E-006, T-005.9, T-018.6, T-019.4 and T-021.8 known-failing E-002, T-006.1 known-failing E-003, T-018.5 and T-019.3 known-failing E-001, T-021.7 known-failing E-004; dry run T-001.2, T-020.3, T-019.1, T-014.1, T-008.2: 0 open questions, 1 dismissed by quote | UJ-01, FR-001, FR-002, FR-003, FR-004, FR-005, FR-006, FR-007, FR-008, FR-009, FR-010, FR-011, FR-012, FR-013, FR-014, FR-015, FR-016, FR-017, FR-018, FR-019, FR-020, FR-021, FR-022, FR-023, FR-024 |
 | 1.0.1 | 2026-11-23 | Bazel commands in Levels and the standards rows run through scripts/bazel-ci, which creates a missing ~/.npmrc (E-008); no dry run (no T-id changed; harness and linter commands only) | - |
 | 1.0.2 | 2026-11-23 | eslint and README rows declined for CI (E-009, E-011), tests/prd left out of prettier (E-010), warehouse level at the deploy gate with the CLI live-BigQuery test (E-012); no dry run (no T-id changed; registry rows and levels only) | - |
+| 1.0.3 | 2026-11-24 | upstream 3.1.6-3.1.8 sync (#67): vscode/ removed, DF_VERSION tag 3.1.8, lint now in the repository lint workflow and over every .ts file; no dry run (wording only) | - |
