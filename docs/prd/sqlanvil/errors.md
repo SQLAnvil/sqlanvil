@@ -26,7 +26,7 @@ Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test
   T-019.4: latestRun.run_id is 123 (FAILED, 1 succeeded, 1 failed, 600) where run 200 is intended
   T-021.8: latestRun.runId is 123 where run 200 is intended
 Diagnosis: The run id and run status are stored only in per-action rows (artifacts.ts:29-39, artifact_rows.ts:170-185). A run result with no action results therefore writes `run_<id>.parquet` with zero rows (artifacts.ts:64-70, duckdb_artifacts.ts:30-32), and `max(run_id)` never sees that run (inspect_command.ts:30, 36; docs.ts:63). inspect and docs then report the previous run as "Latest run" or "Last run", or "No runs recorded yet." when it is the only run. The docs say otherwise: inspect summarizes "the latest run's status" (inspect_command.ts:65, cli/README.md:402), run "adds a run-history entry" (cli/README.md:53), and docs shows "last-run status" (docs.ts:5).
-Resolution: open, intended: a run with no action results is recorded with its run id and run status, and inspect and docs report it as the latest run with 0 succeeded and 0 failed (confirmed a bug by Ivan Histand, 2026-11-22)
+Resolution: T-018.6 [integration], PRD 2.0.1, fixed in 8e627876
 Recurrence of: -
 
 ### E-003 An empty artifact file does not keep its columns' types
