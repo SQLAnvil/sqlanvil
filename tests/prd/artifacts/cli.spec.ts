@@ -188,6 +188,59 @@ suite("prd artifacts: commands", () => {
     }, "o'brien-");
   });
 
+  test("@prd T-010.6 exposes every run-summary file together as the run_summary view", async () => {
+    await withTmpDir(async (P) => {
+      await write(g1(), P, { runResult: r1(), runId: 100 });
+      await write(g1(), P, {
+        runResult: {
+          status: sqlanvil.RunResult.ExecutionStatus.SUCCESSFUL,
+          actions: [
+            {
+              target: { schema: "s", name: "src" },
+              status: sqlanvil.ActionResult.ExecutionStatus.SUCCESSFUL,
+              timing: { startTimeMillis: 1, endTimeMillis: 2 },
+              tasks: [],
+            },
+          ],
+        },
+        runId: 200,
+      });
+      const r = await runCli([
+        "query",
+        "select run_id, run_status from run_summary order by run_id",
+        P,
+        "--json",
+      ]);
+      expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
+      expectFields(json(r.stdout), [
+        { run_id: 100, run_status: "FAILED" },
+        { run_id: 200, run_status: "SUCCESSFUL" },
+      ]);
+    });
+  });
+
+  test("@prd T-010.7 creates no run_summary view when target/run_summary holds no parquet file", async () => {
+    await withTmpDir(async (P) => {
+      await write(g1(), P, { runResult: r1(), runId: 123 });
+      // Every file under P/target/run_summary removed, then P/target/run_summary/notes.txt added.
+      const summaryDir = path.join(P, "target/run_summary");
+      for (const entry of fs.readdirSync(summaryDir)) {
+        fs.rmSync(path.join(summaryDir, entry), { recursive: true, force: true });
+      }
+      fs.writeFileSync(path.join(summaryDir, "notes.txt"), "notes");
+      expect(fs.readdirSync(summaryDir), "precondition: no .parquet file").to.deep.equal([
+        "notes.txt",
+      ]);
+      const r = await runCli(["inspect", P, "--json"]);
+      expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
+      expectFields(json(r.stdout), {
+        actionsByType: ACTIONS_BY_TYPE_JSON,
+        latestRun: { run_id: 123, run_status: "FAILED", succeeded: 1, failed: 1, wall_ms: 600 },
+        failures: [{ readable_name: "s.v", error_message: "boom" }],
+      });
+    });
+  });
+
   test("@prd T-011.1 query prints a padded table and leaves target unchanged", async () => {
     await withTmpDir(async (P) => {
       await write(g1(), P);
@@ -456,27 +509,32 @@ suite("prd artifacts: commands", () => {
     });
   });
 
-  test("@prd T-018.6 known-failing E-002 inspect reports a latest run with no action results", async () => {
+  test("@prd T-018.6 inspect reports a latest run with no action results", async () => {
     await withTmpDir(async (P) => {
-      await expectKnownFailure("E-002", async () => {
-        // Setup: run 123 (R1), then run 200 with no action results.
-        await write(g1(), P, { runResult: r1(), runId: 123 });
-        await write(g1(), P, { runResult: successfulEmptyRun(), runId: 200 });
-        const r = await runCli(["inspect", P]);
-        expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
-        const out = lines(r.stdout);
-        const line10 = out[9];
-        if (line10 === "Latest run (FAILED): 1 succeeded, 1 failed, 600ms") {
-          knownFailure(
-            'line 10 is "Latest run (FAILED): 1 succeeded, 1 failed, 600ms", the line of the previous run 123',
-            line10,
-          );
-        }
-        expect(out.slice(8, 10)).to.deep.equal([
-          "",
-          "Latest run (SUCCESSFUL): 0 succeeded, 0 failed, 0ms",
-        ]);
-      });
+      // Setup: run 123 (R1), then run 200 with no action results.
+      await write(g1(), P, { runResult: r1(), runId: 123 });
+      await write(g1(), P, { runResult: successfulEmptyRun(), runId: 200 });
+      const r = await runCli(["inspect", P]);
+      expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
+      expect(lines(r.stdout).slice(8, 10)).to.deep.equal([
+        "",
+        "Latest run (SUCCESSFUL): 0 succeeded, 0 failed, 0ms",
+      ]);
+    });
+  });
+
+  test("@prd T-018.8 inspect falls back to the runs view when target/run_summary is missing", async () => {
+    await withTmpDir(async (P) => {
+      await write(g1(), P, { runResult: r1(), runId: 123 });
+      // As in artifacts written before run-summary files existed.
+      fs.rmSync(path.join(P, "target/run_summary"), { recursive: true, force: true });
+      expect(fs.existsSync(path.join(P, "target/run_summary"))).to.equal(false);
+      const r = await runCli(["inspect", P]);
+      expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
+      expect(lines(r.stdout).slice(8, 10)).to.deep.equal([
+        "",
+        "Latest run (FAILED): 1 succeeded, 1 failed, 600ms",
+      ]);
     });
   });
 
@@ -519,22 +577,16 @@ suite("prd artifacts: commands", () => {
     });
   });
 
-  test("@prd T-019.4 known-failing E-002 inspect --json reports a latest run with no action results", async () => {
+  test("@prd T-019.4 inspect --json reports a latest run with no action results", async () => {
     await withTmpDir(async (P) => {
-      await expectKnownFailure("E-002", async () => {
-        await write(g1(), P, { runResult: r1(), runId: 123 });
-        await write(g1(), P, { runResult: successfulEmptyRun(), runId: 200 });
-        const r = await runCli(["inspect", P, "--json"]);
-        expect(r.exitCode).to.equal(0);
-        const out = json(r.stdout);
-        if (out && out.latestRun && out.latestRun.run_id === 123) {
-          knownFailure("latestRun is the previous run 123", JSON.stringify(out.latestRun));
-        }
-        expectFields(out, {
-          actionsByType: ACTIONS_BY_TYPE_JSON,
-          latestRun: { run_id: 200, run_status: "SUCCESSFUL", succeeded: 0, failed: 0, wall_ms: 0 },
-          failures: [],
-        });
+      await write(g1(), P, { runResult: r1(), runId: 123 });
+      await write(g1(), P, { runResult: successfulEmptyRun(), runId: 200 });
+      const r = await runCli(["inspect", P, "--json"]);
+      expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
+      expectFields(json(r.stdout), {
+        actionsByType: ACTIONS_BY_TYPE_JSON,
+        latestRun: { run_id: 200, run_status: "SUCCESSFUL", succeeded: 0, failed: 0, wall_ms: 0 },
+        failures: [],
       });
     });
   });

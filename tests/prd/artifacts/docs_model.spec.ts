@@ -10,7 +10,6 @@ import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";
 import { g1, r1, successfulEmptyRun } from "sa/tests/prd/artifacts/fixtures";
 import { ABSENT, expectFields, withTmpDir } from "sa/tests/prd/artifacts/helpers";
-import { expectKnownFailure, knownFailure } from "sa/tests/prd/artifacts/known_failing";
 
 const write: any = writeArtifacts;
 const build: any = buildDocsModel;
@@ -257,20 +256,16 @@ suite("prd artifacts: docs builder", () => {
     });
   });
 
-  test("@prd T-021.8 known-failing E-002 a latest run with no action results gives no model a status", async () => {
+  test("@prd T-021.8 a latest run with no action results gives no model a status", async () => {
     await withTmpDir(async (P) => {
-      await expectKnownFailure("E-002", async () => {
-        await write(g1(), P, { runResult: r1(), runId: 123 });
-        await write(g1(), P, { runResult: successfulEmptyRun(), runId: 200 });
-        const model = await build(views(P, true), GENERATED_AT);
-        if (model && model.latestRun && model.latestRun.runId === 123) {
-          knownFailure("latestRun is the previous run 123", JSON.stringify(model.latestRun));
-        }
-        expectFields(model, { latestRun: { runId: 200, status: "SUCCESSFUL" } }, "model");
-        expectFields(byReadable(model, "s.v"), { status: ABSENT }, "s.v");
-        expectFields(byReadable(model, "s.src"), { status: ABSENT }, "s.src");
-        expectFields(byReadable(model, "s.a"), { status: ABSENT }, "s.a");
-      });
+      await write(g1(), P, { runResult: r1(), runId: 123 });
+      await write(g1(), P, { runResult: successfulEmptyRun(), runId: 200 });
+      // The four views of T-021.1, over P.
+      const model = await build(views(P, true), GENERATED_AT);
+      expectFields(model, { latestRun: { runId: 200, status: "SUCCESSFUL" } }, "model");
+      expectFields(byReadable(model, "s.v"), { status: ABSENT }, "s.v");
+      expectFields(byReadable(model, "s.src"), { status: ABSENT }, "s.src");
+      expectFields(byReadable(model, "s.a"), { status: ABSENT }, "s.a");
     });
   });
 });
