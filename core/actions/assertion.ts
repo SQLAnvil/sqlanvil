@@ -328,6 +328,11 @@ export class Assertion extends ActionBuilder<sqlanvil.Assertion> {
   }
 
   /** @hidden */
+  public setName(name: string) {
+    this.proto.target = sqlanvil.Target.create({ ...this.proto.target, name });
+  }
+
+  /** @hidden */
   public setParentAction(target: sqlanvil.Target) {
     this.proto.parentAction = target;
   }

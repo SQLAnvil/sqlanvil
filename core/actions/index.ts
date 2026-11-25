@@ -262,6 +262,8 @@ export interface ILegacyTableAssertions {
   uniqueKeys?: string[][];
   nonNull?: string | string[];
   rowConditions?: string[];
+  schema?: string;
+  database?: string;
 }
 
 export class LegacyConfigConverter {
@@ -307,6 +309,15 @@ export class LegacyConfigConverter {
       }
       if (typeof legacyConfig.assertions.nonNull === "string") {
         legacyConfig.assertions.nonNull = [legacyConfig.assertions.nonNull];
+      }
+      // `schema` and `database` are the legacy names for `dataset` and `project` (upstream #2455).
+      if (legacyConfig.assertions.schema) {
+        legacyConfig.assertions.dataset = legacyConfig.assertions.schema;
+        delete legacyConfig.assertions.schema;
+      }
+      if (legacyConfig.assertions.database) {
+        legacyConfig.assertions.project = legacyConfig.assertions.database;
+        delete legacyConfig.assertions.database;
       }
     }
     return legacyConfig;

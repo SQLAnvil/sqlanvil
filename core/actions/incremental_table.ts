@@ -7,7 +7,6 @@ import {
   LegacyConfigConverter,
   TableType,
 } from "sa/core/actions";
-import { Assertion } from "sa/core/actions/assertion";
 import { JitTableResult, Table } from "sa/core/actions/table";
 import { View } from "sa/core/actions/view";
 import { ColumnDescriptors } from "sa/core/column_descriptors";
@@ -121,10 +120,6 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     disabled: false,
     tags: [],
   });
-
-  /** @hidden */
-  private uniqueKeyAssertions: Assertion[] = [];
-  private rowConditionsAssertion: Assertion;
 
   /** @hidden */
   private unverifiedConfig: any;
@@ -389,8 +384,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
    */
   public disabled(disabled = true) {
     this.proto.disabled = disabled;
-    this.uniqueKeyAssertions.forEach((assertion) => assertion.disabled(disabled));
-    this.rowConditionsAssertion?.disabled(disabled);
+    this.setInlineAssertionsDisabled(disabled);
     return this;
   }
 
@@ -495,8 +489,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
     newTags.forEach((t) => {
       this.proto.tags.push(t);
     });
-    this.uniqueKeyAssertions.forEach((assertion) => assertion.tags(value));
-    this.rowConditionsAssertion?.tags(value);
+    this.addInlineAssertionsTags(value);
     return this;
   }
 
@@ -545,6 +538,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
       this.proto.fileName,
       { validateTarget: true },
     );
+    this.updateInlineAssertionsDatabase(database, this.proto.target);
     return this;
   }
 
@@ -554,6 +548,11 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
    *
    * Sets the schema (BigQuery dataset / Postgres schema) in which to create the output of this
    * action.
+   *
+   * If inline assertions are defined on this action, changing the schema also updates their
+   * generated names (to include the new schema) and, unless an assertion dataset or
+   * `defaultAssertionDataset` is configured, their target dataset. Any references to those inline
+   * assertions by generated name (such as `dependencies` or `--actions`) must use the updated name.
    */
   public schema(schema: string) {
     this.proto.target = this.applySessionToTarget(
@@ -562,6 +561,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
       this.proto.fileName,
       { validateTarget: true },
     );
+    this.updateInlineAssertionsSchema(schema, this.proto.target);
     return this;
   }
 
@@ -578,9 +578,7 @@ export class IncrementalTable extends ActionBuilder<sqlanvil.Table> {
   public assertions(
     tableAssertionsConfig: sqlanvil.ActionConfig.TableAssertionsConfig,
   ): IncrementalTable {
-    const inlineAssertions = this.generateInlineAssertions(tableAssertionsConfig, this.proto);
-    this.uniqueKeyAssertions = inlineAssertions.uniqueKeyAssertions;
-    this.rowConditionsAssertion = inlineAssertions.rowConditionsAssertion;
+    this.generateInlineAssertions(tableAssertionsConfig, this.proto);
     return this;
   }
 

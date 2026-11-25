@@ -1054,8 +1054,8 @@ vars:
         fs.mkdirSync(path.join(projectDir, "definitions"));
         fs.writeFileSync(
           path.join(projectDir, "definitions/file.sqlx"),
-          // TODO(https://github.com/dataform-co/dataform/issues/1295): add a test and fix
-          // functionality for assertions overriding database.
+          // Inline assertions follow the action's database and, with no defaultAssertionDataset,
+          // its schema (upstream #2455; this was dataform-co/dataform#1295).
           `
 config {
   type: "table",
@@ -1090,8 +1090,9 @@ select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`,
             assertions: [
               {
                 canonicalTarget: {
+                  database: "databaseVal",
                   name: "tableSchema_file_assertions_rowConditions",
-                  schema: "defaultDataset",
+                  schema: "tableSchema",
                 },
                 dependencyTargets: [
                   {
@@ -1109,8 +1110,9 @@ select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`,
                 query:
                   "\nSELECT\n  'columnValue IS NOT NULL' AS failing_row_condition,\n  *\nFROM `databaseVal.tableSchema.file`\nWHERE NOT (columnValue IS NOT NULL)\n",
                 target: {
+                  database: "databaseVal",
                   name: "tableSchema_file_assertions_rowConditions",
-                  schema: "defaultDataset",
+                  schema: "tableSchema",
                 },
               },
             ],
@@ -1152,8 +1154,9 @@ select 1 AS \${sqlanvil.projectConfig.vars.columnVar}`,
             ],
             targets: [
               {
+                database: "databaseVal",
                 name: "tableSchema_file_assertions_rowConditions",
-                schema: "defaultDataset",
+                schema: "tableSchema",
               },
               {
                 database: "databaseVal",
@@ -3252,5 +3255,62 @@ actions:
         { path: ["profile", "email"], description: "Nested email" },
       ],
     });
+  });
+});
+
+// Upstream #2455 (3.1.7) on Postgres: inline assertions follow the action, and
+// `assertions: { dataset }` (or its legacy name `schema`) overrides defaultAssertionDataset.
+suite("inline assertion placement on Postgres", ({ afterEach }) => {
+  const tmpDirFixture = new TmpDirFixture(afterEach);
+
+  const compileWith = (workflowSettings: string, sqlx: string) => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    fs.writeFileSync(path.join(projectDir, "workflow_settings.yaml"), workflowSettings);
+    fs.mkdirSync(path.join(projectDir, "definitions"));
+    fs.writeFileSync(path.join(projectDir, "definitions", "orders.sqlx"), sqlx);
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors ?? []).deep.equals([]);
+    return result.compile.compiledGraph.assertions.map((assertion) =>
+      asPlainObject(assertion.target),
+    );
+  };
+
+  const WITH_ASSERTION_SCHEMA =
+    "warehouse: postgres\ndefaultDataset: analytics\ndefaultAssertionDataset: qa\n";
+
+  test("defaultAssertionDataset places them, with no database", () => {
+    expect(
+      compileWith(
+        WITH_ASSERTION_SCHEMA,
+        `config { type: "table", assertions: { nonNull: ["id"] } }\nSELECT 1 AS id`,
+      ),
+    ).deep.equals([{ name: "analytics_orders_assertions_rowConditions", schema: "qa" }]);
+  });
+
+  test("assertions.dataset overrides defaultAssertionDataset", () => {
+    expect(
+      compileWith(
+        WITH_ASSERTION_SCHEMA,
+        `config { type: "table", assertions: { nonNull: ["id"], dataset: "checks" } }\nSELECT 1 AS id`,
+      ),
+    ).deep.equals([{ name: "analytics_orders_assertions_rowConditions", schema: "checks" }]);
+  });
+
+  test("assertions.schema is accepted as the legacy name for dataset", () => {
+    expect(
+      compileWith(
+        WITH_ASSERTION_SCHEMA,
+        `config { type: "table", assertions: { nonNull: ["id"], schema: "checks" } }\nSELECT 1 AS id`,
+      ),
+    ).deep.equals([{ name: "analytics_orders_assertions_rowConditions", schema: "checks" }]);
+  });
+
+  test("without defaultAssertionDataset they follow the action's schema", () => {
+    expect(
+      compileWith(
+        "warehouse: postgres\ndefaultDataset: analytics\n",
+        `config { type: "table", schema: "marts", assertions: { nonNull: ["id"] } }\nSELECT 1 AS id`,
+      ),
+    ).deep.equals([{ name: "marts_orders_assertions_rowConditions", schema: "marts" }]);
   });
 });
