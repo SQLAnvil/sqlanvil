@@ -1654,7 +1654,7 @@ T-021.8:
       - "writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 200})"
     graph: *G1
     run_result: *R1
-    views: "the four views of T-021.1, over P"
+    views: "the four views of T-021.1 and the run_summary view, over P"
     call: "buildDocsModel(views, '2026-06-24T00:00:00Z')"
   expect:
     output:

@@ -262,7 +262,7 @@ Tests: T-020.1 [integration], T-020.2 [integration], T-020.3 [integration]  (tes
 Traces: UJ-01; `target/docs/index.html`
 
 ### FR-021 Build the docs catalog model from the artifacts
-Status: built
+Status: approved
 Source: cli/api/commands/docs.ts:42 @d6310e44
 Acceptance (EARS):
 - AC-021.1 When buildDocsModel is called with the artifact views, the docs builder shall return one model per actions row, ordered by type and then readable_name, each with its readable name, type, tags parsed from the tags JSON, description, and `dependsOn`: the to_readable of every dependencies row whose from_target_key is the model's target_key, in the order of the dependencies file.
