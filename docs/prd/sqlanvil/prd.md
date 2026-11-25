@@ -142,12 +142,12 @@ The CLI's interface is its commands, flags and output, documented in `cli/README
 | FR-002 | Shape one catalog row per action | live | features/artifacts.md | 1.0.0 |
 | FR-003 | Shape one dependency row per dependency edge | live | features/artifacts.md | 1.0.0 |
 | FR-004 | Shape one column row per documented column | live | features/artifacts.md | 1.0.0 |
-| FR-005 | Write a run-history Parquet file per run | approved | features/artifacts.md |  |
+| FR-005 | Write a run-history Parquet file per run | built | features/artifacts.md |  |
 | FR-006 | Keep the columns of an empty artifact file | approved | features/artifacts.md |  |
 | FR-007 | Remove the staging file after a Parquet write | live | features/artifacts.md | 1.0.0 |
 | FR-008 | Never fail the caller when artifacts cannot be written | live | features/artifacts.md | 1.0.0 |
 | FR-009 | Read the project's artifacts, and refuse without a catalog | live | features/artifacts.md | 1.0.0 |
-| FR-010 | Expose the artifacts as DuckDB views | approved | features/artifacts.md |  |
+| FR-010 | Expose the artifacts as DuckDB views | built | features/artifacts.md |  |
 | FR-011 | Run SQL over the artifacts with the query command | live | features/artifacts.md | 1.0.0 |
 | FR-012 | Print query results as JSON | live | features/artifacts.md | 1.0.0 |
 | FR-013 | Require SQL for the query command | live | features/artifacts.md | 1.0.0 |
@@ -155,10 +155,10 @@ The CLI's interface is its commands, flags and output, documented in `cli/README
 | FR-015 | Open a fresh in-memory DuckDB for each artifact query | live | features/artifacts.md | 1.0.0 |
 | FR-016 | Redirect DuckDB's home directory when HOME is unset | live | features/artifacts.md | 1.0.0 |
 | FR-017 | Report a DuckDB binding that fails to load | live | features/artifacts.md | 1.0.0 |
-| FR-018 | Summarize the artifacts with the inspect command | approved | features/artifacts.md |  |
-| FR-019 | Print the inspect summary as JSON | approved | features/artifacts.md |  |
+| FR-018 | Summarize the artifacts with the inspect command | built | features/artifacts.md |  |
+| FR-019 | Print the inspect summary as JSON | built | features/artifacts.md |  |
 | FR-020 | Write the HTML catalog with the docs command | live | features/artifacts.md | 1.0.0 |
-| FR-021 | Build the docs catalog model from the artifacts | approved | features/artifacts.md |  |
+| FR-021 | Build the docs catalog model from the artifacts | built | features/artifacts.md |  |
 | FR-022 | Render the docs catalog as one self-contained HTML page | live | features/artifacts.md | 1.0.0 |
 | FR-023 | Run a warehouse query through an adapter | live | features/artifacts.md | 1.0.0 |
 | FR-024 | Evaluate a query through an adapter | live | features/artifacts.md | 1.0.0 |

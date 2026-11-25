@@ -61,11 +61,11 @@ Tests: T-004.1 [integration], T-004.2 [integration]  (test-cases/artifacts.yaml)
 Traces: `target/catalog/columns.parquet`
 
 ### FR-005 Write a run-history Parquet file per run
-Status: approved
-Source: cli/api/commands/artifacts.ts:64 @f4b3f49e
-  cli/api/commands/artifact_rows.ts:168 @f4b3f49e
-  cli/api/commands/artifact_rows.ts:59 @f4b3f49e
-  cli/api/commands/artifact_rows.ts:78 @f4b3f49e
+Status: built
+Source: cli/api/commands/artifacts.ts:84 @d6310e44
+  cli/api/commands/artifact_rows.ts:181 @d6310e44
+  cli/api/commands/artifact_rows.ts:64 @d6310e44
+  cli/api/commands/artifact_rows.ts:83 @d6310e44
 Acceptance (EARS):
 - AC-005.1 When writeArtifacts is called with a run result and a run id, the artifact writer shall write `target/runs/run_<run id>.parquet` with one row per action result, in the columns run_id, run_status, target_key, readable_name, status, start_millis, end_millis, duration_millis, error_message; run_id, start_millis, end_millis and duration_millis have type BIGINT, the other columns VARCHAR, and no value is null.
 - AC-005.2 When writeArtifacts is called with a run result and no run id, the artifact writer shall use the current time in epoch milliseconds as the run id.
@@ -131,10 +131,10 @@ Tests: T-009.1 [integration], T-009.2 [integration], T-009.3 [integration], T-00
 Traces: -
 
 ### FR-010 Expose the artifacts as DuckDB views
-Status: approved
-Source: cli/commands/artifact_views.ts:22 @f4b3f49e
+Status: built
+Source: cli/commands/artifact_views.ts:33 @d6310e44
   cli/commands/artifact_views.ts:28 @f4b3f49e
-  cli/api/dbadapters/duckdb_artifacts.ts:67 @f4b3f49e
+  cli/api/dbadapters/duckdb_artifacts.ts:73 @d6310e44
 Acceptance (EARS):
 - AC-010.1 When an artifact command runs, the command shall expose `target/catalog/actions.parquet`, `dependencies.parquet` and `columns.parquet` as the views `actions`, `dependencies` and `columns`.
 - AC-010.2 While `target/runs/` holds at least one `.parquet` file, the artifact commands shall expose every `target/runs/*.parquet` file together as one view named `runs`.
@@ -222,10 +222,10 @@ Tests: T-017.1 [integration]  (test-cases/artifacts.yaml)
 Traces: -
 
 ### FR-018 Summarize the artifacts with the inspect command
-Status: approved
-Source: cli/commands/inspect_command.ts:18 @f4b3f49e
-  cli/commands/inspect_command.ts:25 @f4b3f49e
-  cli/commands/inspect_command.ts:47 @4bd7610e
+Status: built
+Source: cli/commands/inspect_command.ts:23 @d6310e44
+  cli/commands/inspect_command.ts:26 @d6310e44
+  cli/commands/inspect_command.ts:38 @d6310e44
 Acceptance (EARS):
 - AC-018.1 When `sqlanvil inspect <project-dir>` runs on a project with a catalog, the inspect command shall print `Actions by type:` and then, in the table format of AC-011.1, the columns type and n (the number of actions of that type) ordered by type, and exit with code 0.
 - AC-018.2 While a run is recorded, the inspect command shall then print an empty line and `Latest run (<run_status>): <s> succeeded, <f> failed, <w>ms` for the latest run, which is the run with the highest run_id in the `run_summary` view, with that view's run_status, or, when there is no `run_summary` view, the run with the highest run_id in the `runs` view, and where s is the number of that run's rows with status SUCCESSFUL, f the number with status FAILED, and w the latest end_millis minus the earliest start_millis over that run's rows with non-zero start and end times, and 0 when no row has both.
@@ -238,8 +238,8 @@ Tests: T-018.1 [integration], T-018.2 [integration], T-018.3 [integration], T-01
 Traces: UJ-01
 
 ### FR-019 Print the inspect summary as JSON
-Status: approved
-Source: cli/commands/inspect_command.ts:43 @4bd7610e
+Status: built
+Source: cli/commands/inspect_command.ts:34 @d6310e44
 Acceptance (EARS):
 - AC-019.1 When `sqlanvil inspect <project-dir> --json` runs on a project with a catalog and a recorded run, the inspect command shall print on stdout one JSON object, indented four spaces, with `actionsByType` (type and n per type, ordered by type), `latestRun` (run_id, run_status, succeeded, failed and wall_ms of the latest run as AC-018.2 defines it, wall_ms computed as in AC-018.2) and `failures` (readable_name and error_message of the first 20 FAILED rows of that run in readable_name order), and exit with code 0.
 - AC-019.2 If no run is recorded (AC-018.4), the inspect command shall print `latestRun` as null and `failures` as an empty array.
@@ -262,8 +262,8 @@ Tests: T-020.1 [integration], T-020.2 [integration], T-020.3 [integration]  (tes
 Traces: UJ-01; `target/docs/index.html`
 
 ### FR-021 Build the docs catalog model from the artifacts
-Status: approved
-Source: cli/api/commands/docs.ts:41 @f4b3f49e
+Status: built
+Source: cli/api/commands/docs.ts:42 @d6310e44
 Acceptance (EARS):
 - AC-021.1 When buildDocsModel is called with the artifact views, the docs builder shall return one model per actions row, ordered by type and then readable_name, each with its readable name, type, tags parsed from the tags JSON, description, and `dependsOn`: the to_readable of every dependencies row whose from_target_key is the model's target_key, in the order of the dependencies file.
 - AC-021.2 The docs builder shall return a summary with the number of models and, per type, the number of models of that type, sorted by type, and `generatedAt` set to the timestamp it was given.
