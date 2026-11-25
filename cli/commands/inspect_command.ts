@@ -26,7 +26,8 @@ async function runInspect(projectDir: string, json: boolean): Promise<number> {
       "select run_id, run_status, " +
         "count(*) filter (where status = 'SUCCESSFUL') as succeeded, " +
         "count(*) filter (where status = 'FAILED') as failed, " +
-        "max(end_millis) - min(start_millis) as wall_ms " +
+        "coalesce(max(end_millis) filter (where start_millis <> 0 and end_millis <> 0) - " +
+        "min(start_millis) filter (where start_millis <> 0 and end_millis <> 0), 0) as wall_ms " +
         "from runs where run_id = (select max(run_id) from runs) group by run_id, run_status",
       views,
     );
