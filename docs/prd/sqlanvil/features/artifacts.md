@@ -61,7 +61,7 @@ Tests: T-004.1 [integration], T-004.2 [integration]  (test-cases/artifacts.yaml)
 Traces: `target/catalog/columns.parquet`
 
 ### FR-005 Write a run-history Parquet file per run
-Status: built
+Status: verified
 Source: cli/api/commands/artifacts.ts:84 @d6310e44
   cli/api/commands/artifact_rows.ts:181 @d6310e44
   cli/api/commands/artifact_rows.ts:64 @d6310e44
@@ -222,7 +222,7 @@ Tests: T-017.1 [integration]  (test-cases/artifacts.yaml)
 Traces: -
 
 ### FR-018 Summarize the artifacts with the inspect command
-Status: built
+Status: verified
 Source: cli/commands/inspect_command.ts:23 @d6310e44
   cli/commands/inspect_command.ts:26 @d6310e44
   cli/commands/inspect_command.ts:38 @d6310e44
@@ -238,7 +238,7 @@ Tests: T-018.1 [integration], T-018.2 [integration], T-018.3 [integration], T-01
 Traces: UJ-01
 
 ### FR-019 Print the inspect summary as JSON
-Status: built
+Status: verified
 Source: cli/commands/inspect_command.ts:34 @d6310e44
 Acceptance (EARS):
 - AC-019.1 When `sqlanvil inspect <project-dir> --json` runs on a project with a catalog and a recorded run, the inspect command shall print on stdout one JSON object, indented four spaces, with `actionsByType` (type and n per type, ordered by type), `latestRun` (run_id, run_status, succeeded, failed and wall_ms of the latest run as AC-018.2 defines it, wall_ms computed as in AC-018.2) and `failures` (readable_name and error_message of the first 20 FAILED rows of that run in readable_name order), and exit with code 0.
@@ -262,7 +262,7 @@ Tests: T-020.1 [integration], T-020.2 [integration], T-020.3 [integration]  (tes
 Traces: UJ-01; `target/docs/index.html`
 
 ### FR-021 Build the docs catalog model from the artifacts
-Status: approved
+Status: verified
 Source: cli/api/commands/docs.ts:42 @d6310e44
 Acceptance (EARS):
 - AC-021.1 When buildDocsModel is called with the artifact views, the docs builder shall return one model per actions row, ordered by type and then readable_name, each with its readable name, type, tags parsed from the tags JSON, description, and `dependsOn`: the to_readable of every dependencies row whose from_target_key is the model's target_key, in the order of the dependencies file.
