@@ -45,11 +45,11 @@ export async function buildDocsModel(
   const hasRuns = views.some((v) => v.name === "runs");
 
   const actions = await queryParquet(
-    "select readable_name, type, tags, description from actions order by type, readable_name",
+    "select target_key, readable_name, type, tags, description from actions order by type, readable_name",
     views,
   );
   const dependencies = await queryParquet(
-    "select from_readable, to_readable from dependencies",
+    "select from_target_key, to_readable from dependencies",
     views,
   );
   const columns = await queryParquet(
@@ -69,11 +69,11 @@ export async function buildDocsModel(
       );
       latestRun = { runId, status: overall[0] ? overall[0].run_status : "UNKNOWN" };
       const statuses = await queryParquet(
-        `select readable_name, status from runs where run_id = ${runId}`,
+        `select target_key, status from runs where run_id = ${runId}`,
         views,
       );
       for (const row of statuses) {
-        statusByModel.set(row.readable_name, row.status);
+        statusByModel.set(row.target_key, row.status);
       }
     }
   }
@@ -81,8 +81,8 @@ export async function buildDocsModel(
   const dependsOn = new Map<string, string[]>();
   for (const dep of dependencies) {
     dependsOn.set(
-      dep.from_readable,
-      (dependsOn.get(dep.from_readable) || []).concat(dep.to_readable),
+      dep.from_target_key,
+      (dependsOn.get(dep.from_target_key) || []).concat(dep.to_readable),
     );
   }
 
@@ -100,8 +100,8 @@ export async function buildDocsModel(
       type: a.type,
       tags,
       description: a.description || "",
-      status: statusByModel.get(a.readable_name),
-      dependsOn: dependsOn.get(a.readable_name) || [],
+      status: statusByModel.get(a.target_key),
+      dependsOn: dependsOn.get(a.target_key) || [],
     };
   });
 
