@@ -68,7 +68,7 @@ Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test
   T-001.4: writeArtifacts into a directory named o'brien-… rejects with `Parser Error: syntax error at or near "brien"`
   T-010.5: the same rejection while writing the project's artifacts, so the query never runs
 Diagnosis: Project and temporary paths go into DuckDB SQL inside single quotes without escaping (cli/api/dbadapters/duckdb_artifacts.ts:38, 70; cli/api/dbadapters/duckdb.ts:59 @f4b3f49e). A path holding a `'` ends the string literal early, so the write fails and is skipped with a warning (FR-008), and query, inspect and docs fail on that project. The owner confirmed it a bug on 2026-11-22.
-Resolution: open, intended: a path that contains a single quote works like any other path, for writing and for reading the artifacts (Ivan Histand, 2026-11-22)
+Resolution: T-001.4 [integration], PRD 2.0.1, fixed in 81a1434f
 Recurrence of: -
 
 ### E-007 inspect lists an arbitrary 20 of more than 20 failures
