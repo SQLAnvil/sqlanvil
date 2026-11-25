@@ -11,7 +11,7 @@ import {
   findProjectIgnoreFiles,
 } from "sa/cli/api/commands/compile_copy_filter";
 import { MISSING_CORE_VERSION_ERROR } from "sa/cli/api/commands/install";
-import { readConfigFromWorkflowSettings } from "sa/cli/api/utils";
+import { readConfigFromWorkflowSettings, validateSqlanvilCoreVersion } from "sa/cli/api/utils";
 import { DEFAULT_COMPILATION_TIMEOUT_MILLIS } from "sa/cli/api/utils/constants";
 import { coerceAsError } from "sa/common/errors/errors";
 import { decode64 } from "sa/common/protos";
@@ -127,6 +127,7 @@ async function installIsolatedCore(
   temporaryProjectPath: string,
   coreVersion: string,
 ) {
+  validateSqlanvilCoreVersion(coreVersion);
   if (compileConfig.verbose) {
     print(`Using isolated environment for @sqlanvil/core@${coreVersion}\n`);
     print(`Copying project to temporary directory: ${temporaryProjectPath}\n`);

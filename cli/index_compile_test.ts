@@ -238,6 +238,59 @@ defaultLocation: "${DEFAULT_LOCATION}"
       ).contains(`${npmFile}' unexpected; remove it and try again`);
     });
   });
+
+  // Upstream #2448: the pinned version is written into a temporary package.json and handed to
+  // `npm i`, so anything that isn't an exact semantic version is rejected before the temporary
+  // directory exists or npm runs.
+  for (const { label, yamlLine } of [
+    { label: "file tarball specifier", yamlLine: 'sqlanvilCoreVersion: "file:./custom-core.tgz"' },
+    {
+      label: "HTTPS tarball URL",
+      yamlLine: 'sqlanvilCoreVersion: "https://example.invalid/core.tgz"',
+    },
+    {
+      label: "git URL specifier",
+      yamlLine: 'sqlanvilCoreVersion: "git+https://example.invalid/repo.git"',
+    },
+    { label: "npm alias specifier", yamlLine: 'sqlanvilCoreVersion: "npm:semver@7.5.4"' },
+    { label: "semver range", yamlLine: 'sqlanvilCoreVersion: "^3.0.0"' },
+    { label: "malformed dot prerelease", yamlLine: 'sqlanvilCoreVersion: "3.0.0-."' },
+    { label: "leading zero version", yamlLine: 'sqlanvilCoreVersion: "03.0.0"' },
+    { label: "non-string YAML array", yamlLine: 'sqlanvilCoreVersion: ["3.0.0"]' },
+  ]) {
+    test(`compile rejects ${label} before creating a temporary environment or invoking npm`, async () => {
+      const projectDir = tmpDirFixture.createNewTmpDir();
+      fs.writeFileSync(
+        path.join(projectDir, "workflow_settings.yaml"),
+        `defaultProject: sqlanvil\n${yamlLine}\n`,
+      );
+      const missingTmpDir = path.join(tmpDirFixture.createNewTmpDir(), "must-not-be-used");
+      const fakeBinDir = tmpDirFixture.createNewTmpDir();
+      const npmCalledFile = path.join(tmpDirFixture.createNewTmpDir(), "npm-called");
+      fs.writeFileSync(path.join(fakeBinDir, "npm"), `#!/bin/sh\ntouch "${npmCalledFile}"\nexit 1\n`, {
+        mode: 0o755,
+      });
+
+      const result = await getProcessResult(
+        execFile(nodePath, [cliEntryPointPath, "compile", projectDir, "--verbose"], {
+          env: {
+            ...process.env,
+            TMPDIR: missingTmpDir,
+            TEMP: missingTmpDir,
+            TMP: missingTmpDir,
+            PATH: `${fakeBinDir}${path.delimiter}${process.env.PATH}`,
+          },
+        }),
+      );
+
+      expect(result.exitCode).equals(1);
+      expect(result.stderr).contains("Invalid sqlanvilCoreVersion");
+      expect(result.stderr).contains("must be a valid semantic version");
+      expect(result.stderr).not.contains("Using isolated environment");
+      expect(fs.existsSync(npmCalledFile)).equals(false);
+      expect(fs.existsSync(missingTmpDir)).equals(false);
+    });
+  }
 });
 
 suite("disable-assertions flag (compilation)", ({ afterEach, beforeEach }) => {
