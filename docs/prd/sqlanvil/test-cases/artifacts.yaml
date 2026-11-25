@@ -1529,8 +1529,6 @@ T-021.7:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-004
-  symptom: "the a.b.c table's model has the status of the other target that reads as a.b.c"
   input:
     graph:
       tables:
