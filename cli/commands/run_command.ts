@@ -10,6 +10,7 @@ import { MySqlDbAdapter } from "sa/cli/api/dbadapters/mysql";
 import { PostgresDbAdapter } from "sa/cli/api/dbadapters/postgres";
 import { SupabaseDbAdapter } from "sa/cli/api/dbadapters/supabase";
 import { prettyJsonStringify } from "sa/cli/api/utils";
+import { buildDryRunValidationQueries } from "sa/cli/api/utils/dry_run_validation";
 import { runValidate } from "sa/cli/commands/validate_command";
 import {
   actionsOption,
@@ -393,6 +394,11 @@ export const runCommand: ICommand = {
       // For script actions: the cwd the script runs in (projectDirOption is coerced to
       // an absolute path).
       projectDir: argv[projectDirOption.name],
+      // A BigQuery dry run of a task wrapped in a script creating its missing target dataset
+      // only checks syntax, so the action's SELECT query is dry-run on its own too.
+      dryRunValidationQueries: argv[dryRunOptionName]
+        ? buildDryRunValidationQueries(compiledGraph)
+        : undefined,
     });
     process.on("SIGINT", () => {
       runner.cancel();

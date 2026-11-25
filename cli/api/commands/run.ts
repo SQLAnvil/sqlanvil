@@ -1,5 +1,4 @@
 import EventEmitter from "events";
-import Long from "long";
 
 import { substituteConnectionCredentials } from "sa/cli/api/commands/connection_credentials";
 import { runScript, ScriptRunArgs } from "sa/cli/api/commands/script_run";
@@ -13,6 +12,13 @@ import {
 } from "sa/cli/api/dbadapters/duckdb_export";
 import { DuckdbImportArgs, runDuckdbImport } from "sa/cli/api/dbadapters/duckdb_import";
 import { MysqlExtractArgs, runMysqlExtract } from "sa/cli/api/dbadapters/mysql_extract";
+import { dryRunValidationQueryKey } from "sa/cli/api/utils/dry_run_validation";
+import { mapErrorPositions } from "sa/cli/api/utils/error_parsing";
+import {
+  CREATE_SCHEMA_WRAPPER_LINE_OFFSET,
+  wrapWithCreateSchemaIfNotExists,
+} from "sa/cli/api/utils/query_transforms";
+import { Timer } from "sa/cli/api/utils/timer";
 import { Flags } from "sa/common/flags";
 import { retry } from "sa/common/promises";
 import { deepClone, equals } from "sa/common/protos";
@@ -64,9 +70,45 @@ export interface IExecutionOptions {
   // Absolute project directory — the cwd for script actions (and the base for their relative
   // paths). Only needed when a project has script actions.
   projectDir?: string;
+  // BigQuery dry runs: the SELECT query (with pre-operations) of each table, view and assertion,
+  // keyed by dryRunValidationQueryKey(target). A task wrapped in a script creating its missing
+  // target dataset is only syntax-checked by a dry run, so this query is dry-run after it.
+  dryRunValidationQueries?: Map<string, string>;
 }
 
 export type CancelReason = "timeout" | "user" | "cancellation";
+
+/**
+ * Whether the action writes to its target, so that the target dataset must exist. Operations only
+ * do if they're declared with `hasOutput: true`; otherwise their target is just a name, and their
+ * SQL may write anywhere (or nowhere). Exports write files, and scripts and extracts run
+ * runner-side, so none of them creates its target dataset.
+ */
+function writesToTarget(action: sqlanvil.IExecutionAction): boolean {
+  switch (action.type) {
+    case "table":
+    case "assertion":
+    case "import":
+      return true;
+    case "operation":
+      return !!action.hasOutput;
+    default:
+      return false;
+  }
+}
+
+/** Whether the task is SQL sent to the warehouse, which can be wrapped in a script. */
+function isWarehouseStatement(task: sqlanvil.IExecutionTask): boolean {
+  return task.type === "statement" || task.type === "operation";
+}
+
+/** A target dataset that doesn't exist yet. */
+interface IMissingSchema {
+  // Unset if the action's target has no database and there's no default database, in which case
+  // BigQuery uses the project of the credentials.
+  database: string | undefined;
+  schema: string;
+}
 
 export function run(
   dbadapter: dbadapters.IDbAdapter,
@@ -120,6 +162,12 @@ export class Runner {
   private executionTask: Promise<sqlanvil.IRunResult>;
   private skipReason: string = "";
   private readonly executionOptions: IExecutionOptions;
+  // BigQuery creates missing datasets lazily (upstream #2408): in the same job as the first task
+  // writing to them, so that the dataset gets the location of the data that task reads. Other
+  // warehouses create every missing schema up front (prepareAllSchemas).
+  private readonly lazySchemaCreation: boolean;
+  private missingSchemas = new Map<string, IMissingSchema>();
+  private schemaCreations = new Map<string, Promise<void>>();
 
   // Extracts are DAG roots, so an unfiltered run makes EVERY extract executable at once — each
   // holds a warehouse connection (Supabase's session pooler caps clients, e.g. 15) and buffers
@@ -154,6 +202,8 @@ export class Runner {
     private readonly runnerNotificationPeriodMillis: number = flags.runnerNotificationPeriodMillis.get(),
   ) {
     this.executionOptions = { projectDir: ".", ...executionOptions };
+    this.lazySchemaCreation =
+      (graph.projectConfig?.warehouse || "bigquery").toLowerCase() === "bigquery";
     this.runResult = {
       actions: [],
       ...partiallyExecutedRunResult,
@@ -259,8 +309,10 @@ export class Runner {
     this.runResult.timing = timer.current();
     this.notifyListeners();
 
-    // If we're not resuming an existing run, prepare schemas.
-    if (this.runResult.actions.length === 0) {
+    if (this.lazySchemaCreation) {
+      this.missingSchemas = await this.findMissingSchemas();
+    } else if (this.runResult.actions.length === 0) {
+      // If we're not resuming an existing run, prepare schemas.
       await this.prepareAllSchemas();
     }
 
@@ -320,6 +372,52 @@ export class Runner {
         );
       }),
     );
+  }
+
+  /**
+   * BigQuery: returns the target datasets of pending actions that don't exist yet, keyed by
+   * `schemaKey()`. Nothing is created here; see `executeTaskCreatingMissingSchema()`.
+   */
+  private async findMissingSchemas(): Promise<Map<string, IMissingSchema>> {
+    const databaseSchemas = new Map<string | undefined, Set<string>>();
+    this.pendingActions
+      .filter(
+        (action) =>
+          action.tasks.length > 0 &&
+          !!action.target &&
+          !!action.target.schema &&
+          writesToTarget(action),
+      )
+      .forEach(({ target }) => {
+        const trueDatabase = this.targetDatabase(target);
+        if (!databaseSchemas.has(trueDatabase)) {
+          databaseSchemas.set(trueDatabase, new Set<string>());
+        }
+        databaseSchemas.get(trueDatabase).add(target.schema);
+      });
+
+    const missingSchemas = new Map<string, IMissingSchema>();
+    await Promise.all(
+      Array.from(databaseSchemas.entries()).map(async ([database, schemas]) => {
+        const existingSchemas = new Set(await this.dbadapter.schemas(database));
+        Array.from(schemas)
+          .filter((schema) => !existingSchemas.has(schema))
+          .forEach((schema) =>
+            missingSchemas.set(this.schemaKey({ database, schema }), { database, schema }),
+          );
+      }),
+    );
+    return missingSchemas;
+  }
+
+  private targetDatabase(target: sqlanvil.ITarget): string | undefined {
+    // Either may be unset (e.g. no defaultProject in workflow_settings.yaml), in which case
+    // BigQuery uses the project of the credentials.
+    return target.database || this.graph.projectConfig?.defaultDatabase || undefined;
+  }
+
+  private schemaKey(target: sqlanvil.ITarget): string {
+    return `${this.targetDatabase(target)}.${target.schema}`;
   }
 
   private async executeAllActionsReadyForExecution() {
@@ -448,6 +546,17 @@ export class Runner {
     await this.dbadapter.withClientLock(async (client) => {
       // Start running tasks from the last executed task (if any), onwards.
       for (const task of action.tasks.slice(actionResult.tasks.length)) {
+        if (
+          actionResult.status === sqlanvil.ActionResult.ExecutionStatus.RUNNING &&
+          !this.stopped &&
+          !this.cancelled
+        ) {
+          let schemaCreation = this.schemaCreationToWaitFor(action, task);
+          while (schemaCreation !== undefined && !this.stopped && !this.cancelled) {
+            await schemaCreation;
+            schemaCreation = this.schemaCreationToWaitFor(action, task);
+          }
+        }
         if (this.stopped) {
           return actionResult;
         }
@@ -455,27 +564,11 @@ export class Runner {
           actionResult.status === sqlanvil.ActionResult.ExecutionStatus.RUNNING &&
           !this.cancelled
         ) {
-          const taskStatus = await this.executeTask(
+          const taskStatus = await this.executeTaskCreatingMissingSchema(
             client,
+            action,
             task,
             actionResult,
-            {
-              bigquery: {
-                // Merge global run-level labels with action-level labels. Action-level labels take precedence.
-                labels: {
-                  ...(this.executionOptions?.bigquery?.labels || {}),
-                  ...(action.actionDescriptor?.bigqueryLabels || {}),
-                },
-                actionRetryLimit: this.executionOptions?.bigquery?.actionRetryLimit,
-                location: this.graph.projectConfig?.defaultLocation || undefined,
-                jobPrefix: this.executionOptions?.bigquery?.jobPrefix,
-                dryRun: this.executionOptions?.bigquery?.dryRun,
-                reservation:
-                  action.actionDescriptor?.reservation ||
-                  this.graph.projectConfig?.defaultReservation,
-              },
-            },
-            action,
           );
           if (taskStatus === sqlanvil.TaskResult.ExecutionStatus.FAILED) {
             actionResult.status = sqlanvil.ActionResult.ExecutionStatus.FAILED;
@@ -483,6 +576,9 @@ export class Runner {
             actionResult.status = sqlanvil.ActionResult.ExecutionStatus.CANCELLED;
           }
         } else {
+          if (actionResult.status === sqlanvil.ActionResult.ExecutionStatus.RUNNING) {
+            actionResult.status = sqlanvil.ActionResult.ExecutionStatus.CANCELLED;
+          }
           actionResult.tasks.push({
             status: sqlanvil.TaskResult.ExecutionStatus.SKIPPED,
             errorMessage: this.skipReason || "Task skipped after cancellation",
@@ -532,12 +628,129 @@ export class Runner {
     return actionResult;
   }
 
+  private getBigQueryExecutionOptions(
+    action: sqlanvil.IExecutionAction,
+  ): sqlanvil.IBigQueryOptions & IBigQueryExecutionOptions {
+    return {
+      // Merge global run-level labels with action-level labels. Action-level labels take precedence.
+      labels: {
+        ...(this.executionOptions?.bigquery?.labels || {}),
+        ...(action.actionDescriptor?.bigqueryLabels || {}),
+      },
+      actionRetryLimit: this.executionOptions?.bigquery?.actionRetryLimit,
+      location: this.graph.projectConfig?.defaultLocation || undefined,
+      jobPrefix: this.executionOptions?.bigquery?.jobPrefix,
+      dryRun: this.executionOptions?.bigquery?.dryRun,
+      reservation:
+        action.actionDescriptor?.reservation || this.graph.projectConfig?.defaultReservation,
+    };
+  }
+
+  /**
+   * BigQuery: returns the target dataset to create in the same job as the given task, or null if
+   * there's none. Every SQL task of an action that writes to its target is checked.
+   */
+  private missingSchemaToCreate(
+    action: sqlanvil.IExecutionAction,
+    task: sqlanvil.IExecutionTask,
+  ): IMissingSchema | null {
+    if (!this.lazySchemaCreation || !action.target?.schema || !writesToTarget(action)) {
+      return null;
+    }
+    // Assertion tasks must stay single statements: their result is read from the job's rows,
+    // and a script's result would be that of its last statement. Runner-side tasks (scripts,
+    // exports, imports and extracts on other warehouses) aren't SQL sent to BigQuery.
+    if (!isWarehouseStatement(task)) {
+      return null;
+    }
+    return this.missingSchemas.get(this.schemaKey(action.target)) || null;
+  }
+
+  /**
+   * Returns the job currently trying to create the given task's target dataset, if the task would
+   * otherwise try to create it too. When it finishes, check again: another waiting task may have
+   * become the next creator in the meantime.
+   */
+  private schemaCreationToWaitFor(
+    action: sqlanvil.IExecutionAction,
+    task: sqlanvil.IExecutionTask,
+  ): Promise<void> | undefined {
+    if (!this.missingSchemaToCreate(action, task)) {
+      return undefined;
+    }
+    return this.schemaCreations.get(this.schemaKey(action.target));
+  }
+
+  /**
+   * Executes the task. If its target dataset is still missing (BigQuery), the task is wrapped so
+   * that the dataset is created in the same job. In a real run (not a dry run), other tasks writing
+   * to the dataset wait for that job (see `schemaCreationToWaitFor()`): if it succeeds, they run
+   * unwrapped; if it fails, the dataset may or may not have been created, so the next one tries to
+   * create it.
+   */
+  private async executeTaskCreatingMissingSchema(
+    client: dbadapters.IDbClient,
+    action: sqlanvil.IExecutionAction,
+    task: sqlanvil.IExecutionTask,
+    actionResult: sqlanvil.IActionResult,
+  ): Promise<sqlanvil.TaskResult.ExecutionStatus> {
+    const options = { bigquery: this.getBigQueryExecutionOptions(action) };
+    const missingSchema = this.missingSchemaToCreate(action, task);
+    if (!missingSchema) {
+      return this.executeTask(client, task, actionResult, options, action);
+    }
+    const statement = wrapWithCreateSchemaIfNotExists(
+      missingSchema.database,
+      missingSchema.schema,
+      task.statement,
+    );
+    // Dry runs don't create the dataset, so there's no rate limit to protect, and nothing to wait
+    // for: every task writing to the dataset is wrapped.
+    if (this.executionOptions.bigquery?.dryRun) {
+      return this.executeTask(
+        client,
+        task,
+        actionResult,
+        options,
+        action,
+        statement,
+        this.executionOptions.dryRunValidationQueries?.get(dryRunValidationQueryKey(action.target)),
+      );
+    }
+
+    // Registered without awaiting anything since `schemaCreationToWaitFor()` returned nothing, so
+    // no other task can become the creator in between.
+    const key = this.schemaKey(action.target);
+    let release: () => void;
+    this.schemaCreations.set(key, new Promise<void>((resolve) => (release = resolve)));
+    try {
+      const status = await this.executeTask(client, task, actionResult, options, action, statement);
+      if (status === sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL) {
+        this.missingSchemas.delete(key);
+      }
+      return status;
+    } finally {
+      this.schemaCreations.delete(key);
+      release!();
+    }
+  }
+
+  /**
+   * Executes the given task. If set, `statementOverride` is executed instead of the task's
+   * statement, and reported as its compiled SQL, so that error positions refer to what is shown.
+   *
+   * If `dryRunValidationQuery` is also set (in dry runs, for tasks wrapped in a script creating a
+   * missing dataset, which BigQuery only syntax-checks), it is dry-run right after to fully check
+   * the action's SELECT query within the same task timing, metadata, and status update.
+   */
   private async executeTask(
     client: dbadapters.IDbClient,
     task: sqlanvil.IExecutionTask,
     parentAction: sqlanvil.IActionResult,
     options: { bigquery?: sqlanvil.IBigQueryOptions & IBigQueryExecutionOptions },
     action?: sqlanvil.IExecutionAction,
+    statementOverride?: string,
+    dryRunValidationQuery?: string,
   ): Promise<sqlanvil.TaskResult.ExecutionStatus> {
     const timer = Timer.start();
     const taskResult: sqlanvil.ITaskResult = {
@@ -547,6 +760,9 @@ export class Runner {
     };
     parentAction.tasks.push(taskResult);
     this.notifyListeners();
+    if (statementOverride !== undefined) {
+      taskResult.compiledSql = statementOverride;
+    }
     if (options.bigquery?.dryRun && task.type === "assertion") {
       taskResult.status = sqlanvil.TaskResult.ExecutionStatus.SUCCESSFUL;
     } else if (task.type === "export") {
@@ -664,16 +880,18 @@ export class Runner {
         taskResult.errorMessage = `${this.graph.projectConfig.warehouse} extract error: ${e.message}`;
       }
     } else {
+      let errorFromValidationQuery = false;
       try {
         // Retry this function a given number of times, configurable by user
         // Inject source-connection credentials into FDW-bridge statements at the last
         // moment (placeholders stay in the in-memory graph; secrets only reach the DB).
+        const sqlToExecute = statementOverride ?? task.statement;
         const statement = this.executionOptions.connectionCredentials
           ? substituteConnectionCredentials(
-              task.statement,
+              sqlToExecute,
               this.executionOptions.connectionCredentials,
             )
-          : task.statement;
+          : sqlToExecute;
         const { rows, metadata } = await retry(
           () =>
             client.execute(statement, {
@@ -683,7 +901,21 @@ export class Runner {
             }),
           task.type === "operation" ? 1 : options.bigquery.actionRetryLimit + 1 || 1,
         );
-        taskResult.metadata = metadata;
+        if (dryRunValidationQuery) {
+          errorFromValidationQuery = true;
+          const validationResult = await retry(
+            () =>
+              client.execute(dryRunValidationQuery, {
+                onCancel: (handleCancel) => this.eEmitter.on(CANCEL_EVENT, handleCancel),
+                rowLimit: 1,
+                bigquery: options.bigquery,
+              }),
+            options.bigquery.actionRetryLimit + 1 || 1,
+          );
+          taskResult.metadata = validationResult.metadata;
+        } else {
+          taskResult.metadata = metadata;
+        }
         if (task.type === "assertion") {
           // We expect that an assertion query returns 1 row, with 1 field that is the row count.
           // We don't really care what that field/column is called.
@@ -697,7 +929,18 @@ export class Runner {
         taskResult.status = this.cancelled
           ? sqlanvil.TaskResult.ExecutionStatus.CANCELLED
           : sqlanvil.TaskResult.ExecutionStatus.FAILED;
-        taskResult.errorMessage = `${this.graph.projectConfig.warehouse} error: ${e.message}`;
+        // The validation query has the same lines as the task's statement, shifted by the lines
+        // the wrapper adds, except for the `create or replace … as ` prefix before the start of
+        // the query. Map positions in its error to the compiled SQL shown.
+        const message = errorFromValidationQuery
+          ? mapErrorPositions(
+              e.message,
+              dryRunValidationQuery,
+              statementOverride ?? task.statement,
+              CREATE_SCHEMA_WRAPPER_LINE_OFFSET,
+            )
+          : e.message;
+        taskResult.errorMessage = `${this.graph.projectConfig?.warehouse} error: ${message}`;
         if (e.metadata?.bigquery?.jobId) {
           taskResult.metadata = {
             bigquery: {
@@ -710,25 +953,5 @@ export class Runner {
     taskResult.timing = timer.end();
     this.notifyListeners();
     return taskResult.status;
-  }
-}
-
-class Timer {
-  public static start(existingTiming?: sqlanvil.ITiming) {
-    return new Timer(existingTiming?.startTimeMillis.toNumber() || new Date().valueOf());
-  }
-  private constructor(readonly startTimeMillis: number) {}
-
-  public current(): sqlanvil.ITiming {
-    return {
-      startTimeMillis: Long.fromNumber(this.startTimeMillis),
-    };
-  }
-
-  public end(): sqlanvil.ITiming {
-    return {
-      startTimeMillis: Long.fromNumber(this.startTimeMillis),
-      endTimeMillis: Long.fromNumber(new Date().valueOf()),
-    };
   }
 }

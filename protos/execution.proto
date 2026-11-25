@@ -115,6 +115,11 @@ message ExecutionAction {
   ExtractSpec extract = 15;
   ScriptSpec script = 16;
 
+  // Operations only: whether the operation declares `hasOutput: true`. On BigQuery only then is
+  // an operation's target dataset created when it doesn't exist (upstream #2408 has this field
+  // as 13, which is `export` here).
+  bool has_output = 17;
+
   reserved 1, 3, 7;
 }
 
@@ -187,9 +192,8 @@ message TaskResult {
   string error_message = 2;
   Timing timing = 3;
   ExecutionMetadata metadata = 4;
-  // SQL that would be executed. Populated only during --dry-run so that
-  // dry-run output can include the query — particularly for JiT actions
-  // whose SQL is only available after runtime compilation.
+  // SQL that was executed, populated only when it differs from the task's statement (for example
+  // when wrapped in `create schema if not exists`), so that error positions refer to it.
   string compiled_sql = 5;
 }
 

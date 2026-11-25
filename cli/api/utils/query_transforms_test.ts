@@ -1,6 +1,6 @@
 import { expect } from "chai";
 
-import { setsDatasetId } from "sa/cli/api/utils/query_transforms";
+import { setsDatasetId, wrapWithCreateSchemaIfNotExists } from "sa/cli/api/utils/query_transforms";
 import { suite, test } from "sa/testing";
 
 suite("setsDatasetId", () => {
@@ -34,5 +34,70 @@ suite("setsDatasetId", () => {
     expect(setsDatasetId("SET (x, y) = (@@dataset_id, 1)")).equals(false);
     expect(setsDatasetId("SET @@dataset_project_id = 'proj'")).equals(false);
     expect(setsDatasetId("SET @@dataset_id_other = 'my_ds'")).equals(false);
+  });
+});
+
+suite("wrapWithCreateSchemaIfNotExists", () => {
+  test("wraps a statement in a block after creating the schema", () => {
+    expect(wrapWithCreateSchemaIfNotExists("project", "dataset", "SELECT 1;")).equals(
+      "create schema if not exists `project.dataset`;\nbegin\nSELECT 1;\nend;",
+    );
+  });
+
+  test("adds a missing semicolon", () => {
+    expect(wrapWithCreateSchemaIfNotExists("project", "dataset", "  SELECT 1\n")).equals(
+      "create schema if not exists `project.dataset`;\nbegin\nSELECT 1;\nend;",
+    );
+  });
+
+  test("terminates a statement with a trailing comment", () => {
+    expect(wrapWithCreateSchemaIfNotExists("project", "dataset", "SELECT 1 -- comment")).equals(
+      "create schema if not exists `project.dataset`;\nbegin\nSELECT 1; -- comment\nend;",
+    );
+  });
+
+  test("terminates a statement with a trailing # comment", () => {
+    expect(wrapWithCreateSchemaIfNotExists("project", "dataset", "SELECT 1 # comment")).equals(
+      "create schema if not exists `project.dataset`;\nbegin\nSELECT 1; # comment\nend;",
+    );
+  });
+
+  test("terminates a statement with a trailing block comment", () => {
+    expect(wrapWithCreateSchemaIfNotExists("project", "dataset", "SELECT 1 /* a; */")).equals(
+      "create schema if not exists `project.dataset`;\nbegin\nSELECT 1; /* a; */\nend;",
+    );
+  });
+
+  test("doesn't mistake a semicolon or comment marker inside a string for code", () => {
+    expect(wrapWithCreateSchemaIfNotExists("project", "dataset", "SELECT 'a; -- b'")).equals(
+      "create schema if not exists `project.dataset`;\nbegin\nSELECT 'a; -- b';\nend;",
+    );
+  });
+
+  test("terminates a raw string ending in a backslash before a trailing comment", () => {
+    expect(wrapWithCreateSchemaIfNotExists("project", "dataset", "SELECT r'\\' -- comment")).equals(
+      "create schema if not exists `project.dataset`;\nbegin\nSELECT r'\\'; -- comment\nend;",
+    );
+  });
+
+  test("keeps leading DECLARE statements at the start of the block", () => {
+    expect(
+      wrapWithCreateSchemaIfNotExists("project", "dataset", "DECLARE x INT64;\nSELECT x"),
+    ).equals(
+      "create schema if not exists `project.dataset`;\nbegin\nDECLARE x INT64;\nSELECT x;\nend;",
+    );
+  });
+
+  test("doesn't add a semicolon after a terminated script", () => {
+    const script = "BEGIN\n  SELECT 1;\nEXCEPTION WHEN ERROR THEN\n  RAISE;\nEND;";
+    expect(wrapWithCreateSchemaIfNotExists("project", "dataset", script)).equals(
+      `create schema if not exists \`project.dataset\`;\nbegin\n${script}\nend;`,
+    );
+  });
+
+  test("omits the database if not set", () => {
+    expect(wrapWithCreateSchemaIfNotExists(undefined, "dataset", "SELECT 1;")).equals(
+      "create schema if not exists `dataset`;\nbegin\nSELECT 1;\nend;",
+    );
   });
 });

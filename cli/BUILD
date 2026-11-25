@@ -123,7 +123,10 @@ ts_test_suite(
 # deploy gate (docs/prd/sqlanvil/testing.md, Levels; E-012).
 ts_test_suite(
     name = "run_e2e_tests",
-    srcs = ["index_run_e2e_test.ts"],
+    srcs = [
+        "index_location_test.ts",
+        "index_run_e2e_test.ts",
+    ],
     data = [
         "//packages/@sqlanvil/cli:bundle",
         "//packages/@sqlanvil/cli:json",

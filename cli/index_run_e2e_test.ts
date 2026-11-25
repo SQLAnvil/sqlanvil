@@ -748,6 +748,8 @@ select 2
 config { 
   type: "operations"
 }
+-- Operations without an output don't get their dataset created (upstream #2408).
+CREATE SCHEMA IF NOT EXISTS \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.projectConfig.defaultSchema}\`;
 CREATE OR REPLACE TABLE \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.projectConfig.defaultSchema}.example_incremental\` AS SELECT 1 AS id, 'old' AS field1
 `,
       );
@@ -781,8 +783,7 @@ DROP SCHEMA IF EXISTS \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.p
       { timeout: 120000 },
       async () => {
         try {
-          // Run setup operation to create the table in BigQuery.
-          // sqlanvil will automatically create the uniqueDataset schema.
+          // Run setup operation to create the uniqueDataset schema and the table in BigQuery.
           await getProcessResult(
             execFile(nodePath, [
               cliEntryPointPath,
@@ -914,6 +915,7 @@ SELECT * FROM ${qualified("example_incremental")} WHERE (SELECT COUNT(*) FROM ${
           writeDefinition(
             "setup_table.sqlx",
             `config { type: "operations" }
+CREATE SCHEMA IF NOT EXISTS \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.projectConfig.defaultSchema}\`;
 CREATE OR REPLACE TABLE ${qualified("example_incremental")} AS SELECT 1 AS id, 'old' AS field1, 'gone' AS dropme`,
           );
           writeDefinition(
@@ -938,6 +940,7 @@ SELECT 2 AS id, 'new' AS field1`,
           writeDefinition(
             "setup_table.sqlx",
             `config { type: "operations" }
+CREATE SCHEMA IF NOT EXISTS \`\${sqlanvil.projectConfig.defaultDatabase}.\${sqlanvil.projectConfig.defaultSchema}\`;
 CREATE OR REPLACE TABLE ${qualified("example_incremental")} PARTITION BY d AS
 SELECT DATE '2024-01-01' AS d, 1 AS id, 'old' AS field1`,
           );

@@ -16,7 +16,7 @@ export function getBigQueryCredentials(
     "US (default)",
     "EU",
     "other",
-    "auto (BigQuery infers each job's location; new datasets are created in US)",
+    "auto (BigQuery infers each job's location, and each new dataset's, from the tables it reads)",
   ]);
   let location: string | undefined;
   if (locationIndex === 0) {

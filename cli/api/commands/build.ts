@@ -100,6 +100,7 @@ export class Builder {
     return {
       ...this.toPartialExecutionAction(operation),
       type: "operation",
+      hasOutput: !!operation.hasOutput,
       tasks: this.executionSql.createOperationTasks(operation),
       hermeticity: operation.hermeticity || sqlanvil.ActionHermeticity.NON_HERMETIC,
     };

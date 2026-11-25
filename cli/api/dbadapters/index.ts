@@ -55,7 +55,7 @@ export interface IDbAdapter extends IDbClient {
 
   evaluate(queryOrAction: QueryOrAction): Promise<sqlanvil.IQueryEvaluation[]>;
 
-  schemas(database: string): Promise<string[]>;
+  schemas(database?: string): Promise<string[]>;
   createSchema(database: string, schema: string, location?: string): Promise<void>;
 
   tables(database: string, schema?: string): Promise<sqlanvil.ITableMetadata[]>;

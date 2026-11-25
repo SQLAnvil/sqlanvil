@@ -262,7 +262,7 @@ export class MySqlDbAdapter implements IDbAdapter {
     });
   }
 
-  public async schemas(_database: string): Promise<string[]> {
+  public async schemas(_database?: string): Promise<string[]> {
     const result = await this.execute(`select schema_name from information_schema.schemata`, {
       includeQueryInError: true,
     });

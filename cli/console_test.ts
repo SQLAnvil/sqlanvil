@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import Long from "long";
 
-import { dotRepresentation, printExecutionGraph } from "sa/cli/console";
+import { dotRepresentation, printExecutedAction, printExecutionGraph } from "sa/cli/console";
 import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";
 
@@ -106,5 +106,57 @@ suite("dotRepresentation", () => {
     expect(dotRepresentation(decoded, false)).equals(expected);
     // The graph passed in isn't modified.
     expect(decoded.tables[0].enumType).equals(sqlanvil.TableType.UNKNOWN_TYPE);
+  });
+});
+
+// Upstream #2408: a task wrapped in a script creating its missing dataset reports that script as its
+// compiled SQL, and error positions refer to it.
+suite("printExecutedAction", () => {
+  function captureStderr(fn: () => void): string {
+    const chunks: string[] = [];
+    const originalWrite = process.stderr.write.bind(process.stderr);
+    (process.stderr as any).write = (chunk: string) => {
+      chunks.push(String(chunk));
+      return true;
+    };
+    try {
+      fn();
+    } finally {
+      process.stderr.write = originalWrite;
+    }
+    return chunks.join("").replace(/\x1b\[[0-9;]*m/g, "");
+  }
+
+  const executionAction: sqlanvil.IExecutionAction = {
+    type: "table",
+    target: { database: "p", schema: "ds", name: "t" },
+    tasks: [{ type: "statement", statement: "SELECT bad" }],
+  };
+  const failedTask = (compiledSql?: string): sqlanvil.IActionResult => ({
+    target: executionAction.target,
+    status: sqlanvil.ActionResult.ExecutionStatus.FAILED,
+    tasks: [
+      {
+        status: sqlanvil.TaskResult.ExecutionStatus.FAILED,
+        errorMessage: "bigquery error: Unrecognized name: bad at [3:8]",
+        compiledSql,
+      },
+    ],
+  });
+
+  test("prints the SQL that was executed for a failed task", () => {
+    const wrappedSql = "create schema if not exists `p.ds`;\nbegin\nSELECT bad;\nend;";
+    const output = captureStderr(() =>
+      printExecutedAction(failedTask(wrappedSql), executionAction),
+    );
+    expect(output).to.include("> create schema if not exists `p.ds`;\n");
+    expect(output).to.include("> SELECT bad;\n");
+    expect(output).to.include("> end;\n");
+  });
+
+  test("prints the task's statement when no other SQL was executed", () => {
+    const output = captureStderr(() => printExecutedAction(failedTask(), executionAction));
+    expect(output).to.include("> SELECT bad\n");
+    expect(output).not.to.include("create schema");
   });
 });
