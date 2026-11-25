@@ -473,8 +473,6 @@ T-005.9:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-002
-  symptom: "P/target/run_summary/run_300.parquet does not exist"
   input:
     graph: *G1
     call: "writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 300})"
@@ -1243,8 +1241,6 @@ T-018.6:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-002
-  symptom: "line 10 is \"Latest run (FAILED): 1 succeeded, 1 failed, 600ms\", the line of the previous run 123"
   input:
     project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123}) and then writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 200})"
     graph: *G1
@@ -1372,8 +1368,6 @@ T-019.4:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-002
-  symptom: "latestRun is the previous run 123"
   input:
     project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123}) and then writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 200})"
     graph: *G1
@@ -1646,8 +1640,6 @@ T-021.8:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-002
-  symptom: "latestRun is the previous run 123"
   input:
     setup:
       - "writeArtifacts(G1, P, {runResult: R1, runId: 123})"
