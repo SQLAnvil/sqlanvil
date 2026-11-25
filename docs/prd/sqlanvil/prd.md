@@ -1,9 +1,9 @@
 ---
 prd: sqlanvil
-version: 1.0.4
+version: 2.0.0
 status: Approved
 owner: Ivan Histand
-updated: 2026-11-24
+updated: 2026-11-25
 language: en
 ---
 
@@ -155,10 +155,10 @@ The CLI's interface is its commands, flags and output, documented in `cli/README
 | FR-015 | Open a fresh in-memory DuckDB for each artifact query | live | features/artifacts.md | 1.0.0 |
 | FR-016 | Redirect DuckDB's home directory when HOME is unset | live | features/artifacts.md | 1.0.0 |
 | FR-017 | Report a DuckDB binding that fails to load | live | features/artifacts.md | 1.0.0 |
-| FR-018 | Summarize the artifacts with the inspect command | built | features/artifacts.md |  |
-| FR-019 | Print the inspect summary as JSON | built | features/artifacts.md |  |
+| FR-018 | Summarize the artifacts with the inspect command | approved | features/artifacts.md |  |
+| FR-019 | Print the inspect summary as JSON | approved | features/artifacts.md |  |
 | FR-020 | Write the HTML catalog with the docs command | live | features/artifacts.md | 1.0.0 |
-| FR-021 | Build the docs catalog model from the artifacts | built | features/artifacts.md |  |
+| FR-021 | Build the docs catalog model from the artifacts | approved | features/artifacts.md |  |
 | FR-022 | Render the docs catalog as one self-contained HTML page | live | features/artifacts.md | 1.0.0 |
 | FR-023 | Run a warehouse query through an adapter | live | features/artifacts.md | 1.0.0 |
 | FR-024 | Evaluate a query through an adapter | live | features/artifacts.md | 1.0.0 |
@@ -186,3 +186,4 @@ None.
 | 1.0.2 | 2026-11-23 | eslint and README rows declined for CI (E-009, E-011), tests/prd left out of prettier (E-010), warehouse level at the deploy gate with the CLI live-BigQuery test (E-012); no dry run (no T-id changed; registry rows and levels only) | - |
 | 1.0.3 | 2026-11-24 | upstream 3.1.6-3.1.8 sync (#67): vscode/ removed, DF_VERSION tag 3.1.8, lint now in the repository lint workflow and over every .ts file; no dry run (wording only) | - |
 | 1.0.4 | 2026-11-24 | regression test for E-007; dry run T-018.7, T-019.5, 0 open questions, 3 dismissed by quote | FR-018, FR-019, T-018.7, T-019.5 |
+| 2.0.0 | 2026-11-25 | run-summary files and run_summary view so a run with no action results is recorded (E-002); dry run T-005.7, T-005.8, T-005.9, T-005.10, T-005.12, T-010.6, T-010.7, T-018.8, 0 open questions, 1 dismissed by quote | UJ-01, FR-005, FR-010, FR-018, FR-019, FR-021, AC-005.7, AC-005.8, AC-005.9, AC-005.10, AC-005.11, AC-010.6, AC-018.2, AC-018.4, AC-019.1, AC-019.2, AC-021.3, AC-021.4, T-005.7, T-005.8, T-005.9, T-005.10, T-005.12, T-010.6, T-010.7, T-018.8 |

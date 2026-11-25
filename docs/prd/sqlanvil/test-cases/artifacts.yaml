@@ -444,7 +444,7 @@ T-005.7:
     call: "writeArtifacts(G1, P)"
   expect:
     output: {targetDir: "P/target"}
-    effects: ["no path P/target/runs exists"]
+    effects: ["no path P/target/runs exists", "no path P/target/run_summary exists"]
     errors: []
     leaks: none
 T-005.8:
@@ -462,7 +462,7 @@ T-005.8:
     read_back: "queryParquet('select run_id, count(*) as n from runs group by run_id order by run_id') over P/target/runs/*.parquet"
   expect:
     output: [{run_id: 1, n: 2}, {run_id: 2, n: 2}]
-    effects: ["P/target/runs holds exactly run_1.parquet and run_2.parquet; run_1.parquet's bytes are unchanged by the second call"]
+    effects: ["P/target/runs holds exactly run_1.parquet and run_2.parquet; run_1.parquet's bytes are unchanged by the second call", "P/target/run_summary holds exactly run_1.parquet and run_2.parquet; run_1.parquet's bytes are unchanged by the second call"]
     errors: []
     leaks: none
 T-005.9:
@@ -474,14 +474,14 @@ T-005.9:
   identity: none
   preconditions: []
   known-failing: E-002
-  symptom: "the runs view holds no row for run 300"
+  symptom: "P/target/run_summary/run_300.parquet does not exist"
   input:
     graph: *G1
     call: "writeArtifacts(G1, P, {runResult: {status: SUCCESSFUL, actions: []}, runId: 300})"
-    read_back: "queryParquet('select distinct run_id, run_status from runs where run_id = 300') over P/target/runs/*.parquet"
+    read_back: "queryParquet('select run_id, run_status from run_summary where run_id = 300') over P/target/run_summary/*.parquet"
   expect:
     output: [{run_id: 300, run_status: SUCCESSFUL}]
-    effects: []
+    effects: ["P/target/runs/run_300.parquet exists and holds zero rows"]
     errors: []
     leaks: none
 T-005.10:
@@ -497,7 +497,7 @@ T-005.10:
     calls: ["writeArtifacts(G1, P, {runResult: R1, runId: 1})", "writeArtifacts(G1, P, {runResult: R1, runId: 2})", "writeArtifacts(G1, P, {runResult: R1, runId: 3})", "writeArtifacts(G1, P)"]
   expect:
     output: "each call resolves {targetDir: P/target}"
-    effects: ["P/target/runs holds exactly run_1.parquet, run_2.parquet and run_3.parquet"]
+    effects: ["P/target/runs holds exactly run_1.parquet, run_2.parquet and run_3.parquet", "P/target/run_summary holds exactly run_1.parquet, run_2.parquet and run_3.parquet"]
     errors: []
     leaks: none
 T-005.11:
@@ -516,6 +516,25 @@ T-005.11:
   expect:
     output: [{name: run_id, type: BIGINT}, {name: run_status, type: VARCHAR}, {name: target_key, type: VARCHAR}, {name: readable_name, type: VARCHAR}, {name: status, type: VARCHAR}, {name: start_millis, type: BIGINT}, {name: end_millis, type: BIGINT}, {name: duration_millis, type: BIGINT}, {name: error_message, type: VARCHAR}]
     effects: []
+    errors: []
+    leaks: none
+T-005.12:
+  ac: AC-005.11
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/api/commands/artifacts.writeArtifacts
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    graph: *G1
+    run_result: *R1
+    call: "writeArtifacts(G1, P, {runResult: R1, runId: 123})"
+    read_back: "queryParquet(\"select run_id, run_status from run_summary\") over P/target/run_summary/*.parquet"
+    read_back_types: "queryParquet(\"select name, type from pragma_table_info('run_summary') order by cid\") over P/target/run_summary/*.parquet"
+  expect:
+    output: {read_back: [{run_id: 123, run_status: FAILED}], read_back_types: [{name: run_id, type: BIGINT}, {name: run_status, type: VARCHAR}]}
+    effects: ["P/target/run_summary holds exactly run_123.parquet"]
     errors: []
     leaks: none
 T-006.1:
@@ -792,6 +811,50 @@ T-010.5:
     argv: [query, "select count(*) as n from actions", Q, --json]
   expect:
     output: {exit_code: 0, stdout_json: [{n: 3}]}
+    effects: []
+    errors: []
+    leaks: none
+T-010.6:
+  ac: AC-010.6
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/commands/query_command.queryCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, written by writeArtifacts(G1, P, {runResult: R1, runId: 100}) and then writeArtifacts(G1, P, {runResult: R_one, runId: 200})"
+    graph: *G1
+    run_result: *R1
+    run_result_R_one: {status: SUCCESSFUL, actions: [{target: {schema: s, name: src}, status: SUCCESSFUL, timing: {startTimeMillis: 1, endTimeMillis: 2}, tasks: []}]}
+    env: {NO_COLOR: "1"}
+    argv: [query, "select run_id, run_status from run_summary order by run_id", P, --json]
+  expect:
+    output: {exit_code: 0, stdout_json: [{run_id: 100, run_status: FAILED}, {run_id: 200, run_status: SUCCESSFUL}]}
+    effects: []
+    errors: []
+    leaks: none
+T-010.7:
+  ac: AC-010.6
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123}), then every file under P/target/run_summary removed and a file P/target/run_summary/notes.txt added, so P/target/run_summary holds no .parquet file"
+    graph: *G1
+    run_result: *R1
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P, --json]
+  expect:
+    output:
+      exit_code: 0
+      stdout_json:
+        actionsByType: [{type: assertion, n: 1}, {type: table, n: 1}, {type: view, n: 1}]
+        latestRun: {run_id: 123, run_status: FAILED, succeeded: 1, failed: 1, wall_ms: 600}
+        failures: [{readable_name: s.v, error_message: boom}]
     effects: []
     errors: []
     leaks: none
@@ -1210,6 +1273,27 @@ T-018.7:
     output:
       exit_code: 0
       stdout: "after `Failures:`, a table of exactly 20 rows, readable_name s.f01 to s.f20 in that order and each error_message e, ending with `(20 rows)`"
+    effects: []
+    errors: []
+    leaks: none
+T-018.8:
+  ac: AC-018.2
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G1, P, {runResult: R1, runId: 123}) and then the directory P/target/run_summary removed, as in artifacts written before run-summary files existed"
+    graph: *G1
+    run_result: *R1
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P]
+  expect:
+    output:
+      exit_code: 0
+      stdout_lines_9_to_10: ["", "Latest run (FAILED): 1 succeeded, 1 failed, 600ms"]
     effects: []
     errors: []
     leaks: none

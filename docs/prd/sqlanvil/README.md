@@ -5,7 +5,7 @@ This folder is the living PRD for **sqlanvil**: the requirements that say what i
 step with the code. The code implements this PRD, and a change in behaviour starts here, not in
 the code. It is maintained with prd-toolkit, a Claude Code plugin (see [../README.md](../README.md) to set it up).
 
-Version 1.0.4 · Approved · Owner: Ivan Histand · Updated 2026-11-24
+Version 2.0.0 · Approved · Owner: Ivan Histand · Updated 2026-11-25
 
 ## What this PRD covers
 
