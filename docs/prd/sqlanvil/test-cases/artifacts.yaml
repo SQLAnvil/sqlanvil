@@ -78,8 +78,6 @@ T-001.4:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-006
-  symptom: "writeArtifacts rejects with `Parser Error: syntax error at or near \"<token>\"`, where <token> is the start of the text after the single quote in the directory name"
   input:
     project_dir: "Q, a new empty temporary directory whose name contains a single quote (for example o'brien)"
     graph: *G1
@@ -798,8 +796,6 @@ T-010.5:
   environment: local
   identity: none
   preconditions: []
-  known-failing: E-006
-  symptom: "writing the project's artifacts rejects with `Parser Error: syntax error at or near \"<token>\"`, where <token> is the start of the text after the single quote in the directory name, so the query does not run"
   input:
     project_dir: "Q, a temporary directory whose name contains a single quote, with target/ written by writeArtifacts(G1, Q)"
     graph: *G1
