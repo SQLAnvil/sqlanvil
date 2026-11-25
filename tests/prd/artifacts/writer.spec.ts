@@ -10,11 +10,6 @@ import { sqlanvil } from "sa/protos/ts";
 import { suite, test } from "sa/testing";
 import { emptyGraph, g1, r1, successfulEmptyRun } from "sa/tests/prd/artifacts/fixtures";
 import {
-  expectKnownFailure,
-  isParserErrorAfterQuote,
-  knownFailure,
-} from "sa/tests/prd/artifacts/known_failing";
-import {
   captureOutput,
   expectFields,
   filesUnder,
@@ -23,6 +18,11 @@ import {
   withTmpDirs,
   withTmpdirEnv,
 } from "sa/tests/prd/artifacts/helpers";
+import {
+  expectKnownFailure,
+  isParserErrorAfterQuote,
+  knownFailure,
+} from "sa/tests/prd/artifacts/known_failing";
 
 // A protobufjs Long value is Long.fromNumber(n) from the `long` package (testing.md, Layout).
 // eslint-disable-next-line @typescript-eslint/no-var-requires
