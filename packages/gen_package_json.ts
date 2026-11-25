@@ -37,8 +37,10 @@ if (argv.types) {
   result.types = argv.types;
 }
 
-// Filter out dependencies.
+// Strip workspace-only fields and filter runtime dependencies (upstream #2469).
 delete result.devDependencies;
+delete result.packageManager;
+delete result.pnpm;
 result.dependencies = externalDependencies.reduce((acc, key) => {
   if (!result.dependencies[key]) {
     throw new Error("Dependency does not appear to be installed in root package.json: " + key);

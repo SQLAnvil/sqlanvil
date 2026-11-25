@@ -10,7 +10,6 @@ ts_library(
         exclude = ["*.spec.ts"],
     ),
     deps = [
-        "//:node_modules/@types/long",
         "//:node_modules/long",
     ],
 )

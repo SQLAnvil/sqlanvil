@@ -31,8 +31,6 @@ ts_test_suite(
     deps = [
         ":utils",
         "//cli/api",
-        "//cli/api/utils",
-        "//common/promises",
         "//core",
         "//protos:ts",
         "//testing",

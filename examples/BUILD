@@ -28,7 +28,6 @@ ts_test_suite(
     ],
     deps = [
         "//cli:index_test_base",
-        "//cli/api",
         "//common/protos",
         "//protos:ts",
         "//testing",

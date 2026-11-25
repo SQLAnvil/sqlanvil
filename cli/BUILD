@@ -41,11 +41,9 @@ ts_library(
     deps = [
         "//cli/api",
         "//cli/api/utils",
-        "//cli/vm",
         "//core",
         "//protos:ts",
         "//sqlx:format",
-        "//:node_modules/@types/glob",
         "//:node_modules/@types/js-yaml",
         "//:node_modules/@types/long",
         "//:node_modules/@types/node",
@@ -90,6 +88,7 @@ ts_test_suite(
         "index_compile_test.ts",
         "index_connections_test.ts",
         "tests/bin_test.ts",
+        "tests/package_test.ts",
         "util_test.ts"
     ],
     data = [

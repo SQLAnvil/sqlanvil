@@ -10,8 +10,6 @@ ts_library(
         exclude = ["**/*_test.ts"],
     ),
     deps = [
-        "//common/protos",
-        "//common/strings",
         "//core",
         "//protos:ts",
         "//:node_modules/@types/node",
