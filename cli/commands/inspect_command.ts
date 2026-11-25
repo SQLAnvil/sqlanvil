@@ -33,7 +33,8 @@ async function runInspect(projectDir: string, json: boolean): Promise<number> {
     latestRun = latest[0] || null;
     failures = await queryParquet(
       "select readable_name, error_message from runs " +
-        "where run_id = (select max(run_id) from runs) and status = 'FAILED' limit 20",
+        "where run_id = (select max(run_id) from runs) and status = 'FAILED' " +
+        "order by readable_name limit 20",
       views,
     );
   }
