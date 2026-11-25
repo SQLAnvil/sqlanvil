@@ -701,47 +701,33 @@ suite("prd artifacts: writer", () => {
     });
   });
 
-  test("@prd T-006.1 known-failing E-003 an empty rowset keeps its file's column names and types", async () => {
+  test("@prd T-006.1 an empty rowset keeps its file's column names and types", async () => {
     await withTmpDirs(2, async (P, P2) => {
-      await expectKnownFailure("E-003", async () => {
-        await write(emptyGraph(), P);
-        await write(g1(), P2);
-        const viewsP = views(P, ...CATALOG);
-        const viewsP2 = views(P2, ...CATALOG);
-        const expectedColumns: { [view: string]: string[] } = {
-          actions: ACTIONS_COLUMNS,
-          dependencies: DEPENDENCIES_COLUMNS,
-          columns: COLUMNS_COLUMNS,
-        };
-        // The count and the column names of each file over P.
-        for (const view of CATALOG) {
-          expectFields(await query(`select count(*) as n from ${view}`, viewsP), [{ n: 0 }], `${view} count`);
-          expect(
-            (await query(`select name from pragma_table_info('${view}') order by cid`, viewsP)).map(
-              (row: any) => row.name,
-            ),
-            `${view} columns`,
-          ).to.deep.equal(expectedColumns[view]);
-        }
-        // The (name, type) list of each file over P against the one over P2.
-        for (const view of CATALOG) {
-          const overP = nameType(await query(pragmaTypes(view), viewsP));
-          const overP2 = nameType(await query(pragmaTypes(view), viewsP2));
-          if (
-            view === "actions" &&
-            overP.length > 0 &&
-            overP.every((r) => r.type === "JSON") &&
-            overP2.length > 0 &&
-            overP2.every((r) => r.type === (r.name === "disabled" ? "BOOLEAN" : "VARCHAR"))
-          ) {
-            knownFailure(
-              "every column of the empty actions file over P has type JSON, where the actions file over P2 has VARCHAR, and BOOLEAN for disabled",
-              `over P ${JSON.stringify(overP)}; over P2 ${JSON.stringify(overP2)}`,
-            );
-          }
-          expect(overP, `${view} (name, type) over P equals the one over P2`).to.deep.equal(overP2);
-        }
-      });
+      await write(emptyGraph(), P);
+      await write(g1(), P2);
+      const viewsP = views(P, ...CATALOG);
+      const viewsP2 = views(P2, ...CATALOG);
+      const expectedColumns: { [view: string]: string[] } = {
+        actions: ACTIONS_COLUMNS,
+        dependencies: DEPENDENCIES_COLUMNS,
+        columns: COLUMNS_COLUMNS,
+      };
+      // The count and the column names of each file over P.
+      for (const view of CATALOG) {
+        expectFields(await query(`select count(*) as n from ${view}`, viewsP), [{ n: 0 }], `${view} count`);
+        expect(
+          (await query(`select name from pragma_table_info('${view}') order by cid`, viewsP)).map(
+            (row: any) => row.name,
+          ),
+          `${view} columns`,
+        ).to.deep.equal(expectedColumns[view]);
+      }
+      // The (name, type) list of each file over P against the one over P2.
+      for (const view of CATALOG) {
+        const overP = nameType(await query(pragmaTypes(view), viewsP));
+        const overP2 = nameType(await query(pragmaTypes(view), viewsP2));
+        expect(overP, `${view} (name, type) over P equals the one over P2`).to.deep.equal(overP2);
+      }
     });
   });
 
