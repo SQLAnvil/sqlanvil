@@ -1,6 +1,6 @@
 ---
 prd: sqlanvil
-version: 1.0.3
+version: 1.0.4
 status: Approved
 owner: Ivan Histand
 updated: 2026-11-24
@@ -185,3 +185,4 @@ None.
 | 1.0.1 | 2026-11-23 | Bazel commands in Levels and the standards rows run through scripts/bazel-ci, which creates a missing ~/.npmrc (E-008); no dry run (no T-id changed; harness and linter commands only) | - |
 | 1.0.2 | 2026-11-23 | eslint and README rows declined for CI (E-009, E-011), tests/prd left out of prettier (E-010), warehouse level at the deploy gate with the CLI live-BigQuery test (E-012); no dry run (no T-id changed; registry rows and levels only) | - |
 | 1.0.3 | 2026-11-24 | upstream 3.1.6-3.1.8 sync (#67): vscode/ removed, DF_VERSION tag 3.1.8, lint now in the repository lint workflow and over every .ts file; no dry run (wording only) | - |
+| 1.0.4 | 2026-11-24 | regression test for E-007; dry run T-018.7, T-019.5, 0 open questions, 3 dismissed by quote | FR-018, FR-019, T-018.7, T-019.5 |

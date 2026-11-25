@@ -1196,6 +1196,27 @@ T-018.6:
     effects: []
     errors: []
     leaks: none
+T-018.7:
+  ac: AC-018.3
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  known-failing: E-007
+  symptom: "the first row after `Failures:` is s.f21, and s.f01 is missing"
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G21, P, {runResult: R21R, runId: 5}), where G21 has 21 tables s.f01 to s.f21 and R21R has status FAILED and one FAILED action result per table, listed in reverse readable_name order (s.f21 first, s.f01 last), each with timing {startTimeMillis: 10, endTimeMillis: 20} and tasks [{errorMessage: e}]"
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P]
+  expect:
+    output:
+      exit_code: 0
+      stdout: "after `Failures:`, a table of exactly 20 rows, readable_name s.f01 to s.f20 in that order and each error_message e, ending with `(20 rows)`"
+    effects: []
+    errors: []
+    leaks: none
 T-019.1:
   ac: AC-019.1
   level: integration
@@ -1287,6 +1308,28 @@ T-019.4:
         actionsByType: [{type: assertion, n: 1}, {type: table, n: 1}, {type: view, n: 1}]
         latestRun: {run_id: 200, run_status: SUCCESSFUL, succeeded: 0, failed: 0, wall_ms: 0}
         failures: []
+    effects: []
+    errors: []
+    leaks: none
+T-019.5:
+  ac: AC-019.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:sa/cli/commands/inspect_command.inspectCommand
+  environment: local
+  identity: none
+  preconditions: []
+  known-failing: E-007
+  symptom: "failures[0].readable_name is s.f21, and s.f01 is missing"
+  input:
+    project_dir: "P, with target/ written by writeArtifacts(G21, P, {runResult: R21R, runId: 5}), where G21 has 21 tables s.f01 to s.f21 and R21R has status FAILED and one FAILED action result per table, listed in reverse readable_name order (s.f21 first, s.f01 last), each with timing {startTimeMillis: 10, endTimeMillis: 20} and tasks [{errorMessage: e}]"
+    env: {NO_COLOR: "1"}
+    argv: [inspect, P, --json]
+  expect:
+    output:
+      exit_code: 0
+      stdout_json:
+        failures: [{readable_name: s.f01, error_message: e}, {readable_name: s.f02, error_message: e}, {readable_name: s.f03, error_message: e}, {readable_name: s.f04, error_message: e}, {readable_name: s.f05, error_message: e}, {readable_name: s.f06, error_message: e}, {readable_name: s.f07, error_message: e}, {readable_name: s.f08, error_message: e}, {readable_name: s.f09, error_message: e}, {readable_name: s.f10, error_message: e}, {readable_name: s.f11, error_message: e}, {readable_name: s.f12, error_message: e}, {readable_name: s.f13, error_message: e}, {readable_name: s.f14, error_message: e}, {readable_name: s.f15, error_message: e}, {readable_name: s.f16, error_message: e}, {readable_name: s.f17, error_message: e}, {readable_name: s.f18, error_message: e}, {readable_name: s.f19, error_message: e}, {readable_name: s.f20, error_message: e}]
     effects: []
     errors: []
     leaks: none

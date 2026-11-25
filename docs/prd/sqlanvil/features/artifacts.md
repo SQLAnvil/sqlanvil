@@ -232,7 +232,7 @@ Acceptance (EARS):
 - AC-018.5 When the latest run has no action results, the inspect command shall report it as the latest run with 0 succeeded, 0 failed and 0ms.
 Errors: -
 Edge cases: a latest run with a skipped or disabled action → AC-018.2 (E-001); a run with no action results → AC-018.5 (E-002); more than 20 failures → AC-018.3 (E-007)
-Tests: T-018.1 [integration], T-018.2 [integration], T-018.3 [integration], T-018.4 [integration], T-018.5 [integration], T-018.6 [integration]  (test-cases/artifacts.yaml)
+Tests: T-018.1 [integration], T-018.2 [integration], T-018.3 [integration], T-018.4 [integration], T-018.5 [integration], T-018.6 [integration], T-018.7 [integration]  (test-cases/artifacts.yaml)
 Traces: UJ-01
 
 ### FR-019 Print the inspect summary as JSON
@@ -243,8 +243,8 @@ Acceptance (EARS):
 - AC-019.2 If no run is recorded, the inspect command shall print `latestRun` as null and `failures` as an empty array.
 - AC-019.3 When the latest run has no action results, the inspect command shall print it as `latestRun` with succeeded 0, failed 0 and wall_ms 0, and `failures` as an empty array.
 Errors: -
-Edge cases: a latest run with a skipped or disabled action → AC-019.1 (E-001); a run with no action results → AC-019.3 (E-002)
-Tests: T-019.1 [integration], T-019.2 [integration], T-019.3 [integration], T-019.4 [integration]  (test-cases/artifacts.yaml)
+Edge cases: a latest run with a skipped or disabled action → AC-019.1 (E-001); a run with no action results → AC-019.3 (E-002); more than 20 failures → AC-019.1 (E-007)
+Tests: T-019.1 [integration], T-019.2 [integration], T-019.3 [integration], T-019.4 [integration], T-019.5 [integration]  (test-cases/artifacts.yaml)
 Traces: -
 
 ### FR-020 Write the HTML catalog with the docs command
