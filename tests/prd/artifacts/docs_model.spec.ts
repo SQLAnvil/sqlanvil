@@ -195,8 +195,10 @@ suite("prd artifacts: docs builder", () => {
     });
   });
 
-  test("@prd T-021.7 keys dependencies and statuses by target, not readable name", async () => {
+  test("@prd T-021.7 two targets that read as one name keep their own status and dependsOn", async () => {
     await withTmpDir(async (P) => {
+      // The graph and run result of T-021.7: database a, schema b, name c and schema a.b, name c
+      // both read as a.b.c; every list the case does not name is empty.
       const graph = {
         tables: [
           {
@@ -229,7 +231,9 @@ suite("prd artifacts: docs builder", () => {
         ],
       };
       await write(graph, P, { runResult, runId: 10 });
+      // The four views of T-021.1, over P.
       const model = await build(views(P, true), GENERATED_AT);
+      // Ordered by type, then readable name (AC-021.1): the table, then the view.
       expectFields(model, {
         models: [
           {
