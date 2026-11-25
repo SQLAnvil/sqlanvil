@@ -32,12 +32,15 @@ below before authoring a `warehouse: mysql` project.
 warehouse: postgres            # flat string ("postgres" or "supabase") — NOT nested
 defaultDataset: public         # the Postgres SCHEMA
 defaultAssertionDataset: sqlanvil_assertions
-sqlanvilCoreVersion: 1.38.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
+sqlanvilCoreVersion: 1.39.0    # sqlanvil's OWN SemVer line (NOT dataformCoreVersion); pin the current release
 vars:
   someVar: value
 ```
 Drop `defaultProject` and `defaultLocation` (BigQuery-only). `dataform.json` is the legacy
-upstream name; sqlanvil uses `workflow_settings.yaml`.
+upstream name; sqlanvil uses `workflow_settings.yaml`. Keep `defaultDataset`: from 1.39 an action
+that would write somewhere (table, view, incremental, assertion, import, operation with
+`hasOutput: true`) with no dataset from it or its own config is a compile error.
+`sqlanvilCoreVersion` must be an exact version (`1.39.0`): a range, tag or URL is rejected (>=1.39).
 
 ### 2. Connection: `.df-credentials.json` — flat `PostgresConnection`
 Filename is literally `.df-credentials.json` (fork kept upstream's name; default, override with
@@ -178,7 +181,9 @@ gets there, re-applied on every run so rebuilds keep it. Document every model:
   ${ref("customers")} (customer_id)` — on an incremental, wrap per delta #9.
 - `assertions: { uniqueKey, uniqueKeys: [["a","b"],["c"]], nonNull: [...], rowConditions: [...] }`
   make key claims **tested** every run (`uniqueKey` and `uniqueKeys` are mutually exclusive).
-  Standalone = `type: "assertion"` whose `SELECT` returns offending rows (passes iff zero rows).
+  They are created in `defaultAssertionDataset`; `assertions: { dataset: "qa", ... }` puts one
+  action's in another schema (>=1.39). With no `defaultAssertionDataset` they go in the action's own
+  schema. Standalone = `type: "assertion"` whose `SELECT` returns offending rows (passes iff zero rows).
 - Same metadata is queryable offline via the Parquet catalog artifacts (`sqlanvil query`, views
   `actions`/`columns`/`dependencies`) and `sqlanvil docs`. Guide:
   https://sqlanvil.com/docs/guides/metadata/
@@ -192,7 +197,7 @@ delta #10.)
 ### 12. CLI: `sqlanvil <verb>` (the installed CLI — no global `dataform`, no `npm run`)
 ```bash
 sqlanvil init      <projectDir> --warehouse postgres   # or supabase/mysql — scaffolds workflow_settings.yaml + a .df-credentials.json template (BigQuery is the default; it needs a GCP project + location). --bare skips the sample project (>=1.23); --interactive (>=1.23) is a guided Q&A (fresh OR convert-a-Dataform-project) incl. the credentials file — for humans at a terminal; agents should use the flags
-sqlanvil compile   <projectDir>
+sqlanvil compile   <projectDir>                         # --json for the graph; --mermaid (>=1.39) or --dot draws it
 sqlanvil run       <projectDir> --credentials <projectDir>/.df-credentials.json
 sqlanvil run       <projectDir> --credentials ... --full-refresh
 sqlanvil run       <projectDir> --credentials ... --actions <name> --include-deps
