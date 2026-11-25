@@ -12,7 +12,6 @@ import { writeArtifacts } from "sa/cli/api/commands/artifacts";
 import { cliEntryPointPath } from "sa/cli/index_test_base";
 import { sqlanvil } from "sa/protos/ts";
 import { getProcessResult, nodePath, suite, test } from "sa/testing";
-import { expectKnownFailure, knownFailure } from "./known_failing";
 
 // s.f01 .. s.f21
 const NAMES = Array.from({ length: 21 }, (_, i) => `f${String(i + 1).padStart(2, "0")}`);
@@ -65,68 +64,45 @@ function lines(stdout: string): string[] {
 }
 
 suite("inspect with more than 20 failures (E-007)", () => {
-  test("@prd T-018.7 known-failing E-007 inspect lists the first 20 failures in readable_name order", async () => {
-    await expectKnownFailure("E-007", async () => {
-      await withProject(async p => {
-        const result = await runCli(["inspect", p]);
-        const out = lines(result.stdout);
-        const at = out.indexOf("Failures:");
-        expect(at, "no `Failures:` line").to.be.greaterThan(-1);
-        const after = out.slice(at + 1);
-        // after `Failures:`: header, dashes, then the rows (AC-011.1 table format).
-        const rows = after.slice(2).filter(l => /^s\.f\d\d\b/.test(l));
-        const firstRow = after[2] ?? "";
-        if (firstRow.startsWith("s.f21 ") && !rows.some(l => l.startsWith("s.f01 "))) {
-          knownFailure(
-            "the first row after `Failures:` is s.f21, and s.f01 is missing",
-            `first row: ${JSON.stringify(firstRow)}`
-          );
-        }
+  test("@prd T-018.7 inspect lists the first 20 failures in readable_name order", async () => {
+    await withProject(async p => {
+      const result = await runCli(["inspect", p]);
+      const out = lines(result.stdout);
+      const at = out.indexOf("Failures:");
+      expect(at, "no `Failures:` line").to.be.greaterThan(-1);
+      const after = out.slice(at + 1);
 
-        expect(result.exitCode).to.equal(0);
-        // AC-011.1: each value padded to its column's width (the longest of the column name and
-        // its values), columns separated by two spaces, then an empty line and `(<n> rows)`.
-        const width = "readable_name".length; // 13, also "error_message".length
-        const expected = [
-          "readable_name  error_message",
-          "-------------  -------------",
-          ...NAMES.slice(0, 20).map(n => `s.${n}`.padEnd(width) + "  " + "e".padEnd(width)),
-          "",
-          "(20 rows)"
-        ];
-        expect(after).to.deep.equal(expected);
-      });
+      expect(result.exitCode).to.equal(0);
+      // AC-011.1: each value padded to its column's width (the longest of the column name and
+      // its values), columns separated by two spaces, then an empty line and `(<n> rows)`.
+      const width = "readable_name".length; // 13, also "error_message".length
+      const expected = [
+        "readable_name  error_message",
+        "-------------  -------------",
+        ...NAMES.slice(0, 20).map(n => `s.${n}`.padEnd(width) + "  " + "e".padEnd(width)),
+        "",
+        "(20 rows)"
+      ];
+      expect(after).to.deep.equal(expected);
     });
   });
 
-  test("@prd T-019.5 known-failing E-007 inspect --json lists the first 20 failures in readable_name order", async () => {
-    await expectKnownFailure("E-007", async () => {
-      await withProject(async p => {
-        const result = await runCli(["inspect", p, "--json"]);
-        const json = JSON.parse(result.stdout);
-        const failures: any[] = json.failures;
-        if (
-          Array.isArray(failures) &&
-          failures[0]?.readable_name === "s.f21" &&
-          !failures.some(f => f?.readable_name === "s.f01")
-        ) {
-          knownFailure(
-            "failures[0].readable_name is s.f21, and s.f01 is missing",
-            `failures[0]: ${JSON.stringify(failures[0])}`
-          );
-        }
+  test("@prd T-019.5 inspect --json lists the first 20 failures in readable_name order", async () => {
+    await withProject(async p => {
+      const result = await runCli(["inspect", p, "--json"]);
+      const json = JSON.parse(result.stdout);
+      const failures: any[] = json.failures;
 
-        expect(result.exitCode).to.equal(0);
-        expect(failures).to.be.an("array");
-        // Only the fields the case lists are asserted; a list compares element by element.
-        const got = failures.map(f => ({
-          readable_name: f.readable_name,
-          error_message: f.error_message
-        }));
-        expect(got).to.deep.equal(
-          NAMES.slice(0, 20).map(n => ({ readable_name: `s.${n}`, error_message: "e" }))
-        );
-      });
+      expect(result.exitCode).to.equal(0);
+      expect(failures).to.be.an("array");
+      // Only the fields the case lists are asserted; a list compares element by element.
+      const got = failures.map(f => ({
+        readable_name: f.readable_name,
+        error_message: f.error_message
+      }));
+      expect(got).to.deep.equal(
+        NAMES.slice(0, 20).map(n => ({ readable_name: `s.${n}`, error_message: "e" }))
+      );
     });
   });
 });
