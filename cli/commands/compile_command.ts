@@ -32,6 +32,7 @@ interface CompileArgv extends ProjectConfigArgv {
   watch: boolean;
   json: boolean;
   dot: boolean;
+  mermaid: boolean;
   timeout: number | null;
   quiet: boolean;
   verbose: boolean;
@@ -83,13 +84,32 @@ const compileIncludeDependentsOption = {
 const dotOutputOption = option(
   "dot",
   {
-    describe: "Print the dependency graph in Graphviz dot format. Mutually exclusive with --json.",
+    describe:
+      "Print the dependency graph in Graphviz dot format. Mutually exclusive with --json and " +
+      "--mermaid.",
     type: "boolean",
     default: false,
   },
   (argv: { json?: boolean; dot?: boolean }) => {
     if (argv.json && argv.dot) {
       throw new Error("Arguments --json and --dot are mutually exclusive.");
+    }
+  },
+);
+
+// Upstream #2435.
+const mermaidOutputOption = option(
+  "mermaid",
+  {
+    describe:
+      "Print the dependency graph as a Mermaid flowchart, which GitHub and GitLab render. " +
+      "Mutually exclusive with --json and --dot.",
+    type: "boolean",
+    default: false,
+  },
+  (argv: { json?: boolean; dot?: boolean; mermaid?: boolean }) => {
+    if (argv.mermaid && (argv.json || argv.dot)) {
+      throw new Error("Argument --mermaid is mutually exclusive with --json and --dot.");
     }
   },
 );
@@ -111,6 +131,7 @@ export const compileCommand: ICommand = {
     }),
     jsonOutputOption,
     dotOutputOption,
+    mermaidOutputOption,
     timeoutOption,
     quietCompileOption,
     compileActionsOption,
@@ -142,6 +163,8 @@ export const compileCommand: ICommand = {
         outputType = compiledGraphOutputType.Json;
       } else if (argv[dotOutputOption.name]) {
         outputType = compiledGraphOutputType.Dot;
+      } else if (argv[mermaidOutputOption.name]) {
+        outputType = compiledGraphOutputType.Mermaid;
       }
 
       if (outputType === compiledGraphOutputType.Summary) {

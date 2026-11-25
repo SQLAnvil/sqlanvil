@@ -2,10 +2,12 @@ import * as readlineSync from "readline-sync";
 
 import { IInitResult } from "sa/cli/api/commands/init";
 import { prettyJsonStringify } from "sa/cli/api/utils";
+import { mermaidRepresentation, mermaidSizeWarning } from "sa/cli/mermaid";
 import {
   formatBytesInHumanReadableFormat,
   formatDatasetWarehouseState,
   formatExecutionSuffix,
+  tableTypeLabel,
 } from "sa/cli/util";
 import { targetStringifier } from "sa/core/targets";
 import { setOrValidateTableEnumType, tableTypeEnumToString } from "sa/core/utils";
@@ -206,6 +208,7 @@ export function isInteractive({ stream = process.stdout } = {}) {
 export enum compiledGraphOutputType {
   Json = "json",
   Dot = "dot",
+  Mermaid = "mermaid",
   Summary = "summary",
 }
 
@@ -220,6 +223,13 @@ export function printCompiledGraph(
     writeStdOut(prettyJsonStringify(graph));
   } else if (outputType === compiledGraphOutputType.Dot) {
     writeStdOut(dotRepresentation(graph, interactive));
+  } else if (outputType === compiledGraphOutputType.Mermaid) {
+    const mermaid = mermaidRepresentation(graph);
+    writeStdOut(mermaid);
+    const sizeWarning = mermaidSizeWarning(mermaid);
+    if (sizeWarning) {
+      printWarning(sizeWarning);
+    }
   } else {
     const actionCount =
       0 +
@@ -586,9 +596,7 @@ export function dotRepresentation(graph: sqlanvil.ICompiledGraph, interactive: b
 
   graph.tables?.forEach((table) => {
     const nodeName = `${formatTarget(table.target)}`;
-    nodes.push(
-      `"${nodeName}" [label="${formatTarget(table.target)} [${tableTypeEnumToString(table.enumType)}]"]`,
-    );
+    nodes.push(`"${nodeName}" [label="${formatTarget(table.target)} [${tableTypeLabel(table)}]"]`);
     table.dependencyTargets?.forEach((dependencyTarget) => {
       edges.push(`"${formatTarget(dependencyTarget)}" -> "${nodeName}"`);
     });

@@ -188,6 +188,13 @@ warehouse. Exits `1` if the project has compilation errors. With `--json` it pri
 compiled graph, which is the file `run --graph` accepts. The selection flags filter only the
 printed graph. See [Selecting actions](#selecting-actions).
 
+`--mermaid` prints the graph as a Mermaid flowchart (the widely supported `graph LR` form), which
+GitHub, GitLab and other Mermaid-enabled tools render; wrap it in a `mermaid` code fence in
+Markdown. It shows the same actions as `--dot`, with dependencies outside the selection as plain
+nodes. Mermaid limits diagram size by default (500 edges and 50,000 characters; GitHub refuses
+larger diagrams), so `compile` warns on stderr when the diagram exceeds them; select part of the
+graph with `--actions` or `--tags`. With `--watch`, each recompile prints a new diagram.
+
 **Positional arguments**
 
 <!-- BEGIN GENERATED: positionals compile -->
@@ -203,7 +210,8 @@ printed graph. See [Selecting actions](#selecting-actions).
 |---|---|---|---|
 | `--watch` | boolean | `false` | Recompile whenever a file in the project changes (ignores node_modules). |
 | `--json` | boolean | `false` | Outputs the result as JSON instead of human-readable text. |
-| `--dot` | boolean | `false` | Print the dependency graph in Graphviz dot format. Mutually exclusive with --json. |
+| `--dot` | boolean | `false` | Print the dependency graph in Graphviz dot format. Mutually exclusive with --json and --mermaid. |
+| `--mermaid` | boolean | `false` | Print the dependency graph as a Mermaid flowchart, which GitHub and GitLab render. Mutually exclusive with --json and --dot. |
 | `--timeout` | string | — | Maximum compilation time, e.g. '30s' or '10m'. |
 | `--quiet` | boolean | `false` | Less verbose output. Mutually exclusive with --verbose. |
 | `--actions` | array | — | Show only these actions in the printed graph (space- or comma-separated names or patterns, \* wildcards allowed). The whole project is still compiled, so ref()s resolve. |
@@ -721,6 +729,9 @@ sqlanvil compile --json | jq '.tables[].target'
 
 # Visualize the dependency graph
 sqlanvil compile --dot | dot -Tsvg > graph.svg
+
+# Or as a Mermaid flowchart, e.g. a table and its upstream dependencies for a PR or wiki
+sqlanvil compile --mermaid --actions orders --include-deps
 
 # Show only part of the graph (the whole project still compiles)
 sqlanvil compile --actions orders --include-deps

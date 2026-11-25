@@ -5,7 +5,11 @@ import untildify from "untildify";
 import { setsDatasetId } from "sa/cli/api/utils/query_transforms";
 import { interactiveQuestion, print, printError, printSuccess, printWarning } from "sa/cli/console";
 import { targetAsReadableString } from "sa/core/targets";
-import { validateConnectionFormat } from "sa/core/utils";
+import {
+  setOrValidateTableEnumType,
+  tableTypeEnumToString,
+  validateConnectionFormat,
+} from "sa/core/utils";
 import { sqlanvil } from "sa/protos/ts";
 
 export function actuallyResolve(...filePaths: string[]) {
@@ -304,4 +308,16 @@ export function formatDatasetWarehouseState(
     details.push(`last modified: ${lastModified}`);
   }
   return details.length ? `(${details.join(", ")})` : "(exists)";
+}
+
+/**
+ * Returns the table's type for its label in the DOT and Mermaid outputs (upstream #2435). A graph
+ * that sets only the string `type` gets its `enumType` from the selection pruning, which runs only
+ * with --actions or --tags, so this does the same conversion, on a copy so the caller's graph is
+ * unchanged.
+ */
+export function tableTypeLabel(table: sqlanvil.ITable) {
+  const normalized: sqlanvil.ITable = { type: table.type, enumType: table.enumType };
+  setOrValidateTableEnumType(normalized);
+  return tableTypeEnumToString(normalized.enumType || sqlanvil.TableType.UNKNOWN_TYPE);
 }

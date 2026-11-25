@@ -30,6 +30,7 @@ ts_library(
         "commands/validate_command.ts",
         "common_options.ts",
         "console.ts",
+        "mermaid.ts",
         "credentials.ts",
         "index.ts",
         "interactive_init.ts",
@@ -80,6 +81,7 @@ ts_test_suite(
     name = "tests",
     srcs = [
         "console_test.ts",
+        "mermaid_test.ts",
         "credentials_test.ts",
         "index_help_test.ts",
         "index_init_test.ts",
