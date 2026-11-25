@@ -272,6 +272,14 @@ suite("prd artifacts: commands", () => {
     });
   });
 
+  test("@prd T-011.5 query --help names the views it runs SQL over", async () => {
+    const r = await runCli(["query", "--help"]);
+    expect(r.exitCode, `exit code; stderr: ${r.stderr}`).to.equal(0);
+    // The case's normalize: every run of white space in stdout collapsed to one space.
+    const normalized = r.stdout.replace(/\s+/g, " ");
+    expect(normalized).to.contain("(views: actions, dependencies, columns, runs, run_summary)");
+  });
+
   test("@prd T-012.1 query --json prints the rows as an indented JSON array", async () => {
     await withTmpDir(async (P) => {
       await write(g1(), P);
