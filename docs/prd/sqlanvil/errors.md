@@ -48,7 +48,7 @@ Touches: FR-021
 Evidence: characterization suite, 2026-11-22, `bazel test //tests/prd/... --test_tag_filters=integration --build_tests_only --test_output=all` @984785d8
   T-021.7: the a.b.c table's model has status FAILED, the status of the other target that reads as a.b.c, where its own SUCCESSFUL is intended
 Diagnosis: buildDocsModel keys each model's last-run status (docs.ts:75-77, 103) and its depends-on list (docs.ts:81-87, 104) by readable_name, even though every row carries target_key. core/targets.ts:12-13 says of targetAsReadableString: "This is an ambiguous transformation, multiple targets may map to the same string and it should not be used for indexing. Use targetStringifier instead." Two targets with the same readable name share one status and one merged dependency list. For example, database a, schema b, name c and schema a.b, name c both read as a.b.c.
-Resolution: open, intended: docs matches a model's status and depends-on list by target_key, so two targets that share a readable name keep their own status and dependencies (confirmed a bug by Ivan Histand, 2026-11-22)
+Resolution: T-021.7 [integration], PRD 1.0.4, fixed in 85336e90
 Recurrence of: -
 
 ### E-005 The action-row type list omits import and script
