@@ -14,6 +14,8 @@ import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
+  writeDefinitionFile,
+  writeWorkflowSettingsFile,
   VALID_WORKFLOW_SETTINGS_YAML,
 } from "sa/testing/run_core";
 
@@ -1016,6 +1018,50 @@ select \${incremental()} as is_incremental`,
     expect(compiledTable.target.schema).equals("sqlanvil");
     expect(compiledTable.target.name).equals("incremental_table_without_default_project");
     expect(compiledTable.target.database).equals("");
+  });
+
+  test("accepts empty legacy bigquery block on incremental table", () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    writeWorkflowSettingsFile(projectDir, VALID_WORKFLOW_SETTINGS_YAML);
+    writeDefinitionFile(
+      projectDir,
+      "incremental.sqlx",
+      `config {
+        type: "incremental",
+        bigquery: {}
+      }
+      SELECT 1`,
+    );
+
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+    expect(asPlainObject(result.compile.compiledGraph.tables)).deep.equals(
+      asPlainObject([
+        {
+          target: {
+            database: "defaultProject",
+            schema: "defaultDataset",
+            name: "incremental",
+          },
+          canonicalTarget: {
+            database: "defaultProject",
+            schema: "defaultDataset",
+            name: "incremental",
+          },
+          fileName: "definitions/incremental.sqlx",
+          hermeticity: "NON_HERMETIC",
+          onSchemaChange: "IGNORE",
+          query: "\n      SELECT 1",
+          incrementalQuery: "\n      SELECT 1",
+          incrementalStrategy: "INCREMENTAL_STRATEGY_UNSPECIFIED",
+          type: "incremental",
+          enumType: "INCREMENTAL",
+          protected: false,
+          disabled: false,
+        },
+      ]),
+    );
   });
 
   // sqlanvil has no run-time JiT compiler (upstream #2211 was deliberately not merged — see

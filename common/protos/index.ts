@@ -1,4 +1,4 @@
-import { configure, util } from "protobufjs";
+import { configure, IConversionOptions, util } from "protobufjs";
 
 import {
   isPlainObject,
@@ -64,7 +64,7 @@ export interface IProtoClass<IProto, Proto> {
   encode(proto: IProto | Proto): { finish(): Uint8Array };
   decode(bytes: Uint8Array): Proto;
 
-  toObject(proto: Proto): { [k: string]: any };
+  toObject(proto: Proto, options?: IConversionOptions): { [k: string]: any };
   fromObject(obj: { [k: string]: any }): Proto;
 
   verify(obj: any): string | null;
@@ -96,6 +96,20 @@ function isVerifiableObject(value: unknown): boolean {
     value instanceof Uint8Array ||
     Boolean(util.Long && value instanceof util.Long)
   );
+}
+
+function isNestedContainer(value: unknown): value is object {
+  if (!value || typeof value !== "object" || value instanceof google.protobuf.Struct) {
+    return false;
+  }
+  return Array.isArray(value) || isPlainObject(value) || isProtoMessageInstance(value);
+}
+
+function getOwnPropertyValue(target: object, key: string): unknown {
+  if (!Object.prototype.hasOwnProperty.call(target, key)) {
+    return undefined;
+  }
+  return Object.getOwnPropertyDescriptor(target, key)?.value;
 }
 
 export function verifyObjectMatchesProto<Proto>(
@@ -137,17 +151,56 @@ export function verifyObjectMatchesProto<Proto>(
     }
     throw err;
   }
+  // The generated toObject() reads every repeated message element, so null and undefined entries
+  // are rejected before the cast. This runs on every compiled action, so paths are only built
+  // when needed.
+  function checkNoEmptyEntries(container: object, containerPath: string) {
+    if (Array.isArray(container)) {
+      for (let index = 0; index < container.length; index++) {
+        const element = container[index];
+        if (element === null || element === undefined) {
+          throw formatEmptyValueError(protoType, `${containerPath}[${index}]`, errorBehaviour);
+        }
+        if (isNestedContainer(element)) {
+          checkNoEmptyEntries(element, `${containerPath}[${index}]`);
+        }
+      }
+      return;
+    }
+    for (const key of Object.keys(container)) {
+      const value = Reflect.get(container, key);
+      if (value === null) {
+        throw formatEmptyValueError(protoType, key, errorBehaviour);
+      }
+      if (isNestedContainer(value)) {
+        checkNoEmptyEntries(value, key);
+      }
+    }
+  }
+
+  checkNoEmptyEntries(normalizedObject, "");
   const proto = protoType.create(normalizedObject);
-  const protoCastObject = protoType.toObject(proto);
+  const protoCastObject = protoType.toObject(proto, { arrays: true, objects: true });
 
   function checkFields(present: { [k: string]: any }, desired: { [k: string]: any }) {
-    // Only the entries of `present` need to be iterated through as `desired` is guaranteed to be a
-    // strict subset of `present`.
+    // Iterate caller-supplied entries; `protoCastObject` includes defined empty arrays and maps so
+    // valid empty containers match `desired` while unknown keys remain absent.
     Object.entries(present).forEach(([presentKey, presentValue]) => {
       if (presentValue instanceof google.protobuf.Struct) {
         return;
       }
-      if (presentValue && typeof presentValue === "object" && !isVerifiableObject(presentValue)) {
+      const desiredValue = getOwnPropertyValue(desired, presentKey);
+      if (presentValue === undefined) {
+        // toObject() copies map entries as they are and leaves unset message fields out, so an
+        // undefined value that was copied is an empty map entry.
+        const isEmptyMapEntry =
+          desiredValue === undefined && Object.prototype.hasOwnProperty.call(desired, presentKey);
+        if (isEmptyMapEntry) {
+          throw formatEmptyValueError(protoType, presentKey, errorBehaviour);
+        }
+        return;
+      }
+      if (typeof presentValue === "object" && !isVerifiableObject(presentValue)) {
         throw formatUnexpectedPropertyError(
           protoType,
           presentKey,
@@ -155,29 +208,12 @@ export function verifyObjectMatchesProto<Proto>(
           errorBehaviour,
         );
       }
-      const desiredValue = desired[presentKey];
       if (
         typeof desiredValue !== typeof presentValue ||
         Array.isArray(desiredValue) !== Array.isArray(presentValue)
       ) {
-        if (Array.isArray(presentValue) && presentValue.length === 0) {
-          // Empty arrays are assigned to empty proto array fields by ProtobufJS.
-          return;
-        }
         if (!presentValue) {
-          throw ReferenceError(
-            `Unexpected empty value for "${presentKey}".` +
-              maybeGetDocsLinkPrefix(errorBehaviour, protoType),
-          );
-        }
-        if (
-          typeof presentValue === "object" &&
-          !Array.isArray(presentValue) &&
-          (isPlainObject(presentValue) || isProtoMessageInstance(presentValue)) &&
-          Object.keys(presentValue).length === 0
-        ) {
-          // Empty objects are assigned to empty object fields by ProtobufJS.
-          return;
+          throw formatEmptyValueError(protoType, presentKey, errorBehaviour);
         }
         throw formatUnexpectedPropertyError(
           protoType,
@@ -220,7 +256,23 @@ function verifyErrorIsNonPrimitiveInScalarField(message: string, root: object): 
     }
     value = value[segment];
   }
+  // A repeated scalar field ("string[] expected") is at fault only for an object element; a null
+  // or undefined element is reported by the empty-entries check instead (upstream #2482).
+  if (Array.isArray(value)) {
+    return value.some((element) => element !== null && typeof element === "object");
+  }
   return value !== null && typeof value === "object";
+}
+
+function formatEmptyValueError<Proto>(
+  protoType: IProtoClass<any, Proto>,
+  propertyPath: string,
+  errorBehaviour: VerifyProtoErrorBehaviour,
+): ReferenceError {
+  return ReferenceError(
+    `Unexpected empty value for "${propertyPath}".` +
+      maybeGetDocsLinkPrefix(errorBehaviour, protoType),
+  );
 }
 
 function formatUnexpectedPropertyError<Proto>(

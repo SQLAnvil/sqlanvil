@@ -14,6 +14,8 @@ import { TmpDirFixture } from "sa/testing/fixtures";
 import {
   coreExecutionRequestFromPath,
   runMainInVm,
+  writeDefinitionFile,
+  writeWorkflowSettingsFile,
   VALID_WORKFLOW_SETTINGS_YAML,
 } from "sa/testing/run_core";
 
@@ -500,6 +502,46 @@ ${exampleBuiltInAssertionsAsYaml.inputActionConfigBlock}
     expect(result.compile.compiledGraph.graphErrors.compilationErrors.length).greaterThan(0);
     expect(result.compile.compiledGraph.graphErrors.compilationErrors[0].message).contains(
       'Unexpected property "incrementalStrategy"',
+    );
+  });
+
+  test("accepts empty legacy bigquery block on table", () => {
+    const projectDir = tmpDirFixture.createNewTmpDir();
+    writeWorkflowSettingsFile(projectDir, VALID_WORKFLOW_SETTINGS_YAML);
+    writeDefinitionFile(
+      projectDir,
+      "table.sqlx",
+      `config {
+        type: "table",
+        bigquery: {}
+      }
+      SELECT 1`,
+    );
+
+    const result = runMainInVm(coreExecutionRequestFromPath(projectDir));
+
+    expect(result.compile.compiledGraph.graphErrors.compilationErrors).deep.equals([]);
+    expect(asPlainObject(result.compile.compiledGraph.tables)).deep.equals(
+      asPlainObject([
+        {
+          target: {
+            database: "defaultProject",
+            schema: "defaultDataset",
+            name: "table",
+          },
+          canonicalTarget: {
+            database: "defaultProject",
+            schema: "defaultDataset",
+            name: "table",
+          },
+          fileName: "definitions/table.sqlx",
+          hermeticity: "NON_HERMETIC",
+          query: "\n      SELECT 1",
+          type: "table",
+          enumType: "TABLE",
+          disabled: false,
+        },
+      ]),
     );
   });
 

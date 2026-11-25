@@ -132,3 +132,17 @@ function walkDirectoryForFilenames(projectDir: string, relativePath: string = ""
     });
   return paths;
 }
+
+/** Writes `definitions/<filename>` under `projectDir`, creating directories (as upstream's helper). */
+export function writeDefinitionFile(projectDir: string, filename: string, content: string): void {
+  const fullPath = path.join(projectDir, "definitions", filename);
+  fs.ensureFileSync(fullPath);
+  fs.writeFileSync(fullPath, content);
+}
+
+/** Writes `workflow_settings.yaml` under `projectDir` (as upstream's helper, YAML text only). */
+export function writeWorkflowSettingsFile(projectDir: string, settings: string): void {
+  const fullPath = path.join(projectDir, "workflow_settings.yaml");
+  fs.ensureFileSync(fullPath);
+  fs.writeFileSync(fullPath, settings);
+}
