@@ -635,7 +635,9 @@ function printExecutedActionErrors(
     if (task.status !== sqlanvil.TaskResult.ExecutionStatus.FAILED) {
       return;
     }
-    const statement = executionAction.tasks[i]?.statement;
+    // compiledSql is the SQL actually sent when it differs from the task's statement (e.g. wrapped
+    // in a script creating the missing target dataset, upstream #2408); error positions refer to it.
+    const statement = task.compiledSql || executionAction.tasks[i]?.statement;
     if (statement) {
       statement.split("\n").forEach((line) => {
         writeStdErr(`${DEFAULT_PROMPT}${line}`, 1);
