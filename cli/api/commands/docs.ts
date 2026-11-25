@@ -92,17 +92,22 @@ export async function buildDocsModel(
     } catch (e) {
       tags = [];
     }
-    return {
+    const entry: DocsModelEntry = {
       readable: a.readable_name,
       type: a.type,
       tags,
       description: a.description || "",
-      status: statusByModel.get(a.target_key),
       dependsOn: dependsOn.get(a.target_key) || [],
     };
+    // A model with no row in the latest run has no status key at all (AC-021.3, AC-021.4).
+    const status = statusByModel.get(a.target_key);
+    if (status !== undefined) {
+      entry.status = status;
+    }
+    return entry;
   });
 
-  return {
+  const model: DocsModel = {
     generatedAt,
     summary: {
       total: models.length,
@@ -110,7 +115,6 @@ export async function buildDocsModel(
         .map(([type, n]) => ({ type, n }))
         .sort((x, y) => x.type.localeCompare(y.type)),
     },
-    latestRun,
     models,
     columns: columns.map((c) => ({
       readable: c.readable_name,
@@ -118,6 +122,11 @@ export async function buildDocsModel(
       description: c.description || "",
     })),
   };
+  // No run recorded: no latestRun key at all (AC-021.4).
+  if (latestRun) {
+    model.latestRun = latestRun;
+  }
+  return model;
 }
 
 /** Render the catalog model as a single self-contained HTML page. Pure. */
