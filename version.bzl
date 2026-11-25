@@ -821,4 +821,93 @@ SQLANVIL_VERSION = "1.38.0"
 #
 #   * #2430 version bump.
 #
-DF_VERSION = "3.1.5"
+# 3.1.6, 3.1.7 and 3.1.8 reviewed together (2026-11-24); 42 upstream commits past 3.1.5.
+# Tracking issue: SQLAnvil/sqlanvil#67.
+#
+#   * #2448 validate the core version before the pinned npm install. TAKEN, as
+#     validateSqlanvilCoreVersion (cli/api/utils.ts): sqlanvilCoreVersion must be an exact semver,
+#     checked when workflow_settings.yaml is read and again before `npm i`.
+#
+#   * #2454 owner-only credentials file. TAKEN, adapted: credentials.writeFile (mode 0600, temp
+#     file renamed over the target) is used by all five writers (init's template, init-creds,
+#     interactive init x3), not only init-creds. The pinned-core copy excludes the whole
+#     .df-credentials*.json family, since sqlanvil documents one file per environment; upstream
+#     excludes only the default name.
+#
+#   * #2461 compile error when an action has no dataset; #2476 operations without hasOutput are
+#     exempt. TAKEN. sqlanvil also checks imports; exports, extracts and scripts are exempt.
+#
+#   * #2446 BIGNUMERIC/JSON/INTERVAL field primitives; #2484 setMetadata matches column paths by
+#     segment. TAKEN. eslint no-duplicate-case is on.
+#
+#   * #2424 rowConditions after comments, shared arrays. TAKEN. Its escaping half is the fix we
+#     carried for #42 (upstream #2226), so that part converges: our warehouse-aware sqlString
+#     already matched it. New: the closing parenthesis goes on its own line after a comment or
+#     line break, and nonNull merges into a copy of rowConditions.
+#
+#   * #2435 `compile --mermaid`. TAKEN. Same action set as --dot; the size warning points at
+#     --actions/--tags (our selection flags) instead of --output-*.
+#
+#   * #2463 non-mutating Struct handling; #2482 `fix(core)!` __proto__ keys and tighter proto
+#     checks. TAKEN, BREAKING (null/undefined repeated or map entries are now config errors).
+#     Upstream's handlers replace our #2236 Struct monkey-patch. Kept from sqlanvil: the "Invalid
+#     property value" check for an object in a scalar field, which now looks at a repeated
+#     field's elements. testing/run_core.ts gains upstream's writeDefinitionFile /
+#     writeWorkflowSettingsFile helpers.
+#
+#   * #2320 onSchemaChange DML inside the procedure. TAKEN; fixes the live BigQuery bug in which
+#     EXTEND left added columns NULL on the run that added them and a SYNCHRONIZE that dropped a
+#     column failed. Ported into bigquery_execution_sql.ts with sqlanvil names (T/S aliases,
+#     sqlanvil_ variables, sa_ procedures); terminateStatements lives in dbadapters/tasks.ts next
+#     to our concatenateQueries. insert_overwrite passes its partition list as a query parameter,
+#     which is what upstream #2328 tripped over. Upstream's live tests need helpers we don't have,
+#     so three live tests in index_run_e2e_test.ts cover EXTEND, SYNCHRONIZE and insert_overwrite;
+#     each fails on the old generator.
+#
+#   * #2455 `fix(core)!` inline assertions follow their action; `assertions: { dataset, project }`.
+#     TAKEN, BREAKING (decided 2026-11-24): proto TableAssertionsConfig fields 5 and 6, as
+#     upstream's. Not taken with it: jobLabels on inline assertions (an earlier upstream change we
+#     never took).
+#
+#   * #2471 domain-scoped project IDs (`<domain>:<project>`) in targets. TAKEN, targets half only
+#     (decided 2026-11-24). Its property-graph validation is NOT TAKEN.
+#
+#   * #2474 `chore!` remove the deprecated vscode/ extension. TAKEN (decided 2026-11-24), with the
+#     root deps only it used. The maintained extension is SQLAnvil/vscode-sqlanvil-tools.
+#
+#   * #2456, #2457, #2469, #2470 dependency and BUILD cleanups. TAKEN, adapted (decided
+#     2026-11-24): gen_package_json strips pnpm/packageManager (they were leaking into the
+#     published @sqlanvil/core and @sqlanvil/cli manifests); @sqlanvil/cli declares `long` and
+#     drops `tarjan-graph`; new package tests check the manifests against the bundles (the CLI one
+#     also reads nativeRequire(), for @duckdb/node-api); rules_go/Gazelle and unused root deps go
+#     (@google-cloud/storage, deepmerge, url, @types/diff, @types/es6-shim, @types/glob, and the
+#     three uuid overrides, since uuid left the tree with storage). Deps sqlanvil's adapters use stay.
+#
+#   * #2458 lint and format checks in GitHub Actions. TAKEN (decided 2026-11-24) as
+#     .github/workflows/lint.yaml; scripts/lint and scripts/format cover every .ts file.
+#
+#   * #2450 (minimatch ^11.0.1), #2465 (fast-uri 3.1.9), #2472 (serialize-javascript ^7.1.3),
+#     #2473 (glob 14.0.3, GHSA-3g3m-2fjr-6pw4). TAKEN. sqlanvil adds js-beautify@2.0.3>glob 14.0.3
+#     (upstream's override names js-beautify 1.15.4) and pins fast-uri ^3.1.9 (upstream bumped only
+#     its lockfile). #2442 (Dependabot, relaxed overrides) was taken earlier as f4b3f49e.
+#
+#   * #2462 generated core/README.md reference blocks. NOT TAKEN (decided 2026-11-24; sqlanvil.com
+#     stays the reference), except its configs.proto comment rewrites where they hold for every
+#     warehouse. #2436 (core/README.md in the npm package) and #2468 (a fix to that README) NOT
+#     TAKEN with it.
+#
+#   * #2439 property graph measures and custom metadata. NOT TAKEN (PropertyGraph declined in
+#     routine syncs).
+#
+#   * #2428 docs URL, #2437 README line, #2427 duplicate test. No-ops here (our URL already points
+#     at sqlanvil.com, the line and the duplicate test never existed here).
+#
+#   * Google release and CI infrastructure: #2426, #2438, #2449 (ExitGate / Cloud Build publish),
+#     #2441, #2443, #2444, #2447, #2466 (Dependabot labelling, prefetch, daily vulnerability job,
+#     test re-runs, Cloud Build registry). NOT TAKEN.
+#
+#   * #2467, #2478, #2485 version bumps.
+#
+#   * #2408 lazy schema creation STAYS DEFERRED (no change upstream this round).
+#
+DF_VERSION = "3.1.8"
