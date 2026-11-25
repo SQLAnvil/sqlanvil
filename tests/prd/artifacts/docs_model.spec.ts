@@ -195,9 +195,8 @@ suite("prd artifacts: docs builder", () => {
     });
   });
 
-  test("@prd T-021.7 known-failing E-004 keys dependencies and statuses by target, not readable name", async () => {
+  test("@prd T-021.7 keys dependencies and statuses by target, not readable name", async () => {
     await withTmpDir(async (P) => {
-      await expectKnownFailure("E-004", async () => {
       const graph = {
         tables: [
           {
@@ -231,16 +230,6 @@ suite("prd artifacts: docs builder", () => {
       };
       await write(graph, P, { runResult, runId: 10 });
       const model = await build(views(P, true), GENERATED_AT);
-      const table = (model.models || []).find(
-        (m: any) => m.readable === "a.b.c" && m.type === "table",
-      );
-      // The other target that reads as a.b.c is the view, whose own status is FAILED.
-      if (table && table.status === "FAILED") {
-        knownFailure(
-          "the a.b.c table's model has the status of the other target that reads as a.b.c",
-          JSON.stringify(table),
-        );
-      }
       expectFields(model, {
         models: [
           {
@@ -261,7 +250,6 @@ suite("prd artifacts: docs builder", () => {
           },
         ],
       }, "model");
-      });
     });
   });
 
