@@ -33,7 +33,9 @@ message WorkflowSettings {
   // https://cloud.google.com/bigquery/docs/locations.
   string default_location = 4;
 
-  // Required. The default dataset (schema) for assertions.
+  // Optional. The default dataset (schema) for assertions. When omitted, an
+  // action's inline assertions are created in the action's own dataset, and
+  // standalone assertions in `defaultDataset`.
   string default_assertion_dataset = 5;
 
   // Optional. User-defined variables that are made available to project code

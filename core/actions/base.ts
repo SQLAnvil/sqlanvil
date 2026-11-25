@@ -1,4 +1,5 @@
 import { Session } from "sa/core/session";
+import { hasInvalidProjectColonUsage, stripProjectDomainPrefix } from "sa/core/targets";
 import { sqlanvil } from "sa/protos/ts";
 
 export abstract class ActionBuilder<T> {
@@ -239,7 +240,18 @@ export abstract class ActionBuilder<T> {
         target,
       );
     }
-    if (target.database.includes(".")) {
+    if (hasInvalidProjectColonUsage(target.database)) {
+      this.session.compileError(
+        new Error(
+          "Action target projects with ':' must follow '<domain>:<project>' with non-empty segments",
+        ),
+        fileName,
+        target,
+      );
+      return;
+    }
+    // A domain-scoped project (`example.com:my-project`) has dots in its domain part only.
+    if (stripProjectDomainPrefix(target.database).includes(".")) {
       this.session.compileError(
         new Error("Action target projects cannot include '.'"),
         fileName,

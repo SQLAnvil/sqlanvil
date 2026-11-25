@@ -19,3 +19,24 @@ export function targetAsReadableString(target: sqlanvil.ITarget): string {
   }
   return nameParts.reverse().join(".");
 }
+
+/**
+ * Whether a target's project (database) misuses ':'. BigQuery project IDs can be domain-scoped
+ * (`<domain>:<project>`, e.g. `example.com:my-project`); anything else with a colon (a leading or
+ * trailing one, or more than one) is rejected (upstream #2471).
+ */
+export function hasInvalidProjectColonUsage(database: string): boolean {
+  const colonIndex = database.indexOf(":");
+  return (
+    colonIndex !== -1 &&
+    (colonIndex === 0 ||
+      colonIndex === database.length - 1 ||
+      database.includes(":", colonIndex + 1))
+  );
+}
+
+/** Returns the project part of a domain-scoped `<domain>:<project>` project ID. */
+export function stripProjectDomainPrefix(database: string): string {
+  const colonIndex = database.indexOf(":");
+  return colonIndex > 0 ? database.slice(colonIndex + 1) : database;
+}
