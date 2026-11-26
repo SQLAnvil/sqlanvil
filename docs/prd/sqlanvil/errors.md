@@ -246,12 +246,13 @@ Recurrence of: -
 
 ### E-020 regenerate_docs resolves the default COM_REPO against the working directory, not the repository root
 Detected: 2026-11-26, release characterization suite, T-040.4 (scripts/regenerate_docs:18 @9cabe4e4)
-Classification: unclassified
+Classification: code bug
 Touches: FR-040
 Evidence: Run: release characterization suite, 2026-11-26, T-040.4 (tests/prd/release/regenerate_docs.spec.ts), at 9cabe4e4.
   Result: T-040.4 fail: run from T/other with COM_REPO unset, the script found the site at T/other/sqlanvil-com (relative to the working directory) and went on to fail with "bazel-bin/protos/ts.d.ts missing"; AC-040.4 expects the site looked up at ../sqlanvil-com relative to the repository root.
   scripts/regenerate_docs line 18: COM_REPO="${COM_REPO:-../sqlanvil-com}" is resolved against the current directory.
   AC-040.4 (owner, Q-17, 2026-11-25).
-Diagnosis: -
+Explanation: I ran the release suite's test for this case on the current code. It runs the docs-regeneration script from a folder outside the repository, with no site location given, and with a decoy sqlanvil-com folder placed next to that working folder instead of next to the repository. The script found the decoy, accepted it as the site, and went on to complain about missing Bazel outputs. The PRD says that with no site location given, the script looks for sqlanvil-com next to the repository, whatever folder it is run from, so here it should have stopped with its "site not found, clone the site repo" error. The PRD states the intended behaviour (you set it when answering Q-17) and the code does something else, so this is a code bug rather than a wrong or missing requirement.
+Diagnosis: Root cause: `scripts/regenerate_docs` line 18, `COM_REPO="${COM_REPO:-../sqlanvil-com}"`, is a relative default resolved against the current directory; line 17 already computes `REPO_ROOT` but the default does not use it. AC-040.4: "When `COM_REPO` is unset, regenerate_docs shall look for the site at `../sqlanvil-com` relative to the repository root, whatever directory it is run from." Run (HEAD e522aa76, twice; the second with `--nocache_test_results`): `scripts/bazel-ci test //tests/prd/release:regenerate_docs.spec --test_tag_filters=integration --build_tests_only --test_output=all`. T-040.4 expects exit 1 and stdout containing `src/content/docs/docs/reference not found. Clone the site repo`; run from `T/other/sub` with `T/other/sqlanvil-com/src/content/docs/docs/reference` present and no `T/sqlanvil-com`, the script printed `bazel-bin/protos/ts.d.ts missing — run: bazel build //protos:ts //core:version` instead, and the strict expected failure reported `KNOWN-FAILING E-020: known failure E-020: with COM_REPO unset, regenerate_docs looks for the site at ../sqlanvil-com relative to the working directory`.
 Resolution: -
 Recurrence of: -
