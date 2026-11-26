@@ -247,6 +247,7 @@ Recurrence of: -
 ### E-020 regenerate_docs resolves the default COM_REPO against the working directory, not the repository root
 Detected: 2026-11-26, release characterization suite, T-040.4 (scripts/regenerate_docs:18 @9cabe4e4)
 Classification: code bug
+Confirmed: 2026-11-26, "Yes"
 Touches: FR-040
 Evidence: Run: release characterization suite, 2026-11-26, T-040.4 (tests/prd/release/regenerate_docs.spec.ts), at 9cabe4e4.
   Result: T-040.4 fail: run from T/other with COM_REPO unset, the script found the site at T/other/sqlanvil-com (relative to the working directory) and went on to fail with "bazel-bin/protos/ts.d.ts missing"; AC-040.4 expects the site looked up at ../sqlanvil-com relative to the repository root.
