@@ -15,12 +15,18 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-COM_REPO="${COM_REPO:-../sqlanvil-com}"
 COM_REF_REL="src/content/docs/docs/reference"
-COM_REF="${COM_REPO}/${COM_REF_REL}"
+if [ -n "${COM_REPO:-}" ]; then
+  COM_REF="${COM_REPO}/${COM_REF_REL}"
+else
+  # Unset: the site is the repository's sibling, looked up from the repository root whatever
+  # directory the script is run from.
+  COM_REPO="../sqlanvil-com"
+  COM_REF="${REPO_ROOT}/${COM_REPO}/${COM_REF_REL}"
+fi
 
 if [ ! -d "${COM_REF}" ]; then
-  echo "ERROR: ${COM_REF} not found. Clone the site repo: git clone git@github.com:SQLAnvil/sqlanvil-com.git ${COM_REPO}"
+  echo "ERROR: ${COM_REPO}/${COM_REF_REL} not found. Clone the site repo: git clone git@github.com:SQLAnvil/sqlanvil-com.git ${COM_REPO}"
   exit 1
 fi
 COM_REF="$(cd "${COM_REF}" && pwd)"
