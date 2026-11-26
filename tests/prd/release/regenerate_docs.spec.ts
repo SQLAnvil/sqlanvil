@@ -18,7 +18,6 @@ import {
   workspaceRoot,
   writeFile,
 } from "./helpers";
-import { KnownFailure, strictKnownFailure } from "./known_failing";
 
 function copyScript(dest: string) {
   writeFile(dest, fs.readFileSync(path.join(workspaceRoot(), "scripts", "regenerate_docs")));
@@ -86,35 +85,21 @@ suite("release regenerate_docs refusals", () => {
     });
   });
 
-  test("@prd T-040.4 known-failing E-020 with COM_REPO unset, the site is looked for beside the repository root", async () => {
-    await strictKnownFailure("E-020", async () => {
-      await withTemp(async (T) => {
-        copyScript(path.join(T, "repo", "scripts", "regenerate_docs"));
-        const other = path.join(T, "other");
-        fs.mkdirSync(path.join(other, "sqlanvil-com", "src", "content", "docs", "docs", "reference"), {
-          recursive: true,
-        });
-        fs.mkdirSync(path.join(other, "sub"), { recursive: true });
-        const before = fileContents(other);
-        const r = await regenerate(path.join(T, "repo", "scripts", "regenerate_docs"), path.join(other, "sub"), {
-          COM_REPO: undefined,
-        });
-        // The symptom, a state: the site is looked for at ../sqlanvil-com relative to the working
-        // directory (T/other/sub), so T/other/sqlanvil-com is found, the site check passes although
-        // T/sqlanvil-com does not exist, and the script goes on to its Bazel-output check.
-        if (
-          !r.stdout.includes("src/content/docs/docs/reference not found") &&
-          r.stderr.includes("bazel-bin/protos/ts.d.ts missing")
-        ) {
-          throw new KnownFailure(
-            "E-020",
-            "with COM_REPO unset, regenerate_docs looks for the site at ../sqlanvil-com relative to the working directory",
-          );
-        }
-        expect(r.exitCode, `exit code (${r.stderr})`).equals(1);
-        expect(r.stdout, "stdout_contains").to.include("src/content/docs/docs/reference not found. Clone the site repo");
-        expect(mapsEqual(fileContents(other), before), "the files under T/other are unchanged").equals(true);
+  test("@prd T-040.4 with COM_REPO unset, the site is looked for beside the repository root", async () => {
+    await withTemp(async (T) => {
+      copyScript(path.join(T, "repo", "scripts", "regenerate_docs"));
+      const other = path.join(T, "other");
+      fs.mkdirSync(path.join(other, "sqlanvil-com", "src", "content", "docs", "docs", "reference"), {
+        recursive: true,
       });
+      fs.mkdirSync(path.join(other, "sub"), { recursive: true });
+      const before = fileContents(other);
+      const r = await regenerate(path.join(T, "repo", "scripts", "regenerate_docs"), path.join(other, "sub"), {
+        COM_REPO: undefined,
+      });
+      expect(r.exitCode, `exit code (${r.stderr})`).equals(1);
+      expect(r.stdout, "stdout_contains").to.include("src/content/docs/docs/reference not found. Clone the site repo");
+      expect(mapsEqual(fileContents(other), before), "the files under T/other are unchanged").equals(true);
     });
   });
 });
