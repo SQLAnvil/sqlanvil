@@ -240,11 +240,11 @@ Edge cases: retired (owner, 2026-11-25, Q-15): DF_VERSION is set by hand at each
 Traces: E-016
 
 ### FR-040 Refuse to regenerate the reference pages without the site or the Bazel outputs
-Status: approved
-Source: scripts/regenerate_docs:18 @9cabe4e4
-  scripts/regenerate_docs:22 @9cabe4e4
-  scripts/regenerate_docs:56 @9cabe4e4
-  scripts/regenerate_docs:59 @9cabe4e4
+Status: verified
+Source: scripts/regenerate_docs:19 @b6bf0230
+  scripts/regenerate_docs:28 @8d9db0f4
+  scripts/regenerate_docs:62 @8d9db0f4
+  scripts/regenerate_docs:65 @8d9db0f4
 Acceptance (EARS):
 - AC-040.1 If `<COM_REPO>/src/content/docs/docs/reference` is not a directory (COM_REPO defaults to `../sqlanvil-com`), regenerate_docs shall print `ERROR: <COM_REPO>/src/content/docs/docs/reference not found. Clone the site repo: git clone git@github.com:SQLAnvil/sqlanvil-com.git <COM_REPO>` to stdout and exit 1, writing nothing.
 - AC-040.2 If `bazel-bin/protos/ts.d.ts` or `bazel-bin/core/version.ts` under the repository root is missing, regenerate_docs shall print `bazel-bin/<file> missing — run: bazel build //protos:ts //core:version` to stderr, for the first missing one in that order, and exit 1, leaving the site's reference pages unchanged.

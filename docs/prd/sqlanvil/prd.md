@@ -185,7 +185,7 @@ The CLI's interface is its commands, flags and output, documented in `cli/README
 | FR-037 | Preview a GitHub release with DRY_RUN | live | features/release.md | 2.3.0 |
 | FR-038 | Tag the release commit and create or update the GitHub release | approved | features/release.md |  |
 | FR-039 | Bump DF_VERSION's patch with update_version | removed | features/release.md | 2.3.0 |
-| FR-040 | Refuse to regenerate the reference pages without the site or the Bazel outputs | approved | features/release.md |  |
+| FR-040 | Refuse to regenerate the reference pages without the site or the Bazel outputs | verified | features/release.md |  |
 | FR-041 | Regenerate the reference pages into sqlanvil-com | live | features/release.md | 2.3.0 |
 
 ## 12. Assumptions index
