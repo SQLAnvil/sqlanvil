@@ -1,0 +1,7 @@
+# The npm registry, reached by the :package.publish targets (npm publish) of @sqlanvil/core and @sqlanvil/cli.
+sends: "npm publish of the package directory (package.json name and version, the tarball), with the args given after --"
+expects: "a 2xx for the publish; nothing uploaded with --dry-run"
+auth: {secret: "the owner's npm login in ~/.npmrc with two-factor authentication; never read by the build"}
+limits: "npm versions are immutable; a published or staged version cannot be republished (E409)"
+mock: "a local HTTP stub passed with --registry that records every request; cases run with --dry-run"
+failures: {timeout: NPM_PUBLISH_FAILED, 4xx: NPM_PUBLISH_FAILED, 5xx: NPM_PUBLISH_FAILED, outage: NPM_PUBLISH_FAILED}

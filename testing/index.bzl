@@ -1,7 +1,7 @@
 load("@aspect_rules_js//js:defs.bzl", "js_test")
 load("//tools:ts_library.bzl", "ts_library")
 
-def ts_test_suite(name, srcs, args = [], data = [], tags = [], include_npm = False, **kwargs):
+def ts_test_suite(name, srcs, args = [], data = [], tags = [], include_npm = False, timeout = None, **kwargs):
     ts_library(
         name = name,
         data = data,
@@ -29,4 +29,6 @@ def ts_test_suite(name, srcs, args = [], data = [], tags = [], include_npm = Fal
                 ],
                 tags = tags,
                 include_npm = include_npm,
+                # A test timeout (such as "eternal") applies to each js_test, never to ts_library.
+                timeout = timeout,
             )

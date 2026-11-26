@@ -178,7 +178,7 @@ The same pattern runs `:supabase.spec` / `:supabase_rls.spec` with `SUPABASE_*` 
 <!-- prd-toolkit:start -->
 ## Product requirements (by prd_block.py; do not edit)
 
-The PRD at `docs/prd/sqlanvil` (version 2.2.1) is the authority.
+The PRD at `docs/prd/sqlanvil` (version 2.3.0) is the authority.
 
 - To learn what an area does, run `/prd-toolkit:prd-context <area>` and work from its pack; read
   whole PRD files only to edit them. Build an approved change with
@@ -202,5 +202,5 @@ Required skills:
 - `superpowers:test-driven-development` for writing code
 - `superpowers:systematic-debugging` for diagnosing a failure
 
-Adopted areas: artifacts
+Adopted areas: artifacts, release
 <!-- prd-toolkit:end -->

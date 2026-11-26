@@ -1,0 +1,7 @@
+# GitHub, reached by scripts/release_github through `git push origin` and the gh CLI.
+sends: "git push origin v<version> (the annotated tag); gh release view|create|edit v<version> --repo SQLAnvil/sqlanvil with --title, --notes-file, --verify-tag and --latest"
+expects: "push exits 0; gh release view exits 0 when the release exists, non-zero when it does not; create and edit exit 0"
+auth: {secret: "the owner's gh CLI login (gh auth) and git SSH key for origin; never read by the script"}
+limits: "GitHub API rate limits of the gh login; none enforced by the script"
+mock: "a gh executable first on PATH that records each argv (and a copy of the --notes-file) and answers release view with the exit code the case names; origin is a local bare repository T/origin.git"
+failures: {timeout: RELEASE_GITHUB_FAILED, 4xx: RELEASE_GITHUB_FAILED, 5xx: RELEASE_GITHUB_FAILED, outage: RELEASE_GITHUB_FAILED}

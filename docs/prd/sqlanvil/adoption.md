@@ -17,7 +17,7 @@
 | validate | not started | `cli/api/commands/validate*` |
 | scripts | not started | `cli/api/commands/script*` |
 | project-setup | not started | `cli/api/commands/agents_md.ts`, `cli/api/commands/credentials*`, `cli/api/commands/init*`, `cli/api/commands/install.ts`, `cli/api/commands/migrate_*` |
-| packaging | not started | `packages/**`, `version.bzl` |
+| release | adopted | `packages/**`, `version.bzl`, `scripts/release_github`, `scripts/update_version`, `scripts/regenerate_docs` |
 
 <!-- Seen while extracting artifacts (f4b3f49e), for the areas they belong to:
 - cli: `compile` writes the catalog with safeWriteArtifacts only when the compiled graph has no errors, and not with `—no-artifacts`; warnings go to stdout (cli/commands/compile_command.ts:178-181).
@@ -32,4 +32,16 @@
 - execution: SKIPPED and DISABLED action results carry no timing (cli/api/commands/run.ts:350-354, 396-401, 428-431). This is the source of E-001.
 - execution: `sa/cli/api` exports the query module as part of the programmatic API (cli/api/index.ts:8, 20). Nothing in the CLI calls query.run or query.evaluate.
 - cli/packaging: the README's query, inspect and docs sections are generated from the command definitions (cli/update_readme.ts, `//cli:readme_generated_test`). `@duckdb/node-api` is an external of the CLI package (packages/@sqlanvil/cli/BUILD:32).
+-->
+
+<!-- Seen while extracting release (9cabe4e4), for the areas they belong to:
+- compiler: core/BUILD:9-17 stamps core/version.ts from core/version.ts.tmpl with `version` = SQLANVIL_VERSION and `dataformVersion` = DF_VERSION; core/index.ts:42 exports `version`.
+- cli: `--version` prints `sqlanvil <version> (Dataform core <dataformVersion>)` (cli/yargswrapper.ts:82).
+- cli: cli/vm/compile.ts:125-133 reads the CLI's own version from the package.json beside the bundle ("0.0.0" when it cannot); its comment at :136 says the core floor is NOT derived from the CLI's version (since 1.33.1, upstream #2376), so prd.md section 9's "at least the CLI's major.minor.0" looks stale.
+- cli: the stateless install of a pinned `@sqlanvil/core` from npm at compile time lives in cli/vm (compile.ts); its npm-registry dependency belongs to cli.
+- cli: `scripts/run` wraps `bazel run //packages/@sqlanvil/cli:bin -- "$@"`; `testing/resolver-patch.js` resolves `sa/...` for the dev binary.
+- cli/compiler: unit tests `cli/tests/package_test.ts` and `core/package_test.ts` already check the generated manifests and the bundle.d.ts imports.
+- compiler: `core/utils.ts` nativeRequire loads `@duckdb/node-api` through a non-literal require, which the rollup config relies on (AC-031.4).
+- docs tooling (no area): `tools/typedoc/postprocess.py`, `tools/protoc-gen-doc/build-image.sh`, `typedoc.json`.
+- process (no area): the release steps around the scripts live in SQLAnvil/docs `npm_publishing.md` (core alone first, then cli, then release_github, then the section 3.6 sync).
 -->

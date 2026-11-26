@@ -1,0 +1,989 @@
+# Format: references/prd-format.md, "Test cases". One entry per T-id.
+# "T" is a new empty temporary directory made for the case (as "P" in artifacts.yaml).
+# "SV" is the SQLANVIL_VERSION string of version.bzl at the commit under test (1.40.0 at 9cabe4e4);
+# "DV" is its DF_VERSION (3.1.8 at 9cabe4e4).
+# CLI_TAR / CORE_TAR / SAMPLE_TAR are the package.tar.gz outputs of
+# //packages/@sqlanvil/cli:package_tar, //packages/@sqlanvil/core:package_tar and
+# //packages/sample-extension:package_tar built at the commit under test.
+# "R" is a script case's repository: T/repo, a new git repository with user.name and user.email
+# set, holding scripts/release_github copied from the commit under test and a version.bzl whose only
+# lines are SQLANVIL_VERSION = "9.8.7" and DF_VERSION = "3.1.8", with remote "origin" set to the
+# bare repository T/origin.git. WN is T/whats-new.md holding exactly these lines:
+#   "# What's new", "", "## 9.8.7 — Test headline with `code`", "",
+#   "Intro line linking [guide](/docs/guide/).", "", "- item", "", "## 9.8.6 — Older", "", "Old body."
+# Every release_github case sets WHATS_NEW=WN unless it says otherwise.
+# HEADER is the 13 lines of LICENSE_HEADER in packages/index.bzl, from
+# "// Copyright 2023 Google LLC" to "// limitations under the License.".
+T-025.1:
+  ac: AC-025.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/cli:package_tar
+  environment: local
+  identity: none
+  preconditions: []
+  input: {archive: CLI_TAR, read: "the entry names of the archive, sorted by byte value"}
+  expect:
+    output: {entries: [package/LICENSE, package/NOTICE, package/README.md, package/bundle.js, package/package.json, package/worker_bundle.js]}
+    effects: []
+    errors: []
+    leaks: none
+T-025.2:
+  ac: AC-025.2
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/cli:package_tar
+  environment: local
+  identity: none
+  preconditions: []
+  input: {archives: [CLI_TAR, CORE_TAR], read: "each entry's name and type, built on the runner (macOS when the runner is macOS)"}
+  expect:
+    output: {every_entry_is_regular_file: true, entries_ending_in_slash: 0, entries_whose_base_name_starts_with_dot_underscore: 0}
+    effects: []
+    errors: []
+    leaks: none
+T-025.3:
+  ac: AC-025.3
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/cli:package_tar
+  environment: local
+  identity: none
+  preconditions: []
+  input: {archive: CLI_TAR, compare: "package/README.md with cli/README.md, package/LICENSE with LICENSE, package/NOTICE with NOTICE of the commit under test"}
+  expect:
+    output: {README.md: identical byte for byte, LICENSE: identical byte for byte, NOTICE: identical byte for byte}
+    effects: []
+    errors: []
+    leaks: none
+T-026.1:
+  ac: AC-026.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/core:package_tar
+  environment: local
+  identity: none
+  preconditions: []
+  input: {archive: CORE_TAR, read: "the entry names; the case asserts only that each listed entry is present"}
+  expect:
+    output: {contains_each: [package/bundle.js, package/bundle.d.ts, package/configs.proto, package/core.proto, package/db_adapter.proto, package/extension.proto, package/jit.proto, package/LICENSE, package/NOTICE, package/package.json, package/README.md]}
+    effects: []
+    errors: []
+    leaks: none
+T-026.2:
+  ac: AC-026.2
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/core:package_tar
+  environment: local
+  identity: none
+  preconditions: []
+  input: {archive: CORE_TAR, compare: "each package/<name>.proto with HEADER, an empty line and protos/<name>.proto; package/README.md with README.md; package/LICENSE with LICENSE; package/NOTICE with NOTICE"}
+  expect:
+    output: {configs.proto: equal, core.proto: equal, db_adapter.proto: equal, extension.proto: equal, jit.proto: equal, README.md: identical byte for byte, LICENSE: identical byte for byte, NOTICE: identical byte for byte}
+    effects: []
+    errors: []
+    leaks: none
+T-027.1:
+  ac: AC-027.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/cli:json
+  environment: local
+  identity: none
+  preconditions: []
+  input: {read: "package/package.json of CLI_TAR, parsed as JSON"}
+  expect:
+    output: {name: "@sqlanvil/cli", version: SV, description: "sqlanvil command line interface.", main: bundle.js, bin: {sqlanvil: bundle.js}, engines: {node: "^20.19.0 || >=22.12.0"}}
+    effects: []
+    errors: []
+    leaks: none
+T-027.2:
+  ac: AC-027.2
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/cli:json
+  environment: local
+  identity: none
+  preconditions: []
+  input: {read: "dependencies of package/package.json of CLI_TAR, and dependencies of the root package.json of the commit under test"}
+  expect:
+    output:
+      dependency_keys_sorted: ["@duckdb/node-api", "@google-cloud/bigquery", chokidar, fs-extra, glob, google-auth-library, google-sql-syntax-ts, ignore, js-beautify, js-yaml, long, moo, mysql2, object-sizeof, parse-duration, pg, pg-query-stream, promise-pool-executor, protobufjs, readline-sync, semver, tmp, typeid-js, untildify, yargs]
+      each_value: "equals the root package.json dependencies value of the same key"
+    effects: []
+    errors: []
+    leaks: none
+T-027.3:
+  ac: AC-027.3
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/cli:json
+  environment: local
+  identity: none
+  preconditions: []
+  input: {read: "package/package.json of CLI_TAR, parsed as JSON"}
+  expect:
+    output: {devDependencies: absent, packageManager: absent, pnpm: absent}
+    effects: []
+    errors: []
+    leaks: none
+T-027.4:
+  ac: AC-027.4
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/cli:json
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    read: "package/bundle.js and package/worker_bundle.js of CLI_TAR; every specifier S in a match of /\\b(?:require|nativeRequire\\)?)\\([\"']([^\"']+)[\"']\\)/g, leaving out S starting with '.', absolute S, Node built-ins with or without 'node:', and @sqlanvil/core; a scoped S counted as its first two path segments and any other S as its first path segment"
+  expect:
+    output: {sorted_dependency_names: "equal to the sorted set of package names read from the two bundles"}
+    effects: []
+    errors: []
+    leaks: none
+T-028.1:
+  ac: AC-028.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/core:json
+  environment: local
+  identity: none
+  preconditions: []
+  input: {read: "package/package.json of CORE_TAR, parsed as JSON"}
+  expect:
+    output: {name: "@sqlanvil/core", version: SV, description: "sqlanvil core API.", main: bundle.js, dependencies: {}}
+    effects: []
+    errors: []
+    leaks: none
+T-028.2:
+  ac: AC-028.2
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/core:json
+  environment: local
+  identity: none
+  preconditions: []
+  input: {read: "package/package.json of CORE_TAR, parsed as JSON"}
+  expect:
+    output: {bin: absent, engines: absent, types: absent, devDependencies: absent, packageManager: absent, pnpm: absent}
+    effects: []
+    errors: []
+    leaks: none
+T-029.1:
+  ac: AC-029.1
+  level: integration
+  known-failing: E-018
+  symptom: 'the manifests'' keywords end at "dataops", without postgres, postgresql, supabase and mysql'
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/cli:json
+  environment: local
+  identity: none
+  preconditions: []
+  input: {read: "package/package.json of CLI_TAR, CORE_TAR and SAMPLE_TAR, each parsed as JSON"}
+  expect:
+    output:
+      each_manifest:
+        homepage: https://sqlanvil.com
+        repository: {type: git, url: "git+https://github.com/sqlanvil/sqlanvil.git"}
+        bugs: {url: "https://github.com/sqlanvil/sqlanvil/issues"}
+        license: Apache-2.0
+        keywords: [sqlanvil, etl, data-pipeline, big-data, data-modelling, sql, bigquery, dataops, postgres, postgresql, supabase, mysql]
+        publishConfig: {access: public}
+    effects: []
+    errors: []
+    leaks: none
+T-030.1:
+  ac: AC-030.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages:gen-package-json-bin
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    files: {T/l1.json: '{"a":1,"dependencies":{"x":"^1.0.0"}}', T/l2.json: '{"a":2,"b":3}'}
+    env: {BAZEL_BINDIR: "."}
+    argv: [--name, "@t/p", --description, d, --package-version, 9.9.9, --main, bundle.js, --output-path, T/out.json, --layer-paths, T/l1.json, T/l2.json, --external-dependencies, x]
+  expect:
+    output: {exit_code: 0, out_json: {a: 2, dependencies: {x: "^1.0.0"}, b: 3, version: 9.9.9, name: "@t/p", description: d, main: bundle.js}, out_key_order: [a, dependencies, b, version, name, description, main]}
+    effects: ["file exists: T/out.json"]
+    errors: []
+    leaks: none
+T-030.2:
+  ac: AC-030.2
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages:gen-package-json-bin
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    files: {T/l1.json: '{"name":"old","version":"0.0.1","description":"old","dependencies":{}}'}
+    env: {BAZEL_BINDIR: "."}
+    argv: [--name, "@t/new", --description, new desc, --package-version, 2.3.4, --output-path, T/out.json, --layer-paths, T/l1.json, --external-dependencies]
+  expect:
+    output: {out_json_fields: {name: "@t/new", version: 2.3.4, description: new desc}}
+    effects: []
+    errors: []
+    leaks: none
+T-030.3:
+  ac: AC-030.3
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages:gen-package-json-bin
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    files: {T/l1.json: '{"main":"layer.js","dependencies":{}}'}
+    env: {BAZEL_BINDIR: "."}
+    runs:
+      empty: [--name, n, --description, d, --package-version, 1.0.0, --main, "", --types, "", --output-path, T/a.json, --layer-paths, T/l1.json, --external-dependencies]
+      given: [--name, n, --description, d, --package-version, 1.0.0, --main, m.js, --types, m.d.ts, --output-path, T/b.json, --layer-paths, T/l1.json, --external-dependencies]
+  expect:
+    output: {empty: {main: layer.js, types: absent}, given: {main: m.js, types: m.d.ts}}
+    effects: []
+    errors: []
+    leaks: none
+T-030.4:
+  ac: AC-030.4
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages:gen-package-json-bin
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    files: {T/l1.json: '{"dependencies":{},"devDependencies":{"z":"1"},"packageManager":"example-pm","pnpm":{"overrides":{}}}'}
+    env: {BAZEL_BINDIR: "."}
+    argv: [--name, n, --description, d, --package-version, 1.0.0, --output-path, T/out.json, --layer-paths, T/l1.json, --external-dependencies]
+  expect:
+    output: {devDependencies: absent, packageManager: absent, pnpm: absent}
+    effects: []
+    errors: []
+    leaks: none
+T-030.5:
+  ac: AC-030.5
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages:gen-package-json-bin
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    files: {T/l1.json: '{"dependencies":{"x":"^1.0.0","y":"~2.0.0","z":"3.0.0"}}'}
+    env: {BAZEL_BINDIR: "."}
+    runs:
+      listed: [--name, n, --description, d, --package-version, 1.0.0, --output-path, T/a.json, --layer-paths, T/l1.json, --external-dependencies, z, x]
+      none: [--name, n, --description, d, --package-version, 1.0.0, --output-path, T/b.json, --layer-paths, T/l1.json, --external-dependencies]
+  expect:
+    output: {listed: {dependencies: {z: 3.0.0, x: "^1.0.0"}, dependency_key_order: [z, x]}, none: {dependencies: {}}}
+    effects: []
+    errors: []
+    leaks: none
+T-030.6:
+  ac: AC-030.6
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages:gen-package-json-bin
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    files: {T/l1.json: '{"dependencies":{}}'}
+    env: {BAZEL_BINDIR: "."}
+    argv: [--name, n, --description, d, --package-version, 1.0.0, --output-path, T/out.json, --layer-paths, T/l1.json, --external-dependencies]
+  expect:
+    output: {out_text: "{\n    \"dependencies\": {},\n    \"version\": \"1.0.0\",\n    \"name\": \"n\",\n    \"description\": \"d\"\n}"}
+    effects: ["T/out.json ends with '}' and no newline"]
+    errors: []
+    leaks: none
+T-030.7:
+  ac: AC-030.7
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages:gen-package-json-bin
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    files: {T/l1.json: '{"dependencies":{"x":"^1.0.0"}}'}
+    env: {BAZEL_BINDIR: "."}
+    argv: [--name, n, --description, d, --package-version, 1.0.0, --output-path, T/out.json, --layer-paths, T/l1.json, --external-dependencies, x, q]
+  expect:
+    output: {exit_code: non-zero, stderr_contains: "Dependency does not appear to be installed in root package.json: q"}
+    effects: ["T/out.json does not exist"]
+    errors: [PACKAGE_DEPENDENCY_NOT_INSTALLED]
+    leaks: none
+T-030.8:
+  ac: AC-030.8
+  level: integration
+  known-failing: E-017
+  symptom: 'the generator exits non-zero with a TypeError ("Cannot read properties of undefined") instead of the named missing-dependency error'
+  refs: ["testing.md#Harness"]
+  target: code://packages:gen-package-json-bin
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    files: {T/l1.json: '{"name":"x"}'}
+    env: {BAZEL_BINDIR: "."}
+    argv: [--name, n, --description, d, --package-version, 1.0.0, --output-path, T/out.json, --layer-paths, T/l1.json, --external-dependencies, q]
+  expect:
+    output: {exit_code: non-zero, stderr_contains: "Dependency does not appear to be installed in root package.json: q"}
+    effects: ["T/out.json does not exist"]
+    errors: [PACKAGE_DEPENDENCY_NOT_INSTALLED]
+    leaks: none
+T-031.1:
+  ac: AC-031.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/cli:bundle
+  environment: local
+  identity: none
+  preconditions: []
+  input: {read: "lines 1 to 15 of package/bundle.js and package/worker_bundle.js of CLI_TAR"}
+  expect:
+    output: {each_file: {line_1: "#!/usr/bin/env node", lines_2_to_14: HEADER, line_15: ""}}
+    effects: []
+    errors: []
+    leaks: none
+T-031.2:
+  ac: AC-031.2
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/cli:bundle
+  environment: local
+  identity: none
+  preconditions: []
+  input: {read: "package/bundle.js and package/worker_bundle.js of CLI_TAR"}
+  expect:
+    output:
+      require_of_sa_specifier_in_either: 0
+      bundle_js_contains_one_of: ["require('yargs')", "require(\"yargs\")"]
+      worker_bundle_js_contains: "require(\"@sqlanvil/core\")"
+    effects: []
+    errors: []
+    leaks: none
+T-031.3:
+  ac: AC-031.3
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:packages/rollup.config.mjs
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    files: {T/entry.js: 'const x = require("left-pad"); module.exports = x;'}
+    run: "rollup -c packages/rollup.config.mjs --external=yargs --format=cjs -i T/entry.js -o T/out.js, with the rollup, @rollup/plugin-commonjs and @rollup/plugin-node-resolve of the workspace"
+  expect:
+    output: {exit_code: non-zero, stderr_contains: "Must explicitly list import as an external: left-pad"}
+    effects: ["T/out.js does not exist"]
+    errors: [BUNDLE_IMPORT_NOT_EXTERNAL]
+    leaks: none
+T-031.4:
+  ac: AC-031.4
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/cli:bundle
+  environment: local
+  identity: none
+  preconditions: []
+  input: {read: "package/bundle.js of CLI_TAR"}
+  expect:
+    output: {contains: "nativeRequire)(\"@duckdb/node-api\")"}
+    effects: []
+    errors: []
+    leaks: none
+T-032.1:
+  ac: AC-032.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/core:package_tar
+  environment: local
+  identity: none
+  preconditions: []
+  input: {read: "lines 1 to 14 of package/bundle.js of CORE_TAR"}
+  expect:
+    output: {lines_1_to_13: HEADER, line_14: ""}
+    effects: []
+    errors: []
+    leaks: none
+T-032.2:
+  ac: AC-032.2
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/core:package_tar
+  environment: local
+  identity: none
+  preconditions: []
+  input: {call: "require(<extracted CORE_TAR>/package/bundle.js) in a child Node process"}
+  expect:
+    output: {has_keys: [compiler, indexFileGenerator, jitCompiler, main, session, supportedFeatures, version], version: SV}
+    effects: []
+    errors: []
+    leaks: none
+T-032.3:
+  ac: AC-032.3
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/core:package_tar
+  environment: local
+  identity: none
+  preconditions: []
+  input: {read: "package/bundle.d.ts of CORE_TAR; the specifiers of lines matching /^(?:import|export)\\s+(?:.*?\\s+from\\s+)?[\"']([^\"']+)[\"'];?$/gm"}
+  expect:
+    output: {sorted_specifiers: [long, protobufjs]}
+    effects: []
+    errors: []
+    leaks: none
+T-032.4:
+  ac: AC-032.4
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:packages/@sqlanvil/core/webpack.config.js
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    env: {BAZEL_BINDIR: unset}
+    call: "require(<file>)({}, {}) in a child Node process, for packages/@sqlanvil/core/webpack.config.js and packages/sample-extension/webpack.config.js"
+  expect:
+    output: {each: {throws: "BAZEL_BINDIR must be set"}}
+    effects: []
+    errors: [CORE_BUNDLE_BINDIR_UNSET]
+    leaks: none
+T-033.1:
+  ac: AC-033.1
+  level: integration
+  refs: ["testing.md#Harness", "contracts/dependencies/npm-registry.yaml"]
+  target: code://packages/@sqlanvil/core:package.publish
+  environment: local
+  identity: none
+  preconditions: [mock:npm-registry]
+  input: {run: "the //packages/@sqlanvil/core:package.publish binary with args --dry-run --registry=<the stub's address>, started as bazel run starts it: its working directory the real Bazel output bin directory that holds packages/@sqlanvil/core/package as a directory (not the runfiles symlink tree), with that binary's runfiles variables set", env: {BAZEL_BINDIR: "."}}
+  expect:
+    output: {exit_code: 0, stdout_or_stderr_contains: "@sqlanvil/core@ followed by SV"}
+    effects: ["the stub registry receives no PUT request"]
+    errors: []
+    leaks: none
+T-034.1:
+  ac: AC-034.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/@sqlanvil/cli:bin
+  environment: local
+  identity: none
+  preconditions: []
+  input: {run: "the //packages/@sqlanvil/cli:bin binary with args --version", env: {NO_COLOR: "1", BUILD_WORKING_DIRECTORY: T, BAZEL_BINDIR: "."}}
+  expect:
+    output: {exit_code: 0, stdout_line: "sqlanvil SV (Dataform core DV), i.e. sqlanvil 1.40.0 (Dataform core 3.1.8) at 9cabe4e4"}
+    effects: []
+    errors: []
+    leaks: none
+T-035.1:
+  ac: AC-035.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:packages/sample-extension.extension
+  environment: local
+  identity: none
+  preconditions: []
+  input: {files: "SAMPLE_TAR's package/ extracted into T/ext", call: "extension() loaded from T/ext/bundle.js; S = new Session(T) (sa/core/session; T, the case's temporary directory as an absolute path, is the session's root directory); extension().compile({compileConfig: {projectConfigOverride: {vars: {}}}}, S); G = S.compile()"}
+  expect:
+    output: {G_table_target_names: [sample-action], G_sample_action_query: "SELECT 1 as sample_id", G_compilation_errors: 0}
+    effects: []
+    errors: []
+    leaks: none
+T-035.2:
+  ac: AC-035.2
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:packages/sample-extension.extension
+  environment: local
+  identity: none
+  preconditions: []
+  input: {call: "S = new Session(); extension().compile({compileConfig: {projectConfigOverride: {vars: {throw-error: \"true\"}}}}, S)"}
+  expect:
+    output: {throws: "throwing exception as requested!", S_compile_table_count: 0}
+    effects: []
+    errors: []
+    leaks: none
+T-035.3:
+  ac: AC-035.3
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:packages/sample-extension.extension
+  environment: local
+  identity: none
+  preconditions: []
+  input: {files: "SAMPLE_TAR's package/ extracted into T/ext", call: "extension() loaded from T/ext/bundle.js; S = new Session(T); extension().compile({compileConfig: {projectConfigOverride: {vars: {store-compile-error: \"true\"}}}}, S); G = S.compile()"}
+  expect:
+    output: {G_compilation_error_messages: ["storing compilation error as requested!"], G_table_target_names: [sample-action]}
+    effects: []
+    errors: []
+    leaks: none
+T-035.4:
+  ac: AC-035.4
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/sample-extension:json
+  environment: local
+  identity: none
+  preconditions: []
+  input: {read: "package/package.json of SAMPLE_TAR, parsed as JSON"}
+  expect:
+    output: {name: "@sqlanvil/sample-extension", version: SV, description: Sample extension., main: bundle.js, dependencies: {}}
+    effects: []
+    errors: []
+    leaks: none
+T-035.5:
+  ac: AC-035.5
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code://packages/sample-extension:package_tar
+  environment: local
+  identity: none
+  preconditions: []
+  input: {archive: SAMPLE_TAR, read: "the entry names; only the listed entries are asserted"}
+  expect:
+    output: {contains_each: [package/bundle.js, package/bundle.d.ts, package/package.json]}
+    effects: []
+    errors: []
+    leaks: none
+T-036.1:
+  ac: AC-036.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    repo: R with one commit "init"; WN also holds a section "## 1.2.3 — Override" before "## 9.8.7"
+    runs: {from_file: "DRY_RUN=1 R/scripts/release_github (VERSION unset)", empty: "DRY_RUN=1 VERSION= R/scripts/release_github", override: "DRY_RUN=1 VERSION=1.2.3 R/scripts/release_github"}
+  expect:
+    output: {from_file: {stdout_line_1: "Version : 9.8.7", tag_line_starts: "Tag     : v9.8.7  (commit "}, empty: {stdout_line_1: "Version : 9.8.7"}, override: {stdout_line_1: "Version : 1.2.3", tag_line_starts: "Tag     : v1.2.3  (commit "}}
+    effects: []
+    errors: []
+    leaks: none
+T-036.2:
+  ac: AC-036.2
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    repo: R with one commit "init"; a copy of WN at T/sqlanvil-com/src/content/docs/docs/whats-new.md (the sibling of T/repo)
+    run: "DRY_RUN=1 R/scripts/release_github, WHATS_NEW unset, started from the directory T"
+  expect:
+    output: {exit_code: 0, stdout_contains: "Title   : v9.8.7 — Test headline with `code`"}
+    effects: []
+    errors: []
+    leaks: none
+T-036.3:
+  ac: AC-036.3
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: [mock:github]
+  input: {repo: R with one commit "init", run: "WHATS_NEW=T/none.md R/scripts/release_github"}
+  expect:
+    output: {exit_code: 1, stderr_line: "whats-new not found: T/none.md (set WHATS_NEW=...)"}
+    effects: ["R has no tag", "T/origin.git has no tag", "the gh stub records no call"]
+    errors: [RELEASE_WHATS_NEW_NOT_FOUND]
+    leaks: none
+T-036.4:
+  ac: AC-036.4
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: [mock:github]
+  input: {repo: R with one commit "init", run: "VERSION=9.9.9 R/scripts/release_github"}
+  expect:
+    output: {exit_code: 1, stderr_line: "no '## 9.9.9' section in WN — add the release entry first (WN as its absolute path)"}
+    effects: ["R has no tag", "T/origin.git has no tag", "the gh stub records no call"]
+    errors: [RELEASE_NOTES_SECTION_MISSING]
+    leaks: none
+T-036.5:
+  ac: AC-036.5
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: []
+  input: {repo: R with one commit "init", run: "DRY_RUN=1 R/scripts/release_github"}
+  expect:
+    output: {stdout_line_3: "Title   : v9.8.7 — Test headline with `code`"}
+    effects: []
+    errors: []
+    leaks: none
+T-036.6:
+  ac: AC-036.6
+  level: integration
+  refs: ["testing.md#Harness", "contracts/dependencies/github.yaml"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: [mock:github]
+  input: {repo: R with one commit "init", gh_stub: "release view exits 1", run: "R/scripts/release_github"}
+  expect:
+    output:
+      notes_file_lines_recorded_by_gh_stub: ["", "Intro line linking [guide](https://sqlanvil.com/docs/guide/).", "", "- item", "", "**Install:** `npm i -g @sqlanvil/cli@9.8.7`"]
+    effects: []
+    errors: []
+    leaks: none
+T-036.7:
+  ac: AC-036.7
+  level: integration
+  known-failing: E-015
+  symptom: 'release_github exits 1 and prints nothing on stderr'
+  refs: ["testing.md#Harness"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: [mock:github]
+  input: {repo: "R with one commit init, whose version.bzl holds only the line DF_VERSION = \"3.1.8\"", run: "R/scripts/release_github (VERSION unset)"}
+  expect:
+    output: {exit_code: 1, stderr_line: "could not read SQLANVIL_VERSION from version.bzl"}
+    effects: ["R has no tag", "T/origin.git has no tag", "the gh stub records no call"]
+    errors: [RELEASE_VERSION_UNREADABLE]
+    leaks: none
+T-037.1:
+  ac: AC-037.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: []
+  input: {repo: "R with commits init, then C1 'release: SQLAnvil 9.8.7 — Test headline'", run: "DRY_RUN=1 R/scripts/release_github"}
+  expect:
+    output:
+      exit_code: 0
+      stdout_lines:
+        - "Version : 9.8.7"
+        - "Tag     : v9.8.7  (commit FIRST 9 CHARACTERS OF C1's SHA)"
+        - "Title   : v9.8.7 — Test headline with `code`"
+        - "Notes   :"
+        - "  | "
+        - "  | Intro line linking [guide](https://sqlanvil.com/docs/guide/)."
+        - "  | "
+        - "  | - item"
+        - "  | "
+        - "  | **Install:** `npm i -g @sqlanvil/cli@9.8.7`"
+        - "[dry-run] would tag + push v9.8.7 and create/update the release"
+    effects: []
+    errors: []
+    leaks: none
+T-037.2:
+  ac: AC-037.2
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: [mock:github]
+  input: {repo: R with one commit "init", run: "DRY_RUN=1 R/scripts/release_github"}
+  expect:
+    output: {exit_code: 0}
+    effects: ["R has no tag", "T/origin.git has no tag", "the gh stub records no call"]
+    errors: []
+    leaks: none
+T-038.1:
+  ac: AC-038.1
+  level: integration
+  known-failing: E-014
+  symptom: 'the tag v9.8.7 is put on the later "chore: bump SQLANVIL_VERSION 9.8.7 -> 9.8.8" commit, not on the "release: SQLAnvil 9.8.7" commit'
+  refs: ["testing.md#Harness", "contracts/dependencies/github.yaml"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: [mock:github]
+  input: {repo: "R with commits init, C1 'release: SQLAnvil 9.8.7 — Test headline', C2 'chore: bump SQLANVIL_VERSION 9.8.7 -> 9.8.8', C3 'docs: unrelated' (HEAD)", gh_stub: "release view exits 1", run: "R/scripts/release_github"}
+  expect:
+    output: {exit_code: 0}
+    effects: ["tag v9.8.7 in R points at C1", "tag v9.8.7 in T/origin.git points at C1"]
+    errors: []
+    leaks: none
+T-038.2:
+  ac: AC-038.2
+  level: integration
+  refs: ["testing.md#Harness", "contracts/dependencies/github.yaml"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: [mock:github]
+  input: {repo: "R with commits init, C2 'docs: unrelated' (HEAD)", gh_stub: "release view exits 1", run: "R/scripts/release_github"}
+  expect:
+    output: {exit_code: 0}
+    effects: ["tag v9.8.7 in R points at C2"]
+    errors: []
+    leaks: none
+T-038.3:
+  ac: AC-038.3
+  level: integration
+  refs: ["testing.md#Harness", "contracts/dependencies/github.yaml"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: [mock:github]
+  input:
+    repo: "R with commits init (I), C1 'release: SQLAnvil 9.8.7 — Test headline'"
+    gh_stub: "release view exits 1"
+    runs: {absent: "R/scripts/release_github with no tag v9.8.7", present: "R/scripts/release_github after `git tag -a v9.8.7 I -m keep` in R"}
+  expect:
+    output: {absent: {exit_code: 0}, present: {exit_code: 0}}
+    effects:
+      - "absent: v9.8.7 in R is an annotated tag on C1 whose message is 'v9.8.7 — Test headline with `code`'; T/origin.git has v9.8.7 on C1"
+      - "present: v9.8.7 in R still points at I with message 'keep'; T/origin.git has v9.8.7 on I"
+    errors: []
+    leaks: none
+T-038.4:
+  ac: AC-038.4
+  level: integration
+  refs: ["testing.md#Harness", "contracts/dependencies/github.yaml"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: [mock:github]
+  input: {repo: R with one commit "init", gh_stub: "release view exits 1; create and edit exit 0", run: "R/scripts/release_github"}
+  expect:
+    output: {gh_calls_in_order: [[release, view, v9.8.7, --repo, SQLAnvil/sqlanvil], [release, create, v9.8.7, --repo, SQLAnvil/sqlanvil, --verify-tag, --latest, --title, "v9.8.7 — Test headline with `code`", --notes-file, "a temporary file holding the release notes"]]}
+    effects: []
+    errors: []
+    leaks: none
+T-038.5:
+  ac: AC-038.5
+  level: integration
+  refs: ["testing.md#Harness", "contracts/dependencies/github.yaml"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: [mock:github]
+  input: {repo: R with one commit "init", gh_stub: "release view exits 0; edit exits 0", run: "R/scripts/release_github"}
+  expect:
+    output:
+      stdout_contains: "Release v9.8.7 exists — updating title/notes."
+      gh_calls_in_order: [[release, view, v9.8.7, --repo, SQLAnvil/sqlanvil], [release, edit, v9.8.7, --repo, SQLAnvil/sqlanvil, --title, "v9.8.7 — Test headline with `code`", --notes-file, "a temporary file holding the release notes", --latest]]
+    effects: []
+    errors: []
+    leaks: none
+T-038.6:
+  ac: AC-038.6
+  level: integration
+  refs: ["testing.md#Harness", "contracts/dependencies/github.yaml"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: [mock:github]
+  input: {repo: R with one commit "init", gh_stub: "release view exits 1; create exits 0", run: "R/scripts/release_github"}
+  expect:
+    output: {exit_code: 0, stdout_last_line: "Done: https://github.com/SQLAnvil/sqlanvil/releases/tag/v9.8.7"}
+    effects: ["the file named by the create call's --notes-file no longer exists"]
+    errors: []
+    leaks: none
+T-038.7:
+  ac: AC-038.7
+  level: integration
+  refs: ["testing.md#Harness", "contracts/dependencies/github.yaml"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: [mock:github]
+  input: {repo: R with one commit "init", gh_stub: "release view exits 1; create exits 1", run: "R/scripts/release_github"}
+  expect:
+    output: {exit_code: non-zero, stdout_does_not_contain: "Done: "}
+    effects: ["T/origin.git has v9.8.7 (pushed before the failing gh call)"]
+    errors: [RELEASE_GITHUB_FAILED]
+    leaks: none
+T-038.8:
+  ac: AC-038.8
+  level: integration
+  refs: ["testing.md#Harness", "contracts/dependencies/github.yaml"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: [mock:github]
+  input: {repo: "R with commits init, C1 'build: SQLANVIL_VERSION 9.8.7', C2 'docs: unrelated' (HEAD)", gh_stub: "release view exits 1", run: "R/scripts/release_github"}
+  expect:
+    output: {exit_code: 0}
+    effects: ["tag v9.8.7 in R points at C1", "tag v9.8.7 in T/origin.git points at C1"]
+    errors: []
+    leaks: none
+T-038.9:
+  ac: AC-038.9
+  level: integration
+  known-failing: E-019
+  symptom: 'release_github passes --latest to gh release create and gh release edit for v9.8.6'
+  refs: ["testing.md#Harness", "contracts/dependencies/github.yaml"]
+  target: code:scripts/release_github
+  environment: local
+  identity: none
+  preconditions: [mock:github]
+  input: {repo: R with one commit "init", gh_stub: "release view exits 1 for the first run and 0 for the second; create and edit exit 0", run: "VERSION=9.8.6 R/scripts/release_github, twice"}
+  expect:
+    output:
+      gh_calls_in_order: [[release, view, v9.8.6, --repo, SQLAnvil/sqlanvil], [release, create, v9.8.6, --repo, SQLAnvil/sqlanvil, --verify-tag, --title, "v9.8.6 — Older", --notes-file, "a temporary file holding the release notes"], [release, view, v9.8.6, --repo, SQLAnvil/sqlanvil], [release, edit, v9.8.6, --repo, SQLAnvil/sqlanvil, --title, "v9.8.6 — Older", --notes-file, "a temporary file holding the release notes"]]
+      no_call_has: --latest
+    effects: []
+    errors: []
+    leaks: none
+T-040.1:
+  ac: AC-040.1
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:scripts/regenerate_docs
+  environment: local
+  identity: none
+  preconditions: []
+  input: {files: "T/scripts/regenerate_docs copied from the commit under test", run: "COM_REPO=T/site T/scripts/regenerate_docs (T/site does not exist)"}
+  expect:
+    output: {exit_code: 1, stdout_line: "ERROR: T/site/src/content/docs/docs/reference not found. Clone the site repo: git clone git@github.com:SQLAnvil/sqlanvil-com.git T/site"}
+    effects: ["T gains no new file or directory"]
+    errors: [DOCS_SITE_NOT_FOUND]
+    leaks: none
+T-040.2:
+  ac: AC-040.2
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:scripts/regenerate_docs
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    files: "T/scripts/regenerate_docs copied from the commit under test; T/site/src/content/docs/docs/reference/table.md holding 'old'; no T/bazel-bin"
+    run: "COM_REPO=T/site T/scripts/regenerate_docs"
+  expect:
+    output: {exit_code: 1, stderr_line: "bazel-bin/protos/ts.d.ts missing — run: bazel build //protos:ts //core:version"}
+    effects: ["the files under T/site are unchanged"]
+    errors: [DOCS_BAZEL_OUTPUT_MISSING]
+    leaks: none
+T-040.3:
+  ac: AC-040.3
+  level: integration
+  refs: ["testing.md#Harness"]
+  target: code:scripts/regenerate_docs
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    files: "T/scripts/regenerate_docs copied; T/site/src/content/docs/docs/reference/ (empty); empty dirs T/protos and T/core; T/bazel-bin/protos/ts.d.ts holding 'x'; no T/bazel-bin/core/version.ts"
+    run: "COM_REPO=T/site T/scripts/regenerate_docs"
+  expect:
+    output: {exit_code: 1, stderr_line: "bazel-bin/core/version.ts missing — run: bazel build //protos:ts //core:version"}
+    effects: ["T/protos/ts.d.ts does not exist", "T/core/version.ts does not exist", "T/newdocs does not exist", "T/.docs_gen does not exist"]
+    errors: [DOCS_BAZEL_OUTPUT_MISSING]
+    leaks: none
+T-040.4:
+  ac: AC-040.4
+  level: integration
+  known-failing: E-020
+  symptom: 'with COM_REPO unset, regenerate_docs looks for the site at ../sqlanvil-com relative to the working directory'
+  refs: ["testing.md#Harness"]
+  target: code:scripts/regenerate_docs
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    files: "T/repo/scripts/regenerate_docs copied from the commit under test; T/other/sqlanvil-com/src/content/docs/docs/reference/ (empty); T/other/sub/ (empty); no T/sqlanvil-com"
+    run: "cd T/other/sub && T/repo/scripts/regenerate_docs (COM_REPO unset)"
+  expect:
+    output: {exit_code: 1, stdout_contains: "src/content/docs/docs/reference not found. Clone the site repo"}
+    effects: ["the files under T/other are unchanged"]
+    errors: [DOCS_SITE_NOT_FOUND]
+    leaks: none
+T-041.1:
+  ac: AC-041.1
+  level: warehouse
+  refs: ["testing.md#Harness"]
+  target: code:scripts/regenerate_docs
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    repo: "T/repo, a git clone --shared of the commit under test, with T/repo/bazel-bin/protos/ts.d.ts and T/repo/bazel-bin/core/version.ts copied from a bazel build //protos:ts //core:version, and T/repo/node_modules a symlink to the owner's checkout's root node_modules (tools/typedoc/node_modules is not linked: the script installs it); Docker running; network for npm install"
+    files: "T/site/src/content/docs/docs/reference/ (empty)"
+    run: "COM_REPO=T/site T/repo/scripts/regenerate_docs"
+  expect:
+    output: {exit_code: 0, stdout_contains: ["Generated JS-API reference pages into (absolute path of T/site/src/content/docs/docs/reference)", "Generated configs.md into (the same path)"]}
+    effects: ["the reference directory holds session.md, assertion.md, table.md, view.md, incrementaltable.md, operation.md, notebook.md, test.md, declaration.md, export.md, import.md and configs.md, each non-empty"]
+    errors: []
+    leaks: none
+T-041.2:
+  ac: AC-041.2
+  level: warehouse
+  refs: ["testing.md#Harness"]
+  target: code:scripts/regenerate_docs
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    repo: as T-041.1
+    files: {T/site/src/content/docs/docs/reference/table.md: "lines: '---', 'title: \"Table\"', '---', '', 'OLD BODY'"}
+    run: "COM_REPO=T/site T/repo/scripts/regenerate_docs"
+  expect:
+    output: {exit_code: 0}
+    effects: ["table.md lines 1 to 3 are '---', 'title: \"Table\"', '---'; line 4 is empty; line 5 is non-empty; table.md does not contain 'OLD BODY'"]
+    errors: []
+    leaks: none
+T-041.3:
+  ac: AC-041.3
+  level: warehouse
+  refs: ["testing.md#Harness"]
+  target: code:scripts/regenerate_docs
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    repo: as T-041.1
+    files: {T/site/src/content/docs/docs/reference/session.md: "lines: 'OLD SESSION'"}
+    run: "COM_REPO=T/site T/repo/scripts/regenerate_docs"
+  expect:
+    output: {exit_code: 0}
+    effects: ["session.md does not contain 'OLD SESSION' and its first line is not '---'", "view.md (absent before) exists and its first line is not '---'"]
+    errors: []
+    leaks: none
+T-041.4:
+  ac: AC-041.4
+  level: warehouse
+  refs: ["testing.md#Harness"]
+  target: code:scripts/regenerate_docs
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    repo: "as T-041.1, with an @hidden tag added to the doc comment of `export class Notebook` in T/repo/core/actions/notebook.ts (the file kept, so the code still compiles and typedoc emits no _core_actions_notebook_.notebook.md)"
+    files: {T/site/src/content/docs/docs/reference/notebook.md: "lines: 'KEEP'"}
+    run: "COM_REPO=T/site T/repo/scripts/regenerate_docs"
+  expect:
+    output: {stdout_contains: "WARNING: typedoc did not emit _core_actions_notebook_.notebook.md — skipping notebook"}
+    effects: ["notebook.md still holds the line 'KEEP'", "table.md exists and is non-empty"]
+    errors: []
+    leaks: none
+T-041.5:
+  ac: AC-041.5
+  level: warehouse
+  refs: ["testing.md#Harness"]
+  target: code:scripts/regenerate_docs
+  environment: local
+  identity: none
+  preconditions: []
+  input:
+    repo: as T-041.1
+    env: {PROTOC_GEN_DOC_IMAGE: "sqlanvil-prd-test-protoc-gen-doc:absent (not present in the local Docker image store before the run)"}
+    run: "COM_REPO=T/site T/repo/scripts/regenerate_docs"
+  expect:
+    output: {stdout_contains: "Image sqlanvil-prd-test-protoc-gen-doc:absent not found — building it..."}
+    effects: ["the image sqlanvil-prd-test-protoc-gen-doc:absent exists after the run (the test removes it)", "configs.md exists under the reference directory"]
+    errors: []
+    leaks: none

@@ -31,3 +31,83 @@ QUERY_SQL_REJECTED:
   log_level: error
   retryable: false
   metric: none
+PACKAGE_DEPENDENCY_NOT_INSTALLED:
+  meaning: A package manifest names an external dependency that the merged layers do not declare
+  when: gen_package_json is given --external-dependencies naming a package absent from the merged layers' dependencies object (packages/gen_package_json.ts:45); fails the Bazel build of that :json target
+  status: 1
+  message: "Dependency does not appear to be installed in root package.json: <name>"
+  log_level: error
+  retryable: false
+  metric: none
+BUNDLE_IMPORT_NOT_EXTERNAL:
+  meaning: A module in the CLI bundle imports a package that is not listed as an external
+  when: rollup with packages/rollup.config.mjs resolves a bare specifier that is not sa/..., a listed external or an allowed Node built-in (packages/rollup.config.mjs:63)
+  status: 1
+  message: "Must explicitly list import as an external: <specifier>"
+  log_level: error
+  retryable: false
+  metric: none
+CORE_BUNDLE_BINDIR_UNSET:
+  meaning: The core or sample-extension webpack configuration was loaded outside Bazel
+  when: BAZEL_BINDIR is not set (packages/@sqlanvil/core/webpack.config.js:4, packages/sample-extension/webpack.config.js:4)
+  status: 1
+  message: "BAZEL_BINDIR must be set"
+  log_level: error
+  retryable: false
+  metric: none
+NPM_PUBLISH_FAILED:
+  meaning: npm publish run by a :package.publish target failed
+  when: npm exits non-zero (auth, two-factor, a version that exists, E409 staged); the target exits with npm's status (packages/index.bzl:96)
+  status: 1
+  message: "npm's own error output"
+  log_level: error
+  retryable: false
+  metric: none
+RELEASE_WHATS_NEW_NOT_FOUND:
+  meaning: release_github cannot find the whats-new file
+  when: the WHATS_NEW path (default ../sqlanvil-com/src/content/docs/docs/whats-new.md from the repository root) is not a file (scripts/release_github:26)
+  status: 1
+  message: "whats-new not found: <path> (set WHATS_NEW=...)"
+  log_level: error
+  retryable: false
+  metric: none
+RELEASE_VERSION_UNREADABLE:
+  meaning: release_github cannot read the version to release
+  when: VERSION is unset or empty and version.bzl has no SQLANVIL_VERSION line (scripts/release_github:23; FR-036, AC-036.7, E-015)
+  status: 1
+  message: "could not read SQLANVIL_VERSION from version.bzl"
+  log_level: error
+  retryable: false
+  metric: none
+RELEASE_NOTES_SECTION_MISSING:
+  meaning: whats-new has no entry for the version being released
+  when: no line of the whats-new file starts with '## <version> ' (scripts/release_github:31)
+  status: 1
+  message: "no '## <version>' section in <path> — add the release entry first"
+  log_level: error
+  retryable: false
+  metric: none
+RELEASE_GITHUB_FAILED:
+  meaning: Pushing the release tag or creating or editing the GitHub release failed
+  when: git push origin v<version>, gh release create or gh release edit exits non-zero; set -e stops the script with that command's status (scripts/release_github:65, 70, 72)
+  status: 1
+  message: "the failing command's own error output"
+  log_level: error
+  retryable: true
+  metric: none
+DOCS_SITE_NOT_FOUND:
+  meaning: regenerate_docs cannot find the sqlanvil-com reference directory
+  when: <COM_REPO>/src/content/docs/docs/reference is not a directory (scripts/regenerate_docs:22); printed to stdout
+  status: 1
+  message: "ERROR: <dir> not found. Clone the site repo: git clone git@github.com:SQLAnvil/sqlanvil-com.git <COM_REPO>"
+  log_level: error
+  retryable: false
+  metric: none
+DOCS_BAZEL_OUTPUT_MISSING:
+  meaning: regenerate_docs needs Bazel outputs that have not been built
+  when: bazel-bin/protos/ts.d.ts or bazel-bin/core/version.ts is missing under the repository root (scripts/regenerate_docs:60)
+  status: 1
+  message: "bazel-bin/<file> missing — run: bazel build //protos:ts //core:version"
+  log_level: error
+  retryable: false
+  metric: none

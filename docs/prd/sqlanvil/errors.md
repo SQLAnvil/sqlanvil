@@ -179,3 +179,79 @@ Evidence: PR #65, workflow prd-toolkit, run 45207610173 (2026-11-23), at d865b97
 Diagnosis: The CI runner has no BigQuery credential, which the build needs even at the unit level. testing.md, Harness, Lifecycle: "The BigQuery spec uses a real GCP project through `test_credentials/bigquery.json`"; operations.md, Secrets: "It is kept only on the owner's machine and held by the owner (Ivan Histand); it is in no CI system and no secret store". cli/BUILD:79 `ts_test_suite(name = "tests")` lists `//test_credentials:bigquery.json` in the `data` of every test in it, so `//cli:index_help_test` and `//cli:util_test`, untagged and so in the unit level, fail to build without the file; tests/integration/BUILD:20 does the same for bigquery.spec in the warehouse level. The file is git-ignored and absent on the runner (this worktree has only test_credentials/BUILD too). Not yet seen: whether the warehouse level's Docker specs pass on the runner once they build.
 Resolution: -, PRD 1.0.2, CI run https://github.com/SQLAnvil/sqlanvil/actions/runs/45211614726
 Recurrence of: -
+
+### E-013 version.bzl is listed in the core and sample-extension packages but never reaches the tarball
+Detected: 2026-11-25, adoption extract of release (packages/@sqlanvil/core/BUILD:125 @9cabe4e4)
+Classification: unclassified
+Touches: FR-026, FR-035
+Diagnosis: read from the code, not reproduced. `pkg_npm_tar` lists `//:version.bzl` in the deps of `//packages/@sqlanvil/core:package` (BUILD:125) and `//packages/sample-extension:package` (BUILD:69). Upstream #1848 (f36a5133) added it with the message "Make published packages include the version.bzl file". Since the rules_js migration (65341c8d), `pkg_npm_tar` is rules_js 2.0.1 `npm_package`, whose default `include_srcs_packages = ["./**"]` keeps only files from the target's own package and its subpackages. `//:version.bzl` sits in the root package, so it is dropped without a warning. The core package dir in bazel-bin (read-only listing) holds 11 files and no version.bzl. The publishing runbook (SQLAnvil/docs npm_publishing.md) expects "11 entries for core". Upstream 3.1.8 took the dep out of its core BUILD, but sqlanvil still lists it. The BUILD file asks for a file that the package does not contain.
+Resolution: open, intended: each package lists only what it ships, so the dead `//:version.bzl` dep of the core and sample-extension packages goes (owner, 2026-11-25)
+Recurrence of: -
+
+### E-014 release_github can tag a later commit instead of the `release: SQLAnvil X.Y.Z` commit
+Detected: 2026-11-25, adoption extract of release (scripts/release_github:47 @9cabe4e4)
+Classification: unclassified
+Touches: FR-038
+Diagnosis: read from the code, not reproduced. The release commit comes from `git log -1 --grep="release: SQLAnvil $VERSION" --grep="SQLANVIL_VERSION.*$VERSION"`. The two patterns are ORed and the newest match wins, so a later commit whose message mentions `SQLANVIL_VERSION … <version>` beats the release bump. A read-only `git log` at 9cabe4e4 with VERSION=1.33.0 shows it: the lookup returns 8d1e2bac, the 1.33.1 bump (its body has "SQLANVIL_VERSION 1.33.0 -> 1.33.1."), and not 9cfa341f "release: SQLAnvil 1.33.0". The script's comment says the release commit is "the 'release: SQLAnvil X.Y.Z' bump, else HEAD" (line 46). The runbook (npm_publishing.md §3.5) says it "finds the `release: SQLAnvil X.Y.Z` commit". A first-time tag would go on the wrong commit. When the tag already exists, the dry run's `Tag : … (commit …)` line still names the wrong commit.
+Resolution: open, intended: release_github uses the newest `release: SQLAnvil X.Y.Z` commit; only when there is none, the newest `SQLANVIL_VERSION … X.Y.Z` commit; otherwise HEAD (owner, 2026-11-25; AC-038.1, AC-038.8)
+Recurrence of: -
+
+### E-015 release_github exits without its error message when version.bzl has no SQLANVIL_VERSION
+Detected: 2026-11-25, adoption extract of release (scripts/release_github:22 @9cabe4e4)
+Classification: unclassified
+Touches: FR-036
+Diagnosis: read from the code, not reproduced on the script. Line 23 is meant to print "could not read SQLANVIL_VERSION from version.bzl" when the version is empty. But the script runs under `set -euo pipefail`, and line 22 assigns `VERSION="${VERSION:-$(grep … | sed …)}"`. When grep matches nothing, pipefail makes the command substitution fail and errexit stops the script during the assignment. It exits 1 and prints nothing, so line 23's message can never appear. I checked this bash behaviour with a separate one-line snippet on /bin/bash 3.2 (not the script): the same assignment form exits 1 before the next line.
+Resolution: open, intended: release_github prints `could not read SQLANVIL_VERSION from version.bzl` and exits 1 (owner, 2026-11-25; AC-036.7)
+Recurrence of: -
+
+### E-016 update_version aborts when DF_VERSION's patch is 0
+Detected: 2026-11-25, adoption extract of release (scripts/update_version:14 @9cabe4e4)
+Classification: unclassified
+Touches: FR-039
+Diagnosis: read from the code, not reproduced. The script runs under `set -e` and increments with `((patch++))`. Post-increment evaluates to the old value, and an arithmetic command whose value is 0 returns status 1. Bash 4.1 and later exit on that under errexit. So for DF_VERSION `X.Y.0` the script stops with exit 1 before it updates anything, against its comment "Increment the patch version" (line 13). On macOS /bin/bash 3.2 a separate snippet (not the script) did not exit, so the failure depends on the bash in use. I did not run bash 4.1 or later.
+Resolution: open, intended: `scripts/update_version` is deleted; FR-039 is removed (owner, 2026-11-25, Q-15)
+Recurrence of: -
+
+### E-017 gen_package_json throws a TypeError instead of its missing-dependency error when no layer declares dependencies
+Detected: 2026-11-25, adoption extract of release (packages/gen_package_json.ts:45 @9cabe4e4)
+Classification: unclassified
+Touches: FR-030
+Diagnosis: read from the code, not reproduced. The check at lines 44-46 is meant to report a named external that the layers do not declare, with `Dependency does not appear to be installed in root package.json: <name>`. It reads `result.dependencies[key]`. When no layer has a `dependencies` object (core and sample-extension do not layer the root package.json since 109b4058) and an external is named, it reads a property of undefined and throws a TypeError. The named error is never reached. No BUILD file triggers this today: core and sample-extension pass `external_deps = []`.
+Resolution: open, intended: the generator fails with its named `Dependency does not appear to be installed in root package.json: <name>` error (owner, 2026-11-25; AC-030.8)
+Recurrence of: -
+
+### E-018 The package manifests lack the postgres, postgresql, supabase and mysql keywords
+Detected: 2026-11-26, release characterization suite, T-029.1 (packages/@sqlanvil/package.layer.json @9cabe4e4)
+Classification: unclassified
+Touches: FR-029
+Evidence: Run: release characterization suite, 2026-11-26, T-029.1 (tests/prd/release/tarballs.spec.ts), bazel test //tests/prd/... at 9cabe4e4 plus the uncommitted PRD.
+  Result: T-029.1 fail: CLI manifest keywords end at "dataops", missing postgres, postgresql, supabase, mysql.
+  AC-029.1 (corrected by the owner, Q-19, 2026-11-25) requires keywords ending "dataops", "postgres", "postgresql", "supabase", "mysql" in all three manifests.
+  The shared layer packages/@sqlanvil/package.layer.json still holds the upstream eight keywords.
+Diagnosis: -
+Resolution: -
+Recurrence of: -
+
+### E-019 release_github marks an older version's release as Latest
+Detected: 2026-11-26, release characterization suite, T-038.9 (scripts/release_github:70 @9cabe4e4)
+Classification: unclassified
+Touches: FR-038
+Evidence: Run: release characterization suite, 2026-11-26, T-038.9 (tests/prd/release/release_github.spec.ts), at 9cabe4e4.
+  Result: T-038.9 fail: with VERSION=9.8.6 and version.bzl at 9.8.7, the stub gh recorded `release create v9.8.6 ... --latest` (11 arguments); AC-038.9 expects no --latest.
+  scripts/release_github lines 70 and 72 pass --latest on every edit and create, whatever VERSION is.
+  AC-038.9 (owner, Q-16, 2026-11-25): a release for a version other than SQLANVIL_VERSION leaves GitHub's Latest unchanged.
+Diagnosis: -
+Resolution: -
+Recurrence of: -
+
+### E-020 regenerate_docs resolves the default COM_REPO against the working directory, not the repository root
+Detected: 2026-11-26, release characterization suite, T-040.4 (scripts/regenerate_docs:18 @9cabe4e4)
+Classification: unclassified
+Touches: FR-040
+Evidence: Run: release characterization suite, 2026-11-26, T-040.4 (tests/prd/release/regenerate_docs.spec.ts), at 9cabe4e4.
+  Result: T-040.4 fail: run from T/other with COM_REPO unset, the script found the site at T/other/sqlanvil-com (relative to the working directory) and went on to fail with "bazel-bin/protos/ts.d.ts missing"; AC-040.4 expects the site looked up at ../sqlanvil-com relative to the repository root.
+  scripts/regenerate_docs line 18: COM_REPO="${COM_REPO:-../sqlanvil-com}" is resolved against the current directory.
+  AC-040.4 (owner, Q-17, 2026-11-25).
+Diagnosis: -
+Resolution: -
+Recurrence of: -
