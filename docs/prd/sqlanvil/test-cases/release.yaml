@@ -887,8 +887,6 @@ T-040.3:
 T-040.4:
   ac: AC-040.4
   level: integration
-  known-failing: E-020
-  symptom: 'with COM_REPO unset, regenerate_docs looks for the site at ../sqlanvil-com relative to the working directory'
   refs: ["testing.md#Harness"]
   target: code:scripts/regenerate_docs
   environment: local
