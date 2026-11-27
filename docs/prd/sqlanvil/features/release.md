@@ -27,7 +27,7 @@ Acceptance (EARS):
 - AC-026.1 When `//packages/@sqlanvil/core:package_tar` is built, the packaging rules shall write `package.tar.gz` containing the entries `package/bundle.js`, `package/bundle.d.ts`, `package/configs.proto`, `package/core.proto`, `package/db_adapter.proto`, `package/extension.proto`, `package/jit.proto`, `package/LICENSE`, `package/NOTICE`, `package/package.json` and `package/README.md`.
 - AC-026.2 The packaging rules shall write each of the five `.proto` entries as the 13-line license header of `packages/index.bzl`, an empty line, then the bytes of `protos/<name>.proto`, and shall copy the repository's root `README.md`, `LICENSE` and `NOTICE` byte for byte as `package/README.md`, `package/LICENSE` and `package/NOTICE`.
 Errors: -
-Edge cases: `//:version.bzl` is listed in the package's deps but is not in the tarball (E-013); intended: a package lists only what it ships, so the dead dep goes (owner, 2026-11-25)
+Edge cases: `//:version.bzl` is listed in the package's deps but is not in the tarball (E-013); the tarball's entries are what AC-026.1 lists, so the unused dep may stay (not a defect, owner, 2026-11-26)
 Tests: T-026.1 [integration], T-026.2 [integration]  (test-cases/release.yaml)
 Traces: `bazel-bin/packages/@sqlanvil/core/package.tar.gz`; E-013
 
@@ -163,7 +163,7 @@ Acceptance (EARS):
 - AC-035.4 The sample-extension manifest shall have name `@sqlanvil/sample-extension`, version equal to `SQLANVIL_VERSION`, description `Sample extension.`, main `bundle.js` and dependencies `{}`.
 - AC-035.5 When `//packages/sample-extension:package_tar` is built, the packaging rules shall write a tarball containing `package/bundle.js`, `package/bundle.d.ts` and `package/package.json`.
 Errors: -
-Edge cases: `//:version.bzl` is listed in the package's deps but not in the tarball (E-013); intended: a package lists only what it ships (owner, 2026-11-25). The package has no publish target (no `publishable`): intended, it is a test fixture for core's extension tests and stays unpublished (owner, 2026-11-25, Q-20)
+Edge cases: `//:version.bzl` is listed in the package's deps but not in the tarball (E-013); the tarball's entries are what AC-035.5 lists, so the unused dep may stay (not a defect, owner, 2026-11-26). The package has no publish target (no `publishable`): intended, it is a test fixture for core's extension tests and stays unpublished (owner, 2026-11-25, Q-20)
 Tests: T-035.1 [integration], T-035.2 [integration], T-035.3 [integration], T-035.4 [integration], T-035.5 [integration]  (test-cases/release.yaml)
 Traces: core extension tests (`core/main_test.ts`, outside the boundary); E-013
 
