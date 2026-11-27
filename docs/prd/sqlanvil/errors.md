@@ -208,9 +208,10 @@ Recurrence of: -
 
 ### E-016 update_version aborts when DF_VERSION's patch is 0
 Detected: 2026-11-25, adoption extract of release (scripts/update_version:14 @9cabe4e4)
-Classification: unclassified
+Classification: code bug
 Touches: FR-039
-Diagnosis: read from the code, not reproduced. The script runs under `set -e` and increments with `((patch++))`. Post-increment evaluates to the old value, and an arithmetic command whose value is 0 returns status 1. Bash 4.1 and later exit on that under errexit. So for DF_VERSION `X.Y.0` the script stops with exit 1 before it updates anything, against its comment "Increment the patch version" (line 13). On macOS /bin/bash 3.2 a separate snippet (not the script) did not exit, so the failure depends on the bash in use. I did not run bash 4.1 or later.
+Explanation: I ran the script on a copy of version.bzl under bash 5 (Linux, in Docker). With version 3.1.0 it stopped with exit 1 and changed nothing; with 3.1.8 it wrote 3.1.9. On this Mac it fails before that, because the Mac grep has no -P option (exit 2). The PRD retired this requirement in 2.3.0: FR-039 is removed, and its note says the script is deleted, because the upstream version is set by hand at each sync. So the PRD is right and the repository is wrong: the script it says is gone is still there, and still broken. That makes it a code bug, not a spec gap: the PRD is not silent, it says the script goes. The fix is deleting scripts/update_version.
+Diagnosis: Root cause: `((patch++))` at scripts/update_version:14 evaluates to the old patch; for patch 0 the arithmetic command returns status 1 and `set -e` (line 2) exits. Runs in a scratch clone at db48c058: `docker run debian:bookworm-slim bash scripts/update_version` (GNU bash 5.2.15) in a dir with `DF_VERSION = "3.1.0"` printed nothing and `exit=1`, file unchanged; with `DF_VERSION = "3.1.8"` it printed `Version updated to: 3.1.9`, `exit=0`. `/bin/bash scripts/update_version` (macOS bash 3.2, BSD grep) printed `grep: invalid option -- P` and `exit=2`. PRD: FR-039 `Status: removed (since 2.3.0)`; its Edge cases: `retired (owner, 2026-11-25, Q-15): DF_VERSION is set by hand at each upstream sync ... the script, which aborts on a patch of 0 (E-016) and needs GNU grep -P and sed -i (Q-14), is deleted`. The file is still in the tree and in the release Boundary (adoption.md).
 Resolution: open, intended: `scripts/update_version` is deleted; FR-039 is removed (owner, 2026-11-25, Q-15)
 Recurrence of: -
 
