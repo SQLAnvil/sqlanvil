@@ -19,6 +19,7 @@ ts_test_suite(
         "script_repo.ts",
         "tar.ts",
         "tarballs.spec.ts",
+        "update_version.spec.ts",
     ],
     # Repository source files (LICENSE, protos, packages/index.bzl, the bundler configs, the
     # scripts) are read from the workspace root that //:version.bzl leads to (helpers.ts).
