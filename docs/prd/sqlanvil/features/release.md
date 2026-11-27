@@ -272,3 +272,13 @@ Errors: -
 Edge cases: action classes not in the page list (script, rls_policy, vector_index, realtime_publication, extract, foreign_table) get no page: intended, a page is added deliberately, by adding the class to the script's page list; their config keys are in `configs.md` (owner, 2026-11-25, Q-18)
 Tests: T-041.1 [warehouse], T-041.2 [warehouse], T-041.3 [warehouse], T-041.4 [warehouse], T-041.5 [warehouse]  (test-cases/release.yaml)
 Traces: `sqlanvil-com` `src/content/docs/docs/reference/`
+
+### FR-042 Ship no script that bumps DF_VERSION
+Status: approved
+Flow: DF_VERSION in `version.bzl` is edited by hand at each upstream sync, and the review is recorded in `version.bzl`'s notes; no script in the repository bumps it
+Acceptance (EARS):
+- AC-042.1 The repository shall hold no file at `scripts/update_version`.
+Errors: -
+Edge cases: replaces the removed FR-039 (owner, 2026-11-25, Q-15); added for E-016 (owner, 2026-11-26)
+Tests: T-042.1 [integration]  (test-cases/release.yaml)
+Traces: E-016

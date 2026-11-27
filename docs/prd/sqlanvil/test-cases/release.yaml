@@ -985,3 +985,19 @@ T-041.5:
     effects: ["the image sqlanvil-prd-test-protoc-gen-doc:absent exists after the run (the test removes it)", "configs.md exists under the reference directory"]
     errors: []
     leaks: none
+T-042.1:
+  ac: AC-042.1
+  level: integration
+  known-failing: E-016
+  symptom: 'scripts/update_version still exists under the workspace root'
+  refs: ["testing.md#Harness"]
+  target: code:scripts/update_version
+  environment: local
+  identity: none
+  preconditions: []
+  input: {read: "the path scripts/update_version under the workspace root (its files as they are on disk, committed or not)"}
+  expect:
+    output: {scripts/update_version_exists: false}
+    effects: ["no file or directory exists at scripts/update_version under the workspace root"]
+    errors: []
+    leaks: none

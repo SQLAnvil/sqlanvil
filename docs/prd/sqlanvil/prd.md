@@ -1,6 +1,6 @@
 ---
 prd: sqlanvil
-version: 2.3.1
+version: 2.4.0
 status: Approved
 owner: Ivan Histand
 updated: 2026-11-26
@@ -187,6 +187,7 @@ The CLI's interface is its commands, flags and output, documented in `cli/README
 | FR-039 | Bump DF_VERSION's patch with update_version | removed | features/release.md | 2.3.0 |
 | FR-040 | Refuse to regenerate the reference pages without the site or the Bazel outputs | verified | features/release.md |  |
 | FR-041 | Regenerate the reference pages into sqlanvil-com | live | features/release.md | 2.3.0 |
+| FR-042 | Ship no script that bumps DF_VERSION | approved | features/release.md |  |
 
 ## 12. Assumptions index
 
@@ -218,3 +219,4 @@ None.
 | 2.2.1 | 2026-11-25 | format: links.md (prd-toolkit 0.7), consumer sqlanvil-com; no dry run (links.md only) | - |
 | 2.3.0 | 2026-11-26 | release area adopted; suite all 62 T-ids: 56 pass, T-029.1 known-failing E-018, T-030.8 known-failing E-017, T-036.7 known-failing E-015, T-038.1 known-failing E-014, T-038.9 known-failing E-019, T-040.4 known-failing E-020; dry run T-032.1, T-026.2, T-035.4, T-027.4, T-030.1, 0 open questions, 1 dismissed by quote (after five harness-only rounds) | FR-025, FR-026, FR-027, FR-028, FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, FR-035, FR-036, FR-037, FR-038, FR-039, FR-040, FR-041, AC-025.1, AC-025.2, AC-025.3, AC-026.1, AC-026.2, AC-027.1, AC-027.2, AC-027.3, AC-027.4, AC-028.1, AC-028.2, AC-029.1, AC-030.1, AC-030.2, AC-030.3, AC-030.4, AC-030.5, AC-030.6, AC-030.7, AC-030.8, AC-031.1, AC-031.2, AC-031.3, AC-031.4, AC-032.1, AC-032.2, AC-032.3, AC-032.4, AC-033.1, AC-034.1, AC-035.1, AC-035.2, AC-035.3, AC-035.4, AC-035.5, AC-036.1, AC-036.2, AC-036.3, AC-036.4, AC-036.5, AC-036.6, AC-036.7, AC-037.1, AC-037.2, AC-038.1, AC-038.2, AC-038.3, AC-038.4, AC-038.5, AC-038.6, AC-038.7, AC-038.8, AC-038.9, AC-039.1, AC-039.2, AC-040.1, AC-040.2, AC-040.3, AC-040.4, AC-041.1, AC-041.2, AC-041.3, AC-041.4, AC-041.5, T-025.1, T-025.2, T-025.3, T-026.1, T-026.2, T-027.1, T-027.2, T-027.3, T-027.4, T-028.1, T-028.2, T-029.1, T-030.1, T-030.2, T-030.3, T-030.4, T-030.5, T-030.6, T-030.7, T-030.8, T-031.1, T-031.2, T-031.3, T-031.4, T-032.1, T-032.2, T-032.3, T-032.4, T-033.1, T-034.1, T-035.1, T-035.2, T-035.3, T-035.4, T-035.5, T-036.1, T-036.2, T-036.3, T-036.4, T-036.5, T-036.6, T-036.7, T-037.1, T-037.2, T-038.1, T-038.2, T-038.3, T-038.4, T-038.5, T-038.6, T-038.7, T-038.8, T-038.9, T-040.1, T-040.2, T-040.3, T-040.4, T-041.1, T-041.2, T-041.3, T-041.4, T-041.5 |
 | 2.3.1 | 2026-11-26 | E-013 closed as not a defect: FR-026 and FR-035 Edge cases no longer promise removing the unused //:version.bzl dep; no dry run (wording only) | FR-026, FR-035 |
+| 2.4.0 | 2026-11-26 | FR-042: the repository ships no scripts/update_version (DF_VERSION is set by hand), for E-016; release Boundary drops scripts/update_version; dry run T-042.1, 0 open questions, 0 dismissed by quote | FR-042, AC-042.1, T-042.1 |
