@@ -988,8 +988,6 @@ T-041.5:
 T-042.1:
   ac: AC-042.1
   level: integration
-  known-failing: E-016
-  symptom: 'scripts/update_version still exists under the workspace root'
   refs: ["testing.md#Harness"]
   target: code:scripts/update_version
   environment: local
