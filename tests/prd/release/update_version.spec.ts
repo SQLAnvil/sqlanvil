@@ -8,7 +8,6 @@ import * as path from "path";
 import { suite, test } from "sa/testing";
 
 import { workspaceRoot } from "./helpers";
-import { KnownFailure, strictKnownFailure } from "./known_failing";
 
 /** Whether anything (a file, a directory or a link, dangling or not) is at `p`. */
 function somethingAt(p: string): boolean {
@@ -24,18 +23,12 @@ function somethingAt(p: string): boolean {
 }
 
 suite("release: update_version", () => {
-  test("@prd T-042.1 known-failing E-016 scripts/update_version does not exist", async () => {
-    await strictKnownFailure("E-016", async () => {
-      const target = path.join(workspaceRoot(), "scripts", "update_version");
-      const exists = somethingAt(target);
-      // The case's symptom names a state: it is observed before the other assertions.
-      if (exists) {
-        throw new KnownFailure("E-016", "scripts/update_version still exists under the workspace root");
-      }
-      // output: {scripts/update_version_exists: false}
-      expect(exists).to.equal(false);
-      // effects: no file or directory exists at scripts/update_version under the workspace root
-      expect(fs.existsSync(target)).to.equal(false);
-    });
+  test("@prd T-042.1 scripts/update_version does not exist", async () => {
+    const target = path.join(workspaceRoot(), "scripts", "update_version");
+    const exists = somethingAt(target);
+    // output: {scripts/update_version_exists: false}
+    expect(exists).to.equal(false);
+    // effects: no file or directory exists at scripts/update_version under the workspace root
+    expect(fs.existsSync(target)).to.equal(false);
   });
 });
