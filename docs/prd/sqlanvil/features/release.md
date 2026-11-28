@@ -274,7 +274,7 @@ Tests: T-041.1 [warehouse], T-041.2 [warehouse], T-041.3 [warehouse], T-041.4 [w
 Traces: `sqlanvil-com` `src/content/docs/docs/reference/`
 
 ### FR-042 Ship no script that bumps DF_VERSION
-Status: approved
+Status: verified
 Flow: DF_VERSION in `version.bzl` is edited by hand at each upstream sync, and the review is recorded in `version.bzl`'s notes; no script in the repository bumps it
 Acceptance (EARS):
 - AC-042.1 The repository shall hold no file at `scripts/update_version`.

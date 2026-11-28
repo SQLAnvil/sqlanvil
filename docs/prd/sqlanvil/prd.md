@@ -187,7 +187,7 @@ The CLI's interface is its commands, flags and output, documented in `cli/README
 | FR-039 | Bump DF_VERSION's patch with update_version | removed | features/release.md | 2.3.0 |
 | FR-040 | Refuse to regenerate the reference pages without the site or the Bazel outputs | verified | features/release.md |  |
 | FR-041 | Regenerate the reference pages into sqlanvil-com | live | features/release.md | 2.3.0 |
-| FR-042 | Ship no script that bumps DF_VERSION | approved | features/release.md |  |
+| FR-042 | Ship no script that bumps DF_VERSION | verified | features/release.md |  |
 
 ## 12. Assumptions index
 
